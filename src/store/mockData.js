@@ -100,6 +100,7 @@ function getStore() {
         participants: parsed.participants || [],
         checkInLogs: parsed.checkInLogs || [],
         adminLogs: parsed.adminLogs || [],
+        pendingCheckIns: parsed.pendingCheckIns || [],
         currentDay: Number.isInteger(parsed.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
       }
     }
@@ -110,6 +111,7 @@ function getStore() {
     participants: generateMockParticipants(),
     checkInLogs: [],
     adminLogs: [],
+    pendingCheckIns: [],
     currentDay: 1
   }
   localStorage.setItem('yamaha_event_data', JSON.stringify(data))
@@ -486,6 +488,71 @@ export function getCheckInLogs(day = null) {
     }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   }
   return [...store.checkInLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+}
+
+export function getPendingCheckIns() {
+  return [...store.pendingCheckIns].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+}
+
+export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source = 'scanner') {
+  const item = {
+    id: generateId(),
+    qr_data: qrData,
+    scanned_by: scannedBy,
+    source,
+    attempts: 0,
+    last_error: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+  store.pendingCheckIns.push(item)
+  saveStore()
+  return item
+}
+
+export function syncPendingCheckIns(maxItems = 100) {
+  const queue = getPendingCheckIns().slice(0, maxItems)
+  let synced = 0
+  let failed = 0
+  const failedItems = []
+
+  queue.forEach(item => {
+    const res = checkIn(item.qr_data, item.scanned_by)
+    if (res.success || res.status === 'duplicate') {
+      synced++
+      store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== item.id)
+    } else {
+      failed++
+      failedItems.push({ id: item.id, status: res.status, message: res.message })
+      store.pendingCheckIns = store.pendingCheckIns.map(q => {
+        if (q.id !== item.id) return q
+        return {
+          ...q,
+          attempts: (q.attempts || 0) + 1,
+          last_error: res.message || 'Gagal sinkronisasi',
+          updated_at: new Date().toISOString()
+        }
+      })
+    }
+  })
+
+  if (queue.length > 0) {
+    saveStore()
+    logAdminAction(
+      'offline_sync',
+      `Sinkronisasi offline queue: ${synced} berhasil, ${failed} gagal`,
+      'system',
+      { synced, failed, processed: queue.length }
+    )
+  }
+
+  return {
+    processed: queue.length,
+    synced,
+    failed,
+    remaining: store.pendingCheckIns.length,
+    failedItems
+  }
 }
 
 export function getAdminLogs(limit = 200) {

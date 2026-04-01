@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants } from '../../store/mockData'
+import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns } from '../../store/mockData'
 import { useSound } from '../../hooks/useRealtime'
-import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw } from 'lucide-react'
 
 export default function FrontGate() {
   const currentDay = getCurrentDay()
@@ -12,6 +12,9 @@ export default function FrontGate() {
   const [scanMode, setScanMode] = useState('manual') // 'camera', 'manual', 'search'
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [pendingCount, setPendingCount] = useState(getPendingCheckIns().length)
+  const [isSyncing, setIsSyncing] = useState(false)
   const searchResultsRef = useRef(null) // Unused, just keeping ref pattern if needed
   const lastScanRef = useRef({ data: null, time: 0 })
   const videoRef = useRef(null)
@@ -20,12 +23,45 @@ export default function FrontGate() {
 
   const refreshStats = () => setStats(getStats(currentDay))
 
+  const refreshPendingCount = () => setPendingCount(getPendingCheckIns().length)
+
+  const handleSyncPending = useCallback(() => {
+    if (!navigator.onLine || isSyncing) return
+    setIsSyncing(true)
+    const res = syncPendingCheckIns()
+    refreshPendingCount()
+    refreshStats()
+
+    if (res.processed > 0) {
+      if (res.failed === 0) {
+        setResult({ success: true, status: 'synced', message: `${res.synced} scan offline berhasil disinkronkan` })
+      } else {
+        setResult({ success: false, status: 'sync_partial', message: `Sync selesai: ${res.synced} berhasil, ${res.failed} gagal` })
+      }
+      setTimeout(() => setResult(null), 3000)
+    }
+    setIsSyncing(false)
+  }, [isSyncing])
+
   const handleScan = useCallback((qrData) => {
     const now = Date.now()
     if (lastScanRef.current.data === qrData && now - lastScanRef.current.time < 3000) {
       return // Abaikan jika QR yang sama discan dalam waktu < 3 detik
     }
     lastScanRef.current = { data: qrData, time: now }
+
+    if (!navigator.onLine) {
+      enqueuePendingCheckIn(qrData, 'gate_front', scanMode)
+      refreshPendingCount()
+      setResult({
+        success: true,
+        status: 'queued_offline',
+        message: `Offline: scan disimpan ke antrean (${getPendingCheckIns().length} pending)`
+      })
+      playWarning()
+      setTimeout(() => setResult(null), 3000)
+      return
+    }
 
     const res = checkIn(qrData)
     setResult(res)
@@ -45,7 +81,7 @@ export default function FrontGate() {
 
     refreshStats()
     setTimeout(() => setResult(null), 3000)
-  }, [playSuccess, playError, playVIPAlert, playWarning])
+  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode])
 
   const handleManualSubmit = (e) => {
     e.preventDefault()
@@ -118,6 +154,20 @@ export default function FrontGate() {
     return () => { stopCamera() }
   }, [])
 
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true)
+      handleSyncPending()
+    }
+    const goOffline = () => setIsOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [handleSyncPending])
+
   const handleModeSwitch = (mode) => {
     if (mode === 'camera' && scanMode !== 'camera') {
       setScanMode('camera')
@@ -131,6 +181,7 @@ export default function FrontGate() {
   const getResultClass = () => {
     if (!result) return ''
     if (result.success) return 'success'
+    if (result.status === 'sync_partial') return 'warning'
     if (result.status === 'duplicate') return 'error'
     if (result.status === 'wrong_day') return 'warning'
     return 'error'
@@ -138,10 +189,23 @@ export default function FrontGate() {
 
   const getResultIcon = () => {
     if (!result) return ''
+    if (result.status === 'queued_offline') return <WifiOff size={28} />
+    if (result.status === 'synced') return <RefreshCw size={28} />
     if (result.success) return <CheckCircle size={28} />
     if (result.status === 'duplicate') return <XCircle size={28} />
     if (result.status === 'wrong_day') return <AlertTriangle size={28} />
     return <Ban size={28} />
+  }
+
+  const getResultTitle = () => {
+    if (!result) return ''
+    if (result.status === 'queued_offline') return 'TERSIMPAN OFFLINE'
+    if (result.status === 'synced') return 'SYNC BERHASIL'
+    if (result.status === 'sync_partial') return 'SYNC SEBAGIAN'
+    if (result.success) return 'CHECK-IN BERHASIL'
+    if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
+    if (result.status === 'wrong_day') return 'SALAH HARI'
+    return 'TIDAK VALID'
   }
 
   return (
@@ -153,6 +217,17 @@ export default function FrontGate() {
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           Scan QR Code peserta
         </p>
+        <div style={{ marginTop: 8, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <span className={`badge ${isOnline ? 'badge-green' : 'badge-red'}`}>
+            {isOnline ? 'ONLINE' : 'OFFLINE'}
+          </span>
+          <span className="badge badge-yellow">Pending: {pendingCount}</span>
+          {isOnline && pendingCount > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={handleSyncPending} disabled={isSyncing}>
+              <RefreshCw size={12} style={{ marginRight: 4 }} /> {isSyncing ? 'Sync...' : 'Sync Sekarang'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Mode Tabs - 3 tabs now */}
@@ -176,7 +251,7 @@ export default function FrontGate() {
             <div className={`scanner-result ${getResultClass()}`}>
               <div className="scanner-result-icon">{getResultIcon()}</div>
               <div className="scanner-result-text">
-                {result.success ? 'CHECK-IN BERHASIL' : result.status === 'duplicate' ? 'SUDAH CHECK-IN' : result.status === 'wrong_day' ? 'SALAH HARI' : 'TIDAK VALID'}
+                {getResultTitle()}
               </div>
               {result.participant && (
                 <div className="scanner-result-detail">{result.participant.name}</div>
@@ -226,7 +301,7 @@ export default function FrontGate() {
               <div style={{ textAlign: 'center', padding: 16 }}>
                 <div style={{ fontSize: '3rem', animation: 'successPop 0.5s ease-out' }}>{getResultIcon()}</div>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '1.5rem', color: result.success ? 'var(--success)' : result.status === 'wrong_day' ? 'var(--warning)' : 'var(--danger)', marginTop: 8 }}>
-                  {result.success ? 'CHECK-IN BERHASIL' : result.status === 'duplicate' ? 'SUDAH CHECK-IN' : result.status === 'wrong_day' ? 'SALAH HARI' : 'TIDAK VALID'}
+                  {getResultTitle()}
                 </h2>
                 {result.participant && (
                   <div style={{ marginTop: 8 }}>
@@ -322,7 +397,7 @@ export default function FrontGate() {
               <div style={{ textAlign: 'center', padding: 16 }}>
                 <div style={{ fontSize: '2.5rem' }}>{getResultIcon()}</div>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '1.3rem', color: result.success ? 'var(--success)' : 'var(--danger)', marginTop: 8 }}>
-                  {result.success ? 'CHECK-IN BERHASIL' : result.status === 'duplicate' ? 'SUDAH CHECK-IN' : 'GAGAL'}
+                  {getResultTitle()}
                 </h2>
                 {result.participant && (
                   <div style={{ marginTop: 6 }}>
