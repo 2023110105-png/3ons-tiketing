@@ -305,7 +305,7 @@ export default function Participants() {
       type="file"
       accept=".xlsx,.xls,.csv"
       onChange={handleFileUpload}
-      style={{ display: 'none' }}
+      className="hidden-file-input"
     />
   )
 
@@ -315,9 +315,9 @@ export default function Participants() {
 
     return (
       <div className="modal-overlay" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}>
-        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+        <div className="modal import-modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
-            <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 className="modal-title modal-title-inline">
               <FileSpreadsheet size={18} /> Import Peserta
             </h3>
             <button className="modal-close" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}><X size={14} /></button>
@@ -325,30 +325,30 @@ export default function Participants() {
           <div className="modal-body">
             {importResult ? (
               // Results view
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--success)', marginBottom: 12 }}>
+              <div className="import-result-wrap">
+                <div className="import-result-icon">
                   <CheckCircle size={48} />
                 </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.1rem', marginBottom: 8 }}>
+                <h3 className="import-result-title">
                   Import Selesai!
                 </h3>
-                <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 16 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--success)' }}>{importResult.added.length}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Berhasil</div>
+                <div className="import-result-stats">
+                  <div className="import-result-stat">
+                    <div className="import-result-count success">{importResult.added.length}</div>
+                    <div className="import-result-label">Berhasil</div>
                   </div>
                   {importResult.errors.length > 0 && (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--danger)' }}>{importResult.errors.length}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gagal</div>
+                    <div className="import-result-stat">
+                      <div className="import-result-count danger">{importResult.errors.length}</div>
+                      <div className="import-result-label">Gagal</div>
                     </div>
                   )}
                 </div>
                 {importResult.errors.length > 0 && (
-                  <div style={{ textAlign: 'left', background: 'var(--danger-bg)', padding: 12, borderRadius: 'var(--radius-md)', fontSize: '0.8rem' }}>
+                  <div className="import-result-errors">
                     {importResult.errors.map((err, i) => (
-                      <div key={i} style={{ color: 'var(--danger)' }}>
-                        <AlertCircle size={12} style={{ display: 'inline', marginRight: 4 }} />
+                      <div key={i} className="import-result-error-item">
+                        <AlertCircle size={12} className="mr-6" />
                         Baris {err.row}: {err.error}
                       </div>
                     ))}
@@ -358,23 +358,23 @@ export default function Participants() {
             ) : importPreview ? (
               // Preview view
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
-                  <FileSpreadsheet size={20} style={{ color: 'var(--success)', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{importPreview.fileName}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{importPreview.rows.length} baris data</div>
+                <div className="import-preview-file">
+                  <FileSpreadsheet size={20} className="import-preview-file-icon" />
+                  <div className="import-preview-file-meta">
+                    <div className="import-preview-file-name">{importPreview.fileName}</div>
+                    <div className="import-preview-file-count">{importPreview.rows.length} baris data</div>
                   </div>
                 </div>
 
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                <div className="import-preview-note">
                   Kolom terdeteksi: {importPreview.columns.join(', ')}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                <div className="import-preview-note">
                   Hari default import saat ini: <strong>Hari {dayFilter}</strong> (dipakai jika kolom hari/day/day_number kosong)
                 </div>
                 {importPreview.invalidDayRows?.length > 0 && (
-                  <div style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning)', color: 'var(--warning)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 10, fontSize: '0.75rem' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  <div className="import-preview-warning">
+                    <div className="import-preview-warning-title">
                       Ditemukan {importPreview.invalidDayRows.length} baris dengan nilai hari tidak valid.
                     </div>
                     <div>
@@ -383,13 +383,13 @@ export default function Participants() {
                   </div>
                 )}
 
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Preview (5 baris pertama):</div>
-                <div style={{ overflowX: 'auto', marginBottom: 12 }}>
-                  <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+                <div className="import-preview-title">Preview (5 baris pertama):</div>
+                <div className="import-preview-table-wrap">
+                  <table className="import-preview-table">
                     <thead>
                       <tr>
                         {importPreview.columns.slice(0, 4).map(col => (
-                          <th key={col} style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-secondary)' }}>{col}</th>
+                          <th key={col}>{col}</th>
                         ))}
                       </tr>
                     </thead>
@@ -397,7 +397,7 @@ export default function Participants() {
                       {importPreview.preview.map((row, i) => (
                         <tr key={i}>
                           {importPreview.columns.slice(0, 4).map(col => (
-                            <td key={col} style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-color)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <td key={col}>
                               {row[col] || '—'}
                             </td>
                           ))}
@@ -406,7 +406,7 @@ export default function Participants() {
                     </tbody>
                   </table>
                 </div>
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                <p className="import-preview-help">
                   Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong>, <strong>hari/day/day_number</strong> (VIP/Dealer/Media/Regular)
                 </p>
               </>
@@ -414,22 +414,15 @@ export default function Participants() {
           </div>
           <div className="modal-footer">
             {importResult ? (
-              <button className="btn btn-primary" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }} style={{ flex: 1 }}>Selesai</button>
+              <button className="btn btn-primary flex-1" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}>Selesai</button>
             ) : (
               <>
                 <button className="btn btn-secondary" onClick={() => { setShowImportModal(false); setImportPreview(null) }}>Batal</button>
                 <button
-                  className="btn btn-primary"
+                  className={`btn btn-primary btn-inline-icon ${hasInvalidImportDayRows ? 'btn-disabled-look' : ''}`}
                   onClick={confirmImport}
                   disabled={hasInvalidImportDayRows}
                   title={hasInvalidImportDayRows ? 'Perbaiki nilai hari yang tidak valid sebelum import' : ''}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    opacity: hasInvalidImportDayRows ? 0.6 : 1,
-                    cursor: hasInvalidImportDayRows ? 'not-allowed' : 'pointer'
-                  }}
                 >
                   <Upload size={14} /> {hasInvalidImportDayRows ? 'Perbaiki Hari Dulu' : `Import ${importPreview?.rows.length} Peserta`}
                 </button>
@@ -448,10 +441,10 @@ export default function Participants() {
         <FileInput />
         <ImportModal />
 
-        <div className="m-section-header" style={{ marginBottom: 12 }}>
+        <div className="m-section-header m-section-header-tight">
           <div>
-            <h1 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 800 }}>Peserta</h1>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{checkedCount}/{allParticipants.length} hadir</p>
+            <h1 className="m-section-title">Peserta</h1>
+            <p className="m-section-subtitle">{checkedCount}/{allParticipants.length} hadir</p>
           </div>
           <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
             <UserPlus size={14} /> Tambah
@@ -459,39 +452,35 @@ export default function Participants() {
         </div>
 
         {/* Import & Template Actions */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div className="m-participant-actions">
           <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm m-participant-action-btn"
             onClick={() => fileInputRef.current?.click()}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 12px' }}
           >
             <Upload size={14} /> Import Excel
           </button>
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-whatsapp btn-sm m-participant-action-btn"
             onClick={handleBroadcast}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 12px', background: '#25D366', borderColor: '#25D366' }}
           >
             <Zap size={14} /> Broadcast
           </button>
           <button
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm m-participant-action-btn m-participant-action-full"
             onClick={downloadTemplate}
-            style={{ flex: '1 1 100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 12px', border: '1px dashed var(--border-color)' }}
           >
             <Download size={14} /> Template Excel
           </button>
         </div>
 
         {/* Mobile Search */}
-        <div style={{ position: 'relative', marginBottom: 10 }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+        <div className="m-participant-search">
+          <Search size={16} className="m-participant-search-icon" />
           <input
-            className="form-input"
+            className="form-input m-participant-search-input"
             placeholder="Cari nama atau ticket..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', paddingLeft: 36 }}
           />
         </div>
 
@@ -523,9 +512,7 @@ export default function Participants() {
           ) : (
             participants.map(p => (
               <div key={p.id} className="m-participant-card">
-                <div className="m-p-avatar" style={{
-                  background: p.is_checked_in ? 'var(--success)' : 'var(--bg-elevated)'
-                }}>
+                <div className={`m-p-avatar ${p.is_checked_in ? 'm-p-avatar-checked' : 'm-p-avatar-pending'}`}>
                   {p.is_checked_in ? <CheckCircle size={16} /> : p.name.charAt(0)}
                 </div>
                 <div className="m-p-info">
@@ -540,11 +527,11 @@ export default function Participants() {
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button className="m-p-delete" onClick={() => handleSingleBotSend(p)} style={{ color: 'var(--brand-blue)' }} title="Kirim via Bot">
+                <div className="m-p-actions">
+                  <button className="m-p-delete m-p-delete-bot" onClick={() => handleSingleBotSend(p)} title="Kirim via Bot">
                     <Bot size={16} />
                   </button>
-                  <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="m-p-delete" style={{ color: '#25D366' }} title="Kirim WA">
+                  <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="m-p-delete m-p-delete-wa" title="Kirim WA">
                     <MessageCircle size={16} />
                   </a>
                   <button className="m-p-delete" onClick={() => handleDelete(p)} title="Hapus">
@@ -556,31 +543,30 @@ export default function Participants() {
           )}
         </div>
 
-        <div style={{ padding: '12px 0', fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        <div className="m-participant-summary">
           {participants.length} dari {allParticipants.length} peserta
         </div>
 
         {isBroadcasting && (
-          <div className="modal-overlay" style={{ zIndex: 9999 }}>
-            <div className="modal" style={{ textAlign: 'center', padding: 30, maxWidth: 300 }}>
-              <Bot size={44} style={{ display: 'block', color: '#25D366', margin: '0 auto 16px', animation: 'bounce 1s infinite' }} />
-              <h3 style={{ marginBottom: 8, fontSize: '1.2rem' }}>Mengirim Pesan...</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 20 }}>Mohon jangan tutup halaman ini.</p>
+          <div className="modal-overlay modal-overlay-priority">
+            <div className="modal broadcast-modal broadcast-modal-mobile">
+              <Bot size={44} className="broadcast-bot-icon" />
+              <h3 className="broadcast-title">Mengirim Pesan...</h3>
+              <p className="broadcast-note broadcast-note-mobile">Mohon jangan tutup halaman ini.</p>
               
-              <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, height: 10, overflow: 'hidden', marginBottom: 12 }}>
-                <div style={{ 
-                  background: '#25D366', height: '100%', 
+              <div className="broadcast-progress-track broadcast-progress-track-mobile">
+                <div className="broadcast-progress-fill" style={{ 
                   width: `${(broadcastProgress.current / broadcastProgress.total) * 100}%`,
                   transition: 'width 0.3s ease'
                 }} />
               </div>
               
-              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>
+              <div className="broadcast-count broadcast-count-mobile">
                 {broadcastProgress.current} / {broadcastProgress.total} Tiket
               </div>
               {(broadcastProgress.success > 0 || broadcastProgress.failed > 0) && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 10 }}>
-                  <span style={{ color: 'var(--success)' }}>Sukses: {broadcastProgress.success}</span> • <span style={{ color: 'var(--danger)' }}>Gagal: {broadcastProgress.failed}</span>
+                <div className="broadcast-result-row broadcast-result-row-mobile">
+                  <span className="broadcast-success">Sukses: {broadcastProgress.success}</span> • <span className="broadcast-failed">Gagal: {broadcastProgress.failed}</span>
                 </div>
               )}
             </div>
@@ -602,9 +588,9 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
                   <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
-                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                    <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--brand-primary)', width: 16, height: 16 }} />
-                    <label htmlFor="m-auto-send" style={{ fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Otomatis Kirim WA / Email (Bot Server)</label>
+                  <div className="form-group checkbox-inline-row">
+                    <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} className="checkbox-brand" />
+                    <label htmlFor="m-auto-send" className="checkbox-inline-label">Otomatis Kirim WA / Email (Bot Server)</label>
                   </div>
                 </div>
                 <div className="modal-footer">
@@ -675,7 +661,7 @@ export default function Participants() {
             ) : participants.map((p, i) => (
               <tr key={p.id}>
                 <td className="td-muted">{i + 1}</td>
-                <td><code style={{ background: 'var(--bg-elevated)', padding: '3px 8px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, border: '1px solid var(--border-color)' }}>{p.ticket_id}</code></td>
+                <td><code className="ticket-id-code">{p.ticket_id}</code></td>
                 <td className="td-strong">{p.name}</td>
                 <td className="td-secondary">{p.phone}</td>
                 <td><span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span></td>
@@ -704,25 +690,24 @@ export default function Participants() {
 
       {isBroadcasting && (
         <div className="modal-overlay">
-          <div className="modal" style={{ textAlign: 'center', padding: 40, maxWidth: 400 }}>
-            <Bot size={48} style={{ color: '#25D366', margin: '0 auto 16px', animation: 'bounce 1s infinite' }} />
-            <h2 style={{ marginBottom: 8 }}>Mengirim Pesan...</h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 20 }}>Mohon jangan tutup halaman ini.</p>
+          <div className="modal broadcast-modal broadcast-modal-desktop">
+            <Bot size={48} className="broadcast-bot-icon" />
+            <h2 className="broadcast-title">Mengirim Pesan...</h2>
+            <p className="broadcast-note">Mohon jangan tutup halaman ini.</p>
             
-            <div style={{ background: 'var(--bg-elevated)', borderRadius: 20, height: 12, overflow: 'hidden', marginBottom: 12 }}>
-              <div style={{ 
-                background: '#25D366', height: '100%', 
+            <div className="broadcast-progress-track">
+              <div className="broadcast-progress-fill" style={{ 
                 width: `${(broadcastProgress.current / broadcastProgress.total) * 100}%`,
                 transition: 'width 0.3s ease'
               }} />
             </div>
             
-            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+            <div className="broadcast-count">
               {broadcastProgress.current} / {broadcastProgress.total} Tiket
             </div>
             {(broadcastProgress.success > 0 || broadcastProgress.failed > 0) && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8 }}>
-                <span style={{ color: 'var(--success)' }}>Sukses: {broadcastProgress.success}</span> • <span style={{ color: 'var(--danger)' }}>Gagal: {broadcastProgress.failed}</span>
+              <div className="broadcast-result-row">
+                <span className="broadcast-success">Sukses: {broadcastProgress.success}</span> • <span className="broadcast-failed">Gagal: {broadcastProgress.failed}</span>
               </div>
             )}
           </div>
@@ -745,11 +730,11 @@ export default function Participants() {
                 </div>
                 <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
                 <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
-                  <input type="checkbox" id="d-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--success)', width: 18, height: 18 }} />
+                <div className="form-group auto-send-card">
+                  <input type="checkbox" id="d-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} className="checkbox-success" />
                   <div>
-                    <label htmlFor="d-auto-send" style={{ fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', display: 'block' }}>Kirim Tiket Otomatis via Bot</label>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Bot lokal akan mengirim WA/Email di background secara langsung</span>
+                    <label htmlFor="d-auto-send" className="auto-send-title">Kirim Tiket Otomatis via Bot</label>
+                    <span className="auto-send-note">Bot lokal akan mengirim WA/Email di background secara langsung</span>
                   </div>
                 </div>
               </div>
