@@ -55,6 +55,8 @@ export default function Settings() {
   const [tenantEventName, setTenantEventName] = useState('')
   const [tenantToken, setTenantToken] = useState('')
   const [tenantExpiresAt, setTenantExpiresAt] = useState('')
+  const [tenantSearch, setTenantSearch] = useState('')
+  const [tenantFilter, setTenantFilter] = useState('all')
   const [storeBackups, setStoreBackups] = useState(getStoreBackups())
   const [backupBaselineCount] = useState(() => getStoreBackups().length)
   const [backupSearch, setBackupSearch] = useState('')
@@ -179,6 +181,20 @@ export default function Settings() {
       ? `${backupRefreshCountdown}s`
       : 'paused'
   const normalizedBackupSearch = backupSearch.toLowerCase().trim()
+  const normalizedTenantSearch = tenantSearch.toLowerCase().trim()
+
+  const visibleTenants = tenants
+    .filter(tenant => {
+      if (tenantFilter === 'active') return tenant.status === 'active' && !tenant.isExpired
+      if (tenantFilter === 'inactive') return tenant.status !== 'active'
+      if (tenantFilter === 'expired') return tenant.isExpired
+      return true
+    })
+    .filter(tenant => {
+      if (!normalizedTenantSearch) return true
+      const haystack = `${tenant.brandName} ${tenant.eventName} ${tenant.token}`.toLowerCase()
+      return haystack.includes(normalizedTenantSearch)
+    })
 
   const visibleBackups = [...storeBackups]
     .filter(item => {
@@ -604,16 +620,50 @@ export default function Settings() {
             </div>
           </form>
 
+          <div className="tenant-toolbar mt-16">
+            <div className="admin-search-wrap backup-search-wrap">
+              <Search size={14} className="admin-search-icon" />
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Cari brand, event, atau token tenant..."
+                value={tenantSearch}
+                onChange={e => setTenantSearch(e.target.value)}
+              />
+            </div>
+            <select className="form-select backup-select" value={tenantFilter} onChange={e => setTenantFilter(e.target.value)}>
+              <option value="all">Semua Tenant</option>
+              <option value="active">Aktif</option>
+              <option value="inactive">Nonaktif</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+
+          <div className="tenant-stats-row">
+            <span className="badge badge-gray">Total: {tenants.length}</span>
+            <span className="badge badge-green">Aktif: {tenants.filter(t => t.status === 'active' && !t.isExpired).length}</span>
+            <span className="badge badge-yellow">Nonaktif: {tenants.filter(t => t.status !== 'active').length}</span>
+            <span className="badge badge-red">Expired: {tenants.filter(t => t.isExpired).length}</span>
+          </div>
+
           <div className="event-list mt-16">
-            {tenants.map(tenant => (
+            {visibleTenants.length === 0 && (
+              <div className="event-meta">Tidak ada tenant sesuai filter/pencarian.</div>
+            )}
+            {visibleTenants.map(tenant => (
               <div key={tenant.id} className="event-item">
                 <div className="event-row">
                   <div>
                     <div className="event-name">{tenant.brandName}</div>
                     <div className="event-meta">
-                      {tenant.eventName} • Token: {tenant.token} • {tenant.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                      {tenant.isExpired ? ' • Expired' : ''}
-                      {tenant.id === activeTenantId ? ' • Sedang Dipakai' : ''}
+                      {tenant.eventName} • Token: {tenant.token}
+                    </div>
+                    <div className="tenant-meta-badges">
+                      <span className={`badge ${tenant.status === 'active' ? 'badge-green' : 'badge-yellow'}`}>
+                        {tenant.status === 'active' ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                      {tenant.isExpired && <span className="badge badge-red">Expired</span>}
+                      {tenant.id === activeTenantId && <span className="badge badge-blue">Sedang Dipakai</span>}
                     </div>
                   </div>
                   <div className="event-actions">

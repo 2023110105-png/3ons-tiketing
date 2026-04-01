@@ -1078,6 +1078,27 @@ input, select, textarea, button {
   justify-content: flex-end;
 }
 
+.tenant-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tenant-stats-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.tenant-meta-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
 .backup-toolbar {
   display: flex;
   gap: 8px;
@@ -4226,6 +4247,13 @@ input, select, textarea, button {
   }
 
   .backup-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .tenant-toolbar {
     display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
