@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns } from '../../store/mockData'
+import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns } from '../../store/mockData'
 import { useSound } from '../../hooks/useRealtime'
-import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2 } from 'lucide-react'
 
 export default function FrontGate() {
   const currentDay = getCurrentDay()
@@ -14,6 +14,7 @@ export default function FrontGate() {
   const [searchResults, setSearchResults] = useState([])
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(getPendingCheckIns().length)
+  const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
   const [isSyncing, setIsSyncing] = useState(false)
   const searchResultsRef = useRef(null) // Unused, just keeping ref pattern if needed
   const lastScanRef = useRef({ data: null, time: 0 })
@@ -23,13 +24,17 @@ export default function FrontGate() {
 
   const refreshStats = () => setStats(getStats(currentDay))
 
-  const refreshPendingCount = () => setPendingCount(getPendingCheckIns().length)
+  const refreshPendingState = () => {
+    const items = getPendingCheckIns()
+    setPendingItems(items)
+    setPendingCount(items.length)
+  }
 
   const handleSyncPending = useCallback(() => {
     if (!navigator.onLine || isSyncing) return
     setIsSyncing(true)
     const res = syncPendingCheckIns()
-    refreshPendingCount()
+    refreshPendingState()
     refreshStats()
 
     if (res.processed > 0) {
@@ -52,7 +57,7 @@ export default function FrontGate() {
 
     if (!navigator.onLine) {
       enqueuePendingCheckIn(qrData, 'gate_front', scanMode)
-      refreshPendingCount()
+      refreshPendingState()
       setResult({
         success: true,
         status: 'queued_offline',
@@ -155,6 +160,10 @@ export default function FrontGate() {
   }, [])
 
   useEffect(() => {
+    refreshPendingState()
+  }, [])
+
+  useEffect(() => {
     const goOnline = () => {
       setIsOnline(true)
       handleSyncPending()
@@ -206,6 +215,50 @@ export default function FrontGate() {
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
     if (result.status === 'wrong_day') return 'SALAH HARI'
     return 'TIDAK VALID'
+  }
+
+  const handleRetryPendingItem = (itemId) => {
+    if (!navigator.onLine) {
+      setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa retry saat offline' })
+      setTimeout(() => setResult(null), 2500)
+      return
+    }
+
+    const res = retryPendingCheckIn(itemId)
+    refreshPendingState()
+    refreshStats()
+
+    if (res.success) {
+      setResult({ success: true, status: 'synced', message: 'Item pending berhasil disinkronkan' })
+    } else {
+      setResult({ success: false, status: 'sync_partial', message: res.result?.message || 'Retry gagal' })
+    }
+    setTimeout(() => setResult(null), 2500)
+  }
+
+  const handleRemovePendingItem = (itemId) => {
+    const confirmed = window.confirm('Hapus item pending ini dari antrean?')
+    if (!confirmed) return
+    removePendingCheckIn(itemId)
+    refreshPendingState()
+  }
+
+  const handleRetryAllPending = () => {
+    if (!navigator.onLine) {
+      setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa retry all saat offline' })
+      setTimeout(() => setResult(null), 2500)
+      return
+    }
+    handleSyncPending()
+  }
+
+  const handleClearAllPending = () => {
+    const confirmed = window.confirm(`Hapus semua antrean offline (${pendingCount} item)?`)
+    if (!confirmed) return
+    clearPendingCheckIns()
+    refreshPendingState()
+    setResult({ success: true, status: 'synced', message: 'Semua antrean offline berhasil dibersihkan' })
+    setTimeout(() => setResult(null), 2500)
   }
 
   return (
@@ -427,6 +480,54 @@ export default function FrontGate() {
           <div className="scanner-stat-value" style={{ color: 'var(--yamaha-red)' }}>{stats.percentage}%</div>
           <div className="scanner-stat-label">Progress</div>
         </div>
+      </div>
+
+      <div className="card" style={{ width: '100%', maxWidth: 560, marginTop: 16 }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <WifiOff size={16} /> Antrean Offline
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="badge badge-yellow">{pendingCount} pending</span>
+            {pendingCount > 0 && (
+              <>
+                <button className="btn btn-ghost btn-sm" onClick={handleRetryAllPending} disabled={!isOnline || isSyncing} title="Retry semua item">
+                  <RefreshCw size={12} />
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={handleClearAllPending} title="Hapus semua antrean" style={{ color: 'var(--danger)' }}>
+                  <Trash2 size={12} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {pendingItems.length === 0 ? (
+          <div style={{ padding: 12, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Tidak ada antrean offline.
+          </div>
+        ) : (
+          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            {pendingItems.slice(0, 20).map(item => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                    {new Date(item.created_at).toLocaleTimeString('id-ID')} · {item.source}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Attempts: {item.attempts || 0}{item.last_error ? ` · Error: ${item.last_error}` : ''}
+                  </div>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={() => handleRetryPendingItem(item.id)} disabled={!isOnline} title="Retry item ini">
+                  <RefreshCw size={12} />
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => handleRemovePendingItem(item.id)} title="Hapus item ini" style={{ color: 'var(--danger)' }}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

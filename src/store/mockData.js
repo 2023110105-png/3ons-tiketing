@@ -555,6 +555,51 @@ export function syncPendingCheckIns(maxItems = 100) {
   }
 }
 
+export function retryPendingCheckIn(itemId) {
+  const item = store.pendingCheckIns.find(q => q.id === itemId)
+  if (!item) {
+    return { success: false, error: 'Item antrean tidak ditemukan' }
+  }
+
+  const res = checkIn(item.qr_data, item.scanned_by)
+  if (res.success || res.status === 'duplicate') {
+    store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
+    saveStore()
+    return { success: true, synced: true, result: res, remaining: store.pendingCheckIns.length }
+  }
+
+  store.pendingCheckIns = store.pendingCheckIns.map(q => {
+    if (q.id !== itemId) return q
+    return {
+      ...q,
+      attempts: (q.attempts || 0) + 1,
+      last_error: res.message || 'Gagal sinkronisasi',
+      updated_at: new Date().toISOString()
+    }
+  })
+  saveStore()
+
+  return { success: false, synced: false, result: res, remaining: store.pendingCheckIns.length }
+}
+
+export function removePendingCheckIn(itemId) {
+  const before = store.pendingCheckIns.length
+  store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
+  const removed = before !== store.pendingCheckIns.length
+  if (removed) saveStore()
+  return { success: removed, remaining: store.pendingCheckIns.length }
+}
+
+export function clearPendingCheckIns() {
+  const cleared = store.pendingCheckIns.length
+  store.pendingCheckIns = []
+  saveStore()
+  if (cleared > 0) {
+    logAdminAction('offline_queue_clear', `Membersihkan antrean offline (${cleared} item)`, 'system', { cleared })
+  }
+  return { success: true, cleared, remaining: 0 }
+}
+
 export function getAdminLogs(limit = 200) {
   const sorted = [...store.adminLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   return sorted.slice(0, limit)

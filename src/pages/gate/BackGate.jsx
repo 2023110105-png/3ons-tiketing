@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { getStats, getCheckInLogs, getCurrentDay, getParticipants } from '../../store/mockData'
+import { getStats, getCheckInLogs, getCurrentDay, getParticipants, getPendingCheckIns } from '../../store/mockData'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
-import { Radio } from 'lucide-react'
+import { Radio, WifiOff } from 'lucide-react'
 
 export default function BackGate() {
   const currentDay = getCurrentDay()
   const [stats, setStats] = useState(getStats(currentDay))
   const [logs, setLogs] = useState(getCheckInLogs(currentDay))
   const [newEntries, setNewEntries] = useState(new Set())
+  const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
   const { lastEvent } = useRealtime()
   const { playNotification } = useSound()
   const [refreshKey, setRefreshKey] = useState(0)
@@ -23,6 +24,7 @@ export default function BackGate() {
   useEffect(() => {
     setStats(getStats(currentDay))
     setLogs(getCheckInLogs(currentDay))
+    setPendingItems(getPendingCheckIns())
   }, [currentDay, refreshKey])
 
   // Handle realtime events
@@ -142,6 +144,38 @@ export default function BackGate() {
                 </div>
                 <div className="monitor-feed-item-time">
                   {timeSince(log.timestamp)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <WifiOff size={16} /> Offline Queue Monitor
+          </h3>
+          <span className="badge badge-yellow">{pendingItems.length} pending</span>
+        </div>
+        {pendingItems.length === 0 ? (
+          <div style={{ padding: 14, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Tidak ada antrean offline saat ini.
+          </div>
+        ) : (
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {pendingItems.slice(0, 20).map(item => (
+              <div key={item.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                    {new Date(item.created_at).toLocaleString('id-ID')}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    source: {item.source} · attempts: {item.attempts || 0}
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--warning)', textAlign: 'right' }}>
+                  {item.last_error || 'Menunggu sinkronisasi'}
                 </div>
               </div>
             ))}
