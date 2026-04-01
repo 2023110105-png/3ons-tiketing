@@ -2098,6 +2098,530 @@ input, select, textarea, button {
   max-width: 460px;
 }
 
+/* ============================================= */
+/* OWNER PANEL ENHANCEMENTS                      */
+/* ============================================= */
+
+.owner-console-wrapper {
+  animation: fadeInUp 0.4s ease-out;
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* Owner Tab Navigation System */
+.owner-tab-system {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  position: relative;
+}
+
+.owner-tab-system::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--border-color), transparent);
+}
+
+.owner-tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+  white-space: nowrap;
+  position: relative;
+}
+
+.owner-tab-button:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.owner-tab-button.active {
+  background: linear-gradient(135deg, var(--brand-primary-subtle), rgba(232, 64, 64, 0.08));
+  color: var(--brand-primary);
+  border-color: var(--brand-primary-light);
+  box-shadow: inset 0 0 0 1px var(--brand-primary-subtle);
+}
+
+.owner-tab-button svg {
+  font-size: 1.1rem;
+}
+
+/* Form Enhancements */
+.owner-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.owner-form-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.owner-form-label-icon {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.owner-form-input,
+.owner-form-select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all var(--transition-smooth);
+  font-family: inherit;
+}
+
+.owner-form-input::placeholder {
+  color: var(--text-muted);
+}
+
+.owner-form-input:focus,
+.owner-form-select:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-primary-subtle), inset 0 0 0 1px var(--brand-primary);
+  outline: none;
+}
+
+.owner-form-input:disabled {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.owner-form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='%239CA3AF'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+/* Card Layouts */
+.owner-card-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all var(--transition-smooth);
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.owner-card-container:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.owner-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(90deg, rgba(245, 243, 235, 0.5), transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.owner-card-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.owner-card-title-icon {
+  font-size: 1.1rem;
+  color: var(--brand-primary);
+}
+
+.owner-card-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.owner-card-body {
+  padding: 20px;
+}
+
+.owner-card-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Status Badges with Better Hierarchy */
+.owner-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.owner-status-badge.active {
+  background: linear-gradient(135deg, var(--success-bg), rgba(16, 185, 129, 0.08));
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.owner-status-badge.inactive {
+  background: rgba(107, 114, 128, 0.08);
+  color: var(--text-muted);
+  border-color: rgba(107, 114, 128, 0.2);
+}
+
+.owner-status-badge.expired {
+  background: linear-gradient(135deg, var(--danger-bg), rgba(239, 68, 68, 0.08));
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.owner-status-badge.warning {
+  background: linear-gradient(135deg, var(--warning-bg), rgba(245, 158, 11, 0.08));
+  color: var(--warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.owner-status-badge.pending {
+  background: linear-gradient(135deg, var(--info-bg), rgba(77, 166, 232, 0.08));
+  color: var(--info);
+  border-color: rgba(77, 166, 232, 0.3);
+}
+
+.owner-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Data Table Enhancements */
+.owner-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.owner-data-table thead {
+  background: linear-gradient(180deg, rgba(245, 243, 235, 0.8) 0%, rgba(245, 243, 235, 0.4) 100%);
+}
+
+.owner-data-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.owner-data-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.owner-data-table tbody tr {
+  transition: all var(--transition-smooth);
+}
+
+.owner-data-table tbody tr:hover {
+  background: linear-gradient(90deg, var(--brand-primary-subtle), transparent);
+  box-shadow: inset 3px 0 0 0 var(--brand-primary);
+}
+
+.owner-data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Modal Styling */
+.owner-modal {
+  max-width: 520px;
+  width: 100%;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.owner-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.owner-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.owner-modal-body {
+  padding: 24px;
+}
+
+.owner-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  background: var(--bg-elevated);
+}
+
+/* Empty State */
+.owner-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-muted);
+}
+
+.owner-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
+
+.owner-empty-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.owner-empty-message {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Toolbar Styling */
+.owner-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: var(--bg-card);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+}
+
+.owner-toolbar-left {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.owner-toolbar-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.owner-search-input {
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+  position: relative;
+}
+
+.owner-search-input svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.owner-search-input input {
+  padding-left: 36px;
+}
+
+/* Stat Cards in Owner Panel */
+.owner-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  text-align: center;
+  transition: all var(--transition-smooth);
+}
+
+.owner-stat-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.owner-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.owner-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+/* Action Buttons */
+.owner-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.owner-action-btn:hover {
+  background: color-mix(in srgb, var(--brand-primary-subtle) 50%, white);
+  color: var(--brand-primary);
+  transform: translateY(-1px);
+}
+
+.owner-action-btn.danger:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.owner-action-btn.success:hover {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+/* Grid Layouts */
+.owner-grid-cols-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.owner-grid-cols-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .owner-grid-cols-2,
+  .owner-grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+  
+  .owner-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .owner-toolbar-left,
+  .owner-toolbar-right {
+    flex-direction: column;
+  }
+  
+  .owner-search-input {
+    max-width: 100%;
+  }
+  
+  .owner-console-wrapper {
+    padding: 16px;
+  }
+}
+
+/* Animations for Owner Panel */
+.owner-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.owner-fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.owner-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.owner-slide-in-right {
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* Transition Classes */
+.owner-transition-smooth {
+  transition: all var(--transition-smooth);
+}
+
+.owner-transition-fast {
+  transition: all var(--transition-fast);
+}
+
 .scanner-card-spaced {
   margin-bottom: 16px;
 }

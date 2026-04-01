@@ -78,130 +78,167 @@ export default function TenantList({ onManageUsers, onEditContract }) {
   }, [tenants, tenantFilter, tenantSearch])
 
   return (
-    <div className="tenant-list-container">
-      <div className="actions-bar mb-16" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
-          <div className="admin-search-wrap" style={{ flex: 1, maxWidth: '400px' }}>
-            <Search size={14} className="admin-search-icon" />
+    <div className="tenant-list-container owner-fade-in-up">
+      <div className="owner-toolbar">
+        <div className="owner-toolbar-left">
+          <div className="owner-search-input">
+            <Search size={16} />
             <input 
-              className="form-input" 
+              className="owner-form-input" 
               placeholder="Cari tenant..." 
               value={tenantSearch} 
               onChange={e => setTenantSearch(e.target.value)} 
             />
           </div>
           <select 
-            className="form-select" 
-            style={{ width: 'auto' }} 
+            className="owner-form-select" 
+            style={{ width: '180px' }} 
             value={tenantFilter} 
             onChange={e => setTenantFilter(e.target.value)}
           >
             <option value="all">Semua Status</option>
-            <option value="active">Aktif</option>
-            <option value="inactive">Nonaktif</option>
-            <option value="expired">Expired</option>
+            <option value="active">✓ Aktif</option>
+            <option value="inactive">○ Nonaktif</option>
+            <option value="expired">⚠ Expired</option>
           </select>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-          <Plus size={18} /> Tambah Tenant
-        </button>
+        <div className="owner-toolbar-right">
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} /> Tenant Baru
+          </button>
+        </div>
       </div>
 
-      <div className="grid-responsive mt-24">
+      <div className="owner-grid-cols-2">
         {visibleTenants.map(tenant => (
-          <div key={tenant.id} className={`card tenant-card ${tenant.id === activeTenantId ? 'border-primary' : ''}`}>
-            <div className="card-pad">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <h3 className="card-title" style={{ marginBottom: '4px' }}>{tenant.brandName}</h3>
-                  <p className="text-muted text-sm">{tenant.eventName}</p>
+          <div key={tenant.id} className="owner-card-container" style={{ opacity: tenant.isExpired ? 0.75 : 1 }}>
+            <div className="owner-card-header">
+              <div style={{ flex: 1 }}>
+                <div className="owner-card-title">
+                  {tenant.id === activeTenantId && <span style={{ color: 'var(--brand-primary)', fontSize: '0.8rem' }}>●</span>}
+                  {tenant.brandName}
                 </div>
-                <div className={`badge ${tenant.status === 'active' ? (tenant.isExpired ? 'badge-red' : 'badge-green') : 'badge-yellow'}`}>
-                  {tenant.isExpired ? 'Expired' : (tenant.status === 'active' ? 'Aktif' : 'Nonaktif')}
-                </div>
+                <p style={{ marginTop: '2px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tenant.eventName}</p>
               </div>
-
-              <div className="tenant-meta mt-16" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Paket:</span>
-                  <span className="text-primary font-bold">{tenant.contract?.package?.toUpperCase() || 'STARTER'}</span>
+              <div className={`owner-status-badge ${tenant.isExpired ? 'expired' : (tenant.status === 'active' ? 'active' : 'inactive')}`}>
+                {tenant.isExpired ? '⚠ Expired' : (tenant.status === 'active' ? '✓ Aktif' : '○ Off')}
+              </div>
+            </div>
+            
+            <div className="owner-card-body">
+              <div style={{ display: 'grid', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Paket</span>
+                  <span className="badge badge-blue">{tenant.contract?.package?.toUpperCase() || 'STARTER'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                  <span>Status Bayar:</span>
-                  <span className={tenant.contract?.payment_status === 'paid' ? 'text-green' : 'text-red'}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Pembayaran</span>
+                  <span className={`badge ${tenant.contract?.payment_status === 'paid' ? 'badge-green' : 'badge-yellow'}`}>
                     {tenant.contract?.payment_status?.toUpperCase() || 'UNPAID'}
                   </span>
                 </div>
               </div>
-
-              <div className="card-actions mt-16 pt-16" style={{ borderTop: '1px solid var(--border-color)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {tenant.id !== activeTenantId && tenant.status === 'active' && !tenant.isExpired && (
-                  <button className="btn btn-ghost btn-sm btn-primary" onClick={() => handleActivate(tenant)}>Pakai</button>
-                )}
-                <button className="btn btn-ghost btn-sm" title="Manage Users" onClick={() => onManageUsers(tenant)}>
-                  <Users size={14} />
-                </button>
-                <button className="btn btn-ghost btn-sm" title="Edit Contract" onClick={() => onEditContract(tenant)}>
-                  <FileEdit size={14} />
-                </button>
-                <button 
-                  className={`btn btn-ghost btn-sm ${tenant.status === 'active' ? 'btn-warning' : 'btn-success'}`}
-                  onClick={() => handleToggleStatus(tenant)}
-                  title={tenant.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                >
-                  <Smartphone size={14} />
-                </button>
-                {tenant.id !== 'tenant-default' && (
-                  <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(tenant)}>
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
+              
+              {tenant.expires_at && (
+                <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'var(--bg-elevated)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {tenant.isExpired ? (
+                    <span style={{ color: 'var(--danger)' }}>Expired: {new Date(tenant.expires_at).toLocaleDateString('id-ID')}</span>
+                  ) : (
+                    <span>Aktif sampai: {new Date(tenant.expires_at).toLocaleDateString('id-ID')}</span>
+                  )}
+                </div>
+              )}
             </div>
-            {tenant.id === activeTenantId && <div className="card-badge-top">Sedang Digunakan</div>}
+
+            <div className="owner-card-footer">
+              {tenant.id !== activeTenantId && tenant.status === 'active' && !tenant.isExpired && (
+                <button className="owner-action-btn" style={{ background: 'var(--brand-primary-subtle)', color: 'var(--brand-primary)' }} onClick={() => handleActivate(tenant)}>
+                  Pakai
+                </button>
+              )}
+              <button className="owner-action-btn" title="Manage Users" onClick={() => onManageUsers(tenant)}>
+                <Users size={14} />
+              </button>
+              <button className="owner-action-btn" title="Edit Contract" onClick={() => onEditContract(tenant)}>
+                <FileEdit size={14} />
+              </button>
+              <button 
+                className="owner-action-btn success"
+                onClick={() => handleToggleStatus(tenant)}
+                title={tenant.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
+              >
+                <Smartphone size={14} />
+              </button>
+              {tenant.id !== 'tenant-default' && (
+                <button className="owner-action-btn danger" onClick={() => handleDelete(tenant)}>
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
 
+      {visibleTenants.length === 0 && (
+        <div className="owner-empty-state">
+          <div className="owner-empty-icon">🔍</div>
+          <div className="owner-empty-title">Tidak ada tenant</div>
+          <div className="owner-empty-message">Coba cari dengan keyword lain atau buat tenant baru</div>
+        </div>
+      )}
+
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal-content card" style={{ maxWidth: '500px' }}>
-            <div className="card-pad">
-              <h3 className="card-title mb-16">Tambah Tenant Baru</h3>
+          <div className="owner-modal card">
+            <div className="owner-modal-header">
+              <div className="owner-modal-title">
+                <Plus size={20} /> Tambah Tenant Baru
+              </div>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowCreateModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="owner-modal-body">
               <form onSubmit={handleCreate}>
-                <div className="form-group">
-                  <label className="form-label">Nama Brand</label>
+                <div className="owner-form-group">
+                  <label className="owner-form-label">Nama Brand</label>
                   <input 
-                    className="form-input" 
+                    className="owner-form-input" 
                     required 
                     value={newTenant.brandName}
                     onChange={e => setNewTenant({...newTenant, brandName: e.target.value})}
                     placeholder="Contoh: Yamaha Indonesia" 
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Nama Event</label>
+                <div className="owner-form-group">
+                  <label className="owner-form-label">Nama Event</label>
                   <input 
-                    className="form-input" 
+                    className="owner-form-input" 
                     value={newTenant.eventName}
                     onChange={e => setNewTenant({...newTenant, eventName: e.target.value})}
                     placeholder="Contoh: Yamaha Roadshow 2026" 
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Tanggal Expired (Opsional)</label>
+                <div className="owner-form-group">
+                  <label className="owner-form-label">Tanggal Expired (Opsional)</label>
                   <input 
-                    className="form-input" 
+                    className="owner-form-input" 
                     type="date"
                     value={newTenant.expiresAt}
                     onChange={e => setNewTenant({...newTenant, expiresAt: e.target.value})}
                   />
                 </div>
-                <div className="actions-right mt-24">
-                  <button type="button" className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Batal</button>
-                  <button type="submit" className="btn btn-primary">Simpan Tenant</button>
-                </div>
               </form>
+            </div>
+            
+            <div className="owner-modal-footer">
+              <button type="button" className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Batal</button>
+              <button onClick={handleCreate} className="btn btn-primary">Simpan Tenant</button>
             </div>
           </div>
         </div>

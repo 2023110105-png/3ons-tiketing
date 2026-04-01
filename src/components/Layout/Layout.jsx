@@ -4,7 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding } from '../../store/mockData'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
-  BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck
+  BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck,
+  FileText, Eye, History, Activity, Database, Bell
 } from 'lucide-react'
 
 export default function Layout({ children }) {
