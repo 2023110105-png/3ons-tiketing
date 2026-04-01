@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
-        name: '3oNs Project Rental Platform',
-        short_name: '3oNs Rental',
+        name: '3oNs Project Platform',
+        short_name: '3oNs',
         description: 'Sistem registrasi, tiket, dan scanner event berbasis project',
         theme_color: '#3c99dc',
         background_color: '#f4f9ff',

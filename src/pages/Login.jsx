@@ -44,7 +44,7 @@ export default function Login() {
           <img src="/brand-logo.svg" alt="3oNs" />
         </div>
         
-        <h1 className="login-title">3oNs Project Rental</h1>
+        <h1 className="login-title">3oNs Project</h1>
         <p className="login-subtitle">Masuk ke platform sewa project event</p>
 
         <form className="login-form" onSubmit={handleSubmit}>

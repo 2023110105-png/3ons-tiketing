@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ============================================
   3oNs PROJECT RENTAL — Design System
@@ -8,32 +8,37 @@
 /* CSS Custom Properties */
 :root {
   /* 3oNs Brand Colors */
-  --brand-primary: #3c99dc;
-  --brand-primary-dark: #2f82c2;
-  --brand-primary-light: #63b5eb;
-  --brand-primary-glow: rgba(60, 153, 220, 0.35);
-  --brand-primary-subtle: rgba(60, 153, 220, 0.12);
+  --brand-primary: #e84040;
+  --brand-primary-dark: #c42020;
+  --brand-primary-light: #ff7a7a;
+  --brand-primary-glow: rgba(232, 64, 64, 0.3);
+  --brand-primary-subtle: rgba(232, 64, 64, 0.12);
+
+  --brand-blue: #4da6e8;
+  --brand-green: #2eab6e;
+  --brand-pink: #e84393;
+  --brand-yellow: #f5c800;
 
   /* Light Theme Palette */
-  --bg-primary: #f6f3ec;
+  --bg-primary: #f5f3eb;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-card-hover: #f3f8ff;
-  --bg-elevated: #f8fbff;
+  --bg-card-hover: #fff9f2;
+  --bg-elevated: #fffdfa;
   --bg-input: #ffffff;
   --bg-glass: rgba(255, 255, 255, 0.84);
   --bg-glass-strong: rgba(255, 255, 255, 0.95);
 
   /* Borders */
-  --border-color: rgba(34, 45, 68, 0.12);
-  --border-hover: rgba(34, 45, 68, 0.2);
-  --border-active: rgba(60, 153, 220, 0.35);
+  --border-color: #e8e4d0;
+  --border-hover: #d7d1b8;
+  --border-active: rgba(232, 64, 64, 0.28);
 
   /* Text Colors */
-  --text-primary: #1f2a3a;
-  --text-secondary: #5f6f86;
-  --text-muted: #7f8ca3;
-  --text-accent: #3c99dc;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-accent: var(--brand-primary);
 
   /* Semantic Colors */
   --success: #10B981;
@@ -44,16 +49,16 @@
   --danger: #EF4444;
   --danger-bg: rgba(239, 68, 68, 0.1);
   --danger-glow: rgba(239, 68, 68, 0.4);
-  --info: #3B82F6;
+  --info: var(--brand-blue);
   --info-bg: rgba(59, 130, 246, 0.1);
 
   /* Shadows */
-  --shadow-sm: 0 2px 6px rgba(31, 42, 58, 0.08);
-  --shadow-md: 0 8px 20px rgba(31, 42, 58, 0.12);
-  --shadow-lg: 0 16px 40px rgba(31, 42, 58, 0.16);
-  --shadow-xl: 0 24px 60px rgba(31, 42, 58, 0.2);
-  --shadow-red: 0 8px 28px rgba(60, 153, 220, 0.22);
-  --shadow-red-lg: 0 12px 36px rgba(60, 153, 220, 0.28);
+  --shadow-sm: 0 2px 16px rgba(0, 0, 0, 0.07);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.14);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.18);
+  --shadow-red: 0 8px 28px rgba(232, 64, 64, 0.22);
+  --shadow-red-lg: 0 12px 36px rgba(232, 64, 64, 0.28);
   --shadow-success: 0 4px 24px rgba(16, 185, 129, 0.3);
 
   /* Spacing */
@@ -68,7 +73,7 @@
 
   /* Typography */
   --font-primary: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
-  --font-display: 'Baloo 2', 'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -97,9 +102,9 @@ body {
   font-family: var(--font-primary);
   background-color: var(--bg-primary);
   background-image:
-    radial-gradient(circle at 20% 20%, rgba(60, 153, 220, 0.12), transparent 32%),
-    radial-gradient(circle at 78% 12%, rgba(45, 175, 100, 0.1), transparent 30%),
-    radial-gradient(circle at 62% 78%, rgba(221, 107, 158, 0.1), transparent 28%);
+    radial-gradient(circle at 14% 16%, rgba(232, 64, 64, 0.1), transparent 34%),
+    radial-gradient(circle at 82% 14%, rgba(77, 166, 232, 0.12), transparent 30%),
+    radial-gradient(circle at 64% 82%, rgba(245, 200, 0, 0.09), transparent 26%);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -273,12 +278,14 @@ input, select, textarea, button {
   top: 0;
   bottom: 0;
   width: var(--sidebar-width);
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   z-index: 100;
   transition: all var(--transition-smooth);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .sidebar-header {
@@ -295,6 +302,7 @@ input, select, textarea, button {
   border-radius: var(--radius-md);
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .sidebar-logo img {
@@ -365,12 +373,12 @@ input, select, textarea, button {
 }
 
 .nav-item:hover {
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--brand-primary-subtle) 38%, white);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: var(--brand-primary-subtle);
+  background: color-mix(in srgb, var(--brand-primary-subtle) 50%, white);
   color: var(--brand-primary);
   font-weight: 600;
 }
@@ -457,7 +465,7 @@ input, select, textarea, button {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: var(--bg-glass-strong);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   position: sticky;
@@ -514,8 +522,8 @@ input, select, textarea, button {
 
 .header-btn:hover {
   border-color: var(--border-hover);
-  color: var(--text-primary);
-  background: var(--bg-card-hover);
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary-subtle) 45%, white);
 }
 
 .header-btn.danger:hover {
@@ -1156,8 +1164,8 @@ input, select, textarea, button {
     45deg,
     transparent,
     transparent 40px,
-    rgba(230, 0, 18, 0.015) 40px,
-    rgba(230, 0, 18, 0.015) 80px
+    rgba(232, 64, 64, 0.024) 40px,
+    rgba(232, 64, 64, 0.024) 80px
   );
   animation: racingStripe 20s linear infinite;
 }
@@ -1180,7 +1188,7 @@ input, select, textarea, button {
 .login-bg-gradient.g2 {
   bottom: -200px;
   left: -200px;
-  background: #ff6b35;
+  background: var(--brand-blue);
 }
 
 .login-card {
@@ -1190,11 +1198,12 @@ input, select, textarea, button {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
+  border-radius: 22px;
   padding: 40px;
   position: relative;
   z-index: 1;
   animation: scaleIn 0.4s ease-out;
+  box-shadow: var(--shadow-lg);
 }
 
 .login-logo {
@@ -2027,7 +2036,7 @@ input, select, textarea, button {
   justify-content: space-around;
   padding: 6px 0;
   padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.12);
 }
 
 .mobile-nav-item {

@@ -1,6 +1,6 @@
 @echo off
 echo ===================================================
-echo     MEMULAI 3ONS PROJECT RENTAL PLATFORM DAN WA BOT
+echo     MEMULAI 3ONS PROJECT PLATFORM DAN WA BOT
 echo ===================================================
 echo.
 echo Menjalankan Website Kiosk dan Server Bot WhatsApp...

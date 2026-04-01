@@ -1,4 +1,4 @@
-# 3oNs Project Rental Platform
+# 3oNs Project Platform
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

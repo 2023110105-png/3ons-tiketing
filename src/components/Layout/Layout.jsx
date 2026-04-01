@@ -114,7 +114,13 @@ export default function Layout({ children }) {
             <img src="/brand-logo.svg" alt="3oNs" />
           </div>
           <div className="sidebar-brand">
-            <h2>3oNs Rental</h2>
+            <h2>
+              <span style={{ color: 'var(--brand-blue)' }}>3</span>
+              <span style={{ color: 'var(--brand-green)' }}>o</span>
+              <span style={{ color: 'var(--brand-primary)' }}>N</span>
+              <span style={{ color: 'var(--brand-pink)' }}>s</span>
+              <span style={{ marginLeft: 4 }}> Rental</span>
+            </h2>
             <span>Project Platform</span>
           </div>
           {isMobile && (

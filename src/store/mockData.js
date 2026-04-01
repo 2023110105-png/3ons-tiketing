@@ -111,7 +111,7 @@ function createEmptyEventState(name = '3oNs Project') {
 }
 
 function createDefaultStore() {
-  const defaultEvent = createEmptyEventState('3oNs Rental Project 2026')
+  const defaultEvent = createEmptyEventState('3oNs Project 2026')
   defaultEvent.id = DEFAULT_EVENT_ID
   defaultEvent.participants = generateMockParticipants()
 
@@ -145,7 +145,7 @@ function normalizeSavedEvent(id, raw) {
 }
 
 function migrateLegacyStore(parsed) {
-  const event = createEmptyEventState('3oNs Rental Project 2026')
+  const event = createEmptyEventState('3oNs Project 2026')
   event.id = DEFAULT_EVENT_ID
   event.currentDay = Number.isInteger(parsed?.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
   event.participants = parsed?.participants || generateMockParticipants()
@@ -334,7 +334,7 @@ export function logAdminAction(action, description, actor = 'system', meta = nul
   return log
 }
 
-export const defaultWaTemplate = `🎫 *3oNs Rental Project - E-Ticket*
+export const defaultWaTemplate = `🎫 *3oNs Project - E-Ticket*
 
 Halo *{{nama}}*,
 Berikut adalah tiket masuk acara Anda untuk *Hari ke-{{hari}}*.

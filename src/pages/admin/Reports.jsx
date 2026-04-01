@@ -73,7 +73,7 @@ export default function Reports() {
       // Header
       doc.setFontSize(20)
       doc.setFont(undefined, 'bold')
-      doc.text('3ONS PROJECT RENTAL', 105, 20, { align: 'center' })
+      doc.text('3ONS PROJECT', 105, 20, { align: 'center' })
       doc.setFontSize(14)
       doc.text(`Laporan Kehadiran - Hari ${dayFilter}`, 105, 30, { align: 'center' })
       doc.setFontSize(10)
@@ -123,7 +123,7 @@ export default function Reports() {
         styles: { fontSize: 8, cellPadding: 3 }
       })
 
-      doc.save(`Laporan_Kehadiran_Hari_${dayFilter}_3ONS_Project_Rental.pdf`)
+      doc.save(`Laporan_Kehadiran_Hari_${dayFilter}_3ONS_Project.pdf`)
       toast.success('PDF Exported', 'Laporan kehadiran berhasil didownload')
     } catch (err) {
       console.error(err)
@@ -166,7 +166,7 @@ export default function Reports() {
         styles: { fontSize: 8, cellPadding: 3 }
       })
 
-      doc.save('Audit_Log_Admin_3ONS_Project_Rental.pdf')
+      doc.save('Audit_Log_Admin_3ONS_Project.pdf')
       toast.success('PDF Exported', 'Audit log admin berhasil didownload')
     } catch (err) {
       console.error(err)
@@ -448,7 +448,7 @@ export default function Reports() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1>Laporan Kehadiran</h1>
-          <p>Analisis data check-in project 3oNs Rental</p>
+          <p>Analisis data check-in project 3oNs</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <select className="form-select" style={{ width: 'auto' }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
