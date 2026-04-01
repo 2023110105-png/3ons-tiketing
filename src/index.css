@@ -1,37 +1,37 @@
 /* ============================================
-   YAMAHA EVENT GATE SCANNER — Design System
-   Premium Dark Theme with Yamaha Branding
-   ============================================ */
+  3oNs PROJECT RENTAL — Design System
+  Playful Light Theme with Product Branding
+  ============================================ */
 
 /* CSS Custom Properties */
 :root {
-  /* Yamaha Brand Colors */
-  --yamaha-red: #E60012;
-  --yamaha-red-dark: #B8000F;
-  --yamaha-red-light: #FF1A2C;
-  --yamaha-red-glow: rgba(230, 0, 18, 0.4);
-  --yamaha-red-subtle: rgba(230, 0, 18, 0.1);
+  /* 3oNs Brand Colors */
+  --yamaha-red: #3c99dc;
+  --yamaha-red-dark: #2f82c2;
+  --yamaha-red-light: #63b5eb;
+  --yamaha-red-glow: rgba(60, 153, 220, 0.35);
+  --yamaha-red-subtle: rgba(60, 153, 220, 0.12);
 
-  /* Dark Theme Palette */
-  --bg-primary: #0A0A0F;
-  --bg-secondary: #12121A;
-  --bg-card: #16161F;
-  --bg-card-hover: #1C1C28;
-  --bg-elevated: #1E1E2A;
-  --bg-input: #1A1A25;
-  --bg-glass: rgba(22, 22, 31, 0.75);
-  --bg-glass-strong: rgba(22, 22, 31, 0.9);
+  /* Light Theme Palette */
+  --bg-primary: #f6f3ec;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f3f8ff;
+  --bg-elevated: #f8fbff;
+  --bg-input: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.84);
+  --bg-glass-strong: rgba(255, 255, 255, 0.95);
 
   /* Borders */
-  --border-color: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.12);
-  --border-active: rgba(230, 0, 18, 0.3);
+  --border-color: rgba(34, 45, 68, 0.12);
+  --border-hover: rgba(34, 45, 68, 0.2);
+  --border-active: rgba(60, 153, 220, 0.35);
 
   /* Text Colors */
-  --text-primary: #F0F0F5;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
-  --text-accent: #E60012;
+  --text-primary: #1f2a3a;
+  --text-secondary: #5f6f86;
+  --text-muted: #7f8ca3;
+  --text-accent: #3c99dc;
 
   /* Semantic Colors */
   --success: #10B981;
@@ -46,12 +46,12 @@
   --info-bg: rgba(59, 130, 246, 0.1);
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
-  --shadow-red: 0 4px 24px rgba(230, 0, 18, 0.3);
-  --shadow-red-lg: 0 8px 32px rgba(230, 0, 18, 0.4);
+  --shadow-sm: 0 2px 6px rgba(31, 42, 58, 0.08);
+  --shadow-md: 0 8px 20px rgba(31, 42, 58, 0.12);
+  --shadow-lg: 0 16px 40px rgba(31, 42, 58, 0.16);
+  --shadow-xl: 0 24px 60px rgba(31, 42, 58, 0.2);
+  --shadow-red: 0 8px 28px rgba(60, 153, 220, 0.22);
+  --shadow-red-lg: 0 12px 36px rgba(60, 153, 220, 0.28);
   --shadow-success: 0 4px 24px rgba(16, 185, 129, 0.3);
 
   /* Spacing */
