@@ -7,6 +7,8 @@ const DEFAULT_MAX_PENDING_ATTEMPTS = 5
 const DEFAULT_EVENT_ID = 'event-1'
 const STORE_KEY = 'ons_event_data'
 const LEGACY_STORE_KEY = 'yamaha_event_data'
+const STORE_BACKUP_PREFIX = 'ons_event_data_backup_'
+const MAX_STORE_BACKUPS = 3
 const WA_TEMPLATE_KEY = 'ons_wa_template'
 const LEGACY_WA_TEMPLATE_KEY = 'yamaha_wa_template'
 const SESSION_KEY = 'ons_session'
@@ -50,6 +52,88 @@ function parseStoredJSON(raw) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
+}
+
+function safeStorageKeys() {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key) keys.push(key)
+    }
+    return keys
+  } catch {
+    return []
+  }
+}
+
+function normalizeParticipantName(value) {
+  return String(value || '').trim()
+}
+
+function normalizeParticipantPhone(value) {
+  return String(value || '').trim()
+}
+
+function normalizeParticipantEmail(value) {
+  const clean = String(value || '').trim().toLowerCase()
+  return clean || null
+}
+
+function normalizeParticipantDay(value, fallback = 1) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function normalizeParticipantCategory(value) {
+  const clean = String(value || '').trim()
+  return categories.find(c => c.toLowerCase() === clean.toLowerCase()) || 'Regular'
+}
+
+function normalizeStoredParticipant(raw, index = 0) {
+  const dayNumber = normalizeParticipantDay(raw?.day_number, 1)
+  const ticketId = String(raw?.ticket_id || '').trim() || `YMH-D${dayNumber}-${String(index + 1).padStart(3, '0')}`
+  const name = normalizeParticipantName(raw?.name) || 'Peserta'
+
+  return {
+    ...raw,
+    id: raw?.id || generateId(),
+    ticket_id: ticketId,
+    name,
+    phone: normalizeParticipantPhone(raw?.phone),
+    email: normalizeParticipantEmail(raw?.email),
+    category: normalizeParticipantCategory(raw?.category),
+    day_number: dayNumber,
+    is_checked_in: !!raw?.is_checked_in,
+    checked_in_at: raw?.checked_in_at || null,
+    checked_in_by: raw?.checked_in_by || null,
+    created_at: raw?.created_at || new Date().toISOString()
+  }
+}
+
+function sanitizeParticipantInput(data, fallbackDay = 1) {
+  return {
+    name: normalizeParticipantName(data?.name),
+    phone: normalizeParticipantPhone(data?.phone),
+    email: normalizeParticipantEmail(data?.email),
+    category: normalizeParticipantCategory(data?.category),
+    day_number: normalizeParticipantDay(data?.day_number, fallbackDay)
+  }
+}
+
+function saveStoreBackupSnapshot(previousRaw) {
+  if (!previousRaw) return
+  const backupKey = `${STORE_BACKUP_PREFIX}${Date.now()}`
+  safeStorageSet(backupKey, previousRaw)
+
+  const backupKeys = safeStorageKeys()
+    .filter(key => key.startsWith(STORE_BACKUP_PREFIX))
+    .sort()
+
+  if (backupKeys.length <= MAX_STORE_BACKUPS) return
+
+  const toDelete = backupKeys.slice(0, backupKeys.length - MAX_STORE_BACKUPS)
+  toDelete.forEach(key => safeStorageRemove(key))
 }
 
 function generateMockParticipants() {
@@ -168,7 +252,7 @@ function normalizeSavedEvent(id, raw) {
     isArchived: !!raw?.isArchived,
     created_at: raw?.created_at || new Date().toISOString(),
     currentDay: Number.isInteger(raw?.currentDay) && raw.currentDay > 0 ? raw.currentDay : 1,
-    participants: asArray(raw?.participants),
+    participants: asArray(raw?.participants).map((p, i) => normalizeStoredParticipant(p, i)),
     checkInLogs: asArray(raw?.checkInLogs),
     adminLogs: asArray(raw?.adminLogs),
     pendingCheckIns: asArray(raw?.pendingCheckIns),
@@ -236,6 +320,8 @@ let store = getStore()
 let realtimeListeners = []
 
 function saveStore() {
+  const previous = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
+  saveStoreBackupSnapshot(previous)
   safeStorageSet(STORE_KEY, JSON.stringify(store))
   safeStorageRemove(LEGACY_STORE_KEY)
 }
@@ -481,17 +567,19 @@ export function getParticipant(id) {
 
 export function addParticipant(data) {
   const ev = getActiveEvent()
-  const dayCount = ev.participants.filter(p => p.day_number === data.day_number).length
-  const ticketId = `YMH-D${data.day_number}-${String(dayCount + 1).padStart(3, '0')}`
+  const clean = sanitizeParticipantInput(data, ev.currentDay || 1)
+  const name = clean.name || 'Peserta'
+  const dayCount = ev.participants.filter(p => p.day_number === clean.day_number).length
+  const ticketId = `YMH-D${clean.day_number}-${String(dayCount + 1).padStart(3, '0')}`
   const participant = {
     id: generateId(),
     ticket_id: ticketId,
-    name: data.name,
-    phone: data.phone || '',
-    email: data.email || null,
-    category: data.category || 'Regular',
-    day_number: data.day_number,
-    qr_data: JSON.stringify({ tid: ticketId, n: data.name, d: data.day_number, h: btoa(ticketId + '-3ons-2026') }),
+    name,
+    phone: clean.phone,
+    email: clean.email,
+    category: clean.category,
+    day_number: clean.day_number,
+    qr_data: JSON.stringify({ tid: ticketId, n: name, d: clean.day_number, h: btoa(ticketId + '-3ons-2026') }),
     is_checked_in: false,
     checked_in_at: null,
     checked_in_by: null,
@@ -613,14 +701,14 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
     const email = String(row.email || row.Email || row.email_address || '').trim()
     const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
     const parsedDay = Number(row.day_number || row.day || row.hari || row.Hari || row.Day || row.Day_Number)
-    const rowDay = Number.isInteger(parsedDay) && parsedDay > 0 ? parsedDay : dayNumber
+    const rowDay = normalizeParticipantDay(parsedDay, normalizeParticipantDay(dayNumber, 1))
 
     if (!name) {
       errors.push({ row: index + 1, error: 'Nama kosong' })
       return
     }
 
-    const matchedCat = categories.find(c => c.toLowerCase() === category.toLowerCase()) || 'Regular'
+    const matchedCat = normalizeParticipantCategory(category)
 
     const participant = addParticipant({
       name,
@@ -642,7 +730,7 @@ export function searchParticipants(query, dayFilter = null) {
   if (!q) return []
   const ev = getActiveEvent()
   const list = dayFilter ? ev.participants.filter(p => p.day_number === dayFilter) : ev.participants
-  return list.filter(p => p.name.toLowerCase().includes(q) || p.ticket_id.toLowerCase().includes(q))
+  return list.filter(p => String(p.name || '').toLowerCase().includes(q) || String(p.ticket_id || '').toLowerCase().includes(q))
 }
 
 export function checkIn(qrData, scannedBy = 'gate_front') {
@@ -929,7 +1017,7 @@ export function getCurrentDay() {
 
 export function getAvailableDays() {
   const ev = getActiveEvent()
-  const uniqueDays = [...new Set(ev.participants.map(p => p.day_number))]
+  const uniqueDays = [...new Set(ev.participants.map(p => Number(p.day_number)).filter(day => Number.isInteger(day) && day > 0))]
   if (!uniqueDays.includes(ev.currentDay)) uniqueDays.push(ev.currentDay)
   return uniqueDays.sort((a, b) => a - b)
 }
