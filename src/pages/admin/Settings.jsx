@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -44,6 +44,46 @@ export default function Settings() {
     setActiveEventId(getCurrentEventId())
     setStoreBackups(getStoreBackups())
   }
+
+  const refreshBackups = () => {
+    setStoreBackups(getStoreBackups())
+  }
+
+  useEffect(() => {
+    let intervalId = null
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshBackups()
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      refreshWhenVisible()
+    }
+
+    const handleFocus = () => {
+      refreshBackups()
+    }
+
+    const handleStorage = () => {
+      refreshBackups()
+    }
+
+    intervalId = window.setInterval(refreshWhenVisible, 8000)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('storage', handleStorage)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (intervalId) {
+        window.clearInterval(intervalId)
+      }
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('storage', handleStorage)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
   const validBackupCount = storeBackups.length - invalidBackupCount
