@@ -111,11 +111,11 @@ export default function Layout({ children }) {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <img src="/yamaha-logo.svg" alt="Yamaha" />
+            <img src="/yamaha-logo.svg" alt="3oNs" />
           </div>
           <div className="sidebar-brand">
-            <h2>Event Gate</h2>
-            <span>Scanner System</span>
+            <h2>3oNs Rental</h2>
+            <span>Project Platform</span>
           </div>
           {isMobile && (
             <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
@@ -197,7 +197,7 @@ export default function Layout({ children }) {
                   value={activeEventId}
                   onChange={(e) => handleEventChange(e.target.value)}
                   style={{ width: isMobile ? 130 : 180, height: 34, fontSize: '0.8rem' }}
-                  title="Pilih event aktif"
+                  title="Pilih project aktif"
                 >
                   {events.map(ev => (
                     <option key={ev.id} value={ev.id}>{ev.name}</option>

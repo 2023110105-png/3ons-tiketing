@@ -41,11 +41,11 @@ export default function Login() {
       {/* Login Card */}
       <div className="login-card">
         <div className="login-logo">
-          <img src="/yamaha-logo.svg" alt="Yamaha" />
+          <img src="/yamaha-logo.svg" alt="3oNs" />
         </div>
         
-        <h1 className="login-title">Event Gate Scanner</h1>
-        <p className="login-subtitle">Masuk ke sistem registrasi peserta</p>
+        <h1 className="login-title">3oNs Project Rental</h1>
+        <p className="login-subtitle">Masuk ke platform sewa project event</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">

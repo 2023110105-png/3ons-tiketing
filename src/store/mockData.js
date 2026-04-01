@@ -87,7 +87,7 @@ function generateMockParticipants() {
   return participants
 }
 
-function createEmptyEventState(name = 'Yamaha Event') {
+function createEmptyEventState(name = '3oNs Project') {
   return {
     id: generateId(),
     name,
@@ -105,7 +105,7 @@ function createEmptyEventState(name = 'Yamaha Event') {
 }
 
 function createDefaultStore() {
-  const defaultEvent = createEmptyEventState('Yamaha Event 2026')
+  const defaultEvent = createEmptyEventState('3oNs Rental Project 2026')
   defaultEvent.id = DEFAULT_EVENT_ID
   defaultEvent.participants = generateMockParticipants()
 
@@ -120,7 +120,7 @@ function createDefaultStore() {
 function normalizeSavedEvent(id, raw) {
   return {
     id,
-    name: raw?.name || 'Yamaha Event',
+    name: raw?.name || '3oNs Project',
     isArchived: !!raw?.isArchived,
     created_at: raw?.created_at || new Date().toISOString(),
     currentDay: Number.isInteger(raw?.currentDay) && raw.currentDay > 0 ? raw.currentDay : 1,
@@ -139,7 +139,7 @@ function normalizeSavedEvent(id, raw) {
 }
 
 function migrateLegacyStore(parsed) {
-  const event = createEmptyEventState('Yamaha Event 2026')
+  const event = createEmptyEventState('3oNs Rental Project 2026')
   event.id = DEFAULT_EVENT_ID
   event.currentDay = Number.isInteger(parsed?.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
   event.participants = parsed?.participants || generateMockParticipants()
@@ -327,7 +327,7 @@ export function logAdminAction(action, description, actor = 'system', meta = nul
   return log
 }
 
-export const defaultWaTemplate = `🎫 *Yamaha Event - E-Ticket*
+export const defaultWaTemplate = `🎫 *3oNs Rental Project - E-Ticket*
 
 Halo *{{nama}}*,
 Berikut adalah tiket masuk acara Anda untuk *Hari ke-{{hari}}*.
