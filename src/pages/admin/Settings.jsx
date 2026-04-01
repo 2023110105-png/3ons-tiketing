@@ -1,19 +1,25 @@
 import { useState } from 'react'
 import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert } from 'lucide-react'
 
 export default function Settings() {
   const currentDay = getCurrentDay()
   const toast = useToast()
+  const { user } = useAuth()
   
   // State for Reset Check-in modal
   const [showResetModal, setShowResetModal] = useState(false)
   const [resetInput, setResetInput] = useState('')
+  const [resetApprovalInput, setResetApprovalInput] = useState('')
+  const [resetReason, setResetReason] = useState('')
   
   // State for Delete All modal
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
+  const [deleteApprovalInput, setDeleteApprovalInput] = useState('')
+  const [deleteReason, setDeleteReason] = useState('')
 
   // State for WA Template
   const [waTemplate, setWaTemplateState] = useState(getWaTemplate())
@@ -25,11 +31,29 @@ export default function Settings() {
       toast.error('Gagal', 'Kata konfirmasi salah')
       return
     }
+    if (resetApprovalInput !== 'SETUJU') {
+      toast.error('Gagal', 'Konfirmasi kedua harus SETUJU')
+      return
+    }
+    if (!resetReason.trim()) {
+      toast.error('Gagal', 'Alasan wajib diisi')
+      return
+    }
+    if (resetReason.trim().length < 15) {
+      toast.error('Gagal', 'Alasan minimal 15 karakter')
+      return
+    }
     
-    resetCheckIns()
+    const result = resetCheckIns(user, resetReason)
+    if (!result?.success) {
+      toast.error('Gagal', result?.error || 'Validasi alasan gagal')
+      return
+    }
     toast.success('Sukses', 'Semua riwayat check-in telah dibersihkan.')
     setShowResetModal(false)
     setResetInput('')
+    setResetApprovalInput('')
+    setResetReason('')
   }
 
   const handleDeleteAll = (e) => {
@@ -38,16 +62,34 @@ export default function Settings() {
       toast.error('Gagal', 'Kata konfirmasi salah')
       return
     }
+    if (deleteApprovalInput !== 'SETUJU') {
+      toast.error('Gagal', 'Konfirmasi kedua harus SETUJU')
+      return
+    }
+    if (!deleteReason.trim()) {
+      toast.error('Gagal', 'Alasan wajib diisi')
+      return
+    }
+    if (deleteReason.trim().length < 15) {
+      toast.error('Gagal', 'Alasan minimal 15 karakter')
+      return
+    }
     
-    deleteAllParticipants()
+    const result = deleteAllParticipants(user, deleteReason)
+    if (!result?.success) {
+      toast.error('Gagal', result?.error || 'Validasi alasan gagal')
+      return
+    }
     toast.success('Sukses', 'Semua data peserta telah dihapus dari sistem.')
     setShowDeleteModal(false)
     setDeleteInput('')
+    setDeleteApprovalInput('')
+    setDeleteReason('')
   }
 
   const handleSaveTemplate = (e) => {
     e.preventDefault()
-    setWaTemplate(waTemplate)
+    setWaTemplate(waTemplate, user)
     toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
   }
 
@@ -127,13 +169,13 @@ export default function Settings() {
 
       {/* Reset Check-in Modal */}
       {showResetModal && (
-        <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowResetModal(false); setResetInput(''); setResetApprovalInput(''); setResetReason('') }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AlertCircle size={18} /> Konfirmasi Reset Status
               </h3>
-              <button className="modal-close" onClick={() => setShowResetModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => { setShowResetModal(false); setResetInput(''); setResetApprovalInput(''); setResetReason('') }}>✕</button>
             </div>
             <form onSubmit={handleResetCheckIn}>
               <div className="modal-body">
@@ -152,6 +194,27 @@ export default function Settings() {
                     required
                   />
                 </div>
+                <div className="form-group">
+                  <label className="form-label">Konfirmasi kedua: ketik <strong>SETUJU</strong></label>
+                  <input
+                    className="form-input"
+                    placeholder="SETUJU"
+                    value={resetApprovalInput}
+                    onChange={(e) => setResetApprovalInput(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Alasan tindakan (wajib)</label>
+                  <textarea
+                    className="form-input"
+                    rows="3"
+                    placeholder="Contoh: Persiapan simulasi ulang gate sebelum event dimulai"
+                    value={resetReason}
+                    onChange={(e) => setResetReason(e.target.value)}
+                    required
+                  ></textarea>
+                </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowResetModal(false)}>Batal</button>
@@ -164,13 +227,13 @@ export default function Settings() {
 
       {/* Delete All Modal */}
       {showDeleteModal && (
-        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowDeleteModal(false); setDeleteInput(''); setDeleteApprovalInput(''); setDeleteReason('') }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AlertCircle size={18} /> Konfirmasi Hapus Database
               </h3>
-              <button className="modal-close" onClick={() => setShowDeleteModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => { setShowDeleteModal(false); setDeleteInput(''); setDeleteApprovalInput(''); setDeleteReason('') }}>✕</button>
             </div>
             <form onSubmit={handleDeleteAll}>
               <div className="modal-body">
@@ -187,6 +250,27 @@ export default function Settings() {
                     autoFocus
                     required
                   />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Konfirmasi kedua: ketik <strong>SETUJU</strong></label>
+                  <input
+                    className="form-input"
+                    placeholder="SETUJU"
+                    value={deleteApprovalInput}
+                    onChange={(e) => setDeleteApprovalInput(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Alasan tindakan (wajib)</label>
+                  <textarea
+                    className="form-input"
+                    rows="3"
+                    placeholder="Contoh: Event selesai, data dibersihkan sesuai SOP"
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    required
+                  ></textarea>
                 </div>
               </div>
               <div className="modal-footer">

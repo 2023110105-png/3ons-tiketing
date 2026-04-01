@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getAvailableDays } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 
@@ -23,6 +24,7 @@ export default function Participants() {
   const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
   
   const toast = useToast()
+  const { user } = useAuth()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const fileInputRef = useRef(null)
 
@@ -60,7 +62,7 @@ export default function Participants() {
       return
     }
 
-    const p = addParticipant({ ...newParticipant, day_number: safeDay })
+    const p = addParticipant({ ...newParticipant, day_number: safeDay, actor: user })
     if (newParticipant.auto_send) {
       toast.success('Peserta ditambahkan', `${p.name} - Sedang dikirim via Bot...`)
     } else {
@@ -138,7 +140,29 @@ export default function Participants() {
 
   const handleDelete = (p) => {
     if (confirm(`Hapus peserta ${p.name}?`)) {
-      deleteParticipant(p.id)
+      const reason = window.prompt('Masukkan alasan penghapusan peserta (wajib):', '')
+      if (reason === null) return
+      if (!String(reason).trim()) {
+        toast.error('Alasan wajib', 'Isi alasan penghapusan terlebih dahulu')
+        return
+      }
+      if (String(reason).trim().length < 15) {
+        toast.error('Alasan terlalu pendek', 'Alasan minimal 15 karakter')
+        return
+      }
+
+      const approval = window.prompt('Konfirmasi kedua: ketik SETUJU untuk melanjutkan', '')
+      if (approval === null) return
+      if (approval !== 'SETUJU') {
+        toast.error('Dibatalkan', 'Konfirmasi kedua harus SETUJU')
+        return
+      }
+
+      const result = deleteParticipant(p.id, user, reason)
+      if (!result?.success) {
+        toast.error('Gagal menghapus', result?.error || 'Validasi alasan gagal')
+        return
+      }
       toast.error('Peserta dihapus', p.name)
       refreshData()
     }
@@ -207,7 +231,7 @@ export default function Participants() {
       toast.error('Import diblokir', 'Perbaiki nilai hari yang tidak valid terlebih dahulu')
       return
     }
-    const result = bulkAddParticipants(importPreview.rows, dayFilter)
+    const result = bulkAddParticipants(importPreview.rows, dayFilter, user)
     setImportResult(result)
     toast.success('Import berhasil', `${result.added.length} peserta ditambahkan`)
     if (importPreview.invalidDayRows?.length > 0) {

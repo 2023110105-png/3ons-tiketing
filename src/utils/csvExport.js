@@ -83,3 +83,42 @@ export async function exportLogsToCSV(logs, dayNumber) {
     return false
   }
 }
+
+/**
+ * Export admin audit logs to Excel (.xlsx) file
+ */
+export async function exportAdminLogsToCSV(logs) {
+  try {
+    const XLSX = await import('xlsx')
+    const headers = ['No', 'Waktu', 'Actor', 'Severity', 'Aksi', 'Deskripsi']
+
+    const templateData = logs.map((log, i) => ({
+      No: i + 1,
+      Waktu: new Date(log.timestamp).toLocaleString('id-ID'),
+      Actor: log.actor || '-',
+      Severity: (log.severity || '-').toUpperCase(),
+      Aksi: log.action,
+      Deskripsi: log.description
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(templateData, { header: headers })
+
+    ws['!cols'] = [
+      { wch: 5 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 24 },
+      { wch: 60 }
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Audit Log Admin')
+
+    XLSX.writeFile(wb, 'Audit_Log_Admin_Yamaha_Event.xlsx')
+    return true
+  } catch (error) {
+    console.error('Error exporting admin logs to Excel', error)
+    return false
+  }
+}

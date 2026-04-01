@@ -23,7 +23,7 @@ export default function Layout({ children }) {
   }, [])
 
   const handleDayChange = (day) => {
-    setCurrentDay(day)
+    setCurrentDay(day, user)
     setDay(day)
     setDayInput(String(day))
   }

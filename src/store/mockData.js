@@ -2,6 +2,7 @@
 // Replace with real Supabase client when ready
 
 const generateId = () => crypto.randomUUID()
+const MIN_HIGH_IMPACT_REASON_LENGTH = 15
 
 // Generate mock participants
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
@@ -94,7 +95,13 @@ function getStore() {
   try {
     const saved = localStorage.getItem('yamaha_event_data')
     if (saved) {
-      return JSON.parse(saved)
+      const parsed = JSON.parse(saved)
+      return {
+        participants: parsed.participants || [],
+        checkInLogs: parsed.checkInLogs || [],
+        adminLogs: parsed.adminLogs || [],
+        currentDay: Number.isInteger(parsed.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
+      }
     }
   } catch (e) {
     // ignore
@@ -102,6 +109,7 @@ function getStore() {
   const data = {
     participants: generateMockParticipants(),
     checkInLogs: [],
+    adminLogs: [],
     currentDay: 1
   }
   localStorage.setItem('yamaha_event_data', JSON.stringify(data))
@@ -113,6 +121,34 @@ let realtimeListeners = []
 
 function saveStore() {
   localStorage.setItem('yamaha_event_data', JSON.stringify(store))
+}
+
+function normalizeActor(actor) {
+  if (!actor) return 'system'
+  if (typeof actor === 'string') return actor
+  return actor.username || actor.name || actor.role || 'system'
+}
+
+function normalizeReason(reason) {
+  return String(reason || '').trim()
+}
+
+function isStrongReason(reason) {
+  return normalizeReason(reason).length >= MIN_HIGH_IMPACT_REASON_LENGTH
+}
+
+export function logAdminAction(action, description, actor = 'system', meta = null) {
+  const log = {
+    id: generateId(),
+    action,
+    description,
+    actor: normalizeActor(actor),
+    meta,
+    timestamp: new Date().toISOString()
+  }
+  store.adminLogs.push(log)
+  saveStore()
+  return log
 }
 
 export const defaultWaTemplate = `🎫 *Yamaha Event - E-Ticket*
@@ -129,8 +165,9 @@ export function getWaTemplate() {
   return localStorage.getItem('yamaha_wa_template') || defaultWaTemplate;
 }
 
-export function setWaTemplate(template) {
+export function setWaTemplate(template, actor = 'system') {
   localStorage.setItem('yamaha_wa_template', template);
+  logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
 }
 
 // Subscribe to realtime updates
@@ -202,6 +239,11 @@ export function addParticipant(data) {
   }
   store.participants.push(participant)
   saveStore()
+  logAdminAction('participant_add', `Tambah peserta ${participant.name} (${participant.ticket_id})`, data.actor, {
+    participant_id: participant.id,
+    day_number: participant.day_number,
+    category: participant.category
+  })
 
   // Auto-send via Local Bot Server if requested
   if (data.auto_send && (participant.phone || participant.email)) {
@@ -227,9 +269,31 @@ export function addParticipant(data) {
   return participant
 }
 
-export function deleteParticipant(id) {
+export function deleteParticipant(id, actor = 'system', reason = '') {
+  if (!isStrongReason(reason)) {
+    return {
+      success: false,
+      error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter`
+    }
+  }
+
+  const participant = store.participants.find(p => p.id === id)
   store.participants = store.participants.filter(p => p.id !== id)
   saveStore()
+  if (participant) {
+    const cleanReason = normalizeReason(reason)
+    const description = cleanReason
+      ? `Hapus peserta ${participant.name} (${participant.ticket_id}) | Alasan: ${cleanReason}`
+      : `Hapus peserta ${participant.name} (${participant.ticket_id})`
+
+    logAdminAction('participant_delete', description, actor, {
+      participant_id: participant.id,
+      day_number: participant.day_number,
+      reason: cleanReason || null
+    })
+  }
+
+  return { success: true }
 }
 
 // Manual check-in by participant ID (without QR)
@@ -286,7 +350,7 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
 }
 
 // Bulk add participants from CSV/Excel
-export function bulkAddParticipants(rows, dayNumber) {
+export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
   const added = []
   const errors = []
 
@@ -313,6 +377,7 @@ export function bulkAddParticipants(rows, dayNumber) {
       email,
       category: matchedCat,
       day_number: rowDay,
+      actor,
       auto_send: false // Prevent bulk spam intentionally via bot for now
     })
     added.push(participant)
@@ -423,6 +488,11 @@ export function getCheckInLogs(day = null) {
   return [...store.checkInLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 }
 
+export function getAdminLogs(limit = 200) {
+  const sorted = [...store.adminLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  return sorted.slice(0, limit)
+}
+
 // Current day
 export function getCurrentDay() {
   return store.currentDay
@@ -436,14 +506,29 @@ export function getAvailableDays() {
   return uniqueDays.sort((a, b) => a - b)
 }
 
-export function setCurrentDay(day) {
+export function setCurrentDay(day, actor = 'system') {
+  const previousDay = store.currentDay
   const safeDay = Number(day)
   store.currentDay = Number.isInteger(safeDay) && safeDay > 0 ? safeDay : 1
   saveStore()
+  if (previousDay !== store.currentDay) {
+    logAdminAction('current_day_update', `Ubah hari aktif dari ${previousDay} ke ${store.currentDay}`, actor, {
+      from: previousDay,
+      to: store.currentDay
+    })
+  }
 }
 
 // Reset all check-ins (for testing)
-export function resetCheckIns() {
+export function resetCheckIns(actor = 'system', reason = '') {
+  if (!isStrongReason(reason)) {
+    return {
+      success: false,
+      error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter`
+    }
+  }
+
+  const totalBeforeReset = store.participants.filter(p => p.is_checked_in).length
   store.participants.forEach(p => {
     p.is_checked_in = false
     p.checked_in_at = null
@@ -451,13 +536,35 @@ export function resetCheckIns() {
   })
   store.checkInLogs = []
   saveStore()
+  const cleanReason = normalizeReason(reason)
+  const description = cleanReason
+    ? `Reset status check-in (${totalBeforeReset} peserta) | Alasan: ${cleanReason}`
+    : `Reset status check-in (${totalBeforeReset} peserta)`
+  logAdminAction('checkin_reset', description, actor, { totalBeforeReset, reason: cleanReason || null })
+
+  return { success: true }
 }
 
 // Delete all participants
-export function deleteAllParticipants() {
+export function deleteAllParticipants(actor = 'system', reason = '') {
+  if (!isStrongReason(reason)) {
+    return {
+      success: false,
+      error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter`
+    }
+  }
+
+  const totalParticipants = store.participants.length
   store.participants = []
   store.checkInLogs = []
   saveStore()
+  const cleanReason = normalizeReason(reason)
+  const description = cleanReason
+    ? `Hapus semua peserta (${totalParticipants} data) | Alasan: ${cleanReason}`
+    : `Hapus semua peserta (${totalParticipants} data)`
+  logAdminAction('participants_delete_all', description, actor, { totalParticipants, reason: cleanReason || null })
+
+  return { success: true }
 }
 
 // Get check-in peak hours stats for charts
