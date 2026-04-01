@@ -15,6 +15,7 @@ const loadFrontGate = () => import('./pages/gate/FrontGate')
 const loadBackGate = () => import('./pages/gate/BackGate')
 const loadSettings = () => import('./pages/admin/Settings')
 const loadConnectDevice = () => import('./pages/admin/ConnectDevice')
+const loadOwnerPanel = () => import('./pages/owner/OwnerPanel')
 
 const Login = lazy(loadLogin)
 const Dashboard = lazy(loadDashboard)
@@ -25,6 +26,7 @@ const FrontGate = lazy(loadFrontGate)
 const BackGate = lazy(loadBackGate)
 const Settings = lazy(loadSettings)
 const ConnectDevice = lazy(loadConnectDevice)
+const OwnerPanel = lazy(loadOwnerPanel)
 
 function RouteFallback() {
   return (
@@ -48,6 +50,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   if (!user) return <Navigate to="/login" replace />
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect based on role
+    if (user.role === 'owner') return <Navigate to="/owner" replace />
     if (user.role === 'gate_front') return <Navigate to="/gate/scan" replace />
     if (user.role === 'gate_back') return <Navigate to="/gate/monitor" replace />
     return <Navigate to="/admin" replace />
@@ -84,6 +87,11 @@ function AppRoutes() {
       if (user.role === 'gate_back') {
         loadBackGate()
         loadFrontGate()
+        return
+      }
+
+      if (user.role === 'owner') {
+        loadOwnerPanel()
       }
     }
 
@@ -109,10 +117,18 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={
+        user.role === 'owner' ? '/owner' :
         user.role === 'super_admin' ? '/admin' :
         user.role === 'gate_front' ? '/gate/scan' :
         '/gate/monitor'
       } replace /> : <Login />} />
+
+      {/* Owner Route */}
+      <Route path="/owner" element={
+        <ProtectedRoute allowedRoles={['owner']}>
+          <OwnerPanel />
+        </ProtectedRoute>
+      } />
       
       {/* Admin Routes */}
       <Route path="/admin" element={

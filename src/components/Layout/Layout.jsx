@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding } from '../../store/mockData'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
-  BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus
+  BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck
 } from 'lucide-react'
 
 export default function Layout({ children }) {
@@ -87,6 +87,9 @@ export default function Layout({ children }) {
         { path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan' }
       ]
     }
+    if (user?.role === 'owner') {
+      return [{ path: '/owner', icon: <ShieldCheck size={18} />, label: 'Owner' }]
+    }
     if (user?.role === 'gate_front') {
       return [{ path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan QR' }]
     }
@@ -108,6 +111,10 @@ export default function Layout({ children }) {
   const gateNav = [
     { path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan QR' },
     { path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Monitor' },
+  ]
+
+  const ownerNav = [
+    { path: '/owner', icon: <ShieldCheck size={18} />, label: 'Owner Panel' }
   ]
 
   const mobileNavItems = getNavItems()
@@ -178,6 +185,18 @@ export default function Layout({ children }) {
               </Link>
             </div>
           )}
+
+          {user?.role === 'owner' && (
+            <div className="nav-section">
+              <div className="nav-section-title">Owner Console</div>
+              {ownerNav.map(item => (
+                <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
+                  <span className="nav-icon">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -219,26 +238,28 @@ export default function Layout({ children }) {
                 </button>
               </>
             )}
-            <form onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
-              <input
-                type="number"
-                min="1"
-                value={dayInput}
-                onChange={(e) => setDayInput(e.target.value)}
-                onBlur={handleDaySubmit}
-                className="form-input"
-                style={{ width: isMobile ? 64 : 78, height: 34, padding: '6px 10px', fontWeight: 700 }}
-                title="Isi hari aktif event (custom)"
-              />
-            </form>
+            {user?.role !== 'owner' && (
+              <form onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={dayInput}
+                  onChange={(e) => setDayInput(e.target.value)}
+                  onBlur={handleDaySubmit}
+                  className="form-input"
+                  style={{ width: isMobile ? 64 : 78, height: 34, padding: '6px 10px', fontWeight: 700 }}
+                  title="Isi hari aktif event (custom)"
+                />
+              </form>
+            )}
             <button className="header-btn danger" onClick={handleLogout} title="Logout">
               <LogOut size={16} />
             </button>
           </div>
         </header>
 
-        <div className="page-wrapper" key={activeEventId}>
+        <div className="page-wrapper" key={`${tenantBranding.tenantId}-${activeEventId}`}>
           {children}
         </div>
       </main>

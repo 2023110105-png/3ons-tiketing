@@ -23,7 +23,8 @@ export default function Login() {
       const result = login(username, password, tenantToken)
       if (result.success) {
         const role = result.user.role
-        if (role === 'super_admin') navigate('/admin')
+        if (role === 'owner') navigate('/owner')
+        else if (role === 'super_admin') navigate('/admin')
         else if (role === 'gate_front') navigate('/gate/scan')
         else if (role === 'gate_back') navigate('/gate/monitor')
       } else {
@@ -117,6 +118,7 @@ export default function Login() {
             <ShieldCheck size={14} className="login-demo-title-icon" /> Demo Credentials
           </div>
           <div className="login-demo-grid">
+            <div><strong className="login-demo-admin">Owner:</strong> owner / owner123</div>
             <div><strong className="login-demo-admin">Admin:</strong> admin / admin123</div>
             <div><strong className="login-demo-front">Gate Depan:</strong> gate1 / gate123</div>
             <div><strong className="login-demo-back">Gate Belakang:</strong> gate2 / gate123</div>

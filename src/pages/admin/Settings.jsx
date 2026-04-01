@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups, getTenants, getActiveTenant, createTenant, setTenantStatus, switchActiveTenant, deleteTenant } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
@@ -49,14 +49,6 @@ export default function Settings() {
   const [maxRetryAttempts, setMaxRetryAttemptsState] = useState(getMaxPendingAttempts())
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
-  const [tenants, setTenants] = useState(getTenants())
-  const [activeTenantId, setActiveTenantId] = useState(getActiveTenant().id)
-  const [tenantBrandName, setTenantBrandName] = useState('')
-  const [tenantEventName, setTenantEventName] = useState('')
-  const [tenantToken, setTenantToken] = useState('')
-  const [tenantExpiresAt, setTenantExpiresAt] = useState('')
-  const [tenantSearch, setTenantSearch] = useState('')
-  const [tenantFilter, setTenantFilter] = useState('all')
   const [storeBackups, setStoreBackups] = useState(getStoreBackups())
   const [backupBaselineCount] = useState(() => getStoreBackups().length)
   const [backupSearch, setBackupSearch] = useState('')
@@ -79,11 +71,6 @@ export default function Settings() {
     setEvents(getEventsWithOptions({ includeArchived: true }))
     setActiveEventId(getCurrentEventId())
     refreshBackups()
-  }
-
-  const refreshTenants = () => {
-    setTenants(getTenants())
-    setActiveTenantId(getActiveTenant().id)
   }
 
   const refreshBackups = () => {
@@ -181,21 +168,6 @@ export default function Settings() {
       ? `${backupRefreshCountdown}s`
       : 'paused'
   const normalizedBackupSearch = backupSearch.toLowerCase().trim()
-  const normalizedTenantSearch = tenantSearch.toLowerCase().trim()
-
-  const visibleTenants = tenants
-    .filter(tenant => {
-      if (tenantFilter === 'active') return tenant.status === 'active' && !tenant.isExpired
-      if (tenantFilter === 'inactive') return tenant.status !== 'active'
-      if (tenantFilter === 'expired') return tenant.isExpired
-      return true
-    })
-    .filter(tenant => {
-      if (!normalizedTenantSearch) return true
-      const haystack = `${tenant.brandName} ${tenant.eventName} ${tenant.token}`.toLowerCase()
-      return haystack.includes(normalizedTenantSearch)
-    })
-
   const visibleBackups = [...storeBackups]
     .filter(item => {
       if (backupFilter === 'valid') return item.isValid
@@ -250,79 +222,6 @@ export default function Settings() {
       setBackupRefreshCountdown(Math.ceil(next / 1000))
     }
   }
-
-  const handleCreateTenant = (e) => {
-    e.preventDefault()
-
-    if (!tenantBrandName.trim()) {
-      toast.error('Gagal', 'Nama brand tenant wajib diisi')
-      return
-    }
-
-    if (!tenantToken.trim()) {
-      toast.error('Gagal', 'Token tenant wajib diisi')
-      return
-    }
-
-    const result = createTenant({
-      brandName: tenantBrandName,
-      eventName: tenantEventName,
-      token: tenantToken,
-      expiresAt: tenantExpiresAt || null
-    }, user)
-
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal membuat tenant')
-      return
-    }
-
-    setTenantBrandName('')
-    setTenantEventName('')
-    setTenantToken('')
-    setTenantExpiresAt('')
-    refreshTenants()
-    toast.success('Sukses', 'Tenant baru berhasil dibuat')
-  }
-
-  const handleActivateTenant = (tenant) => {
-    const result = switchActiveTenant(tenant.id, user)
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal mengaktifkan tenant')
-      return
-    }
-    refreshTenants()
-    toast.success('Sukses', `Tenant aktif: ${tenant.brandName}`)
-  }
-
-  const handleToggleTenantStatus = (tenant) => {
-    const nextStatus = tenant.status === 'active' ? 'inactive' : 'active'
-    const result = setTenantStatus(tenant.id, nextStatus, user)
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal update status tenant')
-      return
-    }
-    refreshTenants()
-    toast.success('Sukses', `Status tenant ${tenant.brandName} menjadi ${nextStatus}`)
-  }
-
-  const handleDeleteTenant = (tenant) => {
-    const confirmation = window.prompt(`Hapus tenant ${tenant.brandName}? Ketik HAPUS untuk lanjut:`, '')
-    if (confirmation === null) return
-    if (confirmation !== 'HAPUS') {
-      toast.error('Gagal', 'Konfirmasi harus HAPUS')
-      return
-    }
-
-    const result = deleteTenant(tenant.id, user)
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal hapus tenant')
-      return
-    }
-
-    refreshTenants()
-    toast.success('Sukses', `Tenant ${tenant.brandName} berhasil dihapus`)
-  }
-
 
   const handleResetCheckIn = (e) => {
     e.preventDefault()
@@ -568,121 +467,6 @@ export default function Settings() {
               <button type="submit" className="btn btn-primary">Simpan Pengaturan Offline</button>
             </div>
           </form>
-        </div>
-
-        <div className="card card-pad">
-          <h3 className="card-title mb-16">Panel Owner Tenant</h3>
-          <p className="text-note">
-            Buat token sewa per brand/event, aktifkan tenant yang dipakai saat ini, dan kontrol status tenant.
-          </p>
-
-          <form onSubmit={handleCreateTenant}>
-            <div className="form-group">
-              <label className="form-label">Nama Brand</label>
-              <input
-                className="form-input"
-                value={tenantBrandName}
-                onChange={e => setTenantBrandName(e.target.value)}
-                placeholder="Contoh: Yamaha Indonesia"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Nama Event</label>
-              <input
-                className="form-input"
-                value={tenantEventName}
-                onChange={e => setTenantEventName(e.target.value)}
-                placeholder="Contoh: Yamaha Roadshow 2026"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Token Tenant</label>
-              <input
-                className="form-input"
-                value={tenantToken}
-                onChange={e => setTenantToken(e.target.value.toUpperCase())}
-                placeholder="Contoh: YAMAHA-ROADSHOW-2026"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tanggal Expired (opsional)</label>
-              <input
-                className="form-input"
-                type="date"
-                value={tenantExpiresAt}
-                onChange={e => setTenantExpiresAt(e.target.value)}
-              />
-            </div>
-            <div className="actions-right">
-              <button type="submit" className="btn btn-primary">Tambah Tenant</button>
-            </div>
-          </form>
-
-          <div className="tenant-toolbar mt-16">
-            <div className="admin-search-wrap backup-search-wrap">
-              <Search size={14} className="admin-search-icon" />
-              <input
-                className="form-input"
-                type="text"
-                placeholder="Cari brand, event, atau token tenant..."
-                value={tenantSearch}
-                onChange={e => setTenantSearch(e.target.value)}
-              />
-            </div>
-            <select className="form-select backup-select" value={tenantFilter} onChange={e => setTenantFilter(e.target.value)}>
-              <option value="all">Semua Tenant</option>
-              <option value="active">Aktif</option>
-              <option value="inactive">Nonaktif</option>
-              <option value="expired">Expired</option>
-            </select>
-          </div>
-
-          <div className="tenant-stats-row">
-            <span className="badge badge-gray">Total: {tenants.length}</span>
-            <span className="badge badge-green">Aktif: {tenants.filter(t => t.status === 'active' && !t.isExpired).length}</span>
-            <span className="badge badge-yellow">Nonaktif: {tenants.filter(t => t.status !== 'active').length}</span>
-            <span className="badge badge-red">Expired: {tenants.filter(t => t.isExpired).length}</span>
-          </div>
-
-          <div className="event-list mt-16">
-            {visibleTenants.length === 0 && (
-              <div className="event-meta">Tidak ada tenant sesuai filter/pencarian.</div>
-            )}
-            {visibleTenants.map(tenant => (
-              <div key={tenant.id} className="event-item">
-                <div className="event-row">
-                  <div>
-                    <div className="event-name">{tenant.brandName}</div>
-                    <div className="event-meta">
-                      {tenant.eventName} • Token: {tenant.token}
-                    </div>
-                    <div className="tenant-meta-badges">
-                      <span className={`badge ${tenant.status === 'active' ? 'badge-green' : 'badge-yellow'}`}>
-                        {tenant.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                      </span>
-                      {tenant.isExpired && <span className="badge badge-red">Expired</span>}
-                      {tenant.id === activeTenantId && <span className="badge badge-blue">Sedang Dipakai</span>}
-                    </div>
-                  </div>
-                  <div className="event-actions">
-                    {tenant.id !== activeTenantId && tenant.status === 'active' && !tenant.isExpired && (
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleActivateTenant(tenant)}>Pakai</button>
-                    )}
-                    {tenant.id !== 'tenant-default' && (
-                      <button className="btn btn-ghost btn-warning btn-sm" onClick={() => handleToggleTenantStatus(tenant)}>
-                        {tenant.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                      </button>
-                    )}
-                    {tenant.id !== 'tenant-default' && tenant.id !== activeTenantId && (
-                      <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteTenant(tenant)}>Delete</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="card card-pad">

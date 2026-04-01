@@ -1007,6 +1007,7 @@ function notifyListeners(event) {
 }
 
 const USERS = {
+  owner: { username: 'owner', password: 'owner123', role: 'owner', name: 'Owner Platform' },
   admin: { username: 'admin', password: 'admin123', role: 'super_admin', name: 'Super Admin' },
   gate1: { username: 'gate1', password: 'gate123', role: 'gate_front', name: 'Panitia Depan' },
   gate2: { username: 'gate2', password: 'gate123', role: 'gate_back', name: 'Panitia Belakang' }
