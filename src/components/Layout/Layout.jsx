@@ -139,13 +139,6 @@ export default function Layout({ children }) {
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <img src="/brand-logo.svg" alt="3oNs" />
-          </div>
-          <div className="sidebar-brand">
-            <h2>{tenantBranding.brandName}</h2>
-            <span>{tenantBranding.eventName}</span>
-          </div>
           {isMobile && (
             <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
               <X size={16} />

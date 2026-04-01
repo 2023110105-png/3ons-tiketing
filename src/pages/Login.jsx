@@ -43,12 +43,8 @@ export default function Login() {
 
       {/* Login Card */}
       <div className="login-card">
-        <div className="login-logo">
-          <img src="/brand-logo.svg" alt="3oNs" />
-        </div>
-        
-        <h1 className="login-title">{branding.brandName}</h1>
-        <p className="login-subtitle">Masuk ke {branding.eventName}</p>
+        <h1 className="login-title">Masuk Aplikasi</h1>
+        <p className="login-subtitle">Silakan masukkan kredensial Anda</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
