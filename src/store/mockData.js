@@ -4,8 +4,8 @@
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
 const DEFAULT_MAX_PENDING_ATTEMPTS = 5
+const DEFAULT_EVENT_ID = 'event-1'
 
-// Generate mock participants
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
 function generateMockParticipants() {
@@ -48,12 +48,10 @@ function generateMockParticipants() {
 
   const participants = []
 
-  // Day 1 - 60 peserta
   namesDay1.forEach((name, i) => {
     const ticketId = `YMH-D1-${String(i + 1).padStart(3, '0')}`
-    const id = generateId()
     participants.push({
-      id,
+      id: generateId(),
       ticket_id: ticketId,
       name,
       phone: `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
@@ -68,12 +66,10 @@ function generateMockParticipants() {
     })
   })
 
-  // Day 2 - 100 peserta
   namesDay2.forEach((name, i) => {
     const ticketId = `YMH-D2-${String(i + 1).padStart(3, '0')}`
-    const id = generateId()
     participants.push({
-      id,
+      id: generateId(),
       ticket_id: ticketId,
       name,
       phone: `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
@@ -91,42 +87,103 @@ function generateMockParticipants() {
   return participants
 }
 
-// Initialize store from localStorage or generate fresh
+function createEmptyEventState(name = 'Yamaha Event') {
+  return {
+    id: generateId(),
+    name,
+    isArchived: false,
+    created_at: new Date().toISOString(),
+    currentDay: 1,
+    participants: [],
+    checkInLogs: [],
+    adminLogs: [],
+    pendingCheckIns: [],
+    offlineQueueHistory: [],
+    offlineConfig: { maxPendingAttempts: DEFAULT_MAX_PENDING_ATTEMPTS },
+    waTemplate: null
+  }
+}
+
+function createDefaultStore() {
+  const defaultEvent = createEmptyEventState('Yamaha Event 2026')
+  defaultEvent.id = DEFAULT_EVENT_ID
+  defaultEvent.participants = generateMockParticipants()
+
+  return {
+    activeEventId: defaultEvent.id,
+    events: {
+      [defaultEvent.id]: defaultEvent
+    }
+  }
+}
+
+function normalizeSavedEvent(id, raw) {
+  return {
+    id,
+    name: raw?.name || 'Yamaha Event',
+    isArchived: !!raw?.isArchived,
+    created_at: raw?.created_at || new Date().toISOString(),
+    currentDay: Number.isInteger(raw?.currentDay) && raw.currentDay > 0 ? raw.currentDay : 1,
+    participants: raw?.participants || [],
+    checkInLogs: raw?.checkInLogs || [],
+    adminLogs: raw?.adminLogs || [],
+    pendingCheckIns: raw?.pendingCheckIns || [],
+    offlineQueueHistory: raw?.offlineQueueHistory || [],
+    offlineConfig: {
+      maxPendingAttempts: Number.isInteger(raw?.offlineConfig?.maxPendingAttempts) && raw.offlineConfig.maxPendingAttempts >= 1
+        ? raw.offlineConfig.maxPendingAttempts
+        : DEFAULT_MAX_PENDING_ATTEMPTS
+    },
+    waTemplate: raw?.waTemplate || null
+  }
+}
+
+function migrateLegacyStore(parsed) {
+  const event = createEmptyEventState('Yamaha Event 2026')
+  event.id = DEFAULT_EVENT_ID
+  event.currentDay = Number.isInteger(parsed?.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
+  event.participants = parsed?.participants || generateMockParticipants()
+  event.checkInLogs = parsed?.checkInLogs || []
+  event.adminLogs = parsed?.adminLogs || []
+  event.pendingCheckIns = parsed?.pendingCheckIns || []
+  event.offlineQueueHistory = parsed?.offlineQueueHistory || []
+  event.offlineConfig = {
+    maxPendingAttempts: Number.isInteger(parsed?.offlineConfig?.maxPendingAttempts) && parsed.offlineConfig.maxPendingAttempts >= 1
+      ? parsed.offlineConfig.maxPendingAttempts
+      : DEFAULT_MAX_PENDING_ATTEMPTS
+  }
+  event.waTemplate = localStorage.getItem('yamaha_wa_template') || null
+
+  return {
+    activeEventId: event.id,
+    events: {
+      [event.id]: event
+    }
+  }
+}
+
 function getStore() {
   try {
     const saved = localStorage.getItem('yamaha_event_data')
     if (saved) {
       const parsed = JSON.parse(saved)
-      return {
-        participants: parsed.participants || [],
-        checkInLogs: parsed.checkInLogs || [],
-        adminLogs: parsed.adminLogs || [],
-        pendingCheckIns: parsed.pendingCheckIns || [],
-        offlineQueueHistory: parsed.offlineQueueHistory || [],
-        offlineConfig: {
-          maxPendingAttempts: Number.isInteger(parsed?.offlineConfig?.maxPendingAttempts) && parsed.offlineConfig.maxPendingAttempts >= 1
-            ? parsed.offlineConfig.maxPendingAttempts
-            : DEFAULT_MAX_PENDING_ATTEMPTS
-        },
-        currentDay: Number.isInteger(parsed.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
+      if (parsed?.events && typeof parsed.events === 'object') {
+        const normalizedEvents = {}
+        Object.keys(parsed.events).forEach(id => {
+          normalizedEvents[id] = normalizeSavedEvent(id, parsed.events[id])
+        })
+        const fallbackId = Object.keys(normalizedEvents)[0]
+        return {
+          activeEventId: normalizedEvents[parsed.activeEventId] ? parsed.activeEventId : fallbackId,
+          events: normalizedEvents
+        }
       }
+      return migrateLegacyStore(parsed)
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
-  const data = {
-    participants: generateMockParticipants(),
-    checkInLogs: [],
-    adminLogs: [],
-    pendingCheckIns: [],
-    offlineQueueHistory: [],
-    offlineConfig: {
-      maxPendingAttempts: DEFAULT_MAX_PENDING_ATTEMPTS
-    },
-    currentDay: 1
-  }
-  localStorage.setItem('yamaha_event_data', JSON.stringify(data))
-  return data
+  return createDefaultStore()
 }
 
 let store = getStore()
@@ -134,6 +191,14 @@ let realtimeListeners = []
 
 function saveStore() {
   localStorage.setItem('yamaha_event_data', JSON.stringify(store))
+}
+
+function getActiveEvent() {
+  if (!store.events[store.activeEventId]) {
+    const firstId = Object.keys(store.events)[0]
+    store.activeEventId = firstId
+  }
+  return store.events[store.activeEventId]
 }
 
 function normalizeActor(actor) {
@@ -150,7 +215,105 @@ function isStrongReason(reason) {
   return normalizeReason(reason).length >= MIN_HIGH_IMPACT_REASON_LENGTH
 }
 
+export function getEvents() {
+  return getEventsWithOptions({ includeArchived: false })
+}
+
+export function getEventsWithOptions(options = {}) {
+  const includeArchived = !!options.includeArchived
+  return Object.values(store.events)
+    .filter(e => includeArchived || !e.isArchived)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .map(e => ({ id: e.id, name: e.name, created_at: e.created_at, isArchived: !!e.isArchived }))
+}
+
+export function getCurrentEventId() {
+  return store.activeEventId
+}
+
+export function getCurrentEventName() {
+  return getActiveEvent()?.name || '-'
+}
+
+export function createEvent(name, actor = 'system') {
+  const eventName = String(name || '').trim() || `Event ${getEvents().length + 1}`
+  const event = createEmptyEventState(eventName)
+  store.events[event.id] = event
+  saveStore()
+  logAdminAction('event_create', `Membuat event baru: ${eventName}`, actor, { event_id: event.id })
+  return { id: event.id, name: event.name }
+}
+
+export function renameEvent(eventId, newName, actor = 'system') {
+  const event = store.events[eventId]
+  if (!event) return { success: false, error: 'Event tidak ditemukan' }
+  const cleanName = String(newName || '').trim()
+  if (!cleanName) return { success: false, error: 'Nama event tidak boleh kosong' }
+
+  const prevName = event.name
+  event.name = cleanName
+  saveStore()
+
+  if (prevName !== cleanName) {
+    logAdminAction('event_rename', `Ubah nama event: ${prevName} -> ${cleanName}`, actor, { event_id: eventId })
+  }
+  return { success: true }
+}
+
+export function archiveEvent(eventId, actor = 'system', reason = '') {
+  if (!isStrongReason(reason)) {
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
+  }
+  const event = store.events[eventId]
+  if (!event) return { success: false, error: 'Event tidak ditemukan' }
+  if (event.id === store.activeEventId) {
+    return { success: false, error: 'Tidak bisa arsipkan event yang sedang aktif' }
+  }
+
+  event.isArchived = true
+  saveStore()
+  logAdminAction('event_archive', `Arsipkan event: ${event.name}`, actor, {
+    event_id: eventId,
+    reason: normalizeReason(reason)
+  })
+  return { success: true }
+}
+
+export function deleteEvent(eventId, actor = 'system', reason = '') {
+  if (!isStrongReason(reason)) {
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
+  }
+  const event = store.events[eventId]
+  if (!event) return { success: false, error: 'Event tidak ditemukan' }
+  if (event.id === store.activeEventId) {
+    return { success: false, error: 'Tidak bisa hapus event yang sedang aktif' }
+  }
+
+  delete store.events[eventId]
+  saveStore()
+  logAdminAction('event_delete', `Hapus event: ${event.name}`, actor, {
+    event_id: eventId,
+    reason: normalizeReason(reason)
+  })
+  return { success: true }
+}
+
+export function setCurrentEvent(eventId, actor = 'system') {
+  if (!store.events[eventId]) return false
+  const prev = store.activeEventId
+  store.activeEventId = eventId
+  saveStore()
+  if (prev !== eventId) {
+    logAdminAction('event_switch', `Pindah event aktif ke ${store.events[eventId].name}`, actor, {
+      from: prev,
+      to: eventId
+    })
+  }
+  return true
+}
+
 export function logAdminAction(action, description, actor = 'system', meta = null) {
+  const ev = getActiveEvent()
   const log = {
     id: generateId(),
     action,
@@ -159,7 +322,7 @@ export function logAdminAction(action, description, actor = 'system', meta = nul
     meta,
     timestamp: new Date().toISOString()
   }
-  store.adminLogs.push(log)
+  ev.adminLogs.push(log)
   saveStore()
   return log
 }
@@ -172,29 +335,31 @@ Berikut adalah tiket masuk acara Anda untuk *Hari ke-{{hari}}*.
 📋 *Ticket ID:* {{tiket}}
 📂 *Kategori:* {{kategori}}
 
-Silakan tunjukkan gambar barcode tiket ini kepada petugas gerbang event. Terima kasih.`;
+Silakan tunjukkan gambar barcode tiket ini kepada petugas gerbang event. Terima kasih.`
 
 export function getWaTemplate() {
-  return localStorage.getItem('yamaha_wa_template') || defaultWaTemplate;
+  const ev = getActiveEvent()
+  return ev.waTemplate || localStorage.getItem('yamaha_wa_template') || defaultWaTemplate
 }
 
 export function setWaTemplate(template, actor = 'system') {
-  localStorage.setItem('yamaha_wa_template', template);
+  const ev = getActiveEvent()
+  ev.waTemplate = template
+  localStorage.setItem('yamaha_wa_template', template)
+  saveStore()
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
 }
 
 export function getMaxPendingAttempts() {
-  return store.offlineConfig?.maxPendingAttempts || DEFAULT_MAX_PENDING_ATTEMPTS
+  return getActiveEvent().offlineConfig?.maxPendingAttempts || DEFAULT_MAX_PENDING_ATTEMPTS
 }
 
 export function setMaxPendingAttempts(value, actor = 'system') {
   const parsed = Number(value)
   const safe = Number.isInteger(parsed) ? Math.min(20, Math.max(1, parsed)) : DEFAULT_MAX_PENDING_ATTEMPTS
+  const ev = getActiveEvent()
   const previous = getMaxPendingAttempts()
-  store.offlineConfig = {
-    ...(store.offlineConfig || {}),
-    maxPendingAttempts: safe
-  }
+  ev.offlineConfig = { ...(ev.offlineConfig || {}), maxPendingAttempts: safe }
   saveStore()
   if (previous !== safe) {
     logAdminAction('offline_config_update', `Ubah batas retry offline dari ${previous} ke ${safe}`, actor, {
@@ -205,7 +370,6 @@ export function setMaxPendingAttempts(value, actor = 'system') {
   return safe
 }
 
-// Subscribe to realtime updates
 export function subscribeToCheckIns(callback) {
   realtimeListeners.push(callback)
   return () => {
@@ -217,7 +381,6 @@ function notifyListeners(event) {
   realtimeListeners.forEach(cb => cb(event))
 }
 
-// Users / Auth
 const USERS = {
   admin: { username: 'admin', password: 'admin123', role: 'super_admin', name: 'Super Admin' },
   gate1: { username: 'gate1', password: 'gate123', role: 'gate_front', name: 'Panitia Depan' },
@@ -238,25 +401,29 @@ export function getSession() {
   try {
     const session = localStorage.getItem('yamaha_session')
     return session ? JSON.parse(session) : null
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
 export function logout() {
   localStorage.removeItem('yamaha_session')
 }
 
-// Participants
 export function getParticipants(dayFilter = null) {
-  if (dayFilter) return store.participants.filter(p => p.day_number === dayFilter)
-  return store.participants
+  const ev = getActiveEvent()
+  if (dayFilter) return ev.participants.filter(p => p.day_number === dayFilter)
+  return ev.participants
 }
 
 export function getParticipant(id) {
-  return store.participants.find(p => p.id === id) || null
+  const ev = getActiveEvent()
+  return ev.participants.find(p => p.id === id) || null
 }
 
 export function addParticipant(data) {
-  const dayCount = store.participants.filter(p => p.day_number === data.day_number).length
+  const ev = getActiveEvent()
+  const dayCount = ev.participants.filter(p => p.day_number === data.day_number).length
   const ticketId = `YMH-D${data.day_number}-${String(dayCount + 1).padStart(3, '0')}`
   const participant = {
     id: generateId(),
@@ -272,22 +439,22 @@ export function addParticipant(data) {
     checked_in_by: null,
     created_at: new Date().toISOString()
   }
-  store.participants.push(participant)
+  ev.participants.push(participant)
   saveStore()
+
   logAdminAction('participant_add', `Tambah peserta ${participant.name} (${participant.ticket_id})`, data.actor, {
     participant_id: participant.id,
     day_number: participant.day_number,
     category: participant.category
   })
 
-  // Auto-send via Local Bot Server if requested
   if (data.auto_send && (participant.phone || participant.email)) {
-    const template = getWaTemplate();
+    const template = getWaTemplate()
     const wa_message = template
       .replace(/\{\{nama\}\}/g, participant.name || '')
       .replace(/\{\{tiket\}\}/g, participant.ticket_id || '')
       .replace(/\{\{hari\}\}/g, participant.day_number || '')
-      .replace(/\{\{kategori\}\}/g, participant.category || '');
+      .replace(/\{\{kategori\}\}/g, participant.category || '')
 
     fetch('http://localhost:3001/api/send-ticket', {
       method: 'POST',
@@ -306,15 +473,14 @@ export function addParticipant(data) {
 
 export function deleteParticipant(id, actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
-    return {
-      success: false,
-      error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter`
-    }
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
 
-  const participant = store.participants.find(p => p.id === id)
-  store.participants = store.participants.filter(p => p.id !== id)
+  const ev = getActiveEvent()
+  const participant = ev.participants.find(p => p.id === id)
+  ev.participants = ev.participants.filter(p => p.id !== id)
   saveStore()
+
   if (participant) {
     const cleanReason = normalizeReason(reason)
     const description = cleanReason
@@ -331,18 +497,18 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
   return { success: true }
 }
 
-// Manual check-in by participant ID (without QR)
 export function manualCheckIn(participantId, scannedBy = 'gate_front') {
-  const participant = store.participants.find(p => p.id === participantId)
+  const ev = getActiveEvent()
+  const participant = ev.participants.find(p => p.id === participantId)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
   }
 
-  if (participant.day_number !== store.currentDay) {
+  if (participant.day_number !== ev.currentDay) {
     return {
       success: false,
       status: 'wrong_day',
-      message: `Tiket untuk Hari ${participant.day_number}, sekarang Hari ${store.currentDay}`,
+      message: `Tiket untuk Hari ${participant.day_number}, sekarang Hari ${ev.currentDay}`,
       participant
     }
   }
@@ -371,20 +537,14 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
     action: 'check_in',
     timestamp: new Date().toISOString()
   }
-  store.checkInLogs.push(log)
+  ev.checkInLogs.push(log)
   saveStore()
 
   notifyListeners({ type: 'check_in', participant, log })
 
-  return {
-    success: true,
-    status: 'valid',
-    message: 'Manual check-in berhasil!',
-    participant
-  }
+  return { success: true, status: 'valid', message: 'Manual check-in berhasil!', participant }
 }
 
-// Bulk add participants from CSV/Excel
 export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
   const added = []
   const errors = []
@@ -402,9 +562,7 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
       return
     }
 
-    // Validate category
-    const validCategories = ['Regular', 'VIP', 'Dealer', 'Media']
-    const matchedCat = validCategories.find(c => c.toLowerCase() === category.toLowerCase()) || 'Regular'
+    const matchedCat = categories.find(c => c.toLowerCase() === category.toLowerCase()) || 'Regular'
 
     const participant = addParticipant({
       name,
@@ -413,7 +571,7 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
       category: matchedCat,
       day_number: rowDay,
       actor,
-      auto_send: false // Prevent bulk spam intentionally via bot for now
+      auto_send: false
     })
     added.push(participant)
   })
@@ -421,19 +579,16 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
   return { added, errors, total: rows.length }
 }
 
-// Search participants by name
 export function searchParticipants(query, dayFilter = null) {
   const q = query.toLowerCase().trim()
   if (!q) return []
-  let list = dayFilter ? store.participants.filter(p => p.day_number === dayFilter) : store.participants
-  return list.filter(p =>
-    p.name.toLowerCase().includes(q) ||
-    p.ticket_id.toLowerCase().includes(q)
-  )
+  const ev = getActiveEvent()
+  const list = dayFilter ? ev.participants.filter(p => p.day_number === dayFilter) : ev.participants
+  return list.filter(p => p.name.toLowerCase().includes(q) || p.ticket_id.toLowerCase().includes(q))
 }
 
-// Check-in
 export function checkIn(qrData, scannedBy = 'gate_front') {
+  const ev = getActiveEvent()
   let parsed
   try {
     parsed = JSON.parse(qrData)
@@ -441,31 +596,30 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
     return { success: false, status: 'invalid', message: 'QR Code tidak valid' }
   }
 
-  const participant = store.participants.find(p => p.ticket_id === parsed.tid)
+  const participant = ev.participants.find(p => p.ticket_id === parsed.tid)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
   }
 
-  if (participant.day_number !== store.currentDay) {
-    return { 
-      success: false, 
-      status: 'wrong_day', 
-      message: `Tiket untuk Hari ${participant.day_number}, sekarang Hari ${store.currentDay}`,
-      participant 
+  if (participant.day_number !== ev.currentDay) {
+    return {
+      success: false,
+      status: 'wrong_day',
+      message: `Tiket untuk Hari ${participant.day_number}, sekarang Hari ${ev.currentDay}`,
+      participant
     }
   }
 
   if (participant.is_checked_in) {
     const checkedTime = new Date(participant.checked_in_at).toLocaleTimeString('id-ID')
-    return { 
-      success: false, 
-      status: 'duplicate', 
+    return {
+      success: false,
+      status: 'duplicate',
       message: `Sudah check-in pukul ${checkedTime}`,
-      participant 
+      participant
     }
   }
 
-  // Perform check-in
   participant.is_checked_in = true
   participant.checked_in_at = new Date().toISOString()
   participant.checked_in_by = scannedBy
@@ -480,23 +634,17 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
     action: 'check_in',
     timestamp: new Date().toISOString()
   }
-  store.checkInLogs.push(log)
+  ev.checkInLogs.push(log)
   saveStore()
 
-  // Notify realtime listeners
   notifyListeners({ type: 'check_in', participant, log })
 
-  return { 
-    success: true, 
-    status: 'valid', 
-    message: 'Check-in berhasil!',
-    participant 
-  }
+  return { success: true, status: 'valid', message: 'Check-in berhasil!', participant }
 }
 
-// Stats
 export function getStats(day = null) {
-  const participants = day ? store.participants.filter(p => p.day_number === day) : store.participants
+  const ev = getActiveEvent()
+  const participants = day ? ev.participants.filter(p => p.day_number === day) : ev.participants
   const total = participants.length
   const checkedIn = participants.filter(p => p.is_checked_in).length
   const notCheckedIn = total - checkedIn
@@ -512,28 +660,33 @@ export function getStats(day = null) {
   return { total, checkedIn, notCheckedIn, percentage, byCategory }
 }
 
-// Logs
 export function getCheckInLogs(day = null) {
+  const ev = getActiveEvent()
   if (day) {
-    return store.checkInLogs.filter(log => {
-      const p = store.participants.find(pp => pp.id === log.participant_id)
-      return p && p.day_number === day
-    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    return ev.checkInLogs
+      .filter(log => {
+        const p = ev.participants.find(pp => pp.id === log.participant_id)
+        return p && p.day_number === day
+      })
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   }
-  return [...store.checkInLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  return [...ev.checkInLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 }
 
 export function getPendingCheckIns() {
-  return [...store.pendingCheckIns].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const ev = getActiveEvent()
+  return [...ev.pendingCheckIns].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 }
 
 export function getOfflineQueueHistory(limit = 500) {
-  const sorted = [...store.offlineQueueHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  const ev = getActiveEvent()
+  const sorted = [...ev.offlineQueueHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   return sorted.slice(0, limit)
 }
 
 function pushOfflineQueueHistory(type, payload = {}) {
-  store.offlineQueueHistory.push({
+  const ev = getActiveEvent()
+  ev.offlineQueueHistory.push({
     id: generateId(),
     type,
     payload,
@@ -542,6 +695,7 @@ function pushOfflineQueueHistory(type, payload = {}) {
 }
 
 export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source = 'scanner') {
+  const ev = getActiveEvent()
   const item = {
     id: generateId(),
     qr_data: qrData,
@@ -552,7 +706,7 @@ export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source =
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
-  store.pendingCheckIns.push(item)
+  ev.pendingCheckIns.push(item)
   pushOfflineQueueHistory('enqueued', {
     queue_id: item.id,
     scanned_by: scannedBy,
@@ -563,6 +717,7 @@ export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source =
 }
 
 export function syncPendingCheckIns(maxItems = 100) {
+  const ev = getActiveEvent()
   const maxPendingAttempts = getMaxPendingAttempts()
   const queue = getPendingCheckIns().slice(0, maxItems)
   let synced = 0
@@ -574,7 +729,7 @@ export function syncPendingCheckIns(maxItems = 100) {
     const res = checkIn(item.qr_data, item.scanned_by)
     if (res.success || res.status === 'duplicate') {
       synced++
-      store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== item.id)
+      ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== item.id)
       pushOfflineQueueHistory('sync_success', {
         queue_id: item.id,
         status: res.status || 'valid',
@@ -584,7 +739,7 @@ export function syncPendingCheckIns(maxItems = 100) {
       failed++
       failedItems.push({ id: item.id, status: res.status, message: res.message })
       let nextAttempts = item.attempts || 0
-      store.pendingCheckIns = store.pendingCheckIns.map(q => {
+      ev.pendingCheckIns = ev.pendingCheckIns.map(q => {
         if (q.id !== item.id) return q
         nextAttempts = (q.attempts || 0) + 1
         return {
@@ -604,7 +759,7 @@ export function syncPendingCheckIns(maxItems = 100) {
 
       if (nextAttempts >= maxPendingAttempts) {
         purged++
-        store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== item.id)
+        ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== item.id)
         pushOfflineQueueHistory('purged_max_attempts', {
           queue_id: item.id,
           attempts: nextAttempts,
@@ -629,31 +784,27 @@ export function syncPendingCheckIns(maxItems = 100) {
     synced,
     failed,
     purged,
-    remaining: store.pendingCheckIns.length,
+    remaining: ev.pendingCheckIns.length,
     failedItems
   }
 }
 
 export function retryPendingCheckIn(itemId) {
+  const ev = getActiveEvent()
   const maxPendingAttempts = getMaxPendingAttempts()
-  const item = store.pendingCheckIns.find(q => q.id === itemId)
-  if (!item) {
-    return { success: false, error: 'Item antrean tidak ditemukan' }
-  }
+  const item = ev.pendingCheckIns.find(q => q.id === itemId)
+  if (!item) return { success: false, error: 'Item antrean tidak ditemukan' }
 
   const res = checkIn(item.qr_data, item.scanned_by)
   if (res.success || res.status === 'duplicate') {
-    store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
-    pushOfflineQueueHistory('retry_success', {
-      queue_id: itemId,
-      status: res.status || 'valid'
-    })
+    ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== itemId)
+    pushOfflineQueueHistory('retry_success', { queue_id: itemId, status: res.status || 'valid' })
     saveStore()
-    return { success: true, synced: true, result: res, remaining: store.pendingCheckIns.length }
+    return { success: true, synced: true, result: res, remaining: ev.pendingCheckIns.length }
   }
 
   let nextAttempts = item.attempts || 0
-  store.pendingCheckIns = store.pendingCheckIns.map(q => {
+  ev.pendingCheckIns = ev.pendingCheckIns.map(q => {
     if (q.id !== itemId) return q
     nextAttempts = (q.attempts || 0) + 1
     return {
@@ -672,7 +823,7 @@ export function retryPendingCheckIn(itemId) {
   })
 
   if (nextAttempts >= maxPendingAttempts) {
-    store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
+    ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== itemId)
     pushOfflineQueueHistory('purged_max_attempts', {
       queue_id: itemId,
       attempts: nextAttempts,
@@ -681,24 +832,25 @@ export function retryPendingCheckIn(itemId) {
   }
 
   saveStore()
-
-  return { success: false, synced: false, result: res, remaining: store.pendingCheckIns.length }
+  return { success: false, synced: false, result: res, remaining: ev.pendingCheckIns.length }
 }
 
 export function removePendingCheckIn(itemId) {
-  const before = store.pendingCheckIns.length
-  store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
-  const removed = before !== store.pendingCheckIns.length
+  const ev = getActiveEvent()
+  const before = ev.pendingCheckIns.length
+  ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== itemId)
+  const removed = before !== ev.pendingCheckIns.length
   if (removed) {
     pushOfflineQueueHistory('removed_manual', { queue_id: itemId })
     saveStore()
   }
-  return { success: removed, remaining: store.pendingCheckIns.length }
+  return { success: removed, remaining: ev.pendingCheckIns.length }
 }
 
 export function clearPendingCheckIns() {
-  const cleared = store.pendingCheckIns.length
-  store.pendingCheckIns = []
+  const ev = getActiveEvent()
+  const cleared = ev.pendingCheckIns.length
+  ev.pendingCheckIns = []
   pushOfflineQueueHistory('cleared_all', { cleared })
   saveStore()
   if (cleared > 0) {
@@ -708,53 +860,51 @@ export function clearPendingCheckIns() {
 }
 
 export function getAdminLogs(limit = 200) {
-  const sorted = [...store.adminLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  const ev = getActiveEvent()
+  const sorted = [...ev.adminLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   return sorted.slice(0, limit)
 }
 
-// Current day
 export function getCurrentDay() {
-  return store.currentDay
+  return getActiveEvent().currentDay
 }
 
 export function getAvailableDays() {
-  const uniqueDays = [...new Set(store.participants.map(p => p.day_number))]
-  if (!uniqueDays.includes(store.currentDay)) {
-    uniqueDays.push(store.currentDay)
-  }
+  const ev = getActiveEvent()
+  const uniqueDays = [...new Set(ev.participants.map(p => p.day_number))]
+  if (!uniqueDays.includes(ev.currentDay)) uniqueDays.push(ev.currentDay)
   return uniqueDays.sort((a, b) => a - b)
 }
 
 export function setCurrentDay(day, actor = 'system') {
-  const previousDay = store.currentDay
+  const ev = getActiveEvent()
+  const previousDay = ev.currentDay
   const safeDay = Number(day)
-  store.currentDay = Number.isInteger(safeDay) && safeDay > 0 ? safeDay : 1
+  ev.currentDay = Number.isInteger(safeDay) && safeDay > 0 ? safeDay : 1
   saveStore()
-  if (previousDay !== store.currentDay) {
-    logAdminAction('current_day_update', `Ubah hari aktif dari ${previousDay} ke ${store.currentDay}`, actor, {
+  if (previousDay !== ev.currentDay) {
+    logAdminAction('current_day_update', `Ubah hari aktif dari ${previousDay} ke ${ev.currentDay}`, actor, {
       from: previousDay,
-      to: store.currentDay
+      to: ev.currentDay
     })
   }
 }
 
-// Reset all check-ins (for testing)
 export function resetCheckIns(actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
-    return {
-      success: false,
-      error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter`
-    }
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
 
-  const totalBeforeReset = store.participants.filter(p => p.is_checked_in).length
-  store.participants.forEach(p => {
+  const ev = getActiveEvent()
+  const totalBeforeReset = ev.participants.filter(p => p.is_checked_in).length
+  ev.participants.forEach(p => {
     p.is_checked_in = false
     p.checked_in_at = null
     p.checked_in_by = null
   })
-  store.checkInLogs = []
+  ev.checkInLogs = []
   saveStore()
+
   const cleanReason = normalizeReason(reason)
   const description = cleanReason
     ? `Reset status check-in (${totalBeforeReset} peserta) | Alasan: ${cleanReason}`
@@ -764,19 +914,17 @@ export function resetCheckIns(actor = 'system', reason = '') {
   return { success: true }
 }
 
-// Delete all participants
 export function deleteAllParticipants(actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
-    return {
-      success: false,
-      error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter`
-    }
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
 
-  const totalParticipants = store.participants.length
-  store.participants = []
-  store.checkInLogs = []
+  const ev = getActiveEvent()
+  const totalParticipants = ev.participants.length
+  ev.participants = []
+  ev.checkInLogs = []
   saveStore()
+
   const cleanReason = normalizeReason(reason)
   const description = cleanReason
     ? `Hapus semua peserta (${totalParticipants} data) | Alasan: ${cleanReason}`
@@ -786,12 +934,10 @@ export function deleteAllParticipants(actor = 'system', reason = '') {
   return { success: true }
 }
 
-// Get check-in peak hours stats for charts
 export function getPeakHours(day = null) {
   const logs = day ? getCheckInLogs(day) : getCheckInLogs()
   const hourlyCount = {}
 
-  // Initialize common hours (e.g. 07:00 to 17:00) with 0
   for (let i = 7; i <= 17; i++) {
     const hour = `${i.toString().padStart(2, '0')}:00`
     hourlyCount[hour] = 0
@@ -801,33 +947,25 @@ export function getPeakHours(day = null) {
     if (log.action === 'check_in') {
       const date = new Date(log.timestamp)
       const hourStr = `${date.getHours().toString().padStart(2, '0')}:00`
-      if (hourlyCount[hourStr] !== undefined) {
-        hourlyCount[hourStr]++
-      } else {
-        hourlyCount[hourStr] = 1
-      }
+      if (hourlyCount[hourStr] !== undefined) hourlyCount[hourStr]++
+      else hourlyCount[hourStr] = 1
     }
   })
 
-  // Convert to array format for Recharts
   return Object.keys(hourlyCount)
     .sort((a, b) => a.localeCompare(b))
-    .map(time => ({
-      time,
-      count: hourlyCount[time]
-    }))
-    // Filter out edge hours that are completely 0 if they're outside normal event hours
+    .map(time => ({ time, count: hourlyCount[time] }))
     .filter(item => {
       const h = parseInt(item.time.split(':')[0])
       return (h >= 7 && h <= 17) || item.count > 0
     })
 }
 
-// Simulate some check-ins for demo
 export function simulateCheckIns(count = 5) {
-  const unchecked = store.participants.filter(p => !p.is_checked_in && p.day_number === store.currentDay)
+  const ev = getActiveEvent()
+  const unchecked = ev.participants.filter(p => !p.is_checked_in && p.day_number === ev.currentDay)
   const toCheck = unchecked.slice(0, Math.min(count, unchecked.length))
-  
+
   toCheck.forEach((p, i) => {
     setTimeout(() => {
       checkIn(p.qr_data, 'gate_front')

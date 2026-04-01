@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert } from 'lucide-react'
@@ -24,6 +24,13 @@ export default function Settings() {
   // State for WA Template
   const [waTemplate, setWaTemplateState] = useState(getWaTemplate())
   const [maxRetryAttempts, setMaxRetryAttemptsState] = useState(getMaxPendingAttempts())
+  const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
+  const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
+
+  const refreshEvents = () => {
+    setEvents(getEventsWithOptions({ includeArchived: true }))
+    setActiveEventId(getCurrentEventId())
+  }
 
 
   const handleResetCheckIn = (e) => {
@@ -106,6 +113,39 @@ export default function Settings() {
     toast.success('Disimpan', `Batas retry offline diset ke ${saved}x`) 
   }
 
+  const handleRenameEvent = (event) => {
+    const nextName = window.prompt('Nama event baru:', event.name)
+    if (nextName === null) return
+    const res = renameEvent(event.id, nextName, user)
+    if (!res.success) return toast.error('Gagal', res.error || 'Gagal rename event')
+    refreshEvents()
+    toast.success('Sukses', 'Nama event berhasil diperbarui')
+  }
+
+  const handleArchiveEvent = (event) => {
+    const confirmWord = window.prompt(`Arsipkan event "${event.name}"? Ketik SETUJU`, '')
+    if (confirmWord === null) return
+    if (confirmWord !== 'SETUJU') return toast.error('Gagal', 'Konfirmasi harus SETUJU')
+    const reason = window.prompt('Alasan arsip event (minimal 15 karakter):', '')
+    if (reason === null) return
+    const res = archiveEvent(event.id, user, reason)
+    if (!res.success) return toast.error('Gagal', res.error || 'Gagal arsip event')
+    refreshEvents()
+    toast.success('Sukses', 'Event berhasil diarsipkan')
+  }
+
+  const handleDeleteEvent = (event) => {
+    const confirmWord = window.prompt(`Hapus event "${event.name}" permanen? Ketik HAPUS`, '')
+    if (confirmWord === null) return
+    if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
+    const reason = window.prompt('Alasan hapus event (minimal 15 karakter):', '')
+    if (reason === null) return
+    const res = deleteEvent(event.id, user, reason)
+    if (!res.success) return toast.error('Gagal', res.error || 'Gagal hapus event')
+    refreshEvents()
+    toast.success('Sukses', 'Event berhasil dihapus')
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -168,6 +208,37 @@ export default function Settings() {
               <button type="submit" className="btn btn-primary">Simpan Pengaturan Offline</button>
             </div>
           </form>
+        </div>
+
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="card-title mb-16">Manajemen Event</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+            Kelola nama event, arsipkan event lama, atau hapus event yang tidak dipakai.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {events.map(event => (
+              <div key={event.id} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{event.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {event.id === activeEventId ? 'Event Aktif' : 'Nonaktif'} {event.isArchived ? '• Archived' : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleRenameEvent(event)}>Rename</button>
+                    {!event.isArchived && event.id !== activeEventId && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleArchiveEvent(event)} style={{ color: 'var(--warning)' }}>Archive</button>
+                    )}
+                    {event.id !== activeEventId && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteEvent(event)} style={{ color: 'var(--danger)' }}>Delete</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* DANGER ZONE */}

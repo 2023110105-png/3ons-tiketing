@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { getCurrentDay, setCurrentDay } from '../../store/mockData'
+import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent } from '../../store/mockData'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
-  BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone
+  BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus
 } from 'lucide-react'
 
 export default function Layout({ children }) {
@@ -14,6 +14,8 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [currentDay, setDay] = useState(getCurrentDay())
   const [dayInput, setDayInput] = useState(String(getCurrentDay()))
+  const [events, setEvents] = useState(getEvents())
+  const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
   useEffect(() => {
@@ -26,6 +28,27 @@ export default function Layout({ children }) {
     setCurrentDay(day, user)
     setDay(day)
     setDayInput(String(day))
+  }
+
+  const refreshEventState = () => {
+    setEvents(getEvents())
+    setActiveEventId(getCurrentEventId())
+    const d = getCurrentDay()
+    setDay(d)
+    setDayInput(String(d))
+  }
+
+  const handleEventChange = (eventId) => {
+    setCurrentEvent(eventId, user)
+    refreshEventState()
+  }
+
+  const handleCreateEvent = () => {
+    const name = window.prompt('Nama event baru:', '')
+    if (name === null) return
+    const result = createEvent(name, user)
+    setCurrentEvent(result.id, user)
+    refreshEventState()
   }
 
   const handleDaySubmit = (e) => {
@@ -167,6 +190,24 @@ export default function Layout({ children }) {
             </button>
           </div>
           <div className="header-right">
+            {user?.role === 'super_admin' && (
+              <>
+                <select
+                  className="form-select"
+                  value={activeEventId}
+                  onChange={(e) => handleEventChange(e.target.value)}
+                  style={{ width: isMobile ? 130 : 180, height: 34, fontSize: '0.8rem' }}
+                  title="Pilih event aktif"
+                >
+                  {events.map(ev => (
+                    <option key={ev.id} value={ev.id}>{ev.name}</option>
+                  ))}
+                </select>
+                <button className="header-btn" onClick={handleCreateEvent} title="Tambah event" style={{ borderColor: 'var(--border-color)' }}>
+                  <Plus size={16} />
+                </button>
+              </>
+            )}
             <form onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
               <input
@@ -186,7 +227,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <div className="page-wrapper">
+        <div className="page-wrapper" key={activeEventId}>
           {children}
         </div>
       </main>
