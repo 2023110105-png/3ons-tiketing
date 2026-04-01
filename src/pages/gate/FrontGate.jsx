@@ -305,28 +305,28 @@ export default function FrontGate() {
 
   return (
     <div className="scanner-container">
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '1.5rem', marginBottom: 4 }}>
+      <div className="scanner-header">
+        <h1 className="scanner-title">
           Front Gate Scanner
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+        <p className="scanner-subtitle">
           Scan QR Code peserta
         </p>
-        <div style={{ marginTop: 8, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="scanner-status-row">
           <span className={`badge ${isOnline ? 'badge-green' : 'badge-red'}`}>
             {isOnline ? 'ONLINE' : 'OFFLINE'}
           </span>
           <span className="badge badge-yellow">Pending: {pendingCount}</span>
           {isOnline && pendingCount > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={handleSyncPending} disabled={isSyncing}>
-              <RefreshCw size={12} style={{ marginRight: 4 }} /> {isSyncing ? 'Sync...' : 'Sync Sekarang'}
+              <RefreshCw size={12} className="scanner-inline-icon" /> {isSyncing ? 'Sync...' : 'Sync Sekarang'}
             </button>
           )}
         </div>
       </div>
 
       {/* Mode Tabs - 3 tabs now */}
-      <div className="tabs" style={{ maxWidth: 460, width: '100%', marginBottom: 20 }}>
+      <div className="tabs scanner-tabs">
         <button className={`tab ${scanMode === 'camera' ? 'active' : ''}`} onClick={() => handleModeSwitch('camera')}>
           <Camera size={16} /> Kamera
         </button>
@@ -361,21 +361,20 @@ export default function FrontGate() {
 
       {/* ===== MANUAL INPUT MODE ===== */}
       {scanMode === 'manual' && (
-        <div style={{ width: '100%', maxWidth: 460 }}>
-          <div className="card" style={{ marginBottom: 16 }}>
+        <div className="scanner-panel">
+          <div className="card scanner-card-spaced">
             <h3 className="card-title mb-16">Input QR Data Manual</h3>
-            <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: 8 }}>
+            <form onSubmit={handleManualSubmit} className="scanner-inline-form">
               <input
                 className="form-input"
                 placeholder='Paste QR data atau ketik JSON...'
                 value={manualInput}
                 onChange={e => setManualInput(e.target.value)}
                 autoFocus
-                style={{ flex: 1 }}
               />
               <button type="submit" className="btn btn-primary">Scan</button>
             </form>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 8 }}>
+            <p className="scanner-hint">
               Tip: Untuk testing, klik tombol "Quick Scan" di bawah
             </p>
           </div>
@@ -415,23 +414,22 @@ export default function FrontGate() {
 
       {/* ===== SEARCH & CHECK-IN BY NAME MODE ===== */}
       {scanMode === 'search' && (
-        <div style={{ width: '100%', maxWidth: 460 }}>
-          <div className="card" style={{ marginBottom: 16 }}>
-            <h3 className="card-title mb-12" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="scanner-panel">
+          <div className="card scanner-card-spaced">
+            <h3 className="card-title mb-12 scanner-title-inline">
               <UserCheck size={18} /> Manual Check-in
             </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+            <p className="scanner-note">
               Cari nama peserta jika QR Code bermasalah
             </p>
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <div className="scanner-search-input-wrap">
+              <Search size={16} className="scanner-search-icon" />
               <input
-                className="form-input"
+                className="form-input scanner-search-input"
                 placeholder="Ketik nama atau ticket ID..."
                 value={searchQuery}
                 onChange={e => handleSearch(e.target.value)}
                 autoFocus
-                style={{ paddingLeft: 36 }}
               />
             </div>
           </div>
@@ -439,12 +437,12 @@ export default function FrontGate() {
           {/* Search Results */}
           {searchQuery.length >= 2 && (
             <div className="card">
-              <div className="card-header" style={{ padding: '12px 16px' }}>
-                <h3 className="card-title" style={{ fontSize: '0.85rem' }}>
+              <div className="card-header scanner-results-header">
+                <h3 className="card-title scanner-results-title">
                   {searchResults.length > 0 ? `${searchResults.length} hasil ditemukan` : 'Tidak ada hasil'}
                 </h3>
               </div>
-              <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+              <div className="scanner-results-scroll">
                 {searchResults.map(p => (
                   <div key={p.id} style={{
                     display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
@@ -524,12 +522,12 @@ export default function FrontGate() {
         </div>
       </div>
 
-      <div className="card" style={{ width: '100%', maxWidth: 560, marginTop: 16 }}>
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="card scanner-offline-card">
+        <div className="card-header scanner-offline-header">
+          <h3 className="card-title scanner-title-inline">
             <WifiOff size={16} /> Antrean Offline
           </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="offline-header-controls">
             <span className="badge badge-yellow">{pendingCount} pending</span>
             <span className={`badge ${getLimitBadgeClass()}`}>
               Limit: {getMaxPendingAttempts()}x
@@ -574,7 +572,7 @@ export default function FrontGate() {
             Tidak ada antrean offline.
           </div>
         ) : (
-          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div className="offline-list">
             {pendingItems.slice(0, 20).map(item => (
               <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--border-color)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
