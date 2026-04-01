@@ -119,8 +119,9 @@ export default function ContractManager() {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Nominal (Rp)</label>
+                      <label htmlFor="contract-amount" className="form-label">Nominal (Rp)</label>
                       <input 
+                        id="contract-amount"
                         type="number"
                         className="form-input"
                         value={editData.amount}

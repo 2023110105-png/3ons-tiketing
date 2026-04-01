@@ -211,8 +211,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
               <h3 className="card-title mb-16">Buat User Tenant Baru</h3>
               <form onSubmit={handleCreateUser}>
                 <div className="form-group">
-                  <label className="form-label">Username</label>
+                  <label htmlFor="new-user-username" className="form-label">Username</label>
                   <input 
+                    id="new-user-username"
                     className="form-input" 
                     required 
                     value={newUser.username}
@@ -221,8 +222,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Password Awal</label>
+                  <label htmlFor="new-user-password" className="form-label">Password Awal</label>
                   <input 
+                    id="new-user-password"
                     className="form-input" 
                     type="password"
                     required 
@@ -232,8 +234,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nama Lengkap</label>
+                  <label htmlFor="new-user-name" className="form-label">Nama Lengkap</label>
                   <input 
+                    id="new-user-name"
                     className="form-input" 
                     required 
                     value={newUser.name}
@@ -242,8 +245,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Role</label>
+                  <label htmlFor="new-user-role" className="form-label">Role</label>
                   <select 
+                    id="new-user-role"
                     className="form-select"
                     value={newUser.role}
                     onChange={e => setNewUser({...newUser, role: e.target.value})}

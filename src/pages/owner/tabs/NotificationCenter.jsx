@@ -37,7 +37,7 @@ export default function NotificationCenter() {
   return (
     <div className="notification-center-container owner-fade-in-up">
       <div className="owner-toolbar">
-         <div class="owner-toolbar-left flex-1">
+         <div className="owner-toolbar-left flex-1">
             <div className="owner-search-input" style={{ maxWidth: '400px' }}>
               <Search size={16} />
               <input 
