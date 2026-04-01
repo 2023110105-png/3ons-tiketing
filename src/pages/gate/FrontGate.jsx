@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns, getOfflineQueueHistory } from '../../store/mockData'
+import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts } from '../../store/mockData'
 import { useSound } from '../../hooks/useRealtime'
-import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2 } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
 export default function FrontGate() {
@@ -17,6 +17,8 @@ export default function FrontGate() {
   const [pendingCount, setPendingCount] = useState(getPendingCheckIns().length)
   const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
   const [isSyncing, setIsSyncing] = useState(false)
+  const [showLimitInfo, setShowLimitInfo] = useState(false)
+  const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const searchResultsRef = useRef(null) // Unused, just keeping ref pattern if needed
   const lastScanRef = useRef({ data: null, time: 0 })
   const videoRef = useRef(null)
@@ -29,6 +31,20 @@ export default function FrontGate() {
     const items = getPendingCheckIns()
     setPendingItems(items)
     setPendingCount(items.length)
+  }
+
+  const getLimitBadgeClass = () => {
+    const limit = getMaxPendingAttempts()
+    if (limit <= 3) return 'badge-red'
+    if (limit <= 5) return 'badge-yellow'
+    return 'badge-green'
+  }
+
+  const getLimitBadgeInfo = () => {
+    const limit = getMaxPendingAttempts()
+    if (limit <= 3) return `Merah: limit ${limit}x, risiko purge cepat.`
+    if (limit <= 5) return `Kuning: limit ${limit}x, risiko sedang.`
+    return `Hijau: limit ${limit}x, lebih aman sebelum purge.`
   }
 
   const handleSyncPending = useCallback(() => {
@@ -177,6 +193,20 @@ export default function FrontGate() {
       window.removeEventListener('offline', goOffline)
     }
   }, [handleSyncPending])
+
+  useEffect(() => {
+    if (!showLimitInfo) return
+    setIsLimitInfoFading(false)
+    const fadeTimer = setTimeout(() => setIsLimitInfoFading(true), 4650)
+    const hideTimer = setTimeout(() => {
+      setShowLimitInfo(false)
+      setIsLimitInfoFading(false)
+    }, 5000)
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(hideTimer)
+    }
+  }, [showLimitInfo])
 
   const handleModeSwitch = (mode) => {
     if (mode === 'camera' && scanMode !== 'camera') {
@@ -500,6 +530,16 @@ export default function FrontGate() {
           </h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="badge badge-yellow">{pendingCount} pending</span>
+            <span className={`badge ${getLimitBadgeClass()}`}>
+              Limit: {getMaxPendingAttempts()}x
+            </span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowLimitInfo(prev => !prev)}
+              title="Info warna retry limit"
+            >
+              <CircleHelp size={12} />
+            </button>
             {pendingCount > 0 && (
               <>
                 <button className="btn btn-ghost btn-sm" onClick={handleRetryAllPending} disabled={!isOnline || isSyncing} title="Retry semua item">
@@ -515,6 +555,18 @@ export default function FrontGate() {
             </button>
           </div>
         </div>
+
+        {showLimitInfo && (
+          <div style={{
+            padding: '0 12px 10px',
+            fontSize: '0.74rem',
+            color: 'var(--text-muted)',
+            opacity: isLimitInfoFading ? 0 : 1,
+            transition: 'opacity 0.35s ease'
+          }}>
+            {getLimitBadgeInfo()}
+          </div>
+        )}
 
         {pendingItems.length === 0 ? (
           <div style={{ padding: 12, fontSize: '0.85rem', color: 'var(--text-muted)' }}>

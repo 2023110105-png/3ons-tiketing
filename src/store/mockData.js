@@ -3,7 +3,7 @@
 
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
-const MAX_PENDING_ATTEMPTS = 5
+const DEFAULT_MAX_PENDING_ATTEMPTS = 5
 
 // Generate mock participants
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
@@ -103,6 +103,11 @@ function getStore() {
         adminLogs: parsed.adminLogs || [],
         pendingCheckIns: parsed.pendingCheckIns || [],
         offlineQueueHistory: parsed.offlineQueueHistory || [],
+        offlineConfig: {
+          maxPendingAttempts: Number.isInteger(parsed?.offlineConfig?.maxPendingAttempts) && parsed.offlineConfig.maxPendingAttempts >= 1
+            ? parsed.offlineConfig.maxPendingAttempts
+            : DEFAULT_MAX_PENDING_ATTEMPTS
+        },
         currentDay: Number.isInteger(parsed.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
       }
     }
@@ -115,6 +120,9 @@ function getStore() {
     adminLogs: [],
     pendingCheckIns: [],
     offlineQueueHistory: [],
+    offlineConfig: {
+      maxPendingAttempts: DEFAULT_MAX_PENDING_ATTEMPTS
+    },
     currentDay: 1
   }
   localStorage.setItem('yamaha_event_data', JSON.stringify(data))
@@ -173,6 +181,28 @@ export function getWaTemplate() {
 export function setWaTemplate(template, actor = 'system') {
   localStorage.setItem('yamaha_wa_template', template);
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
+}
+
+export function getMaxPendingAttempts() {
+  return store.offlineConfig?.maxPendingAttempts || DEFAULT_MAX_PENDING_ATTEMPTS
+}
+
+export function setMaxPendingAttempts(value, actor = 'system') {
+  const parsed = Number(value)
+  const safe = Number.isInteger(parsed) ? Math.min(20, Math.max(1, parsed)) : DEFAULT_MAX_PENDING_ATTEMPTS
+  const previous = getMaxPendingAttempts()
+  store.offlineConfig = {
+    ...(store.offlineConfig || {}),
+    maxPendingAttempts: safe
+  }
+  saveStore()
+  if (previous !== safe) {
+    logAdminAction('offline_config_update', `Ubah batas retry offline dari ${previous} ke ${safe}`, actor, {
+      from: previous,
+      to: safe
+    })
+  }
+  return safe
 }
 
 // Subscribe to realtime updates
@@ -533,6 +563,7 @@ export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source =
 }
 
 export function syncPendingCheckIns(maxItems = 100) {
+  const maxPendingAttempts = getMaxPendingAttempts()
   const queue = getPendingCheckIns().slice(0, maxItems)
   let synced = 0
   let failed = 0
@@ -571,7 +602,7 @@ export function syncPendingCheckIns(maxItems = 100) {
         attempts: nextAttempts
       })
 
-      if (nextAttempts >= MAX_PENDING_ATTEMPTS) {
+      if (nextAttempts >= maxPendingAttempts) {
         purged++
         store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== item.id)
         pushOfflineQueueHistory('purged_max_attempts', {
@@ -604,6 +635,7 @@ export function syncPendingCheckIns(maxItems = 100) {
 }
 
 export function retryPendingCheckIn(itemId) {
+  const maxPendingAttempts = getMaxPendingAttempts()
   const item = store.pendingCheckIns.find(q => q.id === itemId)
   if (!item) {
     return { success: false, error: 'Item antrean tidak ditemukan' }
@@ -639,7 +671,7 @@ export function retryPendingCheckIn(itemId) {
     attempts: nextAttempts
   })
 
-  if (nextAttempts >= MAX_PENDING_ATTEMPTS) {
+  if (nextAttempts >= maxPendingAttempts) {
     store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
     pushOfflineQueueHistory('purged_max_attempts', {
       queue_id: itemId,

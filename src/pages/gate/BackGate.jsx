@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { getStats, getCheckInLogs, getCurrentDay, getParticipants, getPendingCheckIns, getOfflineQueueHistory } from '../../store/mockData'
+import { getStats, getCheckInLogs, getCurrentDay, getParticipants, getPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts } from '../../store/mockData'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
-import { Radio, WifiOff } from 'lucide-react'
+import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
 export default function BackGate() {
@@ -10,6 +10,8 @@ export default function BackGate() {
   const [logs, setLogs] = useState(getCheckInLogs(currentDay))
   const [newEntries, setNewEntries] = useState(new Set())
   const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
+  const [showLimitInfo, setShowLimitInfo] = useState(false)
+  const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const { lastEvent } = useRealtime()
   const { playNotification } = useSound()
   const [refreshKey, setRefreshKey] = useState(0)
@@ -27,6 +29,20 @@ export default function BackGate() {
     setLogs(getCheckInLogs(currentDay))
     setPendingItems(getPendingCheckIns())
   }, [currentDay, refreshKey])
+
+  useEffect(() => {
+    if (!showLimitInfo) return
+    setIsLimitInfoFading(false)
+    const fadeTimer = setTimeout(() => setIsLimitInfoFading(true), 4650)
+    const hideTimer = setTimeout(() => {
+      setShowLimitInfo(false)
+      setIsLimitInfoFading(false)
+    }, 5000)
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(hideTimer)
+    }
+  }, [showLimitInfo])
 
   // Handle realtime events
   useEffect(() => {
@@ -63,6 +79,20 @@ export default function BackGate() {
     if (diff < 60) return `${diff} detik lalu`
     if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`
     return new Date(timestamp).toLocaleTimeString('id-ID')
+  }
+
+  const getLimitBadgeClass = () => {
+    const limit = getMaxPendingAttempts()
+    if (limit <= 3) return 'badge-red'
+    if (limit <= 5) return 'badge-yellow'
+    return 'badge-green'
+  }
+
+  const getLimitBadgeInfo = () => {
+    const limit = getMaxPendingAttempts()
+    if (limit <= 3) return `Merah: limit ${limit}x, risiko purge cepat.`
+    if (limit <= 5) return `Kuning: limit ${limit}x, risiko sedang.`
+    return `Hijau: limit ${limit}x, lebih aman sebelum purge.`
   }
 
   const handleExportOfflineReport = async () => {
@@ -163,9 +193,26 @@ export default function BackGate() {
           </h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span className="badge badge-yellow">{pendingItems.length} pending</span>
+            <span className={`badge ${getLimitBadgeClass()}`}>
+              Limit: {getMaxPendingAttempts()}x
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowLimitInfo(prev => !prev)} title="Info warna retry limit">
+              <CircleHelp size={12} />
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport}>Export</button>
           </div>
         </div>
+        {showLimitInfo && (
+          <div style={{
+            padding: '0 14px 10px',
+            fontSize: '0.74rem',
+            color: 'var(--text-muted)',
+            opacity: isLimitInfoFading ? 0 : 1,
+            transition: 'opacity 0.35s ease'
+          }}>
+            {getLimitBadgeInfo()}
+          </div>
+        )}
         {pendingItems.length === 0 ? (
           <div style={{ padding: 14, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             Tidak ada antrean offline saat ini.

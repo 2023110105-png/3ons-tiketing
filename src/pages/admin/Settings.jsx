@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert } from 'lucide-react'
@@ -23,6 +23,7 @@ export default function Settings() {
 
   // State for WA Template
   const [waTemplate, setWaTemplateState] = useState(getWaTemplate())
+  const [maxRetryAttempts, setMaxRetryAttemptsState] = useState(getMaxPendingAttempts())
 
 
   const handleResetCheckIn = (e) => {
@@ -93,6 +94,18 @@ export default function Settings() {
     toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
   }
 
+  const handleSaveOfflineConfig = (e) => {
+    e.preventDefault()
+    const value = Number(maxRetryAttempts)
+    if (!Number.isInteger(value) || value < 1 || value > 20) {
+      toast.error('Gagal', 'Batas retry harus angka 1 sampai 20')
+      return
+    }
+    const saved = setMaxPendingAttempts(value, user)
+    setMaxRetryAttemptsState(saved)
+    toast.success('Disimpan', `Batas retry offline diset ke ${saved}x`) 
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -128,6 +141,31 @@ export default function Settings() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
               <button type="submit" className="btn btn-primary">Simpan Teks WhatsApp</button>
+            </div>
+          </form>
+        </div>
+
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="card-title mb-16">Pengaturan Offline Queue</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+            Atur batas percobaan retry untuk antrean scan offline. Jika melebihi batas, item akan dipurge otomatis dan masuk history post-mortem.
+          </p>
+
+          <form onSubmit={handleSaveOfflineConfig}>
+            <div className="form-group">
+              <label className="form-label">Batas Retry Maksimum (1 - 20)</label>
+              <input
+                className="form-input"
+                type="number"
+                min="1"
+                max="20"
+                value={maxRetryAttempts}
+                onChange={e => setMaxRetryAttemptsState(e.target.value)}
+                required
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button type="submit" className="btn btn-primary">Simpan Pengaturan Offline</button>
             </div>
           </form>
         </div>
