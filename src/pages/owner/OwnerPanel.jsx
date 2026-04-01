@@ -13,7 +13,6 @@ export default function OwnerPanel() {
 
   const [tenantBrandName, setTenantBrandName] = useState('')
   const [tenantEventName, setTenantEventName] = useState('')
-  const [tenantToken, setTenantToken] = useState('')
   const [tenantExpiresAt, setTenantExpiresAt] = useState('')
 
   const [tenantSearch, setTenantSearch] = useState('')
@@ -32,15 +31,9 @@ export default function OwnerPanel() {
       return
     }
 
-    if (!tenantToken.trim()) {
-      toast.error('Gagal', 'Token tenant wajib diisi')
-      return
-    }
-
     const result = createTenant({
       brandName: tenantBrandName,
       eventName: tenantEventName,
-      token: tenantToken,
       expiresAt: tenantExpiresAt || null
     }, user)
 
@@ -51,7 +44,6 @@ export default function OwnerPanel() {
 
     setTenantBrandName('')
     setTenantEventName('')
-    setTenantToken('')
     setTenantExpiresAt('')
     refreshTenants()
     toast.success('Sukses', 'Tenant baru berhasil dibuat')
@@ -108,7 +100,7 @@ export default function OwnerPanel() {
       })
       .filter(tenant => {
         if (!normalizedTenantSearch) return true
-        const haystack = `${tenant.brandName} ${tenant.eventName} ${tenant.token}`.toLowerCase()
+        const haystack = `${tenant.brandName} ${tenant.eventName}`.toLowerCase()
         return haystack.includes(normalizedTenantSearch)
       })
   }, [tenants, tenantFilter, normalizedTenantSearch])
@@ -117,7 +109,7 @@ export default function OwnerPanel() {
     <div className="page-container">
       <div className="page-header">
         <h1>Owner Panel</h1>
-        <p>Kelola client sewa: brand, event, token, dan status akses tenant</p>
+        <p>Kelola client sewa: brand, event, dan status akses tenant</p>
       </div>
 
       <div className="settings-wrap">
@@ -131,10 +123,6 @@ export default function OwnerPanel() {
             <div className="form-group">
               <label className="form-label">Nama Event</label>
               <input className="form-input" value={tenantEventName} onChange={e => setTenantEventName(e.target.value)} placeholder="Contoh: Yamaha Roadshow 2026" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Token Tenant</label>
-              <input className="form-input" value={tenantToken} onChange={e => setTenantToken(e.target.value.toUpperCase())} placeholder="Contoh: YAMAHA-ROADSHOW-2026" required />
             </div>
             <div className="form-group">
               <label className="form-label">Tanggal Expired (opsional)</label>
@@ -151,7 +139,7 @@ export default function OwnerPanel() {
           <div className="tenant-toolbar">
             <div className="admin-search-wrap backup-search-wrap">
               <Search size={14} className="admin-search-icon" />
-              <input className="form-input" type="text" placeholder="Cari brand, event, atau token tenant..." value={tenantSearch} onChange={e => setTenantSearch(e.target.value)} />
+              <input className="form-input" type="text" placeholder="Cari brand atau event tenant..." value={tenantSearch} onChange={e => setTenantSearch(e.target.value)} />
             </div>
             <select className="form-select backup-select" value={tenantFilter} onChange={e => setTenantFilter(e.target.value)}>
               <option value="all">Semua Tenant</option>
@@ -175,7 +163,7 @@ export default function OwnerPanel() {
                 <div className="event-row">
                   <div>
                     <div className="event-name">{tenant.brandName}</div>
-                    <div className="event-meta">{tenant.eventName} • Token: {tenant.token}</div>
+                    <div className="event-meta">{tenant.eventName}</div>
                     <div className="tenant-meta-badges">
                       <span className={`badge ${tenant.status === 'active' ? 'badge-green' : 'badge-yellow'}`}>{tenant.status === 'active' ? 'Aktif' : 'Nonaktif'}</span>
                       {tenant.isExpired && <span className="badge badge-red">Expired</span>}

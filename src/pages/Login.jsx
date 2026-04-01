@@ -8,7 +8,6 @@ export default function Login() {
   const branding = getTenantBranding()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [tenantToken, setTenantToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -20,7 +19,7 @@ export default function Login() {
     setLoading(true)
 
     setTimeout(() => {
-      const result = login(username, password, tenantToken)
+      const result = login(username, password)
       if (result.success) {
         const role = result.user.role
         if (role === 'owner') navigate('/owner')
@@ -76,18 +75,6 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Token Tenant (Opsional)</label>
-            <input
-              id="login-tenant-token"
-              type="text"
-              className="form-input"
-              placeholder="Contoh: YAMAHA-EXPO-2026"
-              value={tenantToken}
-              onChange={e => setTenantToken(e.target.value.toUpperCase())}
             />
           </div>
 

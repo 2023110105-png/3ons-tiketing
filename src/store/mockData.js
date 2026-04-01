@@ -21,7 +21,6 @@ const DEFAULT_TENANT = {
   id: DEFAULT_TENANT_ID,
   brandName: '3oNs Project',
   eventName: 'Event Platform',
-  token: 'DEFAULT-3ONS',
   status: 'active',
   expires_at: null,
   created_at: new Date().toISOString()
@@ -67,10 +66,6 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-function normalizeTenantToken(value) {
-  return String(value || '').trim().toUpperCase()
-}
-
 function isTenantExpired(tenant) {
   if (!tenant?.expires_at) return false
   const expiredAt = new Date(tenant.expires_at).getTime()
@@ -79,12 +74,10 @@ function isTenantExpired(tenant) {
 }
 
 function normalizeSavedTenant(id, raw) {
-  const normalizedToken = normalizeTenantToken(raw?.token)
   return {
     id,
     brandName: String(raw?.brandName || raw?.name || 'Tenant').trim() || 'Tenant',
     eventName: String(raw?.eventName || 'Event Platform').trim() || 'Event Platform',
-    token: normalizedToken || `TENANT-${id.slice(0, 8).toUpperCase()}`,
     status: raw?.status === 'inactive' ? 'inactive' : 'active',
     expires_at: raw?.expires_at || null,
     created_at: raw?.created_at || new Date().toISOString()
@@ -146,12 +139,6 @@ function getActiveTenantState() {
   return tenantRegistry.tenants[tenantRegistry.activeTenantId]
 }
 
-function findTenantByToken(token) {
-  const normalized = normalizeTenantToken(token)
-  if (!normalized) return null
-  return Object.values(tenantRegistry.tenants).find(tenant => tenant.token === normalized) || null
-}
-
 function canUseTenant(tenant) {
   if (!tenant) return false
   if (tenant.status !== 'active') return false
@@ -173,8 +160,7 @@ export function getTenantBranding() {
   return {
     tenantId: tenant.id,
     brandName: tenant.brandName,
-    eventName: tenant.eventName,
-    token: tenant.token
+    eventName: tenant.eventName
   }
 }
 
@@ -213,20 +199,14 @@ export function switchActiveTenant(tenantId, actor = 'system') {
 export function createTenant(data, actor = 'system') {
   const brandName = String(data?.brandName || '').trim()
   const eventName = String(data?.eventName || '').trim() || 'Event Platform'
-  const token = normalizeTenantToken(data?.token)
   const expiresAt = data?.expiresAt ? new Date(data.expiresAt).toISOString() : null
 
   if (!brandName) return { success: false, error: 'Nama brand wajib diisi' }
-  if (!token) return { success: false, error: 'Token tenant wajib diisi' }
-  if (Object.values(tenantRegistry.tenants).some(tenant => tenant.token === token)) {
-    return { success: false, error: 'Token sudah dipakai tenant lain' }
-  }
 
   const tenant = {
     id: generateId(),
     brandName,
     eventName,
-    token,
     status: 'active',
     expires_at: expiresAt,
     created_at: new Date().toISOString()
@@ -238,8 +218,7 @@ export function createTenant(data, actor = 'system') {
   saveTenantRegistry()
 
   logAdminAction('tenant_create', `Membuat tenant ${brandName}`, actor, {
-    tenant_id: tenant.id,
-    token
+    tenant_id: tenant.id
   })
 
   return { success: true, tenant: { ...tenant } }
@@ -1013,23 +992,7 @@ const USERS = {
   gate2: { username: 'gate2', password: 'gate123', role: 'gate_back', name: 'Panitia Belakang' }
 }
 
-export function login(username, password, tenantToken = '') {
-  const requestedToken = normalizeTenantToken(tenantToken)
-  if (requestedToken) {
-    const tenantFromToken = findTenantByToken(requestedToken)
-    if (!tenantFromToken) {
-      return { success: false, error: 'Token tenant tidak valid' }
-    }
-    if (!canUseTenant(tenantFromToken)) {
-      return { success: false, error: 'Tenant nonaktif atau masa sewa sudah habis' }
-    }
-    ensureTenantStore(tenantFromToken.id, tenantFromToken.eventName || 'Event 1', false)
-    tenantRegistry.activeTenantId = tenantFromToken.id
-    saveStore()
-    saveTenantRegistry()
-    dispatchTenantChangeEvent()
-  }
-
+export function login(username, password) {
   const activeTenant = getActiveTenantState()
   if (!canUseTenant(activeTenant)) {
     return { success: false, error: 'Tenant aktif tidak bisa digunakan. Hubungi owner aplikasi.' }
@@ -1042,8 +1005,7 @@ export function login(username, password, tenantToken = '') {
       tenant: {
         id: activeTenant.id,
         brandName: activeTenant.brandName,
-        eventName: activeTenant.eventName,
-        token: activeTenant.token
+        eventName: activeTenant.eventName
       }
     }
     safeStorageSet(SESSION_KEY, JSON.stringify(session))
@@ -1070,8 +1032,7 @@ export function getSession() {
       tenant: {
         id: activeTenant.id,
         brandName: activeTenant.brandName,
-        eventName: activeTenant.eventName,
-        token: activeTenant.token
+        eventName: activeTenant.eventName
       }
     }
   }

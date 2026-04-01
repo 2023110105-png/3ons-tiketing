@@ -7,8 +7,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => getSession())
   const loading = false
 
-  const login = useCallback((username, password, tenantToken = '') => {
-    const result = doLogin(username, password, tenantToken)
+  const login = useCallback((username, password) => {
+    const result = doLogin(username, password)
     if (result.success) {
       setUser(result.user)
     }
