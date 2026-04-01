@@ -65,6 +65,12 @@ export default function Settings() {
       return b.timestamp - a.timestamp
     })
 
+  const resetBackupView = () => {
+    setBackupSearch('')
+    setBackupFilter('all')
+    setBackupSort('newest')
+  }
+
 
   const handleResetCheckIn = (e) => {
     e.preventDefault()
@@ -375,7 +381,16 @@ export default function Settings() {
             <button className="btn btn-ghost btn-danger btn-sm" onClick={handleDeleteInvalidBackups} disabled={invalidBackupCount === 0}>
               <Trash2 size={14} className="mr-6" /> Hapus Invalid ({invalidBackupCount})
             </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={resetBackupView}
+              disabled={!backupSearch && backupFilter === 'all' && backupSort === 'newest'}
+            >
+              Reset View
+            </button>
           </div>
+
+          <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>
 
           {visibleBackups.length === 0 ? (
             <div className="event-meta">Belum ada backup tersedia.</div>
