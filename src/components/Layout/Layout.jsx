@@ -119,7 +119,6 @@ export default function Layout({ children }) {
               <span style={{ color: 'var(--brand-green)' }}>o</span>
               <span style={{ color: 'var(--brand-primary)' }}>N</span>
               <span style={{ color: 'var(--brand-pink)' }}>s</span>
-              <span style={{ marginLeft: 4 }}> Rental</span>
             </h2>
             <span>Project Platform</span>
           </div>
