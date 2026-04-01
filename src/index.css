@@ -1059,6 +1059,13 @@ input, select, textarea, button {
   flex: 1 1 260px;
 }
 
+.backup-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
 .danger-card {
   border: 1px solid var(--danger);
   background: var(--danger-bg);

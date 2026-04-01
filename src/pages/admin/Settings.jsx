@@ -71,6 +71,25 @@ export default function Settings() {
     setBackupSort('newest')
   }
 
+  const applyTodayPreset = () => {
+    const today = new Date().toLocaleDateString('id-ID')
+    setBackupSearch(today)
+    setBackupFilter('all')
+    setBackupSort('newest')
+  }
+
+  const applyLargePreset = () => {
+    setBackupSearch('')
+    setBackupFilter('all')
+    setBackupSort('largest')
+  }
+
+  const applyInvalidLatestPreset = () => {
+    setBackupSearch('')
+    setBackupFilter('invalid')
+    setBackupSort('newest')
+  }
+
 
   const handleResetCheckIn = (e) => {
     e.preventDefault()
@@ -388,6 +407,12 @@ export default function Settings() {
             >
               Reset View
             </button>
+          </div>
+
+          <div className="backup-presets">
+            <button className="btn btn-ghost btn-sm" onClick={applyTodayPreset}>Backup Hari Ini</button>
+            <button className="btn btn-ghost btn-sm" onClick={applyLargePreset}>Backup Terbesar</button>
+            <button className="btn btn-ghost btn-warning btn-sm" onClick={applyInvalidLatestPreset}>Invalid Terbaru</button>
           </div>
 
           <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>
