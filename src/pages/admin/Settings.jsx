@@ -60,6 +60,7 @@ export default function Settings() {
   const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
   const [backupLastRefreshAt, setBackupLastRefreshAt] = useState(Date.now())
   const [backupNowTick, setBackupNowTick] = useState(Date.now())
+  const [isBackupTabVisible, setIsBackupTabVisible] = useState(() => document.visibilityState === 'visible')
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -117,6 +118,7 @@ export default function Settings() {
     }
 
     const handleVisibilityChange = () => {
+      setIsBackupTabVisible(document.visibilityState === 'visible')
       if (document.visibilityState === 'visible') {
         setBackupRefreshCountdown(intervalSeconds)
       }
@@ -162,6 +164,11 @@ export default function Settings() {
   const backupLastRefreshLabel = backupLastRefreshAgeSec <= 2
     ? 'baru saja'
     : `${backupLastRefreshAgeSec} detik lalu`
+  const backupRefreshLabel = !backupAutoRefreshEnabled
+    ? 'manual'
+    : isBackupTabVisible
+      ? `${backupRefreshCountdown}s`
+      : 'paused'
   const normalizedBackupSearch = backupSearch.toLowerCase().trim()
 
   const visibleBackups = [...storeBackups]
@@ -569,10 +576,13 @@ export default function Settings() {
             <span className={`badge ${backupSessionDelta > 0 ? 'badge-green' : backupSessionDelta < 0 ? 'badge-red' : 'badge-gray'}`}>
               Sesi: {backupSessionDelta > 0 ? `+${backupSessionDelta}` : backupSessionDelta}
             </span>
-            <span className={`badge badge-gray ${backupAutoRefreshEnabled && backupRefreshCountdown <= 1 ? 'countdown-pulse' : ''}`}>
-              Refresh: {backupAutoRefreshEnabled ? `${backupRefreshCountdown}s` : 'manual'}
+            <span className={`badge badge-gray ${backupAutoRefreshEnabled && isBackupTabVisible && backupRefreshCountdown <= 1 ? 'countdown-pulse' : ''}`}>
+              Refresh: {backupRefreshLabel}
             </span>
             <span className="badge badge-gray">Updated: {backupLastRefreshLabel}</span>
+            <span className={`badge ${isBackupTabVisible ? 'badge-green' : 'badge-yellow'}`}>
+              Tab: {isBackupTabVisible ? 'aktif' : 'nonaktif'}
+            </span>
           </div>
 
           <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>
