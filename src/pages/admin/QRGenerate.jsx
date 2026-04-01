@@ -188,7 +188,7 @@ export default function QRGenerate() {
           {participants.map(p => (
             <div key={p.id} className="m-participant-card" onClick={() => generateQR(p)}>
               <div className="m-p-avatar" style={{
-                background: p.category === 'VIP' ? 'var(--yamaha-red)' :
+                background: p.category === 'VIP' ? 'var(--brand-primary)' :
                   p.category === 'Dealer' ? 'var(--info)' :
                   p.category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
               }}>
@@ -293,7 +293,7 @@ export default function QRGenerate() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {participants.map(p => (
-              <div key={p.id} onClick={() => generateQR(p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s', background: selectedParticipant?.id === p.id ? 'var(--yamaha-red-subtle)' : 'transparent', border: selectedParticipant?.id === p.id ? '1px solid var(--yamaha-red)' : '1px solid transparent' }} onMouseEnter={e => { if (selectedParticipant?.id !== p.id) e.currentTarget.style.background = 'var(--bg-elevated)' }} onMouseLeave={e => { if (selectedParticipant?.id !== p.id) e.currentTarget.style.background = 'transparent' }}>
+              <div key={p.id} onClick={() => generateQR(p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s', background: selectedParticipant?.id === p.id ? 'var(--brand-primary-subtle)' : 'transparent', border: selectedParticipant?.id === p.id ? '1px solid var(--brand-primary)' : '1px solid transparent' }} onMouseEnter={e => { if (selectedParticipant?.id !== p.id) e.currentTarget.style.background = 'var(--bg-elevated)' }} onMouseLeave={e => { if (selectedParticipant?.id !== p.id) e.currentTarget.style.background = 'transparent' }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.name}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.ticket_id} · {p.category}</div>

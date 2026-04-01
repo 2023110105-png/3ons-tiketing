@@ -131,7 +131,7 @@ export default function BackGate() {
             <div className="progress-bar mt-8">
               <div className="progress-bar-fill" style={{
                 width: `${data.total > 0 ? (data.checkedIn / data.total) * 100 : 0}%`,
-                background: cat === 'VIP' ? 'var(--yamaha-red)' : cat === 'Dealer' ? 'var(--info)' : cat === 'Media' ? 'var(--warning)' : 'var(--success)'
+                background: cat === 'VIP' ? 'var(--brand-primary)' : cat === 'Dealer' ? 'var(--info)' : cat === 'Media' ? 'var(--warning)' : 'var(--success)'
               }}></div>
             </div>
           </div>

@@ -143,7 +143,7 @@ export default function Dashboard() {
               {logs.slice(0, 15).map(log => (
                 <div key={log.id} className="m-activity-card">
                   <div className="m-activity-avatar" style={{
-                    background: log.participant_category === 'VIP' ? 'var(--yamaha-red)' :
+                    background: log.participant_category === 'VIP' ? 'var(--brand-primary)' :
                       log.participant_category === 'Dealer' ? 'var(--info)' :
                       log.participant_category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
                   }}>

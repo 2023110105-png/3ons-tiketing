@@ -452,7 +452,7 @@ export default function FrontGate() {
                     <div style={{
                       width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontWeight: 700, fontSize: '0.85rem', color: 'white', flexShrink: 0,
-                      background: p.category === 'VIP' ? 'var(--yamaha-red)' : p.category === 'Dealer' ? 'var(--info)' : p.category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
+                      background: p.category === 'VIP' ? 'var(--brand-primary)' : p.category === 'Dealer' ? 'var(--info)' : p.category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
                     }}>
                       {p.name.charAt(0)}
                     </div>
@@ -518,7 +518,7 @@ export default function FrontGate() {
           <div className="scanner-stat-label">Total</div>
         </div>
         <div className="scanner-stat">
-          <div className="scanner-stat-value" style={{ color: 'var(--yamaha-red)' }}>{stats.percentage}%</div>
+          <div className="scanner-stat-value" style={{ color: 'var(--brand-primary)' }}>{stats.percentage}%</div>
           <div className="scanner-stat-label">Progress</div>
         </div>
       </div>

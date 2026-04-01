@@ -96,7 +96,7 @@ export default function Kiosk() {
         <div className="kiosk-attract" onClick={resetIdle}>
           <div className="kiosk-attract-bg"></div>
           <div className="kiosk-attract-content">
-            <img src="/yamaha-logo.svg" alt="3oNs" className="kiosk-attract-logo" />
+            <img src="/brand-logo.svg" alt="3oNs" className="kiosk-attract-logo" />
             <h1 className="kiosk-attract-title">SELF CHECK-IN</h1>
             <p className="kiosk-attract-subtitle">Sentuh layar untuk mulai</p>
             <div className="kiosk-attract-tap">
@@ -139,7 +139,7 @@ export default function Kiosk() {
       {/* Main Scanner View */}
       <div className="kiosk-main">
         <header className="kiosk-header">
-          <img src="/yamaha-logo.svg" alt="3oNs" className="kiosk-logo" />
+          <img src="/brand-logo.svg" alt="3oNs" className="kiosk-logo" />
           <div className="kiosk-time">
             {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
           </div>

@@ -1,7 +1,7 @@
 {
   "name": "wa-server",
   "version": "1.0.0",
-  "description": "Local API server for Yamaha Event WhatsApp & Email Automations",
+  "description": "Local API server for 3oNs Project Rental WhatsApp and Email automations",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

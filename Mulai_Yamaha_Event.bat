@@ -1,13 +1,13 @@
 @echo off
 echo ===================================================
-echo     MEMULAI YAMAHA EVENT GATE SYSTEM DAN WA BOT
+echo     MEMULAI 3ONS PROJECT RENTAL PLATFORM DAN WA BOT
 echo ===================================================
 echo.
 echo Menjalankan Website Kiosk dan Server Bot WhatsApp...
 echo Mohon tunggu sebentar, browser akan terbuka otomatis.
 echo.
 
-:: Pindah ke folder script berjalan (yamaha-event-gate)
+:: Pindah ke folder script berjalan
 cd /d "%~dp0"
 
 :: 1. Mulai Web Frontend di Background

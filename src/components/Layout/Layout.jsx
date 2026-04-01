@@ -111,7 +111,7 @@ export default function Layout({ children }) {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <img src="/yamaha-logo.svg" alt="3oNs" />
+            <img src="/brand-logo.svg" alt="3oNs" />
           </div>
           <div className="sidebar-brand">
             <h2>3oNs Rental</h2>

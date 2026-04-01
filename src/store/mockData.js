@@ -5,6 +5,12 @@ const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
 const DEFAULT_MAX_PENDING_ATTEMPTS = 5
 const DEFAULT_EVENT_ID = 'event-1'
+const STORE_KEY = 'ons_event_data'
+const LEGACY_STORE_KEY = 'yamaha_event_data'
+const WA_TEMPLATE_KEY = 'ons_wa_template'
+const LEGACY_WA_TEMPLATE_KEY = 'yamaha_wa_template'
+const SESSION_KEY = 'ons_session'
+const LEGACY_SESSION_KEY = 'yamaha_session'
 
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
@@ -58,7 +64,7 @@ function generateMockParticipants() {
       category: categories[Math.floor(Math.random() * categories.length)],
       day_number: 1,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: JSON.stringify({ tid: ticketId, n: name, d: 1, h: btoa(ticketId + '-yamaha-2026') }),
+      qr_data: JSON.stringify({ tid: ticketId, n: name, d: 1, h: btoa(ticketId + '-3ons-2026') }),
       is_checked_in: false,
       checked_in_at: null,
       checked_in_by: null,
@@ -76,7 +82,7 @@ function generateMockParticipants() {
       category: categories[Math.floor(Math.random() * categories.length)],
       day_number: 2,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: JSON.stringify({ tid: ticketId, n: name, d: 2, h: btoa(ticketId + '-yamaha-2026') }),
+      qr_data: JSON.stringify({ tid: ticketId, n: name, d: 2, h: btoa(ticketId + '-3ons-2026') }),
       is_checked_in: false,
       checked_in_at: null,
       checked_in_by: null,
@@ -152,7 +158,7 @@ function migrateLegacyStore(parsed) {
       ? parsed.offlineConfig.maxPendingAttempts
       : DEFAULT_MAX_PENDING_ATTEMPTS
   }
-  event.waTemplate = localStorage.getItem('yamaha_wa_template') || null
+  event.waTemplate = localStorage.getItem(WA_TEMPLATE_KEY) || localStorage.getItem(LEGACY_WA_TEMPLATE_KEY) || null
 
   return {
     activeEventId: event.id,
@@ -164,7 +170,7 @@ function migrateLegacyStore(parsed) {
 
 function getStore() {
   try {
-    const saved = localStorage.getItem('yamaha_event_data')
+    const saved = localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_STORE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (parsed?.events && typeof parsed.events === 'object') {
@@ -190,7 +196,7 @@ let store = getStore()
 let realtimeListeners = []
 
 function saveStore() {
-  localStorage.setItem('yamaha_event_data', JSON.stringify(store))
+  localStorage.setItem(STORE_KEY, JSON.stringify(store))
 }
 
 function getActiveEvent() {
@@ -339,13 +345,13 @@ Silakan tunjukkan gambar barcode tiket ini kepada petugas gerbang event. Terima 
 
 export function getWaTemplate() {
   const ev = getActiveEvent()
-  return ev.waTemplate || localStorage.getItem('yamaha_wa_template') || defaultWaTemplate
+  return ev.waTemplate || localStorage.getItem(WA_TEMPLATE_KEY) || localStorage.getItem(LEGACY_WA_TEMPLATE_KEY) || defaultWaTemplate
 }
 
 export function setWaTemplate(template, actor = 'system') {
   const ev = getActiveEvent()
   ev.waTemplate = template
-  localStorage.setItem('yamaha_wa_template', template)
+  localStorage.setItem(WA_TEMPLATE_KEY, template)
   saveStore()
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
 }
@@ -391,7 +397,7 @@ export function login(username, password) {
   const user = Object.values(USERS).find(u => u.username === username && u.password === password)
   if (user) {
     const session = { ...user }
-    localStorage.setItem('yamaha_session', JSON.stringify(session))
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
     return { success: true, user: session }
   }
   return { success: false, error: 'Username atau password salah' }
@@ -399,7 +405,7 @@ export function login(username, password) {
 
 export function getSession() {
   try {
-    const session = localStorage.getItem('yamaha_session')
+    const session = localStorage.getItem(SESSION_KEY) || localStorage.getItem(LEGACY_SESSION_KEY)
     return session ? JSON.parse(session) : null
   } catch {
     return null
@@ -407,7 +413,8 @@ export function getSession() {
 }
 
 export function logout() {
-  localStorage.removeItem('yamaha_session')
+  localStorage.removeItem(SESSION_KEY)
+  localStorage.removeItem(LEGACY_SESSION_KEY)
 }
 
 export function getParticipants(dayFilter = null) {
@@ -433,7 +440,7 @@ export function addParticipant(data) {
     email: data.email || null,
     category: data.category || 'Regular',
     day_number: data.day_number,
-    qr_data: JSON.stringify({ tid: ticketId, n: data.name, d: data.day_number, h: btoa(ticketId + '-yamaha-2026') }),
+    qr_data: JSON.stringify({ tid: ticketId, n: data.name, d: data.day_number, h: btoa(ticketId + '-3ons-2026') }),
     is_checked_in: false,
     checked_in_at: null,
     checked_in_by: null,

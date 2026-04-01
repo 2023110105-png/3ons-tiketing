@@ -7,18 +7,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['yamaha-logo.svg', 'icons.svg'],
+      includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
-        name: 'Yamaha Scanner',
-        short_name: 'Gate Scanner',
-        description: 'Sistem Registrasi dan Scanner Event Yamaha',
-        theme_color: '#E60012',
-        background_color: '#121212',
+        name: '3oNs Project Rental Platform',
+        short_name: '3oNs Rental',
+        description: 'Sistem registrasi, tiket, dan scanner event berbasis project',
+        theme_color: '#3c99dc',
+        background_color: '#f4f9ff',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
           {
-            src: '/yamaha-logo.svg',
+            src: '/brand-logo.svg',
             sizes: '192x192 512x512',
             type: 'image/svg+xml',
             purpose: 'any maskable'

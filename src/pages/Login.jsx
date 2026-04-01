@@ -41,7 +41,7 @@ export default function Login() {
       {/* Login Card */}
       <div className="login-card">
         <div className="login-logo">
-          <img src="/yamaha-logo.svg" alt="3oNs" />
+          <img src="/brand-logo.svg" alt="3oNs" />
         </div>
         
         <h1 className="login-title">3oNs Project Rental</h1>
@@ -117,7 +117,7 @@ export default function Login() {
             <ShieldCheck size={14} style={{ display: 'inline' }} /> Demo Credentials
           </div>
           <div style={{ display: 'grid', gap: 4 }}>
-            <div><strong style={{ color: 'var(--yamaha-red)' }}>Admin:</strong> admin / admin123</div>
+            <div><strong style={{ color: 'var(--brand-primary)' }}>Admin:</strong> admin / admin123</div>
             <div><strong style={{ color: 'var(--success)' }}>Gate Depan:</strong> gate1 / gate123</div>
             <div><strong style={{ color: 'var(--info)' }}>Gate Belakang:</strong> gate2 / gate123</div>
           </div>

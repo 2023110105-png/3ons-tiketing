@@ -121,7 +121,7 @@ app.post('/api/send-ticket', async (req, res) => {
                 const base64Str = buffer.toString('base64');
                 const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
 
-                const waMessage = req.body.wa_message || `🎫 *Yamaha Event - E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.`;
+                const waMessage = req.body.wa_message || `🎫 *3oNs Project Rental - E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.`;
                 
                 // Kirim Gambar + Caption
                 await waClient.sendMessage(waNumber, media, { caption: waMessage });
@@ -140,13 +140,12 @@ app.post('/api/send-ticket', async (req, res) => {
         } else {
             try {
                 const mailOptions = {
-                    from: `"Yamaha Event Organizer" <${transporter.options.auth.user}>`,
+                    from: `"3oNs Project Rental" <${transporter.options.auth.user}>`,
                     to: email,
-                    subject: `E-Ticket Yamaha Event Hari ke-${day_number} - ${name}`,
+                    subject: `E-Ticket 3oNs Project Rental Hari ke-${day_number} - ${name}`,
                     html: `
                         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; text-align: center; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Yamaha_Motor_Logo.svg/1024px-Yamaha_Motor_Logo.svg.png" width="80" style="margin-bottom: 20px" />
-                            <h2 style="color: #E60012">Yamaha Event E-Ticket</h2>
+                            <h2 style="color: #3c99dc">3oNs Project Rental E-Ticket</h2>
                             <p>Halo <b>${name}</b>,</p>
                             <p>Ini adalah tiket masuk acara Anda untuk <b>Hari ke-${day_number}</b>.</p>
                             <hr style="border-top:1px dashed #ccc; margin: 20px 0" />
@@ -154,7 +153,7 @@ app.post('/api/send-ticket', async (req, res) => {
                                 <img src="${qrPublicUrl}" width="200" alt="QR Code Ticket" />
                             </div>
                             <h3>${ticket_id}</h3>
-                            <p style="background: ${category === 'VIP' ? '#E60012' : '#333'}; color: white; display: inline-block; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 14px;">KATEGORI: ${category.toUpperCase()}</p>
+                            <p style="background: ${category === 'VIP' ? '#3c99dc' : '#333'}; color: white; display: inline-block; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 14px;">KATEGORI: ${category.toUpperCase()}</p>
                             <hr style="border-top:1px dashed #ccc; margin: 20px 0" />
                             <p style="font-size: 12px; color: #777;">Tunjukkan QR Code ini pada saat registrasi acara berlangsung.<br/>Harap tidak membagikan kode ini kepada orang lain.</p>
                         </div>

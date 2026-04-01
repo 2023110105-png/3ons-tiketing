@@ -282,7 +282,7 @@ export default function Participants() {
       XLSX.utils.book_append_sheet(wb, ws, "Template Peserta")
       XLSX.utils.book_append_sheet(wb, wsGuide, "Panduan")
       
-      XLSX.writeFile(wb, "Template_Peserta_Yamaha_Dengan_Hari.xlsx")
+      XLSX.writeFile(wb, "Template_Peserta_3ONS_Dengan_Hari.xlsx")
     } catch (err) {
       toast.error('Gagal', 'Gagal membuat file template Excel')
       console.error(err)
@@ -603,7 +603,7 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
                   <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
                   <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                    <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--yamaha-red)', width: 16, height: 16 }} />
+                    <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--brand-primary)', width: 16, height: 16 }} />
                     <label htmlFor="m-auto-send" style={{ fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Otomatis Kirim WA / Email (Bot Server)</label>
                   </div>
                 </div>

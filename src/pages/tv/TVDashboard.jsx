@@ -64,7 +64,7 @@ export default function TVDashboard() {
       {/* Header */}
       <header className="tv-header">
         <div className="tv-header-left">
-          <img src="/yamaha-logo.svg" alt="3oNs" className="tv-logo" />
+          <img src="/brand-logo.svg" alt="3oNs" className="tv-logo" />
           <div className="tv-header-divider"></div>
           <div>
             <h1 className="tv-event-title">3ONS PROJECT RENTAL</h1>
@@ -194,7 +194,7 @@ export default function TVDashboard() {
       {/* Bottom Ticker */}
       <div className="tv-ticker">
         <div className="tv-ticker-content">
-          <span className="tv-ticker-yamaha">3ONS PROJECT RENTAL</span>
+          <span className="tv-ticker-brand">3ONS PROJECT RENTAL</span>
           <span className="tv-ticker-sep">•</span>
           <span>Hari {currentDay}</span>
           <span className="tv-ticker-sep">•</span>
