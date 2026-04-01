@@ -57,6 +57,7 @@ export default function Settings() {
   const [backupSort, setBackupSort] = useState('newest')
   const [backupAutoRefreshEnabled, setBackupAutoRefreshEnabled] = useState(getInitialAutoRefreshPreference)
   const [backupAutoRefreshInterval, setBackupAutoRefreshInterval] = useState(getInitialAutoRefreshInterval)
+  const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -95,19 +96,28 @@ export default function Settings() {
     if (!backupAutoRefreshEnabled) return
 
     let intervalId = null
+    let countdownId = null
+
+    const intervalSeconds = Math.ceil(backupAutoRefreshInterval / 1000)
+    setBackupRefreshCountdown(intervalSeconds)
 
     const refreshWhenVisible = () => {
       if (document.visibilityState === 'visible') {
         refreshBackups()
+        setBackupRefreshCountdown(intervalSeconds)
       }
     }
 
     const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setBackupRefreshCountdown(intervalSeconds)
+      }
       refreshWhenVisible()
     }
 
     const handleFocus = () => {
       refreshBackups()
+      setBackupRefreshCountdown(intervalSeconds)
     }
 
     const handleStorage = () => {
@@ -115,6 +125,10 @@ export default function Settings() {
     }
 
     intervalId = window.setInterval(refreshWhenVisible, backupAutoRefreshInterval)
+    countdownId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      setBackupRefreshCountdown(prev => (prev <= 1 ? intervalSeconds : prev - 1))
+    }, 1000)
     window.addEventListener('focus', handleFocus)
     window.addEventListener('storage', handleStorage)
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -122,6 +136,9 @@ export default function Settings() {
     return () => {
       if (intervalId) {
         window.clearInterval(intervalId)
+      }
+      if (countdownId) {
+        window.clearInterval(countdownId)
       }
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('storage', handleStorage)
@@ -186,6 +203,7 @@ export default function Settings() {
     const next = Number(e.target.value)
     if ([5000, 8000, 15000].includes(next)) {
       setBackupAutoRefreshInterval(next)
+      setBackupRefreshCountdown(Math.ceil(next / 1000))
     }
   }
 
@@ -538,6 +556,9 @@ export default function Settings() {
             <span className="badge badge-yellow">Ukuran: {formatBackupSize(totalBackupSize)}</span>
             <span className={`badge ${backupSessionDelta > 0 ? 'badge-green' : backupSessionDelta < 0 ? 'badge-red' : 'badge-gray'}`}>
               Sesi: {backupSessionDelta > 0 ? `+${backupSessionDelta}` : backupSessionDelta}
+            </span>
+            <span className="badge badge-gray">
+              Refresh: {backupAutoRefreshEnabled ? `${backupRefreshCountdown}s` : 'manual'}
             </span>
           </div>
 
