@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { 
   Database, RefreshCw, Download, Trash2, 
-  Search, ShieldAlert, History, Archive 
+  Search, ShieldAlert, History, Archive, Clock 
 } from 'lucide-react'
-import { getStoreBackups, restoreStoreBackup } from '../../../store/mockData'
+import { getStoreBackups, restoreStoreBackup, exportStoreBackup } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/AuthContext'
 
@@ -27,6 +27,24 @@ export default function BackupRestore() {
     } else {
       toast.error('Gagal', result.error)
       setIsRestoring(false)
+    }
+  }
+
+  const handleDownload = (backup) => {
+    const result = exportStoreBackup(backup.key)
+    if (result.success) {
+      const blob = new Blob([result.content], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Sukses', 'Backup berhasil didownload')
+    } else {
+      toast.error('Gagal', result.error)
     }
   }
 
@@ -99,7 +117,7 @@ export default function BackupRestore() {
                   >
                     <RefreshCw size={14} className="mr-4" /> Restore Data
                   </button>
-                  <button className="btn btn-ghost btn-sm" title="Download JSON">
+                  <button className="btn btn-ghost btn-sm" title="Download JSON" onClick={() => handleDownload(backup)}>
                     <Download size={14} />
                   </button>
                 </div>
