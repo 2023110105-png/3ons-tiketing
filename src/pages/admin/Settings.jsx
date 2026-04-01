@@ -557,7 +557,7 @@ export default function Settings() {
             <span className={`badge ${backupSessionDelta > 0 ? 'badge-green' : backupSessionDelta < 0 ? 'badge-red' : 'badge-gray'}`}>
               Sesi: {backupSessionDelta > 0 ? `+${backupSessionDelta}` : backupSessionDelta}
             </span>
-            <span className="badge badge-gray">
+            <span className={`badge badge-gray ${backupAutoRefreshEnabled && backupRefreshCountdown <= 1 ? 'countdown-pulse' : ''}`}>
               Refresh: {backupAutoRefreshEnabled ? `${backupRefreshCountdown}s` : 'manual'}
             </span>
           </div>
