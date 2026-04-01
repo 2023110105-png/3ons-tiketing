@@ -106,6 +106,11 @@ export default function QRGenerate() {
   }
 
   const generateAllQR = async () => {
+    if (participants.length === 0) {
+      toast.error('Tidak ada data', 'Tidak ada peserta untuk digenerate QR')
+      return
+    }
+
     setGenerating(true)
     setGeneratedCount(0)
     try {
@@ -150,6 +155,10 @@ export default function QRGenerate() {
     setGenerating(false)
   }
 
+  const generationProgress = participants.length > 0
+    ? Math.round((generatedCount / participants.length) * 100)
+    : 0
+
   // ===== MOBILE QR GENERATE =====
   if (isMobile) {
     return (
@@ -184,7 +193,7 @@ export default function QRGenerate() {
         {generating && (
           <div className="qr-mobile-progress-wrap">
             <div className="progress-bar">
-              <div className="progress-bar-fill" style={{ width: `${(generatedCount / participants.length) * 100}%` }}></div>
+              <div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div>
             </div>
           </div>
         )}
@@ -275,7 +284,7 @@ export default function QRGenerate() {
         <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
           {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua QR (PDF)</>)}
         </button>
-        {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${(generatedCount / participants.length) * 100}%` }}></div></div></div>)}
+        {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
       </div>
 
       <div className="grid-2">
