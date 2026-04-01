@@ -13,6 +13,19 @@ const WA_TEMPLATE_KEY = 'ons_wa_template'
 const LEGACY_WA_TEMPLATE_KEY = 'yamaha_wa_template'
 const SESSION_KEY = 'ons_session'
 const LEGACY_SESSION_KEY = 'yamaha_session'
+const TENANT_REGISTRY_KEY = 'ons_tenant_registry'
+const LEGACY_TENANT_REGISTRY_KEY = 'yamaha_tenant_registry'
+
+const DEFAULT_TENANT_ID = 'tenant-default'
+const DEFAULT_TENANT = {
+  id: DEFAULT_TENANT_ID,
+  brandName: '3oNs Project',
+  eventName: 'Event Platform',
+  token: 'DEFAULT-3ONS',
+  status: 'active',
+  expires_at: null,
+  created_at: new Date().toISOString()
+}
 
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
@@ -52,6 +65,227 @@ function parseStoredJSON(raw) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
+}
+
+function normalizeTenantToken(value) {
+  return String(value || '').trim().toUpperCase()
+}
+
+function isTenantExpired(tenant) {
+  if (!tenant?.expires_at) return false
+  const expiredAt = new Date(tenant.expires_at).getTime()
+  if (!Number.isFinite(expiredAt)) return false
+  return expiredAt < Date.now()
+}
+
+function normalizeSavedTenant(id, raw) {
+  const normalizedToken = normalizeTenantToken(raw?.token)
+  return {
+    id,
+    brandName: String(raw?.brandName || raw?.name || 'Tenant').trim() || 'Tenant',
+    eventName: String(raw?.eventName || 'Event Platform').trim() || 'Event Platform',
+    token: normalizedToken || `TENANT-${id.slice(0, 8).toUpperCase()}`,
+    status: raw?.status === 'inactive' ? 'inactive' : 'active',
+    expires_at: raw?.expires_at || null,
+    created_at: raw?.created_at || new Date().toISOString()
+  }
+}
+
+function createDefaultTenantRegistry() {
+  return {
+    activeTenantId: DEFAULT_TENANT_ID,
+    tenants: {
+      [DEFAULT_TENANT_ID]: { ...DEFAULT_TENANT }
+    }
+  }
+}
+
+function getTenantRegistry() {
+  const raw = safeStorageGet(TENANT_REGISTRY_KEY) || safeStorageGet(LEGACY_TENANT_REGISTRY_KEY)
+  const parsed = parseStoredJSON(raw)
+
+  if (parsed?.tenants && typeof parsed.tenants === 'object') {
+    const normalizedTenants = {}
+    Object.keys(parsed.tenants).forEach(id => {
+      normalizedTenants[id] = normalizeSavedTenant(id, parsed.tenants[id])
+    })
+
+    if (!normalizedTenants[DEFAULT_TENANT_ID]) {
+      normalizedTenants[DEFAULT_TENANT_ID] = { ...DEFAULT_TENANT }
+    }
+
+    const activeTenantId = normalizedTenants[parsed.activeTenantId] ? parsed.activeTenantId : DEFAULT_TENANT_ID
+    return {
+      activeTenantId,
+      tenants: normalizedTenants
+    }
+  }
+
+  return createDefaultTenantRegistry()
+}
+
+let tenantRegistry = getTenantRegistry()
+
+function saveTenantRegistry() {
+  safeStorageSet(TENANT_REGISTRY_KEY, JSON.stringify(tenantRegistry))
+  safeStorageRemove(LEGACY_TENANT_REGISTRY_KEY)
+}
+
+function ensureActiveTenant() {
+  if (!tenantRegistry.tenants[tenantRegistry.activeTenantId]) {
+    tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+    if (!tenantRegistry.tenants[DEFAULT_TENANT_ID]) {
+      tenantRegistry.tenants[DEFAULT_TENANT_ID] = { ...DEFAULT_TENANT }
+    }
+    saveTenantRegistry()
+  }
+}
+
+function getActiveTenantState() {
+  ensureActiveTenant()
+  return tenantRegistry.tenants[tenantRegistry.activeTenantId]
+}
+
+function findTenantByToken(token) {
+  const normalized = normalizeTenantToken(token)
+  if (!normalized) return null
+  return Object.values(tenantRegistry.tenants).find(tenant => tenant.token === normalized) || null
+}
+
+function canUseTenant(tenant) {
+  if (!tenant) return false
+  if (tenant.status !== 'active') return false
+  if (isTenantExpired(tenant)) return false
+  return true
+}
+
+function dispatchTenantChangeEvent() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('ons-tenant-changed'))
+}
+
+export function getActiveTenant() {
+  return { ...getActiveTenantState() }
+}
+
+export function getTenantBranding() {
+  const tenant = getActiveTenantState()
+  return {
+    tenantId: tenant.id,
+    brandName: tenant.brandName,
+    eventName: tenant.eventName,
+    token: tenant.token
+  }
+}
+
+export function getTenants() {
+  return Object.values(tenantRegistry.tenants)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .map(tenant => ({
+      ...tenant,
+      isExpired: isTenantExpired(tenant),
+      isActiveTenant: tenant.id === tenantRegistry.activeTenantId
+    }))
+}
+
+export function switchActiveTenant(tenantId, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  if (!canUseTenant(tenant)) return { success: false, error: 'Tenant tidak aktif atau sudah expired' }
+
+  const previous = tenantRegistry.activeTenantId
+  tenantRegistry.activeTenantId = tenant.id
+  saveTenantRegistry()
+  dispatchTenantChangeEvent()
+
+  if (previous !== tenant.id) {
+    logAdminAction('tenant_switch', `Pindah tenant aktif ke ${tenant.brandName}`, actor, {
+      from: previous,
+      to: tenant.id
+    })
+  }
+
+  return { success: true, tenant: { ...tenant } }
+}
+
+export function createTenant(data, actor = 'system') {
+  const brandName = String(data?.brandName || '').trim()
+  const eventName = String(data?.eventName || '').trim() || 'Event Platform'
+  const token = normalizeTenantToken(data?.token)
+  const expiresAt = data?.expiresAt ? new Date(data.expiresAt).toISOString() : null
+
+  if (!brandName) return { success: false, error: 'Nama brand wajib diisi' }
+  if (!token) return { success: false, error: 'Token tenant wajib diisi' }
+  if (Object.values(tenantRegistry.tenants).some(tenant => tenant.token === token)) {
+    return { success: false, error: 'Token sudah dipakai tenant lain' }
+  }
+
+  const tenant = {
+    id: generateId(),
+    brandName,
+    eventName,
+    token,
+    status: 'active',
+    expires_at: expiresAt,
+    created_at: new Date().toISOString()
+  }
+
+  tenantRegistry.tenants[tenant.id] = tenant
+  saveTenantRegistry()
+
+  logAdminAction('tenant_create', `Membuat tenant ${brandName}`, actor, {
+    tenant_id: tenant.id,
+    token
+  })
+
+  return { success: true, tenant: { ...tenant } }
+}
+
+export function setTenantStatus(tenantId, nextStatus, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  if (tenant.id === DEFAULT_TENANT_ID && nextStatus === 'inactive') {
+    return { success: false, error: 'Tenant default tidak bisa dinonaktifkan' }
+  }
+
+  const normalizedStatus = nextStatus === 'inactive' ? 'inactive' : 'active'
+  tenant.status = normalizedStatus
+
+  if (tenantRegistry.activeTenantId === tenant.id && !canUseTenant(tenant)) {
+    tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+  }
+
+  saveTenantRegistry()
+  dispatchTenantChangeEvent()
+
+  logAdminAction('tenant_status_update', `Ubah status tenant ${tenant.brandName} menjadi ${normalizedStatus}`, actor, {
+    tenant_id: tenant.id,
+    status: normalizedStatus
+  })
+
+  return { success: true }
+}
+
+export function deleteTenant(tenantId, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  if (tenant.id === DEFAULT_TENANT_ID) {
+    return { success: false, error: 'Tenant default tidak bisa dihapus' }
+  }
+
+  delete tenantRegistry.tenants[tenant.id]
+  if (tenantRegistry.activeTenantId === tenant.id) {
+    tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+  }
+
+  saveTenantRegistry()
+  dispatchTenantChangeEvent()
+
+  logAdminAction('tenant_delete', `Hapus tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenant.id
+  })
+
+  return { success: true }
 }
 
 function safeStorageKeys() {
@@ -656,10 +890,37 @@ const USERS = {
   gate2: { username: 'gate2', password: 'gate123', role: 'gate_back', name: 'Panitia Belakang' }
 }
 
-export function login(username, password) {
+export function login(username, password, tenantToken = '') {
+  const requestedToken = normalizeTenantToken(tenantToken)
+  if (requestedToken) {
+    const tenantFromToken = findTenantByToken(requestedToken)
+    if (!tenantFromToken) {
+      return { success: false, error: 'Token tenant tidak valid' }
+    }
+    if (!canUseTenant(tenantFromToken)) {
+      return { success: false, error: 'Tenant nonaktif atau masa sewa sudah habis' }
+    }
+    tenantRegistry.activeTenantId = tenantFromToken.id
+    saveTenantRegistry()
+    dispatchTenantChangeEvent()
+  }
+
+  const activeTenant = getActiveTenantState()
+  if (!canUseTenant(activeTenant)) {
+    return { success: false, error: 'Tenant aktif tidak bisa digunakan. Hubungi owner aplikasi.' }
+  }
+
   const user = Object.values(USERS).find(u => u.username === username && u.password === password)
   if (user) {
-    const session = { ...user }
+    const session = {
+      ...user,
+      tenant: {
+        id: activeTenant.id,
+        brandName: activeTenant.brandName,
+        eventName: activeTenant.eventName,
+        token: activeTenant.token
+      }
+    }
     safeStorageSet(SESSION_KEY, JSON.stringify(session))
     safeStorageRemove(LEGACY_SESSION_KEY)
     return { success: true, user: session }
@@ -670,7 +931,23 @@ export function login(username, password) {
 export function getSession() {
   const active = safeStorageGet(SESSION_KEY)
   const parsedActive = parseStoredJSON(active)
-  if (parsedActive) return parsedActive
+  if (parsedActive) {
+    const activeTenant = getActiveTenantState()
+    if (!canUseTenant(activeTenant)) {
+      safeStorageRemove(SESSION_KEY)
+      return null
+    }
+
+    return {
+      ...parsedActive,
+      tenant: {
+        id: activeTenant.id,
+        brandName: activeTenant.brandName,
+        eventName: activeTenant.eventName,
+        token: activeTenant.token
+      }
+    }
+  }
 
   const legacy = safeStorageGet(LEGACY_SESSION_KEY)
   const parsedLegacy = parseStoredJSON(legacy)

@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getTenantBranding } from '../store/mockData'
 import { ShieldCheck } from 'lucide-react'
 
 export default function Login() {
+  const branding = getTenantBranding()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [tenantToken, setTenantToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -17,7 +20,7 @@ export default function Login() {
     setLoading(true)
 
     setTimeout(() => {
-      const result = login(username, password)
+      const result = login(username, password, tenantToken)
       if (result.success) {
         const role = result.user.role
         if (role === 'super_admin') navigate('/admin')
@@ -44,8 +47,8 @@ export default function Login() {
           <img src="/brand-logo.svg" alt="3oNs" />
         </div>
         
-        <h1 className="login-title">3oNs Project</h1>
-        <p className="login-subtitle">Masuk ke Platform Ticket Project Event</p>
+        <h1 className="login-title">{branding.brandName}</h1>
+        <p className="login-subtitle">Masuk ke {branding.eventName}</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -72,6 +75,18 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Token Tenant (Opsional)</label>
+            <input
+              id="login-tenant-token"
+              type="text"
+              className="form-input"
+              placeholder="Contoh: YAMAHA-EXPO-2026"
+              value={tenantToken}
+              onChange={e => setTenantToken(e.target.value.toUpperCase())}
             />
           </div>
 

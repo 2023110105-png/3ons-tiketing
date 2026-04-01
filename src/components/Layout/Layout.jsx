@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent } from '../../store/mockData'
+import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding } from '../../store/mockData'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
   BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus
@@ -17,11 +17,22 @@ export default function Layout({ children }) {
   const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    const refreshTenantBranding = () => setTenantBranding(getTenantBranding())
+    window.addEventListener('ons-tenant-changed', refreshTenantBranding)
+    window.addEventListener('focus', refreshTenantBranding)
+    return () => {
+      window.removeEventListener('ons-tenant-changed', refreshTenantBranding)
+      window.removeEventListener('focus', refreshTenantBranding)
+    }
   }, [])
 
   const handleDayChange = (day) => {
@@ -114,13 +125,8 @@ export default function Layout({ children }) {
             <img src="/brand-logo.svg" alt="3oNs" />
           </div>
           <div className="sidebar-brand">
-            <h2>
-              <span style={{ color: 'var(--brand-blue)' }}>3</span>
-              <span style={{ color: 'var(--brand-green)' }}>o</span>
-              <span style={{ color: 'var(--brand-primary)' }}>N</span>
-              <span style={{ color: 'var(--brand-pink)' }}>s</span>
-            </h2>
-            <span>Project Platform</span>
+            <h2>{tenantBranding.brandName}</h2>
+            <span>{tenantBranding.eventName}</span>
           </div>
           {isMobile && (
             <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
