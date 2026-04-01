@@ -249,6 +249,20 @@ export default function FrontGate() {
     return 'TIDAK VALID'
   }
 
+  const getResultTone = () => {
+    if (!result) return 'error'
+    if (result.success) return 'success'
+    if (result.status === 'wrong_day' || result.status === 'sync_partial') return 'warning'
+    return 'error'
+  }
+
+  const getCategoryAvatarClass = (category) => {
+    if (category === 'VIP') return 'm-p-avatar-vip'
+    if (category === 'Dealer') return 'm-p-avatar-dealer'
+    if (category === 'Media') return 'm-p-avatar-media'
+    return 'm-p-avatar-regular'
+  }
+
   const handleRetryPendingItem = (itemId) => {
     if (!navigator.onLine) {
       setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa retry saat offline' })
@@ -341,7 +355,7 @@ export default function FrontGate() {
       {/* ===== CAMERA MODE ===== */}
       {scanMode === 'camera' && (
         <div className="scanner-viewport">
-          <div id="qr-reader" style={{ width: '100%', height: '100%' }}></div>
+          <div id="qr-reader" className="scanner-reader"></div>
           {result && (
             <div className={`scanner-result ${getResultClass()}`}>
               <div className="scanner-result-icon">{getResultIcon()}</div>
@@ -351,7 +365,7 @@ export default function FrontGate() {
               {result.participant && (
                 <div className="scanner-result-detail">{result.participant.name}</div>
               )}
-              <div className="scanner-result-detail" style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: 4 }}>
+              <div className="scanner-result-detail scanner-result-subdetail">
                 {result.message}
               </div>
             </div>
@@ -381,31 +395,28 @@ export default function FrontGate() {
 
           <div className="card">
             <h3 className="card-title mb-8">Quick Scan (Demo)</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+            <p className="scanner-note scanner-note-tight">
               Klik untuk simulasi scan peserta
             </p>
             <QuickScanButtons currentDay={currentDay} onScan={handleScan} />
           </div>
 
           {result && (
-            <div className={`card mt-16 animate-scale-in`} style={{
-              borderColor: result.success ? 'var(--success)' : result.status === 'warning' ? 'var(--warning)' : 'var(--danger)',
-              boxShadow: result.success ? '0 0 30px var(--success-glow)' : result.status === 'wrong_day' ? '0 0 30px rgba(245, 158, 11, 0.3)' : '0 0 30px var(--danger-glow)'
-            }}>
-              <div style={{ textAlign: 'center', padding: 16 }}>
-                <div style={{ fontSize: '3rem', animation: 'successPop 0.5s ease-out' }}>{getResultIcon()}</div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '1.5rem', color: result.success ? 'var(--success)' : result.status === 'wrong_day' ? 'var(--warning)' : 'var(--danger)', marginTop: 8 }}>
+            <div className={`card mt-16 animate-scale-in scanner-feedback-card scanner-feedback-${getResultTone()}`}>
+              <div className="scanner-feedback-body">
+                <div className="scanner-feedback-icon scanner-feedback-icon-lg">{getResultIcon()}</div>
+                <h2 className={`scanner-feedback-title scanner-feedback-title-lg scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
                 {result.participant && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{result.participant.name}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+                  <div className="scanner-feedback-participant">
+                    <div className="scanner-feedback-name scanner-feedback-name-lg">{result.participant.name}</div>
+                    <div className="scanner-feedback-meta scanner-feedback-meta-lg">
                       {result.participant.ticket_id} · {result.participant.category}
                     </div>
                   </div>
                 )}
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 8 }}>{result.message}</p>
+                <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>
               </div>
             </div>
           )}
@@ -444,33 +455,25 @@ export default function FrontGate() {
               </div>
               <div className="scanner-results-scroll">
                 {searchResults.map(p => (
-                  <div key={p.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                    borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s'
-                  }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: '0.85rem', color: 'white', flexShrink: 0,
-                      background: p.category === 'VIP' ? 'var(--brand-primary)' : p.category === 'Dealer' ? 'var(--info)' : p.category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
-                    }}>
+                  <div key={p.id} className="scanner-search-row">
+                    <div className={`scanner-search-avatar ${getCategoryAvatarClass(p.category)}`}>
                       {p.name.charAt(0)}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className="scanner-search-info">
+                      <div className="scanner-search-name">{p.name}</div>
+                      <div className="scanner-search-meta">
                         <span className={`badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'gray'}`}>{p.category}</span>
                         {p.ticket_id}
                       </div>
                     </div>
                     {p.is_checked_in ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--success)', fontSize: '0.75rem', fontWeight: 600 }}>
+                      <div className="scanner-search-checked">
                         <CheckCircle size={16} /> Hadir
                       </div>
                     ) : (
                       <button
-                        className="btn btn-primary btn-sm"
+                        className="btn btn-primary btn-sm scanner-search-check-btn"
                         onClick={() => handleManualCheckIn(p)}
-                        style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}
                       >
                         <UserCheck size={14} /> Check-in
                       </button>
@@ -483,19 +486,16 @@ export default function FrontGate() {
 
           {/* Result Display */}
           {result && (
-            <div className={`card mt-16 animate-scale-in`} style={{
-              borderColor: result.success ? 'var(--success)' : 'var(--danger)',
-              boxShadow: result.success ? '0 0 30px var(--success-glow)' : '0 0 30px var(--danger-glow)'
-            }}>
-              <div style={{ textAlign: 'center', padding: 16 }}>
-                <div style={{ fontSize: '2.5rem' }}>{getResultIcon()}</div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '1.3rem', color: result.success ? 'var(--success)' : 'var(--danger)', marginTop: 8 }}>
+            <div className={`card mt-16 animate-scale-in scanner-feedback-card scanner-feedback-${getResultTone()}`}>
+              <div className="scanner-feedback-body">
+                <div className="scanner-feedback-icon">{getResultIcon()}</div>
+                <h2 className={`scanner-feedback-title scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
                 {result.participant && (
-                  <div style={{ marginTop: 6 }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 700 }}>{result.participant.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                  <div className="scanner-feedback-participant scanner-feedback-participant-tight">
+                    <div className="scanner-feedback-name">{result.participant.name}</div>
+                    <div className="scanner-feedback-meta">
                       {result.participant.ticket_id} · {result.participant.category}
                     </div>
                   </div>
@@ -509,7 +509,7 @@ export default function FrontGate() {
       {/* Stats */}
       <div className="scanner-stats">
         <div className="scanner-stat">
-          <div className="scanner-stat-value" style={{ color: 'var(--success)' }}>{stats.checkedIn}</div>
+          <div className="scanner-stat-value scanner-stat-success">{stats.checkedIn}</div>
           <div className="scanner-stat-label">Sudah Masuk</div>
         </div>
         <div className="scanner-stat">
@@ -517,7 +517,7 @@ export default function FrontGate() {
           <div className="scanner-stat-label">Total</div>
         </div>
         <div className="scanner-stat">
-          <div className="scanner-stat-value" style={{ color: 'var(--brand-primary)' }}>{stats.percentage}%</div>
+          <div className="scanner-stat-value scanner-stat-primary">{stats.percentage}%</div>
           <div className="scanner-stat-label">Progress</div>
         </div>
       </div>
@@ -544,7 +544,7 @@ export default function FrontGate() {
                 <button className="btn btn-ghost btn-sm" onClick={handleRetryAllPending} disabled={!isOnline || isSyncing} title="Retry semua item">
                   <RefreshCw size={12} />
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={handleClearAllPending} title="Hapus semua antrean" style={{ color: 'var(--danger)' }}>
+                <button className="btn btn-ghost btn-danger btn-sm" onClick={handleClearAllPending} title="Hapus semua antrean">
                   <Trash2 size={12} />
                 </button>
               </>
@@ -556,37 +556,31 @@ export default function FrontGate() {
         </div>
 
         {showLimitInfo && (
-          <div style={{
-            padding: '0 12px 10px',
-            fontSize: '0.74rem',
-            color: 'var(--text-muted)',
-            opacity: isLimitInfoFading ? 0 : 1,
-            transition: 'opacity 0.35s ease'
-          }}>
+          <div className={`scanner-limit-info ${isLimitInfoFading ? 'is-fading' : ''}`}>
             {getLimitBadgeInfo()}
           </div>
         )}
 
         {pendingItems.length === 0 ? (
-          <div style={{ padding: 12, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <div className="scanner-empty-note">
             Tidak ada antrean offline.
           </div>
         ) : (
           <div className="offline-list">
             {pendingItems.slice(0, 20).map(item => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--border-color)' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+              <div key={item.id} className="scanner-offline-item">
+                <div className="scanner-offline-item-main">
+                  <div className="scanner-offline-time">
                     {new Date(item.created_at).toLocaleTimeString('id-ID')} · {item.source}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <div className="scanner-offline-meta">
                     Attempts: {item.attempts || 0}{item.last_error ? ` · Error: ${item.last_error}` : ''}
                   </div>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={() => handleRetryPendingItem(item.id)} disabled={!isOnline} title="Retry item ini">
                   <RefreshCw size={12} />
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => handleRemovePendingItem(item.id)} title="Hapus item ini" style={{ color: 'var(--danger)' }}>
+                <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleRemovePendingItem(item.id)} title="Hapus item ini">
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -605,31 +599,31 @@ function QuickScanButtons({ currentDay, onScan }) {
   const checked = participants.filter(p => p.is_checked_in).slice(0, 2)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="quick-scan-list">
       {unchecked.length > 0 && (
         <>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginTop: 4 }}>
+          <div className="quick-scan-label">
             Belum Check-in:
           </div>
           {unchecked.map(p => (
-            <button key={p.id} className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', width: '100%' }} onClick={() => onScan(p.qr_data)}>
-              <span style={{ color: 'var(--success)' }}><Play size={12} /></span>
+            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn" onClick={() => onScan(p.qr_data)}>
+              <span className="quick-scan-icon success"><Play size={12} /></span>
               {p.name}
-              <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.7rem' }}>{p.ticket_id}</span>
+              <span className="quick-scan-ticket">{p.ticket_id}</span>
             </button>
           ))}
         </>
       )}
       {checked.length > 0 && (
         <>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginTop: 8 }}>
+          <div className="quick-scan-label quick-scan-label-spaced">
             Sudah Check-in (test duplikat):
           </div>
           {checked.map(p => (
-            <button key={p.id} className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', width: '100%', opacity: 0.7 }} onClick={() => onScan(p.qr_data)}>
-              <span style={{ color: 'var(--danger)' }}><Square size={10} /></span>
+            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn quick-scan-btn-muted" onClick={() => onScan(p.qr_data)}>
+              <span className="quick-scan-icon danger"><Square size={10} /></span>
               {p.name}
-              <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.7rem' }}>{p.ticket_id}</span>
+              <span className="quick-scan-ticket">{p.ticket_id}</span>
             </button>
           ))}
         </>
