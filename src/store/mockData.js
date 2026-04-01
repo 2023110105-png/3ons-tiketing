@@ -145,6 +145,10 @@ function isValidStoreShape(candidate) {
   return !!(candidate && typeof candidate === 'object' && candidate.events && typeof candidate.events === 'object')
 }
 
+function isBackupKey(backupKey) {
+  return String(backupKey || '').startsWith(STORE_BACKUP_PREFIX)
+}
+
 function generateMockParticipants() {
   const namesDay1 = [
     'Ahmad Rizki', 'Budi Santoso', 'Citra Dewi', 'Dian Pratama', 'Eko Wahyudi',
@@ -382,7 +386,7 @@ export function getStoreBackups() {
 }
 
 export function restoreStoreBackup(backupKey, actor = 'system', reason = '') {
-  if (!String(backupKey || '').startsWith(STORE_BACKUP_PREFIX)) {
+  if (!isBackupKey(backupKey)) {
     return { success: false, error: 'Backup key tidak valid' }
   }
 
@@ -417,6 +421,49 @@ export function restoreStoreBackup(backupKey, actor = 'system', reason = '') {
     activeEventId: store.activeEventId,
     eventCount: Object.keys(store.events || {}).length
   }
+}
+
+export function exportStoreBackup(backupKey) {
+  if (!isBackupKey(backupKey)) {
+    return { success: false, error: 'Backup key tidak valid' }
+  }
+
+  const raw = safeStorageGet(backupKey)
+  if (!raw) return { success: false, error: 'Backup tidak ditemukan' }
+
+  const parsed = parseStoredJSON(raw)
+  const timestamp = parseBackupTimestamp(backupKey)
+  const stamp = timestamp ? new Date(timestamp).toISOString().replace(/[:.]/g, '-') : 'unknown'
+  const fileName = `ons-store-backup-${stamp}.json`
+
+  return {
+    success: true,
+    fileName,
+    content: parsed ? JSON.stringify(parsed, null, 2) : raw,
+    isValid: isValidStoreShape(parsed)
+  }
+}
+
+export function deleteStoreBackup(backupKey, actor = 'system', reason = '') {
+  if (!isBackupKey(backupKey)) {
+    return { success: false, error: 'Backup key tidak valid' }
+  }
+
+  if (!isStrongReason(reason)) {
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
+  }
+
+  const existing = safeStorageGet(backupKey)
+  if (!existing) return { success: false, error: 'Backup tidak ditemukan' }
+
+  safeStorageRemove(backupKey)
+  logAdminAction('store_backup_delete', `Hapus backup store ${backupKey}`, actor, {
+    backup_key: backupKey,
+    reason: normalizeReason(reason),
+    deleted_at: new Date().toISOString()
+  })
+
+  return { success: true }
 }
 
 export function getEventsWithOptions(options = {}) {

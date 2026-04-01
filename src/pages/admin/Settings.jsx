@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History } from 'lucide-react'
+import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download } from 'lucide-react'
 
 export default function Settings() {
   const currentDay = getCurrentDay()
@@ -173,6 +173,40 @@ export default function Settings() {
     toast.success('Sukses', 'Backup berhasil direstore. Muat ulang halaman untuk sinkron penuh jika diperlukan.')
   }
 
+  const handleDownloadBackup = (backup) => {
+    const result = exportStoreBackup(backup.key)
+    if (!result.success) {
+      toast.error('Gagal', result.error || 'Backup gagal diexport')
+      return
+    }
+
+    const blob = new Blob([result.content], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = result.fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast.success('Sukses', 'Backup JSON berhasil didownload')
+  }
+
+  const handleDeleteBackup = (backup) => {
+    const confirmWord = window.prompt('Hapus backup ini? Ketik HAPUS untuk lanjut:', '')
+    if (confirmWord === null) return
+    if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
+    const reason = window.prompt('Alasan hapus backup (minimal 15 karakter):', '')
+    if (reason === null) return
+
+    const result = deleteStoreBackup(backup.key, user, reason)
+    if (!result.success) return toast.error('Gagal', result.error || 'Gagal hapus backup')
+
+    refreshEvents()
+    toast.success('Sukses', 'Backup berhasil dihapus')
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -289,7 +323,13 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="event-actions">
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDownloadBackup(backup)}>
+                        <Download size={14} className="mr-6" /> Download
+                      </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleRestoreBackup(backup)} disabled={!backup.isValid}>Restore</button>
+                      <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteBackup(backup)}>
+                        <Trash2 size={14} className="mr-6" /> Delete
+                      </button>
                     </div>
                   </div>
                 </div>
