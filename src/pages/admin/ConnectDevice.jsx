@@ -70,7 +70,7 @@ export default function ConnectDevice() {
             </h4>
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               <li>Sistem ini akan meminjam nomor WhatsApp yang sedang kalian "Tautkan" (Scan).</li>
-              <li>Aplikasi web membutuhkan server lokal (`Mulai_Yamaha_Event.bat`) aktif di memori untuk mengirimnya.</li>
+              <li>Aplikasi web membutuhkan server lokal (`Mulai_3ONS_Project.bat`) aktif di memori untuk mengirimnya.</li>
               <li>Tampilan QR akan disegarkan (*refresh*) otomatis jika kadaluwarsa.</li>
             </ul>
           </div>
@@ -88,7 +88,7 @@ export default function ConnectDevice() {
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: 'var(--danger)', marginBottom: 20 }}><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
-              <p style={{ color: 'var(--text-muted)', marginTop: 10 }}>Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_Yamaha_Event.bat`</b> yang membangkitkan sinyal di port 3001.</p>
+              <p style={{ color: 'var(--text-muted)', marginTop: 10 }}>Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_3ONS_Project.bat`</b> yang membangkitkan sinyal di port 3001.</p>
             </div>
           )}
 

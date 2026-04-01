@@ -1,4 +1,4 @@
-# 3oNs Project Rental Platform (yamaha-scan-tiketing)
+# 3oNs Project Rental Platform
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

@@ -80,7 +80,7 @@ export default function WhatsAppStatus() {
                 <div>
                   <div style={{ color: 'var(--danger)', marginBottom: 16 }}><RefreshCw size={48} /></div>
                   <h4>Bot Server Mati</h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 8 }}>Pastikan Anda menjalankan Mulai_Yamaha_Event.bat dan server tetap menyala.</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 8 }}>Pastikan Anda menjalankan Mulai_3ONS_Project.bat dan server tetap menyala.</p>
                 </div>
               )}
 

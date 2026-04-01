@@ -197,6 +197,7 @@ let realtimeListeners = []
 
 function saveStore() {
   localStorage.setItem(STORE_KEY, JSON.stringify(store))
+  localStorage.removeItem(LEGACY_STORE_KEY)
 }
 
 function getActiveEvent() {
@@ -352,6 +353,7 @@ export function setWaTemplate(template, actor = 'system') {
   const ev = getActiveEvent()
   ev.waTemplate = template
   localStorage.setItem(WA_TEMPLATE_KEY, template)
+  localStorage.removeItem(LEGACY_WA_TEMPLATE_KEY)
   saveStore()
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
 }
@@ -398,6 +400,7 @@ export function login(username, password) {
   if (user) {
     const session = { ...user }
     localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    localStorage.removeItem(LEGACY_SESSION_KEY)
     return { success: true, user: session }
   }
   return { success: false, error: 'Username atau password salah' }
@@ -405,8 +408,15 @@ export function login(username, password) {
 
 export function getSession() {
   try {
-    const session = localStorage.getItem(SESSION_KEY) || localStorage.getItem(LEGACY_SESSION_KEY)
-    return session ? JSON.parse(session) : null
+    const active = localStorage.getItem(SESSION_KEY)
+    if (active) return JSON.parse(active)
+
+    const legacy = localStorage.getItem(LEGACY_SESSION_KEY)
+    if (!legacy) return null
+
+    localStorage.setItem(SESSION_KEY, legacy)
+    localStorage.removeItem(LEGACY_SESSION_KEY)
+    return JSON.parse(legacy)
   } catch {
     return null
   }
