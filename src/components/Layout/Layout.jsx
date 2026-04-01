@@ -38,10 +38,7 @@ export default function Layout({ children }) {
       return [
         { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
-        { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Connect Device' },
-        { path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan' },
-        { path: '/admin/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },
-        { path: '/admin/settings', icon: <Settings size={18} />, label: 'Pengaturan' }
+        { path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan' }
       ]
     }
     if (user?.role === 'gate_front') {
@@ -190,7 +187,7 @@ export default function Layout({ children }) {
           ))}
           {user?.role === 'super_admin' && (
             <button className="mobile-nav-item" onClick={() => setSidebarOpen(true)}>
-              <span className="mobile-nav-icon"><Settings size={18} /></span>
+              <span className="mobile-nav-icon"><Menu size={18} /></span>
               <span className="mobile-nav-label">Lainnya</span>
             </button>
           )}
