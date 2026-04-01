@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns } from '../../store/mockData'
+import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns, getOfflineQueueHistory } from '../../store/mockData'
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2 } from 'lucide-react'
+import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
 export default function FrontGate() {
   const currentDay = getCurrentDay()
@@ -261,6 +262,16 @@ export default function FrontGate() {
     setTimeout(() => setResult(null), 2500)
   }
 
+  const handleExportOfflineReport = async () => {
+    const ok = await exportOfflineQueueReportToCSV(getPendingCheckIns(), getOfflineQueueHistory(1000))
+    if (ok) {
+      setResult({ success: true, status: 'synced', message: 'Laporan offline queue berhasil diexport' })
+    } else {
+      setResult({ success: false, status: 'sync_partial', message: 'Gagal export laporan offline queue' })
+    }
+    setTimeout(() => setResult(null), 2500)
+  }
+
   return (
     <div className="scanner-container">
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -499,6 +510,9 @@ export default function FrontGate() {
                 </button>
               </>
             )}
+            <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport} title="Export post-mortem offline queue">
+              Export
+            </button>
           </div>
         </div>
 

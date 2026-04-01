@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { getStats, getCheckInLogs, getCurrentDay, getParticipants, getPendingCheckIns } from '../../store/mockData'
+import { getStats, getCheckInLogs, getCurrentDay, getParticipants, getPendingCheckIns, getOfflineQueueHistory } from '../../store/mockData'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff } from 'lucide-react'
+import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
 export default function BackGate() {
   const currentDay = getCurrentDay()
@@ -62,6 +63,10 @@ export default function BackGate() {
     if (diff < 60) return `${diff} detik lalu`
     if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`
     return new Date(timestamp).toLocaleTimeString('id-ID')
+  }
+
+  const handleExportOfflineReport = async () => {
+    await exportOfflineQueueReportToCSV(getPendingCheckIns(), getOfflineQueueHistory(1000))
   }
 
   return (
@@ -156,7 +161,10 @@ export default function BackGate() {
           <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <WifiOff size={16} /> Offline Queue Monitor
           </h3>
-          <span className="badge badge-yellow">{pendingItems.length} pending</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="badge badge-yellow">{pendingItems.length} pending</span>
+            <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport}>Export</button>
+          </div>
         </div>
         {pendingItems.length === 0 ? (
           <div style={{ padding: 14, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
