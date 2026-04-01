@@ -1,18 +1,28 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/Layout/Layout'
 import OfflineIndicator from './components/OfflineIndicator'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import Login from './pages/Login'
-import Dashboard from './pages/admin/Dashboard'
-import Participants from './pages/admin/Participants'
-import QRGenerate from './pages/admin/QRGenerate'
-import Reports from './pages/admin/Reports'
-import FrontGate from './pages/gate/FrontGate'
-import BackGate from './pages/gate/BackGate'
-import Settings from './pages/admin/Settings'
-import ConnectDevice from './pages/admin/ConnectDevice'
+
+const Login = lazy(() => import('./pages/Login'))
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
+const Participants = lazy(() => import('./pages/admin/Participants'))
+const QRGenerate = lazy(() => import('./pages/admin/QRGenerate'))
+const Reports = lazy(() => import('./pages/admin/Reports'))
+const FrontGate = lazy(() => import('./pages/gate/FrontGate'))
+const BackGate = lazy(() => import('./pages/gate/BackGate'))
+const Settings = lazy(() => import('./pages/admin/Settings'))
+const ConnectDevice = lazy(() => import('./pages/admin/ConnectDevice'))
+
+function RouteFallback() {
+  return (
+    <div className="flex-center" style={{ height: '100vh' }}>
+      <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }}></div>
+    </div>
+  )
+}
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth()
@@ -106,7 +116,9 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <ErrorBoundary>
-            <AppRoutes />
+            <Suspense fallback={<RouteFallback />}>
+              <AppRoutes />
+            </Suspense>
             <OfflineIndicator />
           </ErrorBoundary>
         </ToastProvider>
