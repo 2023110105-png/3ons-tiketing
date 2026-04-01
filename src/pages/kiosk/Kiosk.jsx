@@ -11,6 +11,7 @@ export default function Kiosk() {
   const [idle, setIdle] = useState(true)
   const scannerRef = useRef(null)
   const idleTimerRef = useRef(null)
+  const lastScanRef = useRef({ data: null, time: 0 })
   const { playSuccess, playError } = useSound()
 
   const refreshStats = () => setStats(getStats(currentDay))
@@ -22,6 +23,12 @@ export default function Kiosk() {
   }
 
   const handleScan = useCallback((qrData) => {
+    const now = Date.now()
+    if (lastScanRef.current.data === qrData && now - lastScanRef.current.time < 3000) {
+      return // Abaikan jika QR yang sama discan dalam waktu < 3 detik
+    }
+    lastScanRef.current = { data: qrData, time: now }
+
     resetIdle()
     const res = checkIn(qrData)
     setResult(res)

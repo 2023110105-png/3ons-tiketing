@@ -12,6 +12,8 @@ export default function FrontGate() {
   const [scanMode, setScanMode] = useState('manual') // 'camera', 'manual', 'search'
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
+  const searchResultsRef = useRef(null) // Unused, just keeping ref pattern if needed
+  const lastScanRef = useRef({ data: null, time: 0 })
   const videoRef = useRef(null)
   const scannerRef = useRef(null)
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
@@ -19,6 +21,12 @@ export default function FrontGate() {
   const refreshStats = () => setStats(getStats(currentDay))
 
   const handleScan = useCallback((qrData) => {
+    const now = Date.now()
+    if (lastScanRef.current.data === qrData && now - lastScanRef.current.time < 3000) {
+      return // Abaikan jika QR yang sama discan dalam waktu < 3 detik
+    }
+    lastScanRef.current = { data: qrData, time: now }
+
     const res = checkIn(qrData)
     setResult(res)
 
