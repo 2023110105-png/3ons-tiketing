@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
+const BACKUP_AUTO_REFRESH_INTERVAL_KEY = 'ons_backup_auto_refresh_interval'
 
 function getInitialAutoRefreshPreference() {
   try {
@@ -15,6 +16,16 @@ function getInitialAutoRefreshPreference() {
     // ignore storage read failures
   }
   return true
+}
+
+function getInitialAutoRefreshInterval() {
+  try {
+    const saved = Number(localStorage.getItem(BACKUP_AUTO_REFRESH_INTERVAL_KEY))
+    if ([5000, 8000, 15000].includes(saved)) return saved
+  } catch {
+    // ignore storage read failures
+  }
+  return 8000
 }
 
 export default function Settings() {
@@ -45,6 +56,7 @@ export default function Settings() {
   const [backupFilter, setBackupFilter] = useState('all')
   const [backupSort, setBackupSort] = useState('newest')
   const [backupAutoRefreshEnabled, setBackupAutoRefreshEnabled] = useState(getInitialAutoRefreshPreference)
+  const [backupAutoRefreshInterval, setBackupAutoRefreshInterval] = useState(getInitialAutoRefreshInterval)
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -72,6 +84,14 @@ export default function Settings() {
   }, [backupAutoRefreshEnabled])
 
   useEffect(() => {
+    try {
+      localStorage.setItem(BACKUP_AUTO_REFRESH_INTERVAL_KEY, String(backupAutoRefreshInterval))
+    } catch {
+      // ignore storage write failures
+    }
+  }, [backupAutoRefreshInterval])
+
+  useEffect(() => {
     if (!backupAutoRefreshEnabled) return
 
     let intervalId = null
@@ -94,7 +114,7 @@ export default function Settings() {
       refreshBackups()
     }
 
-    intervalId = window.setInterval(refreshWhenVisible, 8000)
+    intervalId = window.setInterval(refreshWhenVisible, backupAutoRefreshInterval)
     window.addEventListener('focus', handleFocus)
     window.addEventListener('storage', handleStorage)
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -107,7 +127,7 @@ export default function Settings() {
       window.removeEventListener('storage', handleStorage)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [backupAutoRefreshEnabled])
+  }, [backupAutoRefreshEnabled, backupAutoRefreshInterval])
 
   const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
   const validBackupCount = storeBackups.length - invalidBackupCount
@@ -160,6 +180,13 @@ export default function Settings() {
 
   const handleToggleBackupAutoRefresh = () => {
     setBackupAutoRefreshEnabled(prev => !prev)
+  }
+
+  const handleChangeBackupRefreshInterval = (e) => {
+    const next = Number(e.target.value)
+    if ([5000, 8000, 15000].includes(next)) {
+      setBackupAutoRefreshInterval(next)
+    }
   }
 
 
@@ -478,6 +505,17 @@ export default function Settings() {
             >
               Auto Refresh: {backupAutoRefreshEnabled ? 'ON' : 'OFF'}
             </button>
+            <select
+              className="form-select backup-select"
+              value={backupAutoRefreshInterval}
+              onChange={handleChangeBackupRefreshInterval}
+              disabled={!backupAutoRefreshEnabled}
+              title="Interval auto refresh"
+            >
+              <option value={5000}>Refresh 5 detik</option>
+              <option value={8000}>Refresh 8 detik</option>
+              <option value={15000}>Refresh 15 detik</option>
+            </select>
             <button
               className="btn btn-ghost btn-sm"
               onClick={resetBackupView}
