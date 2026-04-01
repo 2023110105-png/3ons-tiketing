@@ -3586,15 +3586,16 @@ input, select, textarea, button {
 .m-report-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 18px;
 }
 
 .m-report-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px;
+  gap: 12px;
+  padding: 14px 16px;
+  min-height: 64px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -3612,8 +3613,8 @@ input, select, textarea, button {
 }
 
 .m-report-btn .m-report-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -3626,11 +3627,24 @@ input, select, textarea, button {
 .m-report-btn .m-report-icon.green { background: var(--success-bg); }
 .m-report-btn .m-report-icon.blue { background: var(--info-bg); }
 
+.m-report-content {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.m-report-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .m-report-desc {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
   color: var(--text-muted);
   font-weight: 400;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .qr-mobile-header {
@@ -4481,6 +4495,24 @@ input, select, textarea, button {
 
   .backup-stats-row {
     grid-template-columns: 1fr;
+  }
+
+  .m-report-btn {
+    min-height: 60px;
+    padding: 12px 14px;
+  }
+
+  .m-report-btn .m-report-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .m-report-title {
+    font-size: 0.82rem;
+  }
+
+  .m-report-desc {
+    font-size: 0.69rem;
   }
 }
 

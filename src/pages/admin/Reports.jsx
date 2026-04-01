@@ -20,6 +20,13 @@ const RECHARTS_TOOLTIP_ITEM_STYLE = { color: '#fff' }
 const RECHARTS_TOOLTIP_LABEL_STYLE = { color: '#9CA3AF' }
 
 export default function Reports() {
+  const getIsMobileLayout = () => {
+    if (typeof window === 'undefined') return false
+    const isNarrow = window.matchMedia('(max-width: 768px)').matches
+    const isTouch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
+    return isNarrow && isTouch
+  }
+
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [auditActorFilter, setAuditActorFilter] = useState('all')
@@ -259,11 +266,15 @@ export default function Reports() {
     }
   }
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [isMobile, setIsMobile] = useState(getIsMobileLayout)
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 768)
+    const h = () => setIsMobile(getIsMobileLayout())
     window.addEventListener('resize', h)
-    return () => window.removeEventListener('resize', h)
+    window.addEventListener('orientationchange', h)
+    return () => {
+      window.removeEventListener('resize', h)
+      window.removeEventListener('orientationchange', h)
+    }
   }, [])
 
   // ===== MOBILE REPORTS =====
@@ -307,36 +318,36 @@ export default function Reports() {
         <div className="m-report-actions">
           <button className="m-report-btn" onClick={exportPDF}>
             <div className="m-report-icon red"><FileText size={22} /></div>
-            <div>
-              <div>Export PDF</div>
+            <div className="m-report-content">
+              <div className="m-report-title">Export PDF</div>
               <div className="m-report-desc">Laporan lengkap untuk presentasi</div>
             </div>
           </button>
           <button className="m-report-btn" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Exported!', 'File Excel berhasil didownload') }}>
             <div className="m-report-icon green"><FileSpreadsheet size={22} /></div>
-            <div>
-              <div>Export Excel</div>
+            <div className="m-report-content">
+              <div className="m-report-title">Export Excel</div>
               <div className="m-report-desc">Data peserta format spreadsheet</div>
             </div>
           </button>
           <button className="m-report-btn" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Exported!', 'Log check-in berhasil didownload') }}>
             <div className="m-report-icon blue"><ClipboardList size={22} /></div>
-            <div>
-              <div>Export Log Check-in</div>
+            <div className="m-report-content">
+              <div className="m-report-title">Export Log Check-in</div>
               <div className="m-report-desc">Riwayat scan dengan timestamp</div>
             </div>
           </button>
           <button className="m-report-btn" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Exported!', 'Audit log admin berhasil didownload') }}>
             <div className="m-report-icon yellow"><ShieldAlert size={22} /></div>
-            <div>
-              <div>Export Audit Admin</div>
+            <div className="m-report-content">
+              <div className="m-report-title">Export Audit Admin</div>
               <div className="m-report-desc">Riwayat aktivitas admin</div>
             </div>
           </button>
           <button className="m-report-btn" onClick={exportAuditPDF}>
             <div className="m-report-icon red"><FileText size={22} /></div>
-            <div>
-              <div>Export Audit PDF</div>
+            <div className="m-report-content">
+              <div className="m-report-title">Export Audit PDF</div>
               <div className="m-report-desc">Lampiran resmi aktivitas admin</div>
             </div>
           </button>
