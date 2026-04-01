@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download } from 'lucide-react'
+import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
 
 export default function Settings() {
   const currentDay = getCurrentDay()
@@ -27,6 +27,7 @@ export default function Settings() {
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [storeBackups, setStoreBackups] = useState(getStoreBackups())
+  const [backupSearch, setBackupSearch] = useState('')
   const [backupFilter, setBackupFilter] = useState('all')
   const [backupSort, setBackupSort] = useState('newest')
 
@@ -44,12 +45,19 @@ export default function Settings() {
   }
 
   const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
+  const normalizedBackupSearch = backupSearch.toLowerCase().trim()
 
   const visibleBackups = [...storeBackups]
     .filter(item => {
       if (backupFilter === 'valid') return item.isValid
       if (backupFilter === 'invalid') return !item.isValid
       return true
+    })
+    .filter(item => {
+      if (!normalizedBackupSearch) return true
+      const localDate = item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID') : ''
+      const haystack = `${item.key} ${localDate} ${item.isValid ? 'valid' : 'invalid'}`.toLowerCase()
+      return haystack.includes(normalizedBackupSearch)
     })
     .sort((a, b) => {
       if (backupSort === 'oldest') return a.timestamp - b.timestamp
@@ -344,6 +352,16 @@ export default function Settings() {
           </p>
 
           <div className="backup-toolbar">
+            <div className="admin-search-wrap backup-search-wrap">
+              <Search size={14} className="admin-search-icon" />
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Cari key / tanggal backup..."
+                value={backupSearch}
+                onChange={e => setBackupSearch(e.target.value)}
+              />
+            </div>
             <select className="form-select backup-select" value={backupFilter} onChange={e => setBackupFilter(e.target.value)}>
               <option value="all">Semua Backup</option>
               <option value="valid">Valid Saja</option>

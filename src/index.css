@@ -1054,6 +1054,11 @@ input, select, textarea, button {
   width: auto;
 }
 
+.backup-search-wrap {
+  min-width: 240px;
+  flex: 1 1 260px;
+}
+
 .danger-card {
   border: 1px solid var(--danger);
   background: var(--danger-bg);
