@@ -122,3 +122,54 @@ export async function exportAdminLogsToCSV(logs) {
     return false
   }
 }
+
+/**
+ * Export offline queue status + history to Excel (.xlsx)
+ */
+export async function exportOfflineQueueReportToCSV(pendingItems, historyItems) {
+  try {
+    const XLSX = await import('xlsx')
+
+    const wsPending = XLSX.utils.json_to_sheet(
+      pendingItems.map((item, i) => ({
+        No: i + 1,
+        'Queue ID': item.id,
+        Dibuat: new Date(item.created_at).toLocaleString('id-ID'),
+        Diupdate: new Date(item.updated_at || item.created_at).toLocaleString('id-ID'),
+        Source: item.source || '-',
+        'Scanned By': item.scanned_by || '-',
+        Attempts: item.attempts || 0,
+        'Last Error': item.last_error || '-'
+      }))
+    )
+
+    const wsHistory = XLSX.utils.json_to_sheet(
+      historyItems.map((item, i) => ({
+        No: i + 1,
+        Waktu: new Date(item.timestamp).toLocaleString('id-ID'),
+        Tipe: item.type,
+        'Queue ID': item.payload?.queue_id || '-',
+        Status: item.payload?.status || '-',
+        Pesan: item.payload?.message || item.payload?.reason || '-',
+        Attempts: item.payload?.attempts ?? '-'
+      }))
+    )
+
+    wsPending['!cols'] = [
+      { wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 40 }
+    ]
+    wsHistory['!cols'] = [
+      { wch: 5 }, { wch: 20 }, { wch: 22 }, { wch: 40 }, { wch: 12 }, { wch: 40 }, { wch: 10 }
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, wsPending, 'Pending Queue')
+    XLSX.utils.book_append_sheet(wb, wsHistory, 'Queue History')
+
+    XLSX.writeFile(wb, 'Offline_Queue_PostMortem_Yamaha_Event.xlsx')
+    return true
+  } catch (error) {
+    console.error('Error exporting offline queue report', error)
+    return false
+  }
+}

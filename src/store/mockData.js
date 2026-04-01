@@ -3,6 +3,7 @@
 
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
+const MAX_PENDING_ATTEMPTS = 5
 
 // Generate mock participants
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
@@ -101,6 +102,7 @@ function getStore() {
         checkInLogs: parsed.checkInLogs || [],
         adminLogs: parsed.adminLogs || [],
         pendingCheckIns: parsed.pendingCheckIns || [],
+        offlineQueueHistory: parsed.offlineQueueHistory || [],
         currentDay: Number.isInteger(parsed.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
       }
     }
@@ -112,6 +114,7 @@ function getStore() {
     checkInLogs: [],
     adminLogs: [],
     pendingCheckIns: [],
+    offlineQueueHistory: [],
     currentDay: 1
   }
   localStorage.setItem('yamaha_event_data', JSON.stringify(data))
@@ -494,6 +497,20 @@ export function getPendingCheckIns() {
   return [...store.pendingCheckIns].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 }
 
+export function getOfflineQueueHistory(limit = 500) {
+  const sorted = [...store.offlineQueueHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  return sorted.slice(0, limit)
+}
+
+function pushOfflineQueueHistory(type, payload = {}) {
+  store.offlineQueueHistory.push({
+    id: generateId(),
+    type,
+    payload,
+    timestamp: new Date().toISOString()
+  })
+}
+
 export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source = 'scanner') {
   const item = {
     id: generateId(),
@@ -506,6 +523,11 @@ export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source =
     updated_at: new Date().toISOString()
   }
   store.pendingCheckIns.push(item)
+  pushOfflineQueueHistory('enqueued', {
+    queue_id: item.id,
+    scanned_by: scannedBy,
+    source
+  })
   saveStore()
   return item
 }
@@ -514,6 +536,7 @@ export function syncPendingCheckIns(maxItems = 100) {
   const queue = getPendingCheckIns().slice(0, maxItems)
   let synced = 0
   let failed = 0
+  let purged = 0
   const failedItems = []
 
   queue.forEach(item => {
@@ -521,18 +544,42 @@ export function syncPendingCheckIns(maxItems = 100) {
     if (res.success || res.status === 'duplicate') {
       synced++
       store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== item.id)
+      pushOfflineQueueHistory('sync_success', {
+        queue_id: item.id,
+        status: res.status || 'valid',
+        scanned_by: item.scanned_by
+      })
     } else {
       failed++
       failedItems.push({ id: item.id, status: res.status, message: res.message })
+      let nextAttempts = item.attempts || 0
       store.pendingCheckIns = store.pendingCheckIns.map(q => {
         if (q.id !== item.id) return q
+        nextAttempts = (q.attempts || 0) + 1
         return {
           ...q,
-          attempts: (q.attempts || 0) + 1,
+          attempts: nextAttempts,
           last_error: res.message || 'Gagal sinkronisasi',
           updated_at: new Date().toISOString()
         }
       })
+
+      pushOfflineQueueHistory('sync_failed', {
+        queue_id: item.id,
+        status: res.status || 'failed',
+        message: res.message || 'Gagal sinkronisasi',
+        attempts: nextAttempts
+      })
+
+      if (nextAttempts >= MAX_PENDING_ATTEMPTS) {
+        purged++
+        store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== item.id)
+        pushOfflineQueueHistory('purged_max_attempts', {
+          queue_id: item.id,
+          attempts: nextAttempts,
+          reason: 'Melebihi batas retry otomatis'
+        })
+      }
     }
   })
 
@@ -540,9 +587,9 @@ export function syncPendingCheckIns(maxItems = 100) {
     saveStore()
     logAdminAction(
       'offline_sync',
-      `Sinkronisasi offline queue: ${synced} berhasil, ${failed} gagal`,
+      `Sinkronisasi offline queue: ${synced} berhasil, ${failed} gagal, ${purged} purge`,
       'system',
-      { synced, failed, processed: queue.length }
+      { synced, failed, purged, processed: queue.length }
     )
   }
 
@@ -550,6 +597,7 @@ export function syncPendingCheckIns(maxItems = 100) {
     processed: queue.length,
     synced,
     failed,
+    purged,
     remaining: store.pendingCheckIns.length,
     failedItems
   }
@@ -564,19 +612,42 @@ export function retryPendingCheckIn(itemId) {
   const res = checkIn(item.qr_data, item.scanned_by)
   if (res.success || res.status === 'duplicate') {
     store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
+    pushOfflineQueueHistory('retry_success', {
+      queue_id: itemId,
+      status: res.status || 'valid'
+    })
     saveStore()
     return { success: true, synced: true, result: res, remaining: store.pendingCheckIns.length }
   }
 
+  let nextAttempts = item.attempts || 0
   store.pendingCheckIns = store.pendingCheckIns.map(q => {
     if (q.id !== itemId) return q
+    nextAttempts = (q.attempts || 0) + 1
     return {
       ...q,
-      attempts: (q.attempts || 0) + 1,
+      attempts: nextAttempts,
       last_error: res.message || 'Gagal sinkronisasi',
       updated_at: new Date().toISOString()
     }
   })
+
+  pushOfflineQueueHistory('retry_failed', {
+    queue_id: itemId,
+    status: res.status || 'failed',
+    message: res.message || 'Gagal sinkronisasi',
+    attempts: nextAttempts
+  })
+
+  if (nextAttempts >= MAX_PENDING_ATTEMPTS) {
+    store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
+    pushOfflineQueueHistory('purged_max_attempts', {
+      queue_id: itemId,
+      attempts: nextAttempts,
+      reason: 'Melebihi batas retry manual'
+    })
+  }
+
   saveStore()
 
   return { success: false, synced: false, result: res, remaining: store.pendingCheckIns.length }
@@ -586,13 +657,17 @@ export function removePendingCheckIn(itemId) {
   const before = store.pendingCheckIns.length
   store.pendingCheckIns = store.pendingCheckIns.filter(q => q.id !== itemId)
   const removed = before !== store.pendingCheckIns.length
-  if (removed) saveStore()
+  if (removed) {
+    pushOfflineQueueHistory('removed_manual', { queue_id: itemId })
+    saveStore()
+  }
   return { success: removed, remaining: store.pendingCheckIns.length }
 }
 
 export function clearPendingCheckIns() {
   const cleared = store.pendingCheckIns.length
   store.pendingCheckIns = []
+  pushOfflineQueueHistory('cleared_all', { cleared })
   saveStore()
   if (cleared > 0) {
     logAdminAction('offline_queue_clear', `Membersihkan antrean offline (${cleared} item)`, 'system', { cleared })
