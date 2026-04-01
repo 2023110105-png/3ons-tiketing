@@ -27,6 +27,7 @@ export default function Settings() {
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [storeBackups, setStoreBackups] = useState(getStoreBackups())
+  const [backupBaselineCount] = useState(() => getStoreBackups().length)
   const [backupSearch, setBackupSearch] = useState('')
   const [backupFilter, setBackupFilter] = useState('all')
   const [backupSort, setBackupSort] = useState('newest')
@@ -47,6 +48,7 @@ export default function Settings() {
   const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
   const validBackupCount = storeBackups.length - invalidBackupCount
   const totalBackupSize = storeBackups.reduce((sum, item) => sum + Number(item.size || 0), 0)
+  const backupSessionDelta = storeBackups.length - backupBaselineCount
   const normalizedBackupSearch = backupSearch.toLowerCase().trim()
 
   const visibleBackups = [...storeBackups]
@@ -422,6 +424,9 @@ export default function Settings() {
             <span className="badge badge-green">Valid: {validBackupCount}</span>
             <span className="badge badge-red">Invalid: {invalidBackupCount}</span>
             <span className="badge badge-yellow">Ukuran: {formatBackupSize(totalBackupSize)}</span>
+            <span className={`badge ${backupSessionDelta > 0 ? 'badge-green' : backupSessionDelta < 0 ? 'badge-red' : 'badge-gray'}`}>
+              Sesi: {backupSessionDelta > 0 ? `+${backupSessionDelta}` : backupSessionDelta}
+            </span>
           </div>
 
           <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>
