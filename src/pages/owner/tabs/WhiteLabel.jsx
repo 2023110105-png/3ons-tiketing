@@ -44,10 +44,10 @@ export default function WhiteLabel() {
   }
 
   return (
-    <div className="white-label-container">
-      <div className="toolbar mb-16">
+    <div className="white-label-container owner-fade-in-up">
+      <div className="owner-toolbar">
         <select 
-          className="form-select" 
+          className="owner-form-select" 
           style={{ maxWidth: '400px' }}
           value={selectedTenantId}
           onChange={e => handleSelectTenant(e.target.value)}
@@ -60,17 +60,17 @@ export default function WhiteLabel() {
       </div>
 
       {selectedTenant ? (
-        <div className="grid-responsive gap-24">
-          <div className="card">
+        <div className="owner-grid-cols-2 gap-24">
+          <div className="owner-card-container">
             <div className="card-pad">
               <h3 className="card-title mb-24">Pengaturan Branding</h3>
               
-              <div className="form-group mb-20">
-                <label className="form-label">Nama Aplikasi Kustom</label>
+              <div className="owner-form-group mb-20">
+                <label className="owner-form-label">Nama Aplikasi Kustom</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <Type size={18} className="text-muted" />
                   <input 
-                    className="form-input" 
+                    className="owner-form-input" 
                     value={branding.appName}
                     onChange={e => setBranding({...branding, appName: e.target.value})}
                     placeholder={selectedTenant.brandName}
@@ -80,30 +80,30 @@ export default function WhiteLabel() {
               </div>
 
               <div className="form-group mb-20">
-                <label className="form-label">Warna Tema Utama</label>
+                <label className="owner-form-label">Warna Tema Utama</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <Palette size={18} className="text-muted" />
                   <input 
                     type="color" 
-                    className="form-input"
+                    className="owner-form-input"
                     style={{ width: '60px', padding: '2px', height: '38px' }}
                     value={branding.primaryColor}
                     onChange={e => setBranding({...branding, primaryColor: e.target.value})}
                   />
                   <input 
-                    className="form-input" 
+                    className="owner-form-input" 
                     value={branding.primaryColor}
                     onChange={e => setBranding({...branding, primaryColor: e.target.value})}
                   />
                 </div>
               </div>
 
-              <div className="form-group mb-24">
-                <label className="form-label">Logo Tenant (URL atau Base64)</label>
+              <div className="owner-form-group mb-24">
+                <label className="owner-form-label">Logo Tenant (URL atau Base64)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <ImageIcon size={18} className="text-muted" />
                   <input 
-                    className="form-input" 
+                    className="owner-form-input" 
                     value={branding.logo}
                     onChange={e => setBranding({...branding, logo: e.target.value})}
                     placeholder="https://example.com/logo.png"

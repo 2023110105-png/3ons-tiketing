@@ -35,28 +35,30 @@ export default function NotificationCenter() {
   }, [notifications, searchQuery])
 
   return (
-    <div className="notification-center-container">
-      <div className="toolbar mb-16 flex justify-between items-center bg-white p-12 rounded border border-color flex-wrap gap-12">
-         <div className="flex items-center gap-12 flex-1 min-w-[240px]">
-            <div className="admin-search-wrap flex-1">
-              <Search size={14} className="admin-search-icon" />
+    <div className="notification-center-container owner-fade-in-up">
+      <div className="owner-toolbar">
+         <div class="owner-toolbar-left flex-1">
+            <div className="owner-search-input" style={{ maxWidth: '400px' }}>
+              <Search size={16} />
               <input 
-                className="form-input" 
+                className="owner-form-input" 
                 placeholder="Cari notifikasi..." 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <span className="text-xs text-muted font-bold whitespace-nowrap">Total: {notifications.length}</span>
+            <span className="text-xs text-muted font-bold">Total: {notifications.length}</span>
          </div>
-         <button className="btn btn-ghost btn-sm text-primary" onClick={handleMarkAllRead}>
-            Tandai Semua Dibaca
-         </button>
+         <div className="owner-toolbar-right">
+            <button className="btn btn-ghost text-primary" onClick={handleMarkAllRead}>
+               Tandai Semua Dibaca
+            </button>
+         </div>
       </div>
 
-      <div className="grid grid-1 gap-8">
+      <div className="owner-grid-cols-1">
         {filteredNotifs.length === 0 ? (
-          <div className="card card-pad text-center p-64">
+          <div className="owner-empty-state">
              <BellOff size={48} className="text-muted mx-auto mb-16" />
              <p className="text-muted">Tidak ada notifikasi untuk saat ini.</p>
           </div>

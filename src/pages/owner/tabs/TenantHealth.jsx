@@ -23,9 +23,9 @@ export default function TenantHealth() {
   }, [])
 
   return (
-    <div className="tenant-health-container">
-      <div className="toolbar mb-16" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 className="card-title">Real-time Dashboard</h3>
+    <div className="tenant-health-container owner-fade-in-up">
+      <div className="owner-toolbar">
+        <div className="owner-card-title">🏥 Real-time Health Dashboard</div>
         <button className="btn btn-ghost" onClick={handleRefresh} disabled={isRefreshing}>
           <RefreshCw size={18} className={isRefreshing ? 'spinner' : ''} /> Segarkan Data
         </button>

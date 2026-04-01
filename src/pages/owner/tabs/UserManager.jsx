@@ -93,9 +93,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
 
   if (!selectedTenantId) {
     return (
-      <div className="card card-pad text-center p-48">
-        <Users size={48} className="text-muted mx-auto mb-16" />
-        <h3 className="card-title">Pilih Tenant untuk Mengelola User</h3>
+      <div className="owner-empty-state owner-fade-in-up" style={{ padding: '64px 24px' }}>
+        <div className="owner-empty-icon">👥</div>
+        <div className="owner-empty-title">Pilih Tenant untuk Mengelola User</div>
         <p className="text-muted mb-24">Setiap tenant dapat memiliki admin client dan petugas gate sendiri.</p>
         <div className="grid-responsive mt-24" style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div className="form-group mb-0">
@@ -116,8 +116,8 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   }
 
   return (
-    <div className="user-manager-container">
-      <div className="header-actions mb-16" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="user-manager-container owner-fade-in-up">
+      <div className="owner-toolbar">
         <button className="btn btn-ghost p-0" onClick={() => setSelectedTenantId('')}>
           <ArrowLeft size={18} /> Kembali ke daftar tenant
         </button>

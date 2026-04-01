@@ -43,8 +43,8 @@ export default function ImpersonateView() {
   }, [users, searchQuery])
 
   return (
-    <div className="impersonate-view-container">
-      <div className="card mb-24 bg-subtle border-primary">
+    <div className="impersonate-view-container owner-fade-in-up">
+      <div className="owner-card-container" style={{ borderColor: 'var(--primary)' }}>
         <div className="card-pad flex gap-16 items-center">
           <div className="p-12 bg-primary rounded-full text-white">
             <Eye size={28} />
@@ -56,9 +56,9 @@ export default function ImpersonateView() {
         </div>
       </div>
 
-      <div className="toolbar mb-16 flex gap-12">
+      <div className="owner-toolbar">
         <select 
-          className="form-select" 
+          className="owner-form-select" 
           style={{ maxWidth: '300px' }}
           value={selectedTenantId}
           onChange={e => handleSelectTenant(e.target.value)}
@@ -69,10 +69,10 @@ export default function ImpersonateView() {
           ))}
         </select>
         {selectedTenantId && (
-          <div className="admin-search-wrap" style={{ flex: 1, maxWidth: '300px' }}>
-            <Search size={14} className="admin-search-icon" />
+          <div className="owner-search-input" style={{ flex: 1, maxWidth: '300px' }}>
+            <Search size={16} />
             <input 
-              className="form-input" 
+              className="owner-form-input" 
               placeholder="Cari user tenant..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}

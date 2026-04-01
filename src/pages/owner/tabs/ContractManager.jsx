@@ -47,22 +47,24 @@ export default function ContractManager() {
   }, [tenants, searchQuery])
 
   return (
-    <div className="contract-manager-container">
-      <div className="toolbar mb-16" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="admin-search-wrap" style={{ width: '300px' }}>
-          <Search size={14} className="admin-search-icon" />
-          <input 
-            className="form-input" 
-            placeholder="Cari tenant untuk kontrak..." 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+    <div className="contract-manager-container owner-fade-in-up">
+      <div className="owner-toolbar">
+        <div className="owner-toolbar-left">
+          <div className="owner-search-input" style={{ maxWidth: '400px' }}>
+            <Search size={16} />
+            <input 
+              className="owner-form-input" 
+              placeholder="Cari tenant untuk kontrak..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-1 gap-16">
+      <div className="owner-grid-cols-2">
         {filteredTenants.map(tenant => (
-          <div key={tenant.id} className="card">
+          <div key={tenant.id} className="owner-card-container">
             <div className="card-pad">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ flex: 1, minWidth: '200px' }}>

@@ -35,8 +35,8 @@ export default function BackupRestore() {
   }, [backups])
 
   return (
-    <div className="backup-restore-container">
-      <div className="card mb-24 bg-subtle border-primary">
+    <div className="backup-restore-container owner-fade-in-up">
+      <div className="owner-card-container" style={{ background: 'var(--info-bg)', borderColor: 'var(--info)' }}>
         <div className="card-pad flex gap-16 items-center">
           <div className="p-12 bg-primary rounded-full text-white">
             <ShieldAlert size={28} />

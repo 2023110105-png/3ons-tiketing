@@ -46,20 +46,22 @@ export default function QuotaManager() {
   }, [healthData, searchQuery])
 
   return (
-    <div className="quota-manager-container">
-      <div className="toolbar mb-16" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="admin-search-wrap" style={{ width: '300px' }}>
-          <Search size={14} className="admin-search-icon" />
-          <input 
-            className="form-input" 
-            placeholder="Cari tenant untuk kuota..." 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+    <div className="quota-manager-container owner-fade-in-up">
+      <div className="owner-toolbar">
+        <div className="owner-toolbar-left">
+          <div className="owner-search-input" style={{ width: '300px' }}>
+            <Search size={16} />
+            <input 
+              className="owner-form-input" 
+              placeholder="Cari tenant untuk kuota..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="grid-responsive mt-24">
+      <div className="owner-grid-cols-3 mt-24">
         {filteredHealth.map(health => {
           const tenant = tenants.find(t => t.id === health.tenantId)
           if (!tenant) return null
@@ -68,54 +70,52 @@ export default function QuotaManager() {
           const isCritical = health.usageParticipants >= 100
 
           return (
-            <div key={health.tenantId} className="card">
-              <div className="card-pad">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <div>
-                    <h3 className="card-title">{health.brandName}</h3>
-                    <p className="text-muted text-xs">ID: {health.tenantId}</p>
-                  </div>
+            <div key={health.tenantId} className="owner-card-container">
+              <div className="owner-card-header">
+                <div className="owner-card-title">{health.brandName}</div>
+              </div>
+              
+              <div className="owner-card-body">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {health.tenantId}</span>
                   {isEditing === health.tenantId ? (
-                    <button className="btn btn-ghost btn-sm text-muted" onClick={() => setIsEditing(null)}>Batal</button>
+                    <button className="owner-action-btn" onClick={() => setIsEditing(null)}>Batal</button>
                   ) : (
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(tenant)}>Edit Batas</button>
+                    <button className="owner-action-btn" onClick={() => handleEdit(tenant)}>Edit Batas</button>
                   )}
                 </div>
 
                 {isEditing === health.tenantId ? (
                    <div className="quota-edit-form">
-                      <div className="form-group mb-12">
-                        <label className="form-label text-xs">Batas Peserta Total</label>
+                      <div className="owner-form-group mb-12">
+                        <label className="owner-form-label">Batas Peserta Total</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <Users size={18} className="text-muted" />
                           <input 
                             type="number"
-                            className="form-input"
-                            value={editData.maxParticipants}
+                            className="owner-form-input"
                             onChange={e => setEditData({...editData, maxParticipants: parseInt(e.target.value) || 0})}
                           />
                         </div>
                       </div>
-                      <div className="form-group mb-12">
-                        <label className="form-label text-xs">Batas Perangkat Gate</label>
+                      <div className="owner-form-group mb-12">
+                        <label className="owner-form-label">Batas Perangkat Gate</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <Smartphone size={18} className="text-muted" />
                           <input 
                             type="number"
-                            className="form-input"
-                            value={editData.maxGateDevices}
+                            className="owner-form-input"
                             onChange={e => setEditData({...editData, maxGateDevices: parseInt(e.target.value) || 0})}
                           />
                         </div>
                       </div>
-                      <div className="form-group mb-12">
-                        <label className="form-label text-xs">Batas Event Aktif</label>
+                      <div className="owner-form-group mb-12">
+                        <label className="owner-form-label">Batas Event Aktif</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <LayoutGrid size={18} className="text-muted" />
                           <input 
                             type="number"
-                            className="form-input"
-                            value={editData.maxActiveEvents}
+                            className="owner-form-input"
                             onChange={e => setEditData({...editData, maxActiveEvents: parseInt(e.target.value) || 0})}
                           />
                         </div>
