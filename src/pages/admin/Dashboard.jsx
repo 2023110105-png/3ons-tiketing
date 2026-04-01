@@ -28,6 +28,13 @@ export default function Dashboard() {
 
   const handleSimulate = () => simulateCheckIns(5)
 
+  const getCategoryToneClass = (category) => {
+    if (category === 'VIP') return 'dashboard-activity-avatar-vip'
+    if (category === 'Dealer') return 'dashboard-activity-avatar-dealer'
+    if (category === 'Media') return 'dashboard-activity-avatar-media'
+    return 'dashboard-activity-avatar-regular'
+  }
+
   // Chart configs...
   const hours = Array.from({ length: 12 }, (_, i) => `${8 + i}:00`)
   const lineSeries = (() => {
@@ -129,7 +136,7 @@ export default function Dashboard() {
         </div>
 
         {/* Simulate Button */}
-        <button className="btn btn-secondary btn-sm" onClick={handleSimulate} style={{ width: '100%', marginBottom: 12 }}>
+        <button className="btn btn-secondary btn-sm dashboard-mobile-sim-btn" onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in
         </button>
 
@@ -141,18 +148,14 @@ export default function Dashboard() {
           </div>
           {logs.length === 0 ? (
             <div className="m-empty">
-              <span style={{ fontSize: '2rem', opacity: 0.5 }}><ClipboardList size={32} /></span>
+              <span className="dashboard-empty-icon"><ClipboardList size={32} /></span>
               <p>Belum ada aktivitas check-in</p>
             </div>
           ) : (
             <div className="m-activity-list">
               {logs.slice(0, 15).map(log => (
                 <div key={log.id} className="m-activity-card">
-                  <div className="m-activity-avatar" style={{
-                    background: log.participant_category === 'VIP' ? 'var(--brand-primary)' :
-                      log.participant_category === 'Dealer' ? 'var(--info)' :
-                      log.participant_category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
-                  }}>
+                  <div className={`m-activity-avatar ${getCategoryToneClass(log.participant_category)}`}>
                     {log.participant_name.charAt(0)}
                   </div>
                   <div className="m-activity-info">
@@ -246,7 +249,7 @@ export default function Dashboard() {
                 <div>
                   <div className="activity-text">
                     <strong>{log.participant_name}</strong> — berhasil check-in
-                    <span className="badge badge-gray" style={{ marginLeft: 8 }}>{log.participant_category}</span>
+                    <span className="badge badge-gray ml-8">{log.participant_category}</span>
                   </div>
                   <div className="activity-time">{new Date(log.timestamp).toLocaleTimeString('id-ID')} · {log.participant_ticket}</div>
                 </div>

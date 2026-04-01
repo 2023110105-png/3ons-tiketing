@@ -617,6 +617,32 @@ input, select, textarea, button {
   font-size: 0.6rem;
 }
 
+.dashboard-mobile-sim-btn {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.dashboard-empty-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.dashboard-activity-avatar-vip {
+  background: var(--brand-primary);
+}
+
+.dashboard-activity-avatar-dealer {
+  background: var(--info);
+}
+
+.dashboard-activity-avatar-media {
+  background: var(--warning);
+}
+
+.dashboard-activity-avatar-regular {
+  background: var(--text-muted);
+}
+
 .participants-search {
   flex: 1 1 200px;
 }
