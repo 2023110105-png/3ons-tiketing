@@ -45,6 +45,8 @@ export default function Settings() {
   }
 
   const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
+  const validBackupCount = storeBackups.length - invalidBackupCount
+  const totalBackupSize = storeBackups.reduce((sum, item) => sum + Number(item.size || 0), 0)
   const normalizedBackupSearch = backupSearch.toLowerCase().trim()
 
   const visibleBackups = [...storeBackups]
@@ -413,6 +415,13 @@ export default function Settings() {
             <button className="btn btn-ghost btn-sm" onClick={applyTodayPreset}>Backup Hari Ini</button>
             <button className="btn btn-ghost btn-sm" onClick={applyLargePreset}>Backup Terbesar</button>
             <button className="btn btn-ghost btn-warning btn-sm" onClick={applyInvalidLatestPreset}>Invalid Terbaru</button>
+          </div>
+
+          <div className="backup-stats-row">
+            <span className="badge badge-gray">Total: {storeBackups.length}</span>
+            <span className="badge badge-green">Valid: {validBackupCount}</span>
+            <span className="badge badge-red">Invalid: {invalidBackupCount}</span>
+            <span className="badge badge-yellow">Ukuran: {formatBackupSize(totalBackupSize)}</span>
           </div>
 
           <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>

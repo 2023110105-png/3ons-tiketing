@@ -1066,6 +1066,13 @@ input, select, textarea, button {
   margin-bottom: 10px;
 }
 
+.backup-stats-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
 .danger-card {
   border: 1px solid var(--danger);
   background: var(--danger-bg);
