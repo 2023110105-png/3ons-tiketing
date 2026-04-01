@@ -176,7 +176,7 @@ export default function Dashboard() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1>Dashboard</h1>
-          <p>Overview check-in Hari {currentDay} — Event Yamaha</p>
+          <p>Overview check-in Hari {currentDay} — 3oNs Project Rental</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in

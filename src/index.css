@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 /* ============================================
   3oNs PROJECT RENTAL — Design System
   Playful Light Theme with Product Branding
@@ -65,8 +67,8 @@
   --radius-full: 9999px;
 
   /* Typography */
-  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Outfit', 'Inter', sans-serif;
+  --font-primary: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+  --font-display: 'Baloo 2', 'Plus Jakarta Sans', sans-serif;
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -94,6 +96,10 @@ html {
 body {
   font-family: var(--font-primary);
   background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(60, 153, 220, 0.12), transparent 32%),
+    radial-gradient(circle at 78% 12%, rgba(45, 175, 100, 0.1), transparent 30%),
+    radial-gradient(circle at 62% 78%, rgba(221, 107, 158, 0.1), transparent 28%);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;

@@ -448,7 +448,7 @@ export default function Reports() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1>Laporan Kehadiran</h1>
-          <p>Analisis data check-in event Yamaha</p>
+          <p>Analisis data check-in project 3oNs Rental</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <select className="form-select" style={{ width: 'auto' }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>

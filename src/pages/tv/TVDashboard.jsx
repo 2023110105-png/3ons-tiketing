@@ -64,10 +64,10 @@ export default function TVDashboard() {
       {/* Header */}
       <header className="tv-header">
         <div className="tv-header-left">
-          <img src="/yamaha-logo.svg" alt="Yamaha" className="tv-logo" />
+          <img src="/yamaha-logo.svg" alt="3oNs" className="tv-logo" />
           <div className="tv-header-divider"></div>
           <div>
-            <h1 className="tv-event-title">EVENT GATE SCANNER</h1>
+            <h1 className="tv-event-title">3ONS PROJECT RENTAL</h1>
             <div className="tv-event-subtitle">Live Attendance Monitoring</div>
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function TVDashboard() {
       {/* Bottom Ticker */}
       <div className="tv-ticker">
         <div className="tv-ticker-content">
-          <span className="tv-ticker-yamaha">YAMAHA EVENT</span>
+          <span className="tv-ticker-yamaha">3ONS PROJECT RENTAL</span>
           <span className="tv-ticker-sep">•</span>
           <span>Hari {currentDay}</span>
           <span className="tv-ticker-sep">•</span>
@@ -205,7 +205,7 @@ export default function TVDashboard() {
           {Object.entries(stats.byCategory).map(([cat, data]) => (
             <span key={cat}>{cat}: {data.checkedIn}/{data.total} <span className="tv-ticker-sep">•</span> </span>
           ))}
-          <span>Selamat datang di Event Yamaha!</span>
+          <span>Selamat datang di platform 3oNs!</span>
         </div>
       </div>
     </div>
