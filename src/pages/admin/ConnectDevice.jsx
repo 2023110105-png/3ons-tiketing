@@ -83,17 +83,17 @@ export default function ConnectDevice() {
         <div className="card admin-qr-shell">
           {waState.status === 'offline' && (
             <div className="admin-center">
-              <div style={{ color: 'var(--danger)', marginBottom: 20 }}><RefreshCw size={64} /></div>
+              <div className="status-icon-danger"><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
-              <p style={{ color: 'var(--text-muted)', marginTop: 10 }}>Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_3ONS_Project.bat`</b> yang membangkitkan sinyal di port 3001.</p>
+              <p className="status-note">Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_3ONS_Project.bat`</b> yang membangkitkan sinyal di port 3001.</p>
             </div>
           )}
 
           {waState.status === 'ready' && (
             <div className="admin-center">
-              <div style={{ color: 'var(--success)', marginBottom: 20 }}><CheckCircle size={80} /></div>
+              <div className="status-icon-success"><CheckCircle size={80} /></div>
               <h2>Perangkat Terhubung Sempurna!</h2>
-              <p style={{ color: 'var(--text-muted)', marginTop: 10 }}>Nomor penyelenggara yang digunakan saat scan tadi akan bertugas mengirim tiket setiap kali Anda mencentang tombol "Simpan & Auto-Kirim" di halaman pendaftaran peserta.</p>
+              <p className="status-note">Nomor penyelenggara yang digunakan saat scan tadi akan bertugas mengirim tiket setiap kali Anda mencentang tombol "Simpan & Auto-Kirim" di halaman pendaftaran peserta.</p>
             </div>
           )}
 
@@ -109,7 +109,7 @@ export default function ConnectDevice() {
                 </>
               ) : (
                 <div className="wa-qr-loading">
-                  <RefreshCw size={40} className="animate-spin" style={{ color: '#ccc', margin: '0 auto 16px auto' }} />
+                  <RefreshCw size={40} className="animate-spin qr-spinner" />
                   <div className="wa-qr-loading-text">Meracik QR Code baru...</div>
                 </div>
               )}
