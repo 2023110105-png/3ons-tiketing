@@ -58,6 +58,8 @@ export default function Settings() {
   const [backupAutoRefreshEnabled, setBackupAutoRefreshEnabled] = useState(getInitialAutoRefreshPreference)
   const [backupAutoRefreshInterval, setBackupAutoRefreshInterval] = useState(getInitialAutoRefreshInterval)
   const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
+  const [backupLastRefreshAt, setBackupLastRefreshAt] = useState(Date.now())
+  const [backupNowTick, setBackupNowTick] = useState(Date.now())
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -69,12 +71,18 @@ export default function Settings() {
   const refreshEvents = () => {
     setEvents(getEventsWithOptions({ includeArchived: true }))
     setActiveEventId(getCurrentEventId())
-    setStoreBackups(getStoreBackups())
+    refreshBackups()
   }
 
   const refreshBackups = () => {
     setStoreBackups(getStoreBackups())
+    setBackupLastRefreshAt(Date.now())
   }
+
+  useEffect(() => {
+    const id = window.setInterval(() => setBackupNowTick(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     try {
@@ -150,6 +158,10 @@ export default function Settings() {
   const validBackupCount = storeBackups.length - invalidBackupCount
   const totalBackupSize = storeBackups.reduce((sum, item) => sum + Number(item.size || 0), 0)
   const backupSessionDelta = storeBackups.length - backupBaselineCount
+  const backupLastRefreshAgeSec = Math.max(0, Math.floor((backupNowTick - backupLastRefreshAt) / 1000))
+  const backupLastRefreshLabel = backupLastRefreshAgeSec <= 2
+    ? 'baru saja'
+    : `${backupLastRefreshAgeSec} detik lalu`
   const normalizedBackupSearch = backupSearch.toLowerCase().trim()
 
   const visibleBackups = [...storeBackups]
@@ -560,6 +572,7 @@ export default function Settings() {
             <span className={`badge badge-gray ${backupAutoRefreshEnabled && backupRefreshCountdown <= 1 ? 'countdown-pulse' : ''}`}>
               Refresh: {backupAutoRefreshEnabled ? `${backupRefreshCountdown}s` : 'manual'}
             </span>
+            <span className="badge badge-gray">Updated: {backupLastRefreshLabel}</span>
           </div>
 
           <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>
