@@ -1,0 +1,1 @@
+# yamaha-scan-tiketing
