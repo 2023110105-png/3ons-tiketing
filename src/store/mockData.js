@@ -193,8 +193,10 @@ export function switchActiveTenant(tenantId, actor = 'system') {
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   if (!canUseTenant(tenant)) return { success: false, error: 'Tenant tidak aktif atau sudah expired' }
 
+  ensureTenantStore(tenant.id, tenant.eventName || 'Event 1', false)
   const previous = tenantRegistry.activeTenantId
   tenantRegistry.activeTenantId = tenant.id
+  saveStore()
   saveTenantRegistry()
   dispatchTenantChangeEvent()
 
@@ -231,6 +233,8 @@ export function createTenant(data, actor = 'system') {
   }
 
   tenantRegistry.tenants[tenant.id] = tenant
+  ensureTenantStore(tenant.id, tenant.eventName || 'Event 1', false)
+  saveStore()
   saveTenantRegistry()
 
   logAdminAction('tenant_create', `Membuat tenant ${brandName}`, actor, {
@@ -253,8 +257,10 @@ export function setTenantStatus(tenantId, nextStatus, actor = 'system') {
 
   if (tenantRegistry.activeTenantId === tenant.id && !canUseTenant(tenant)) {
     tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+    ensureTenantStore(DEFAULT_TENANT_ID, '3oNs Project 2026', true)
   }
 
+  saveStore()
   saveTenantRegistry()
   dispatchTenantChangeEvent()
 
@@ -274,10 +280,15 @@ export function deleteTenant(tenantId, actor = 'system') {
   }
 
   delete tenantRegistry.tenants[tenant.id]
+  if (store.tenants && store.tenants[tenant.id]) {
+    delete store.tenants[tenant.id]
+  }
   if (tenantRegistry.activeTenantId === tenant.id) {
     tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+    ensureTenantStore(DEFAULT_TENANT_ID, '3oNs Project 2026', true)
   }
 
+  saveStore()
   saveTenantRegistry()
   dispatchTenantChangeEvent()
 
@@ -376,11 +387,30 @@ function parseBackupTimestamp(backupKey) {
 }
 
 function isValidStoreShape(candidate) {
-  return !!(candidate && typeof candidate === 'object' && candidate.events && typeof candidate.events === 'object')
+  if (!candidate || typeof candidate !== 'object') return false
+  if (candidate.events && typeof candidate.events === 'object') return true
+  if (candidate.tenants && typeof candidate.tenants === 'object') {
+    return Object.values(candidate.tenants).some(bucket => bucket?.events && typeof bucket.events === 'object')
+  }
+  return false
 }
 
 function isBackupKey(backupKey) {
   return String(backupKey || '').startsWith(STORE_BACKUP_PREFIX)
+}
+
+function countEventsInSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return 0
+  if (snapshot.events && typeof snapshot.events === 'object') {
+    return Object.keys(snapshot.events).length
+  }
+  if (snapshot.tenants && typeof snapshot.tenants === 'object') {
+    return Object.values(snapshot.tenants).reduce((sum, bucket) => {
+      const events = bucket?.events && typeof bucket.events === 'object' ? Object.keys(bucket.events).length : 0
+      return sum + events
+    }, 0)
+  }
+  return 0
 }
 
 function generateMockParticipants() {
@@ -485,9 +515,28 @@ function createDefaultStore() {
   defaultEvent.participants = generateMockParticipants()
 
   return {
-    activeEventId: defaultEvent.id,
+    tenants: {
+      [DEFAULT_TENANT_ID]: {
+        activeEventId: defaultEvent.id,
+        events: {
+          [defaultEvent.id]: defaultEvent
+        }
+      }
+    }
+  }
+}
+
+function createTenantStoreBucket(eventName = 'Event 1', withMockParticipants = false) {
+  const event = createEmptyEventState(eventName)
+  if (withMockParticipants) {
+    event.id = DEFAULT_EVENT_ID
+    event.participants = generateMockParticipants()
+  }
+
+  return {
+    activeEventId: event.id,
     events: {
-      [defaultEvent.id]: defaultEvent
+      [event.id]: event
     }
   }
 }
@@ -513,6 +562,30 @@ function normalizeSavedEvent(id, raw) {
   }
 }
 
+function normalizeTenantStoreBucket(rawBucket, fallbackEventName = 'Event 1') {
+  const normalizedEvents = {}
+  const sourceEvents = rawBucket?.events
+
+  if (sourceEvents && typeof sourceEvents === 'object') {
+    Object.keys(sourceEvents).forEach(id => {
+      normalizedEvents[id] = normalizeSavedEvent(id, sourceEvents[id])
+    })
+  }
+
+  const eventIds = Object.keys(normalizedEvents)
+  if (eventIds.length === 0) {
+    return createTenantStoreBucket(fallbackEventName, false)
+  }
+
+  const fallbackId = eventIds[0]
+  const activeEventId = normalizedEvents[rawBucket?.activeEventId] ? rawBucket.activeEventId : fallbackId
+
+  return {
+    activeEventId,
+    events: normalizedEvents
+  }
+}
+
 function migrateLegacyStore(parsed) {
   const event = createEmptyEventState('3oNs Project 2026')
   event.id = DEFAULT_EVENT_ID
@@ -533,9 +606,13 @@ function migrateLegacyStore(parsed) {
   event.waTemplate = safeStorageGet(WA_TEMPLATE_KEY) || safeStorageGet(LEGACY_WA_TEMPLATE_KEY) || null
 
   return {
-    activeEventId: event.id,
-    events: {
-      [event.id]: event
+    tenants: {
+      [DEFAULT_TENANT_ID]: {
+        activeEventId: event.id,
+        events: {
+          [event.id]: event
+        }
+      }
     }
   }
 }
@@ -544,20 +621,29 @@ function getStore() {
   const saved = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
   const parsed = parseStoredJSON(saved)
   if (parsed) {
-    if (parsed?.events && typeof parsed.events === 'object') {
-      const normalizedEvents = {}
-      Object.keys(parsed.events).forEach(id => {
-        normalizedEvents[id] = normalizeSavedEvent(id, parsed.events[id])
+    if (parsed?.tenants && typeof parsed.tenants === 'object') {
+      const normalizedTenants = {}
+      Object.keys(parsed.tenants).forEach(tenantId => {
+        const tenantMeta = tenantRegistry.tenants[tenantId]
+        const fallbackEventName = tenantMeta?.eventName || `Event ${tenantId.slice(0, 6)}`
+        normalizedTenants[tenantId] = normalizeTenantStoreBucket(parsed.tenants[tenantId], fallbackEventName)
       })
-      const eventIds = Object.keys(normalizedEvents)
-      if (eventIds.length > 0) {
-        const fallbackId = eventIds[0]
-        return {
-          activeEventId: normalizedEvents[parsed.activeEventId] ? parsed.activeEventId : fallbackId,
-          events: normalizedEvents
+
+      if (!normalizedTenants[DEFAULT_TENANT_ID]) {
+        normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('3oNs Project 2026', true)
+      }
+
+      return { tenants: normalizedTenants }
+    }
+
+    if (parsed?.events && typeof parsed.events === 'object') {
+      return {
+        tenants: {
+          [DEFAULT_TENANT_ID]: normalizeTenantStoreBucket(parsed, '3oNs Project 2026')
         }
       }
     }
+
     return migrateLegacyStore(parsed)
   }
   return createDefaultStore()
@@ -565,6 +651,19 @@ function getStore() {
 
 let store = getStore()
 let realtimeListeners = []
+
+function ensureTenantStore(tenantId, fallbackEventName = 'Event 1', withMockParticipants = false) {
+  if (!store.tenants || typeof store.tenants !== 'object') {
+    store.tenants = {}
+  }
+
+  if (!store.tenants[tenantId]) {
+    store.tenants[tenantId] = createTenantStoreBucket(fallbackEventName, withMockParticipants)
+  }
+
+  store.tenants[tenantId] = normalizeTenantStoreBucket(store.tenants[tenantId], fallbackEventName)
+  return store.tenants[tenantId]
+}
 
 function saveStore() {
   const previous = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
@@ -574,11 +673,19 @@ function saveStore() {
 }
 
 function getActiveEvent() {
-  if (!store.events[store.activeEventId]) {
-    const firstId = Object.keys(store.events)[0]
-    store.activeEventId = firstId
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(
+    activeTenant.id,
+    activeTenant.eventName || 'Event 1',
+    activeTenant.id === DEFAULT_TENANT_ID
+  )
+
+  if (!bucket.events[bucket.activeEventId]) {
+    const firstId = Object.keys(bucket.events)[0]
+    bucket.activeEventId = firstId
   }
-  return store.events[store.activeEventId]
+
+  return bucket.events[bucket.activeEventId]
 }
 
 function normalizeActor(actor) {
@@ -606,7 +713,7 @@ export function getStoreBackups() {
       const raw = safeStorageGet(key)
       const parsed = parseStoredJSON(raw)
       const timestamp = parseBackupTimestamp(key)
-      const eventCount = isValidStoreShape(parsed) ? Object.keys(parsed.events).length : 0
+      const eventCount = isValidStoreShape(parsed) ? countEventsInSnapshot(parsed) : 0
       return {
         key,
         timestamp,
@@ -652,8 +759,8 @@ export function restoreStoreBackup(backupKey, actor = 'system', reason = '') {
 
   return {
     success: true,
-    activeEventId: store.activeEventId,
-    eventCount: Object.keys(store.events || {}).length
+    activeEventId: getCurrentEventId(),
+    eventCount: countEventsInSnapshot(store)
   }
 }
 
@@ -723,14 +830,18 @@ export function deleteInvalidStoreBackups(actor = 'system', reason = '') {
 
 export function getEventsWithOptions(options = {}) {
   const includeArchived = !!options.includeArchived
-  return Object.values(store.events)
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+
+  return Object.values(bucket.events)
     .filter(e => includeArchived || !e.isArchived)
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
     .map(e => ({ id: e.id, name: e.name, created_at: e.created_at, isArchived: !!e.isArchived }))
 }
 
 export function getCurrentEventId() {
-  return store.activeEventId
+  const activeTenant = getActiveTenantState()
+  return ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID).activeEventId
 }
 
 export function getCurrentEventName() {
@@ -740,14 +851,19 @@ export function getCurrentEventName() {
 export function createEvent(name, actor = 'system') {
   const eventName = String(name || '').trim() || `Event ${getEvents().length + 1}`
   const event = createEmptyEventState(eventName)
-  store.events[event.id] = event
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  bucket.events[event.id] = event
+  bucket.activeEventId = event.id
   saveStore()
   logAdminAction('event_create', `Membuat event baru: ${eventName}`, actor, { event_id: event.id })
   return { id: event.id, name: event.name }
 }
 
 export function renameEvent(eventId, newName, actor = 'system') {
-  const event = store.events[eventId]
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const event = bucket.events[eventId]
   if (!event) return { success: false, error: 'Event tidak ditemukan' }
   const cleanName = String(newName || '').trim()
   if (!cleanName) return { success: false, error: 'Nama event tidak boleh kosong' }
@@ -766,9 +882,11 @@ export function archiveEvent(eventId, actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
-  const event = store.events[eventId]
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const event = bucket.events[eventId]
   if (!event) return { success: false, error: 'Event tidak ditemukan' }
-  if (event.id === store.activeEventId) {
+  if (event.id === bucket.activeEventId) {
     return { success: false, error: 'Tidak bisa arsipkan event yang sedang aktif' }
   }
 
@@ -785,13 +903,15 @@ export function deleteEvent(eventId, actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
-  const event = store.events[eventId]
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const event = bucket.events[eventId]
   if (!event) return { success: false, error: 'Event tidak ditemukan' }
-  if (event.id === store.activeEventId) {
+  if (event.id === bucket.activeEventId) {
     return { success: false, error: 'Tidak bisa hapus event yang sedang aktif' }
   }
 
-  delete store.events[eventId]
+  delete bucket.events[eventId]
   saveStore()
   logAdminAction('event_delete', `Hapus event: ${event.name}`, actor, {
     event_id: eventId,
@@ -801,12 +921,14 @@ export function deleteEvent(eventId, actor = 'system', reason = '') {
 }
 
 export function setCurrentEvent(eventId, actor = 'system') {
-  if (!store.events[eventId]) return false
-  const prev = store.activeEventId
-  store.activeEventId = eventId
+  const activeTenant = getActiveTenantState()
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  if (!bucket.events[eventId]) return false
+  const prev = bucket.activeEventId
+  bucket.activeEventId = eventId
   saveStore()
   if (prev !== eventId) {
-    logAdminAction('event_switch', `Pindah event aktif ke ${store.events[eventId].name}`, actor, {
+    logAdminAction('event_switch', `Pindah event aktif ke ${bucket.events[eventId].name}`, actor, {
       from: prev,
       to: eventId
     })
@@ -900,7 +1022,9 @@ export function login(username, password, tenantToken = '') {
     if (!canUseTenant(tenantFromToken)) {
       return { success: false, error: 'Tenant nonaktif atau masa sewa sudah habis' }
     }
+    ensureTenantStore(tenantFromToken.id, tenantFromToken.eventName || 'Event 1', false)
     tenantRegistry.activeTenantId = tenantFromToken.id
+    saveStore()
     saveTenantRegistry()
     dispatchTenantChangeEvent()
   }
@@ -937,6 +1061,8 @@ export function getSession() {
       safeStorageRemove(SESSION_KEY)
       return null
     }
+
+    ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
 
     return {
       ...parsedActive,
