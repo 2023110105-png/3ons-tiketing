@@ -45,7 +45,7 @@ export default function ConnectDevice() {
         </div>
       </div>
 
-      <div className="grid-2" style={{ marginTop: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginTop: 20 }}>
         {/* Kolom Informasi & Status */}
         <div className="card" style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
