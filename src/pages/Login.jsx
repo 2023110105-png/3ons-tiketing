@@ -45,7 +45,7 @@ export default function Login() {
         </div>
         
         <h1 className="login-title">3oNs Project</h1>
-        <p className="login-subtitle">Masuk ke platform sewa project event</p>
+        <p className="login-subtitle">Masuk ke Platform Ticket Project Event</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">

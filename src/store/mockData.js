@@ -14,6 +14,44 @@ const LEGACY_SESSION_KEY = 'yamaha_session'
 
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // ignore
+  }
+}
+
+function parseStoredJSON(raw) {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
 function generateMockParticipants() {
   const namesDay1 = [
     'Ahmad Rizki', 'Budi Santoso', 'Citra Dewi', 'Dian Pratama', 'Eko Wahyudi',
@@ -130,11 +168,11 @@ function normalizeSavedEvent(id, raw) {
     isArchived: !!raw?.isArchived,
     created_at: raw?.created_at || new Date().toISOString(),
     currentDay: Number.isInteger(raw?.currentDay) && raw.currentDay > 0 ? raw.currentDay : 1,
-    participants: raw?.participants || [],
-    checkInLogs: raw?.checkInLogs || [],
-    adminLogs: raw?.adminLogs || [],
-    pendingCheckIns: raw?.pendingCheckIns || [],
-    offlineQueueHistory: raw?.offlineQueueHistory || [],
+    participants: asArray(raw?.participants),
+    checkInLogs: asArray(raw?.checkInLogs),
+    adminLogs: asArray(raw?.adminLogs),
+    pendingCheckIns: asArray(raw?.pendingCheckIns),
+    offlineQueueHistory: asArray(raw?.offlineQueueHistory),
     offlineConfig: {
       maxPendingAttempts: Number.isInteger(raw?.offlineConfig?.maxPendingAttempts) && raw.offlineConfig.maxPendingAttempts >= 1
         ? raw.offlineConfig.maxPendingAttempts
@@ -148,17 +186,20 @@ function migrateLegacyStore(parsed) {
   const event = createEmptyEventState('3oNs Project 2026')
   event.id = DEFAULT_EVENT_ID
   event.currentDay = Number.isInteger(parsed?.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
-  event.participants = parsed?.participants || generateMockParticipants()
-  event.checkInLogs = parsed?.checkInLogs || []
-  event.adminLogs = parsed?.adminLogs || []
-  event.pendingCheckIns = parsed?.pendingCheckIns || []
-  event.offlineQueueHistory = parsed?.offlineQueueHistory || []
+  event.participants = asArray(parsed?.participants)
+  if (event.participants.length === 0) {
+    event.participants = generateMockParticipants()
+  }
+  event.checkInLogs = asArray(parsed?.checkInLogs)
+  event.adminLogs = asArray(parsed?.adminLogs)
+  event.pendingCheckIns = asArray(parsed?.pendingCheckIns)
+  event.offlineQueueHistory = asArray(parsed?.offlineQueueHistory)
   event.offlineConfig = {
     maxPendingAttempts: Number.isInteger(parsed?.offlineConfig?.maxPendingAttempts) && parsed.offlineConfig.maxPendingAttempts >= 1
       ? parsed.offlineConfig.maxPendingAttempts
       : DEFAULT_MAX_PENDING_ATTEMPTS
   }
-  event.waTemplate = localStorage.getItem(WA_TEMPLATE_KEY) || localStorage.getItem(LEGACY_WA_TEMPLATE_KEY) || null
+  event.waTemplate = safeStorageGet(WA_TEMPLATE_KEY) || safeStorageGet(LEGACY_WA_TEMPLATE_KEY) || null
 
   return {
     activeEventId: event.id,
@@ -169,25 +210,24 @@ function migrateLegacyStore(parsed) {
 }
 
 function getStore() {
-  try {
-    const saved = localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_STORE_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (parsed?.events && typeof parsed.events === 'object') {
-        const normalizedEvents = {}
-        Object.keys(parsed.events).forEach(id => {
-          normalizedEvents[id] = normalizeSavedEvent(id, parsed.events[id])
-        })
-        const fallbackId = Object.keys(normalizedEvents)[0]
+  const saved = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
+  const parsed = parseStoredJSON(saved)
+  if (parsed) {
+    if (parsed?.events && typeof parsed.events === 'object') {
+      const normalizedEvents = {}
+      Object.keys(parsed.events).forEach(id => {
+        normalizedEvents[id] = normalizeSavedEvent(id, parsed.events[id])
+      })
+      const eventIds = Object.keys(normalizedEvents)
+      if (eventIds.length > 0) {
+        const fallbackId = eventIds[0]
         return {
           activeEventId: normalizedEvents[parsed.activeEventId] ? parsed.activeEventId : fallbackId,
           events: normalizedEvents
         }
       }
-      return migrateLegacyStore(parsed)
     }
-  } catch {
-    // ignore
+    return migrateLegacyStore(parsed)
   }
   return createDefaultStore()
 }
@@ -196,8 +236,8 @@ let store = getStore()
 let realtimeListeners = []
 
 function saveStore() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(store))
-  localStorage.removeItem(LEGACY_STORE_KEY)
+  safeStorageSet(STORE_KEY, JSON.stringify(store))
+  safeStorageRemove(LEGACY_STORE_KEY)
 }
 
 function getActiveEvent() {
@@ -346,14 +386,14 @@ Silakan tunjukkan gambar barcode tiket ini kepada petugas gerbang event. Terima 
 
 export function getWaTemplate() {
   const ev = getActiveEvent()
-  return ev.waTemplate || localStorage.getItem(WA_TEMPLATE_KEY) || localStorage.getItem(LEGACY_WA_TEMPLATE_KEY) || defaultWaTemplate
+  return ev.waTemplate || safeStorageGet(WA_TEMPLATE_KEY) || safeStorageGet(LEGACY_WA_TEMPLATE_KEY) || defaultWaTemplate
 }
 
 export function setWaTemplate(template, actor = 'system') {
   const ev = getActiveEvent()
   ev.waTemplate = template
-  localStorage.setItem(WA_TEMPLATE_KEY, template)
-  localStorage.removeItem(LEGACY_WA_TEMPLATE_KEY)
+  safeStorageSet(WA_TEMPLATE_KEY, template)
+  safeStorageRemove(LEGACY_WA_TEMPLATE_KEY)
   saveStore()
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
 }
@@ -399,32 +439,33 @@ export function login(username, password) {
   const user = Object.values(USERS).find(u => u.username === username && u.password === password)
   if (user) {
     const session = { ...user }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    localStorage.removeItem(LEGACY_SESSION_KEY)
+    safeStorageSet(SESSION_KEY, JSON.stringify(session))
+    safeStorageRemove(LEGACY_SESSION_KEY)
     return { success: true, user: session }
   }
   return { success: false, error: 'Username atau password salah' }
 }
 
 export function getSession() {
-  try {
-    const active = localStorage.getItem(SESSION_KEY)
-    if (active) return JSON.parse(active)
+  const active = safeStorageGet(SESSION_KEY)
+  const parsedActive = parseStoredJSON(active)
+  if (parsedActive) return parsedActive
 
-    const legacy = localStorage.getItem(LEGACY_SESSION_KEY)
-    if (!legacy) return null
-
-    localStorage.setItem(SESSION_KEY, legacy)
-    localStorage.removeItem(LEGACY_SESSION_KEY)
-    return JSON.parse(legacy)
-  } catch {
+  const legacy = safeStorageGet(LEGACY_SESSION_KEY)
+  const parsedLegacy = parseStoredJSON(legacy)
+  if (!parsedLegacy) {
+    if (active) safeStorageRemove(SESSION_KEY)
     return null
   }
+
+  safeStorageSet(SESSION_KEY, JSON.stringify(parsedLegacy))
+  safeStorageRemove(LEGACY_SESSION_KEY)
+  return parsedLegacy
 }
 
 export function logout() {
-  localStorage.removeItem(SESSION_KEY)
-  localStorage.removeItem(LEGACY_SESSION_KEY)
+  safeStorageRemove(SESSION_KEY)
+  safeStorageRemove(LEGACY_SESSION_KEY)
 }
 
 export function getParticipants(dayFilter = null) {
