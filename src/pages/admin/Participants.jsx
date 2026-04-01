@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getAvailableDays } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
@@ -9,6 +9,7 @@ export default function Participants() {
   const [participants, setParticipants] = useState([])
   const [search, setSearch] = useState('')
   const [dayFilter, setDayFilter] = useState(currentDay)
+  const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
@@ -32,6 +33,7 @@ export default function Participants() {
   }, [])
 
   const refreshData = () => {
+    setAvailableDays(getAvailableDays())
     let data = getParticipants(dayFilter)
     if (search) {
       data = data.filter(p =>
@@ -52,13 +54,19 @@ export default function Participants() {
   const handleAdd = (e) => {
     e.preventDefault()
     if (!newParticipant.name.trim()) return
-    const p = addParticipant(newParticipant)
+    const safeDay = Number(newParticipant.day_number)
+    if (!Number.isInteger(safeDay) || safeDay < 1) {
+      toast.error('Hari tidak valid', 'Nomor hari minimal 1')
+      return
+    }
+
+    const p = addParticipant({ ...newParticipant, day_number: safeDay })
     if (newParticipant.auto_send) {
       toast.success('Peserta ditambahkan', `${p.name} - Sedang dikirim via Bot...`)
     } else {
       toast.success('Peserta ditambahkan', `${p.name} (${p.ticket_id})`)
     }
-    setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: currentDay, auto_send: false })
+    setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false })
     setShowModal(false)
     refreshData()
   }
@@ -136,6 +144,21 @@ export default function Participants() {
     }
   }
 
+  const getRowDayValue = (row) => row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
+
+  const validateImportRows = (rows) => {
+    const invalidDayRows = []
+    rows.forEach((row, index) => {
+      const dayValue = getRowDayValue(row)
+      if (dayValue === undefined || dayValue === null || String(dayValue).trim() === '') return
+      const parsed = Number(dayValue)
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        invalidDayRows.push({ row: index + 1, value: dayValue })
+      }
+    })
+    return { invalidDayRows }
+  }
+
   // ===== IMPORT EXCEL =====
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
@@ -154,12 +177,20 @@ export default function Participants() {
         return
       }
 
+      const { invalidDayRows } = validateImportRows(rows)
+
       setImportPreview({
         fileName: file.name,
         rows: rows,
         columns: Object.keys(rows[0]),
-        preview: rows.slice(0, 5)
+        preview: rows.slice(0, 5),
+        invalidDayRows
       })
+
+      if (invalidDayRows.length > 0) {
+        toast.info('Cek kolom hari', `${invalidDayRows.length} baris memiliki nilai hari tidak valid dan akan pakai hari default (${dayFilter})`)
+      }
+
       setShowImportModal(true)
     } catch (err) {
       toast.error('Gagal baca file', 'Pastikan format file Excel (.xlsx/.csv) valid')
@@ -172,9 +203,16 @@ export default function Participants() {
 
   const confirmImport = () => {
     if (!importPreview) return
+    if (importPreview.invalidDayRows?.length > 0) {
+      toast.error('Import diblokir', 'Perbaiki nilai hari yang tidak valid terlebih dahulu')
+      return
+    }
     const result = bulkAddParticipants(importPreview.rows, dayFilter)
     setImportResult(result)
     toast.success('Import berhasil', `${result.added.length} peserta ditambahkan`)
+    if (importPreview.invalidDayRows?.length > 0) {
+      toast.info('Hari default digunakan', `${importPreview.invalidDayRows.length} baris memakai hari default (${dayFilter}) karena nilai hari tidak valid`)
+    }
     refreshData()
   }
 
@@ -182,26 +220,45 @@ export default function Participants() {
     try {
       const XLSX = await import('xlsx')
       const templateData = [
-        { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer' },
-        { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP' },
-        { nama: 'Dian Pratama', telepon: '08111222333', kategori: 'Regular' },
-        { nama: 'Eko Wahyudi', telepon: '082233445566', kategori: 'Media' }
+        { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer', hari: 1 },
+        { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP', hari: 2 },
+        { nama: 'Dian Pratama', telepon: '08111222333', kategori: 'Regular', hari: 3 },
+        { nama: 'Eko Wahyudi', telepon: '082233445566', kategori: 'Media', hari: 1 },
+        { nama: 'Fajar Nugraha', telepon: '081998877665', kategori: 'Regular', hari: 2 },
+        { nama: 'Gita Pertiwi', telepon: '083811223344', kategori: 'VIP', hari: 3 },
+        { nama: 'Hendra Saputra', telepon: '085700112233', kategori: 'Dealer', hari: 4 },
+        { nama: 'Intan Maharani', telepon: '082122334455', kategori: 'Media', hari: 5 }
       ]
       
       const ws = XLSX.utils.json_to_sheet(templateData)
+      const guideData = [
+        { kolom: 'nama', wajib: 'Ya', keterangan: 'Nama lengkap peserta', contoh: 'Budi Santoso' },
+        { kolom: 'telepon', wajib: 'Tidak', keterangan: 'Nomor WA peserta', contoh: '081234567890' },
+        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta: Regular/VIP/Dealer/Media', contoh: 'VIP' },
+        { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, pakai hari default filter', contoh: '2' }
+      ]
+      const wsGuide = XLSX.utils.json_to_sheet(guideData)
       
       // Auto-size columns to make them neat
       const wscols = [
         { wch: 25 }, // nama
         { wch: 15 }, // telepon
-        { wch: 15 }  // kategori
+        { wch: 15 }, // kategori
+        { wch: 10 }  // hari
       ]
       ws['!cols'] = wscols
+      wsGuide['!cols'] = [
+        { wch: 16 }, // kolom
+        { wch: 8 },  // wajib
+        { wch: 64 }, // keterangan
+        { wch: 26 }  // contoh
+      ]
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, "Template Peserta")
+      XLSX.utils.book_append_sheet(wb, wsGuide, "Panduan")
       
-      XLSX.writeFile(wb, "Template_Peserta_Yamaha.xlsx")
+      XLSX.writeFile(wb, "Template_Peserta_Yamaha_Dengan_Hari.xlsx")
     } catch (err) {
       toast.error('Gagal', 'Gagal membuat file template Excel')
       console.error(err)
@@ -210,6 +267,7 @@ export default function Participants() {
 
   const allParticipants = getParticipants(dayFilter)
   const checkedCount = allParticipants.filter(p => p.is_checked_in).length
+  const hasInvalidImportDayRows = !!importPreview?.invalidDayRows?.length
 
   const getCategoryBadge = (cat) => {
     const map = { VIP: 'badge-red', Dealer: 'badge-blue', Media: 'badge-yellow', Regular: 'badge-gray' }
@@ -287,6 +345,19 @@ export default function Participants() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 8 }}>
                   Kolom terdeteksi: {importPreview.columns.join(', ')}
                 </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  Hari default import saat ini: <strong>Hari {dayFilter}</strong> (dipakai jika kolom hari/day/day_number kosong)
+                </div>
+                {importPreview.invalidDayRows?.length > 0 && (
+                  <div style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning)', color: 'var(--warning)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 10, fontSize: '0.75rem' }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                      Ditemukan {importPreview.invalidDayRows.length} baris dengan nilai hari tidak valid.
+                    </div>
+                    <div>
+                      Contoh baris: {importPreview.invalidDayRows.slice(0, 5).map(item => `${item.row} (${item.value})`).join(', ')}
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Preview (5 baris pertama):</div>
                 <div style={{ overflowX: 'auto', marginBottom: 12 }}>
@@ -312,7 +383,7 @@ export default function Participants() {
                   </table>
                 </div>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong> (VIP/Dealer/Media/Regular)
+                  Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong>, <strong>hari/day/day_number</strong> (VIP/Dealer/Media/Regular)
                 </p>
               </>
             ) : null}
@@ -323,8 +394,20 @@ export default function Participants() {
             ) : (
               <>
                 <button className="btn btn-secondary" onClick={() => { setShowImportModal(false); setImportPreview(null) }}>Batal</button>
-                <button className="btn btn-primary" onClick={confirmImport} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Upload size={14} /> Import {importPreview?.rows.length} Peserta
+                <button
+                  className="btn btn-primary"
+                  onClick={confirmImport}
+                  disabled={hasInvalidImportDayRows}
+                  title={hasInvalidImportDayRows ? 'Perbaiki nilai hari yang tidak valid sebelum import' : ''}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    opacity: hasInvalidImportDayRows ? 0.6 : 1,
+                    cursor: hasInvalidImportDayRows ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <Upload size={14} /> {hasInvalidImportDayRows ? 'Perbaiki Hari Dulu' : `Import ${importPreview?.rows.length} Peserta`}
                 </button>
               </>
             )}
@@ -389,6 +472,9 @@ export default function Participants() {
         </div>
 
         <div className="m-filter-chips">
+          <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+            {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
+          </select>
           <select className="m-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="all">Semua</option>
             <option value="VIP">VIP</option>
@@ -490,6 +576,7 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Nama</label><input className="form-input" placeholder="Nama lengkap" value={newParticipant.name} onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })} required autoFocus /></div>
                   <div className="form-group"><label className="form-label">Telepon (WA)</label><input className="form-input" placeholder="08xxx (untuk WA)" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
                   <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
                   <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
                     <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--yamaha-red)', width: 16, height: 16 }} />
@@ -530,6 +617,9 @@ export default function Participants() {
           <option value="VIP">VIP</option>
           <option value="Dealer">Dealer</option>
           <option value="Media">Media</option>
+        </select>
+        <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+          {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
         </select>
         <select className="form-select" style={{ width: 'auto', minWidth: 130 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="all">Semua Status</option>
@@ -629,6 +719,7 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Nomor WhatsApp</label><input className="form-input" placeholder="08xxxxxxxxxx" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">Email Address</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
                 </div>
+                <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
                 <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
                   <input type="checkbox" id="d-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--success)', width: 18, height: 18 }} />

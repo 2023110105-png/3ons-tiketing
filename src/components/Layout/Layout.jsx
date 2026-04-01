@@ -13,6 +13,7 @@ export default function Layout({ children }) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [currentDay, setDay] = useState(getCurrentDay())
+  const [dayInput, setDayInput] = useState(String(getCurrentDay()))
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
   useEffect(() => {
@@ -24,6 +25,17 @@ export default function Layout({ children }) {
   const handleDayChange = (day) => {
     setCurrentDay(day)
     setDay(day)
+    setDayInput(String(day))
+  }
+
+  const handleDaySubmit = (e) => {
+    e.preventDefault()
+    const day = Number(dayInput)
+    if (!Number.isInteger(day) || day < 1) {
+      setDayInput(String(currentDay))
+      return
+    }
+    handleDayChange(day)
   }
 
   const handleLogout = () => {
@@ -155,6 +167,19 @@ export default function Layout({ children }) {
             </button>
           </div>
           <div className="header-right">
+            <form onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
+              <input
+                type="number"
+                min="1"
+                value={dayInput}
+                onChange={(e) => setDayInput(e.target.value)}
+                onBlur={handleDaySubmit}
+                className="form-input"
+                style={{ width: isMobile ? 64 : 78, height: 34, padding: '6px 10px', fontWeight: 700 }}
+                title="Isi hari aktif event (custom)"
+              />
+            </form>
             <button className="header-btn danger" onClick={handleLogout} title="Logout">
               <LogOut size={16} />
             </button>

@@ -295,6 +295,8 @@ export function bulkAddParticipants(rows, dayNumber) {
     const phone = String(row.phone || row.telepon || row.Phone || row.Telepon || row.hp || row.HP || '').trim()
     const email = String(row.email || row.Email || row.email_address || '').trim()
     const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
+    const parsedDay = Number(row.day_number || row.day || row.hari || row.Hari || row.Day || row.Day_Number)
+    const rowDay = Number.isInteger(parsedDay) && parsedDay > 0 ? parsedDay : dayNumber
 
     if (!name) {
       errors.push({ row: index + 1, error: 'Nama kosong' })
@@ -310,7 +312,7 @@ export function bulkAddParticipants(rows, dayNumber) {
       phone,
       email,
       category: matchedCat,
-      day_number: dayNumber,
+      day_number: rowDay,
       auto_send: false // Prevent bulk spam intentionally via bot for now
     })
     added.push(participant)
@@ -426,8 +428,17 @@ export function getCurrentDay() {
   return store.currentDay
 }
 
+export function getAvailableDays() {
+  const uniqueDays = [...new Set(store.participants.map(p => p.day_number))]
+  if (!uniqueDays.includes(store.currentDay)) {
+    uniqueDays.push(store.currentDay)
+  }
+  return uniqueDays.sort((a, b) => a - b)
+}
+
 export function setCurrentDay(day) {
-  store.currentDay = day
+  const safeDay = Number(day)
+  store.currentDay = Number.isInteger(safeDay) && safeDay > 0 ? safeDay : 1
   saveStore()
 }
 
