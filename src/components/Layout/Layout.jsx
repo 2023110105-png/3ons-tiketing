@@ -153,16 +153,6 @@ export default function Layout({ children }) {
             <button className="mobile-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
               <Menu size={20} />
             </button>
-            <div className="header-day-badge">
-              <span className="dot"></span>
-              <span>Hari {currentDay}</span>
-              {user?.role === 'super_admin' && (
-                <select value={currentDay} onChange={e => handleDayChange(Number(e.target.value))} style={{ background: 'transparent', border: 'none', color: 'var(--yamaha-red)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', outline: 'none', marginLeft: '4px' }}>
-                  <option value={1} style={{ background: 'var(--bg-card)' }}>Switch Hari 1</option>
-                  <option value={2} style={{ background: 'var(--bg-card)' }}>Switch Hari 2</option>
-                </select>
-              )}
-            </div>
           </div>
           <div className="header-right">
             <button className="header-btn danger" onClick={handleLogout} title="Logout">

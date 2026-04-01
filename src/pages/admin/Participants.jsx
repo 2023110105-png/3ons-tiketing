@@ -280,7 +280,7 @@ export default function Participants() {
                   <FileSpreadsheet size={20} style={{ color: 'var(--success)', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{importPreview.fileName}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{importPreview.rows.length} baris data • Hari {dayFilter}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{importPreview.rows.length} baris data</div>
                   </div>
                 </div>
 
@@ -388,12 +388,7 @@ export default function Participants() {
           />
         </div>
 
-        {/* Mobile Filter Chips */}
         <div className="m-filter-chips">
-          <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
-            <option value={1}>Hari 1</option>
-            <option value={2}>Hari 2</option>
-          </select>
           <select className="m-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="all">Semua</option>
             <option value="VIP">VIP</option>
@@ -521,7 +516,7 @@ export default function Participants() {
 
       <div className="page-header">
         <h1>Kelola Peserta</h1>
-        <p>Hari {dayFilter} — {allParticipants.length} peserta terdaftar, {checkedCount} sudah check-in</p>
+        <p>{allParticipants.length} peserta terdaftar, {checkedCount} sudah check-in</p>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -529,10 +524,6 @@ export default function Participants() {
           <span className="search-bar-icon"><Search size={16} /></span>
           <input placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
-          <option value={1}>Hari 1</option>
-          <option value={2}>Hari 2</option>
-        </select>
         <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">Semua Kategori</option>
           <option value="Regular">Regular</option>
@@ -561,7 +552,7 @@ export default function Participants() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>No</th><th>Ticket ID</th><th>Nama</th><th>Telepon</th><th>Kategori</th><th>Hari</th><th>Status</th><th>Check-in</th><th>Aksi</th>
+              <th>No</th><th>Ticket ID</th><th>Nama</th><th>Telepon</th><th>Kategori</th><th>Status</th><th>Check-in</th><th>Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -574,7 +565,6 @@ export default function Participants() {
                 <td style={{ fontWeight: 600 }}>{p.name}</td>
                 <td style={{ color: 'var(--text-secondary)' }}>{p.phone}</td>
                 <td><span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span></td>
-                <td>Hari {p.day_number}</td>
                 <td>{p.is_checked_in ? <span className="badge badge-green"><CheckCircle size={10} /> Check-in</span> : <span className="badge badge-gray">Belum</span>}</td>
                 <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.checked_in_at ? new Date(p.checked_in_at).toLocaleTimeString('id-ID') : '—'}</td>
                 <td style={{ display: 'flex', gap: 4, alignItems: 'center', height: '100%', borderBottom: 'none' }}>
@@ -639,10 +629,7 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Nomor WhatsApp</label><input className="form-input" placeholder="08xxxxxxxxxx" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">Email Address</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
                 </div>
-                <div className="grid-2">
-                  <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
-                  <div className="form-group"><label className="form-label">Hari</label><select className="form-select" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) })}><option value={1}>Hari 1</option><option value={2}>Hari 2</option></select></div>
-                </div>
+                <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
                   <input type="checkbox" id="d-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} style={{ accentColor: 'var(--success)', width: 18, height: 18 }} />
                   <div>

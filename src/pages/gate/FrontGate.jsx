@@ -151,7 +151,7 @@ export default function FrontGate() {
           Front Gate Scanner
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          Hari {currentDay} — Scan QR Code peserta
+          Scan QR Code peserta
         </p>
       </div>
 
@@ -213,7 +213,7 @@ export default function FrontGate() {
           <div className="card">
             <h3 className="card-title mb-8">Quick Scan (Demo)</h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
-              Klik untuk simulasi scan peserta hari {currentDay}
+              Klik untuk simulasi scan peserta
             </p>
             <QuickScanButtons currentDay={currentDay} onScan={handleScan} />
           </div>
