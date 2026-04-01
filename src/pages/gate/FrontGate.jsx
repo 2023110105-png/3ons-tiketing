@@ -87,7 +87,7 @@ export default function FrontGate() {
       scannerRef.current = scanner
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
         (decodedText) => handleScan(decodedText),
         () => {}
       )

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/Layout/Layout'
 import OfflineIndicator from './components/OfflineIndicator'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import Login from './pages/Login'
 import Dashboard from './pages/admin/Dashboard'
 import Participants from './pages/admin/Participants'
@@ -104,8 +105,10 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <AppRoutes />
-          <OfflineIndicator />
+          <ErrorBoundary>
+            <AppRoutes />
+            <OfflineIndicator />
+          </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

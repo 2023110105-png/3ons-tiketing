@@ -1012,6 +1012,7 @@ input, select, textarea, button {
   position: relative;
   border: 2px solid var(--border-color);
   background: #000;
+  transform: translateZ(0);
 }
 
 .scanner-viewport video {
