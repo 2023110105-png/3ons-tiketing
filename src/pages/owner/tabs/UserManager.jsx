@@ -217,7 +217,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                     required 
                     value={newUser.username}
                     onChange={e => setNewUser({...newUser, username: e.target.value})}
-                    placeholder="Contoh: admin_yamaha" 
+                    placeholder="Contoh: admin_acme" 
                   />
                 </div>
                 <div className="form-group">

@@ -7,9 +7,9 @@ vi.mock('../../../store/mockData', () => {
   const tenantMocks = [
     {
       id: 'tenant-1',
-      brandName: 'Yamaha Zone',
+      brandName: 'Acme Zone',
       invoices: [
-        { id: 'inv-01', tenantId: 'tenant-1', tenantName: 'Yamaha Zone', period: '2026-04', issued_at: '2026-04-01T00:00:00Z', amount: 500000, status: 'unpaid', notes: 'PPOB' }
+        { id: 'inv-01', tenantId: 'tenant-1', tenantName: 'Acme Zone', period: '2026-04', issued_at: '2026-04-01T00:00:00Z', amount: 500000, status: 'unpaid', notes: 'PPOB' }
       ]
     },
     {
@@ -45,13 +45,13 @@ describe('BillingInvoice', () => {
   it('renders invoices and filters by search', () => {
     render(<BillingInvoice />)
 
-    const yamahaOptions = screen.getAllByText(/Yamaha Zone/i)
+    const acmeOptions = screen.getAllByText(/Acme Zone/i)
     const bandungOptions = screen.getAllByText(/Bandung Expo/i)
-    expect(yamahaOptions.length).toBeGreaterThanOrEqual(2) // row + select option
+    expect(acmeOptions.length).toBeGreaterThanOrEqual(2) // row + select option
     expect(bandungOptions.length).toBeGreaterThanOrEqual(2)
 
     fireEvent.change(screen.getByPlaceholderText(/Cari invoice atau tenant/i), { target: { value: 'Bandung' } })
-    expect(screen.queryByText('Yamaha Zone', { selector: 'td' })).toBeNull()
+    expect(screen.queryByText('Acme Zone', { selector: 'td' })).toBeNull()
     expect(screen.getByText('Bandung Expo', { selector: 'td' })).toBeTruthy()
   })
 
@@ -59,7 +59,7 @@ describe('BillingInvoice', () => {
     render(<BillingInvoice />)
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'tenant-1' }})
-    expect(screen.getByRole('cell', { name: 'Yamaha Zone' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: 'Acme Zone' })).toBeTruthy()
     expect(screen.queryByRole('cell', { name: 'Bandung Expo' })).toBeNull()
   })
 

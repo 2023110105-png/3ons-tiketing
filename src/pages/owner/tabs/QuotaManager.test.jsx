@@ -12,7 +12,7 @@ vi.mock('../../../contexts/AuthContext', () => ({
 
 const tenantData = {
   id: 'tenant-1',
-  brandName: 'Yamaha Test',
+  brandName: 'Acme Test',
   quota: {
     maxParticipants: 500,
     maxGateDevices: 10,
@@ -23,7 +23,7 @@ const tenantData = {
 const healthData = [
   {
     tenantId: 'tenant-1',
-    brandName: 'Yamaha Test',
+    brandName: 'Acme Test',
     totalParticipants: 250,
     usageParticipants: 50,
     usageGateDevices: 40,
@@ -43,7 +43,7 @@ describe('QuotaManager', () => {
   it('renders quota cards and enters edit mode', () => {
     render(<QuotaManager />)
 
-    expect(screen.getByText('Yamaha Test')).toBeTruthy()
+    expect(screen.getByText('Acme Test')).toBeTruthy()
     expect(screen.getByText(/Peserta Terdaftar/i)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Edit Batas/i }))
@@ -62,6 +62,6 @@ describe('QuotaManager', () => {
     fireEvent.click(screen.getByRole('button', { name: /Simpan Perubahan Kuota/i }))
 
     expect(screen.queryByText(/Simpan Perubahan Kuota/i)).toBeNull()
-    expect(screen.getByText('Yamaha Test')).toBeTruthy()
+    expect(screen.getByText('Acme Test')).toBeTruthy()
   })
 })

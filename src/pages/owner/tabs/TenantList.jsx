@@ -212,7 +212,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                     required 
                     value={newTenant.brandName}
                     onChange={e => setNewTenant({...newTenant, brandName: e.target.value})}
-                    placeholder="Contoh: Yamaha Indonesia" 
+                    placeholder="Contoh: Acme Corp" 
                   />
                 </div>
                 <div className="owner-form-group">
@@ -221,7 +221,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                     className="owner-form-input" 
                     value={newTenant.eventName}
                     onChange={e => setNewTenant({...newTenant, eventName: e.target.value})}
-                    placeholder="Contoh: Yamaha Roadshow 2026" 
+                    placeholder="Contoh: Tech Expo 2026" 
                   />
                 </div>
                 <div className="owner-form-group">

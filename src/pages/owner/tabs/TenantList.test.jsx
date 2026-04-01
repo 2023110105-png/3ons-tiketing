@@ -15,8 +15,8 @@ vi.mock('../../../contexts/AuthContext', () => ({
 const sampleTenants = [
   {
     id: 'tenant-1',
-    brandName: 'Yamaha Test',
-    eventName: 'Yamaha Event',
+    brandName: 'Acme Test',
+    eventName: 'Acme Event',
     status: 'active',
     expires_at: null,
     contract: { package: 'pro', payment_status: 'paid' },
@@ -46,13 +46,13 @@ describe('TenantList', () => {
   it('renders tenant list and filters by search', () => {
     render(<TenantList onManageUsers={() => {}} onEditContract={() => {}} />)
 
-    expect(screen.getByText('Yamaha Test')).toBeTruthy()
+    expect(screen.getByText('Acme Test')).toBeTruthy()
     expect(screen.getByText('Bandung Expo')).toBeTruthy()
 
     const searchInput = screen.getByPlaceholderText('Cari tenant...')
-    fireEvent.change(searchInput, { target: { value: 'Yamaha' } })
+    fireEvent.change(searchInput, { target: { value: 'Acme' } })
 
-    expect(screen.getByText('Yamaha Test')).toBeTruthy()
+    expect(screen.getByText('Acme Test')).toBeTruthy()
     expect(screen.queryByText('Bandung Expo')).toBeNull()
   })
 
@@ -63,7 +63,7 @@ describe('TenantList', () => {
     fireEvent.click(button)
 
     expect(screen.getByText('Tambah Tenant Baru')).toBeTruthy()
-    expect(screen.getByPlaceholderText('Contoh: Yamaha Indonesia')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Contoh: Acme Corp')).toBeTruthy()
 
     const cancelBtn = screen.getByText('Batal')
     fireEvent.click(cancelBtn)

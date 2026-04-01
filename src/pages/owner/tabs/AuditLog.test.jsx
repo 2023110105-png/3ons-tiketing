@@ -9,7 +9,7 @@ vi.mock('../../../store/mockData', () => ({
       timestamp: new Date('2026-04-01T08:00:00Z').toISOString(),
       actor: 'owner1',
       action: 'tenant_create',
-      description: 'Tenant Yamaha berhasil dibuat',
+      description: 'Tenant Acme berhasil dibuat',
       meta: null
     },
     {
@@ -30,11 +30,11 @@ describe('AuditLog', () => {
     render(<AuditLog />)
 
     expect(screen.getByText('Audit Log Immutable')).toBeTruthy()
-    expect(screen.getByText('tenant Yamaha berhasil dibuat', { exact: false })).toBeTruthy()
+    expect(screen.getByText('tenant Acme berhasil dibuat', { exact: false })).toBeTruthy()
     expect(screen.getByText('2 entries')).toBeTruthy()
 
     fireEvent.change(screen.getByPlaceholderText('Cari di log audit...'), { target: { value: 'quota' } })
-    expect(screen.queryByText('Tenant Yamaha berhasil dibuat')).toBeNull()
+    expect(screen.queryByText('Tenant Acme berhasil dibuat')).toBeNull()
     expect(screen.getByText('Quota tenant diupdate', { exact: false })).toBeTruthy()
   })
 
