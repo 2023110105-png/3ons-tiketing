@@ -1073,6 +1073,17 @@ input, select, textarea, button {
   margin-bottom: 10px;
 }
 
+.btn-green-soft {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--success-bg) 45%, transparent);
+}
+
+.btn-gray-soft {
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}
+
 .danger-card {
   border: 1px solid var(--danger);
   background: var(--danger-bg);

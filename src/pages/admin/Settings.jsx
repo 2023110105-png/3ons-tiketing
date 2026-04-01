@@ -4,6 +4,19 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
 
+const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
+
+function getInitialAutoRefreshPreference() {
+  try {
+    const saved = localStorage.getItem(BACKUP_AUTO_REFRESH_KEY)
+    if (saved === '0') return false
+    if (saved === '1') return true
+  } catch {
+    // ignore storage read failures
+  }
+  return true
+}
+
 export default function Settings() {
   const currentDay = getCurrentDay()
   const toast = useToast()
@@ -31,6 +44,7 @@ export default function Settings() {
   const [backupSearch, setBackupSearch] = useState('')
   const [backupFilter, setBackupFilter] = useState('all')
   const [backupSort, setBackupSort] = useState('newest')
+  const [backupAutoRefreshEnabled, setBackupAutoRefreshEnabled] = useState(getInitialAutoRefreshPreference)
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -50,6 +64,16 @@ export default function Settings() {
   }
 
   useEffect(() => {
+    try {
+      localStorage.setItem(BACKUP_AUTO_REFRESH_KEY, backupAutoRefreshEnabled ? '1' : '0')
+    } catch {
+      // ignore storage write failures
+    }
+  }, [backupAutoRefreshEnabled])
+
+  useEffect(() => {
+    if (!backupAutoRefreshEnabled) return
+
     let intervalId = null
 
     const refreshWhenVisible = () => {
@@ -83,7 +107,7 @@ export default function Settings() {
       window.removeEventListener('storage', handleStorage)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [backupAutoRefreshEnabled])
 
   const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
   const validBackupCount = storeBackups.length - invalidBackupCount
@@ -132,6 +156,10 @@ export default function Settings() {
     setBackupSearch('')
     setBackupFilter('invalid')
     setBackupSort('newest')
+  }
+
+  const handleToggleBackupAutoRefresh = () => {
+    setBackupAutoRefreshEnabled(prev => !prev)
   }
 
 
@@ -443,6 +471,12 @@ export default function Settings() {
             </select>
             <button className="btn btn-ghost btn-danger btn-sm" onClick={handleDeleteInvalidBackups} disabled={invalidBackupCount === 0}>
               <Trash2 size={14} className="mr-6" /> Hapus Invalid ({invalidBackupCount})
+            </button>
+            <button
+              className={`btn btn-ghost btn-sm ${backupAutoRefreshEnabled ? 'btn-green-soft' : 'btn-gray-soft'}`}
+              onClick={handleToggleBackupAutoRefresh}
+            >
+              Auto Refresh: {backupAutoRefreshEnabled ? 'ON' : 'OFF'}
             </button>
             <button
               className="btn btn-ghost btn-sm"
