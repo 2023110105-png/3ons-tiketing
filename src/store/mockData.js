@@ -466,6 +466,27 @@ export function deleteStoreBackup(backupKey, actor = 'system', reason = '') {
   return { success: true }
 }
 
+export function deleteInvalidStoreBackups(actor = 'system', reason = '') {
+  if (!isStrongReason(reason)) {
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
+  }
+
+  const invalidBackups = getStoreBackups().filter(item => !item.isValid)
+  if (invalidBackups.length === 0) {
+    return { success: true, deleted: 0 }
+  }
+
+  invalidBackups.forEach(item => safeStorageRemove(item.key))
+
+  logAdminAction('store_backup_delete_invalid', `Hapus backup invalid (${invalidBackups.length} item)`, actor, {
+    deleted: invalidBackups.length,
+    reason: normalizeReason(reason),
+    keys: invalidBackups.map(item => item.key)
+  })
+
+  return { success: true, deleted: invalidBackups.length }
+}
+
 export function getEventsWithOptions(options = {}) {
   const includeArchived = !!options.includeArchived
   return Object.values(store.events)

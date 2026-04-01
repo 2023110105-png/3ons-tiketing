@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download } from 'lucide-react'
@@ -27,6 +27,8 @@ export default function Settings() {
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [storeBackups, setStoreBackups] = useState(getStoreBackups())
+  const [backupFilter, setBackupFilter] = useState('all')
+  const [backupSort, setBackupSort] = useState('newest')
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -40,6 +42,20 @@ export default function Settings() {
     setActiveEventId(getCurrentEventId())
     setStoreBackups(getStoreBackups())
   }
+
+  const invalidBackupCount = storeBackups.filter(item => !item.isValid).length
+
+  const visibleBackups = [...storeBackups]
+    .filter(item => {
+      if (backupFilter === 'valid') return item.isValid
+      if (backupFilter === 'invalid') return !item.isValid
+      return true
+    })
+    .sort((a, b) => {
+      if (backupSort === 'oldest') return a.timestamp - b.timestamp
+      if (backupSort === 'largest') return b.size - a.size
+      return b.timestamp - a.timestamp
+    })
 
 
   const handleResetCheckIn = (e) => {
@@ -207,6 +223,24 @@ export default function Settings() {
     toast.success('Sukses', 'Backup berhasil dihapus')
   }
 
+  const handleDeleteInvalidBackups = () => {
+    if (invalidBackupCount === 0) {
+      toast.error('Info', 'Tidak ada backup invalid untuk dihapus')
+      return
+    }
+    const confirmWord = window.prompt(`Hapus ${invalidBackupCount} backup invalid? Ketik HAPUS untuk lanjut:`, '')
+    if (confirmWord === null) return
+    if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
+    const reason = window.prompt('Alasan hapus backup invalid (minimal 15 karakter):', '')
+    if (reason === null) return
+
+    const result = deleteInvalidStoreBackups(user, reason)
+    if (!result.success) return toast.error('Gagal', result.error || 'Gagal hapus backup invalid')
+
+    refreshEvents()
+    toast.success('Sukses', `${result.deleted} backup invalid berhasil dihapus`)
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -309,15 +343,31 @@ export default function Settings() {
             Sistem menyimpan snapshot otomatis sebelum data store ditulis ulang. Backup ini bisa dipakai untuk pemulihan cepat jika data aktif bermasalah.
           </p>
 
-          {storeBackups.length === 0 ? (
+          <div className="backup-toolbar">
+            <select className="form-select backup-select" value={backupFilter} onChange={e => setBackupFilter(e.target.value)}>
+              <option value="all">Semua Backup</option>
+              <option value="valid">Valid Saja</option>
+              <option value="invalid">Invalid Saja</option>
+            </select>
+            <select className="form-select backup-select" value={backupSort} onChange={e => setBackupSort(e.target.value)}>
+              <option value="newest">Urut Terbaru</option>
+              <option value="oldest">Urut Terlama</option>
+              <option value="largest">Ukuran Terbesar</option>
+            </select>
+            <button className="btn btn-ghost btn-danger btn-sm" onClick={handleDeleteInvalidBackups} disabled={invalidBackupCount === 0}>
+              <Trash2 size={14} className="mr-6" /> Hapus Invalid ({invalidBackupCount})
+            </button>
+          </div>
+
+          {visibleBackups.length === 0 ? (
             <div className="event-meta">Belum ada backup tersedia.</div>
           ) : (
             <div className="event-list">
-              {storeBackups.map(backup => (
+              {visibleBackups.map(backup => (
                 <div key={backup.key} className="event-item">
                   <div className="event-row">
                     <div>
-                      <div className="event-name">{new Date(backup.timestamp).toLocaleString('id-ID')}</div>
+                      <div className="event-name">{backup.timestamp ? new Date(backup.timestamp).toLocaleString('id-ID') : '-'}</div>
                       <div className="event-meta">
                         {formatBackupSize(backup.size)} • {backup.eventCount} event • {backup.isValid ? 'Valid' : 'Invalid'}
                       </div>

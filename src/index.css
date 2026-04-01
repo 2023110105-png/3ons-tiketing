@@ -1041,6 +1041,19 @@ input, select, textarea, button {
   justify-content: flex-end;
 }
 
+.backup-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.backup-select {
+  min-width: 150px;
+  width: auto;
+}
+
 .danger-card {
   border: 1px solid var(--danger);
   background: var(--danger-bg);
