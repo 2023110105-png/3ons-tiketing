@@ -1,0 +1,17 @@
+{
+  "name": "wa-server",
+  "version": "1.0.0",
+  "description": "Local API server for Yamaha Event WhatsApp & Email Automations",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.11",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "npm:whatsapp-web.js@latest"
+  }
+}

@@ -1,0 +1,534 @@
+/* ============================================= */
+/* TV DASHBOARD — Full Screen Venue Display       */
+/* ============================================= */
+
+.tv-dashboard {
+  min-height: 100vh;
+  background: #050508;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Background Effects */
+.tv-bg-effects {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tv-bg-gradient {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(150px);
+  opacity: 0.12;
+}
+
+.tv-bg-gradient.g1 {
+  width: 800px;
+  height: 800px;
+  top: -300px;
+  left: -200px;
+  background: #E60012;
+}
+
+.tv-bg-gradient.g2 {
+  width: 600px;
+  height: 600px;
+  bottom: -200px;
+  right: -200px;
+  background: #10B981;
+}
+
+.tv-racing-lines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 60px,
+    rgba(230, 0, 18, 0.008) 60px,
+    rgba(230, 0, 18, 0.008) 120px
+  );
+}
+
+/* Header */
+.tv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px;
+  position: relative;
+  z-index: 2;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tv-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.tv-logo {
+  height: 44px;
+  width: auto;
+}
+
+.tv-header-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tv-event-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+}
+
+.tv-event-subtitle {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 500;
+}
+
+.tv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.tv-day-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: rgba(230, 0, 18, 0.15);
+  border: 1px solid rgba(230, 0, 18, 0.3);
+  border-radius: 9999px;
+  color: #E60012;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+}
+
+.tv-day-dot {
+  width: 8px;
+  height: 8px;
+  background: #E60012;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(230, 0, 18, 0.6);
+}
+
+.tv-clock {
+  font-family: 'Outfit', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Main Content */
+.tv-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* Left: Big Counter */
+.tv-main-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tv-counter-ring {
+  position: relative;
+  width: 280px;
+  height: 280px;
+}
+
+.tv-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+}
+
+.tv-counter-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.tv-counter-checked {
+  font-family: 'Outfit', sans-serif;
+  font-size: 5.5rem;
+  font-weight: 900;
+  color: #E60012;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(230, 0, 18, 0.4);
+}
+
+.tv-counter-slash {
+  font-size: 3rem;
+  color: rgba(255, 255, 255, 0.2);
+  font-weight: 300;
+  margin: 0 2px;
+}
+
+.tv-counter-total {
+  font-family: 'Outfit', sans-serif;
+  font-size: 3rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 12px;
+}
+
+.tv-counter-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+.tv-counter-percentage {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #10B981;
+  margin-top: 4px;
+}
+
+/* Category Grid */
+.tv-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 32px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.tv-category-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.tv-category-name {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tv-category-count {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: white;
+}
+
+.tv-category-count span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 500;
+}
+
+.tv-category-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.tv-category-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease-out;
+}
+
+/* Right: Feed */
+.tv-feed-section {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tv-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 12px;
+}
+
+.tv-feed-header h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tv-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #10B981;
+}
+
+.tv-live-dot {
+  width: 6px;
+  height: 6px;
+  background: #10B981;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.tv-feed-list {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tv-feed-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 1rem;
+  gap: 12px;
+}
+
+.tv-feed-empty-icon {
+  font-size: 3rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+.tv-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  animation: fadeInRight 0.4s ease-out both;
+  transition: all 0.3s;
+}
+
+.tv-feed-item.latest {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.tv-feed-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E60012, #B8000F);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.tv-feed-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tv-feed-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-feed-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+.tv-feed-badge {
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tv-feed-badge.vip { background: rgba(230, 0, 18, 0.15); color: #E60012; }
+.tv-feed-badge.dealer { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
+.tv-feed-badge.media { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+.tv-feed-badge.regular { background: rgba(107, 114, 128, 0.15); color: #9CA3AF; }
+
+.tv-feed-time {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tv-feed-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* New Entry Popup */
+.tv-new-entry-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.tv-new-entry-card {
+  text-align: center;
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tv-new-entry-icon {
+  font-size: 6rem;
+  animation: successPop 0.6s ease-out;
+  margin-bottom: 16px;
+}
+
+.tv-new-entry-label {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #10B981;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.tv-new-entry-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: white;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
+}
+
+.tv-new-entry-meta {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+/* Bottom Ticker */
+.tv-ticker {
+  position: relative;
+  z-index: 2;
+  background: rgba(230, 0, 18, 0.9);
+  padding: 10px 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tv-ticker-content {
+  display: inline-block;
+  animation: ticker 30s linear infinite;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tv-ticker-yamaha {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.tv-ticker-sep {
+  margin: 0 16px;
+  opacity: 0.5;
+}
+
+@keyframes ticker {
+  from { transform: translateX(100vw); }
+  to { transform: translateX(-100%); }
+}
+
+/* Responsive for different TV sizes */
+@media (max-width: 1280px) {
+  .tv-counter-checked { font-size: 4rem; }
+  .tv-counter-ring { width: 220px; height: 220px; }
+  .tv-clock { font-size: 1.5rem; }
+}
+
+@media (max-width: 768px) {
+  .tv-content { grid-template-columns: 1fr; }
+  .tv-main-counter { padding: 20px; }
+  .tv-counter-ring { width: 180px; height: 180px; }
+  .tv-counter-checked { font-size: 3rem; }
+  .tv-header { padding: 16px 20px; }
+  .tv-new-entry-name { font-size: 2rem; }
+}
