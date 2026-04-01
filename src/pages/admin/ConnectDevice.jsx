@@ -67,7 +67,7 @@ export default function ConnectDevice() {
             </h4>
             <ul className="admin-note-list">
               <li>Sistem ini akan meminjam nomor WhatsApp yang sedang kalian "Tautkan" (Scan).</li>
-              <li>Aplikasi web membutuhkan server lokal (`Mulai_3ONS_Project.bat`) aktif di memori untuk mengirimnya.</li>
+              <li>Aplikasi web membutuhkan server lokal (`Mulai_Event_Platform.bat`) aktif di memori untuk mengirimnya.</li>
               <li>Tampilan QR akan disegarkan (*refresh*) otomatis jika kadaluwarsa.</li>
             </ul>
           </div>
@@ -85,7 +85,7 @@ export default function ConnectDevice() {
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
-              <p className="status-note">Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_3ONS_Project.bat`</b> yang membangkitkan sinyal di port 3001.</p>
+              <p className="status-note">Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_Event_Platform.bat`</b> yang membangkitkan sinyal di port 3001.</p>
             </div>
           )}
 

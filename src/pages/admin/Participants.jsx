@@ -282,7 +282,7 @@ export default function Participants() {
       XLSX.utils.book_append_sheet(wb, ws, "Template Peserta")
       XLSX.utils.book_append_sheet(wb, wsGuide, "Panduan")
       
-      XLSX.writeFile(wb, "Template_Peserta_3ONS_Dengan_Hari.xlsx")
+      XLSX.writeFile(wb, "Template_Peserta_Dengan_Hari.xlsx")
     } catch (err) {
       toast.error('Gagal', 'Gagal membuat file template Excel')
       console.error(err)

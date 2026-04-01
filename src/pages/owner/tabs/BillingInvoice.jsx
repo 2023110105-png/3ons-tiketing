@@ -68,7 +68,7 @@ export default function BillingInvoice() {
     // Header
     doc.setFontSize(22)
     doc.setTextColor(14, 165, 233) // Primary color
-    doc.text('3oNs PROJECT PLATFORM', 105, 20, null, 'center')
+    doc.text('Owner Billing', 105, 20, null, 'center')
     
     doc.setFontSize(10)
     doc.setTextColor(100)

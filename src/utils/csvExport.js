@@ -166,7 +166,7 @@ export async function exportOfflineQueueReportToCSV(pendingItems, historyItems) 
     XLSX.utils.book_append_sheet(wb, wsPending, 'Pending Queue')
     XLSX.utils.book_append_sheet(wb, wsHistory, 'Queue History')
 
-    XLSX.writeFile(wb, 'Offline_Queue_PostMortem_3ONS_Project.xlsx')
+    XLSX.writeFile(wb, 'Offline_Queue_PostMortem.xlsx')
     return true
   } catch (error) {
     console.error('Error exporting offline queue report', error)

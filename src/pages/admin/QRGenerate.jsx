@@ -65,7 +65,7 @@ export default function QRGenerate() {
 
   // Share QR via WhatsApp
   const shareViaWhatsApp = async (participant) => {
-    const message = `🎫 *3oNs Project - E-Ticket*\n\n` +
+    const message = `🎫 *E-Ticket*\n\n` +
       `Halo *${participant.name}*,\n` +
       `Berikut informasi tiket Anda:\n\n` +
       `📋 Ticket ID: *${participant.ticket_id}*\n` +
@@ -73,7 +73,7 @@ export default function QRGenerate() {
       `📅 Hari: *${participant.day_number}*\n\n` +
       `Silakan tunjukkan QR Code ini saat registrasi di venue.\n` +
       `Terima kasih!\n\n` +
-      `_3oNs Project Platform_`
+      `_Event Platform_`
 
     // Try Web Share API first (works on mobile, can share files)
     if (navigator.share) {
@@ -146,7 +146,7 @@ export default function QRGenerate() {
         if (col >= 3) { col = 0; row++ }
         setGeneratedCount(i + 1)
       }
-      doc.save(`QR_Tickets_Hari_${dayFilter}_3ONS_Project.pdf`)
+      doc.save(`QR_Tickets_Hari_${dayFilter}.pdf`)
       toast.success('PDF Berhasil', `${participants.length} QR tiket diexport ke PDF`)
     } catch (err) {
       toast.error('Error', 'Gagal generate PDF')

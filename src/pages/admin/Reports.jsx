@@ -469,7 +469,7 @@ export default function Reports() {
       <div className="page-header admin-toolbar">
         <div>
           <h1>Laporan Kehadiran</h1>
-          <p>Analisis data check-in project 3oNs</p>
+          <p>Analisis data check-in platform event</p>
         </div>
         <div className="admin-actions-wrap">
           <select className="form-select admin-select-auto" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>

@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getTenantBranding } from '../store/mockData'
 import { ShieldCheck } from 'lucide-react'
 
 export default function Login() {
-  const branding = getTenantBranding()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

@@ -22,7 +22,7 @@ vi.mock('../../../store/mockData', () => {
   ]
   const getTenants = vi.fn(() => tenantMocks)
   const addTenantInvoice = vi.fn((tenantId, invoice) => ({ success: true, invoice: { ...invoice, id: 'inv-03' } }))
-  const updateInvoiceStatus = vi.fn((tenantId, invoiceId, status) => ({ success: true }))
+  const updateInvoiceStatus = vi.fn(() => ({ success: true }))
 
   return {
     getTenants,
