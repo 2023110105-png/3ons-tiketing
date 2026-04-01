@@ -90,9 +90,9 @@ export default function Reports() {
       // Header
       doc.setFontSize(20)
       doc.setFont(undefined, 'bold')
-      doc.text('3ONS PROJECT', 105, 20, { align: 'center' })
+      doc.text('Laporan Kehadiran', 105, 20, { align: 'center' })
       doc.setFontSize(14)
-      doc.text(`Laporan Kehadiran - Hari ${dayFilter}`, 105, 30, { align: 'center' })
+      doc.text(`Hari ${dayFilter}`, 105, 30, { align: 'center' })
       doc.setFontSize(10)
       doc.setFont(undefined, 'normal')
       doc.text(`Digenerate: ${new Date().toLocaleString('id-ID')}`, 105, 38, { align: 'center' })
@@ -140,7 +140,7 @@ export default function Reports() {
         styles: { fontSize: 8, cellPadding: 3 }
       })
 
-      doc.save(`Laporan_Kehadiran_Hari_${dayFilter}_3ONS_Project.pdf`)
+      doc.save(`Laporan_Kehadiran_Hari_${dayFilter}.pdf`)
       toast.success('PDF Exported', 'Laporan kehadiran berhasil didownload')
     } catch (err) {
       console.error(err)
@@ -183,7 +183,7 @@ export default function Reports() {
         styles: { fontSize: 8, cellPadding: 3 }
       })
 
-      doc.save('Audit_Log_Admin_3ONS_Project.pdf')
+      doc.save('Audit_Log_Admin.pdf')
       toast.success('PDF Exported', 'Audit log admin berhasil didownload')
     } catch (err) {
       console.error(err)

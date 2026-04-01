@@ -34,7 +34,7 @@ export async function exportToCSV(participants, dayNumber) {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, `Peserta Hari ${dayNumber}`)
 
-    XLSX.writeFile(wb, `Laporan_Peserta_Hari_${dayNumber}_3ONS_Project.xlsx`)
+    XLSX.writeFile(wb, `Laporan_Peserta_Hari_${dayNumber}.xlsx`)
     return true
   } catch (error) {
     console.error('Error exporting to Excel', error)
@@ -76,7 +76,7 @@ export async function exportLogsToCSV(logs, dayNumber) {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, `Log Check-in Hari ${dayNumber}`)
 
-    XLSX.writeFile(wb, `Log_CheckIn_Hari_${dayNumber}_3ONS_Project.xlsx`)
+    XLSX.writeFile(wb, `Log_CheckIn_Hari_${dayNumber}.xlsx`)
     return true
   } catch (error) {
     console.error('Error exporting logs to Excel', error)
@@ -115,7 +115,7 @@ export async function exportAdminLogsToCSV(logs) {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Audit Log Admin')
 
-    XLSX.writeFile(wb, 'Audit_Log_Admin_3ONS_Project.xlsx')
+    XLSX.writeFile(wb, 'Audit_Log_Admin.xlsx')
     return true
   } catch (error) {
     console.error('Error exporting admin logs to Excel', error)

@@ -21,7 +21,7 @@ const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
 const DEFAULT_TENANT_ID = 'tenant-default'
 const DEFAULT_TENANT = {
   id: DEFAULT_TENANT_ID,
-  brandName: '3oNs Project',
+  brandName: 'Event Platform',
   eventName: 'Event Platform',
   status: 'active',
   expires_at: null,
@@ -264,7 +264,7 @@ export function setTenantStatus(tenantId, nextStatus, actor = 'system') {
 
   if (tenantRegistry.activeTenantId === tenant.id && !canUseTenant(tenant)) {
     tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
-    ensureTenantStore(DEFAULT_TENANT_ID, '3oNs Project 2026', true)
+    ensureTenantStore(DEFAULT_TENANT_ID, 'Event Platform 2026', true)
   }
 
   saveStore()
@@ -381,7 +381,7 @@ export function deleteTenant(tenantId, actor = 'system') {
   }
   if (tenantRegistry.activeTenantId === tenant.id) {
     tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
-    ensureTenantStore(DEFAULT_TENANT_ID, '3oNs Project 2026', true)
+    ensureTenantStore(DEFAULT_TENANT_ID, 'Event Platform 2026', true)
   }
 
   saveStore()
@@ -757,7 +757,7 @@ function generateMockParticipants() {
   return participants
 }
 
-function createEmptyEventState(name = '3oNs Project') {
+function createEmptyEventState(name = 'Event Platform') {
   return {
     id: generateId(),
     name,
@@ -775,7 +775,7 @@ function createEmptyEventState(name = '3oNs Project') {
 }
 
 function createDefaultStore() {
-  const defaultEvent = createEmptyEventState('3oNs Project 2026')
+  const defaultEvent = createEmptyEventState('Event Platform 2026')
   defaultEvent.id = DEFAULT_EVENT_ID
   defaultEvent.participants = generateMockParticipants()
 
@@ -809,7 +809,7 @@ function createTenantStoreBucket(eventName = 'Event 1', withMockParticipants = f
 function normalizeSavedEvent(id, raw) {
   return {
     id,
-    name: raw?.name || '3oNs Project',
+    name: raw?.name || 'Event Platform',
     isArchived: !!raw?.isArchived,
     created_at: raw?.created_at || new Date().toISOString(),
     currentDay: Number.isInteger(raw?.currentDay) && raw.currentDay > 0 ? raw.currentDay : 1,
@@ -852,7 +852,7 @@ function normalizeTenantStoreBucket(rawBucket, fallbackEventName = 'Event 1') {
 }
 
 function migrateLegacyStore(parsed) {
-  const event = createEmptyEventState('3oNs Project 2026')
+  const event = createEmptyEventState('Event Platform 2026')
   event.id = DEFAULT_EVENT_ID
   event.currentDay = Number.isInteger(parsed?.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
   event.participants = asArray(parsed?.participants)
@@ -895,7 +895,7 @@ function getStore() {
       })
 
       if (!normalizedTenants[DEFAULT_TENANT_ID]) {
-        normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('3oNs Project 2026', true)
+        normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', true)
       }
 
       return { tenants: normalizedTenants }
@@ -904,7 +904,7 @@ function getStore() {
     if (parsed?.events && typeof parsed.events === 'object') {
       return {
         tenants: {
-          [DEFAULT_TENANT_ID]: normalizeTenantStoreBucket(parsed, '3oNs Project 2026')
+          [DEFAULT_TENANT_ID]: normalizeTenantStoreBucket(parsed, 'Event Platform 2026')
         }
       }
     }
@@ -1216,7 +1216,7 @@ export function logAdminAction(action, description, actor = 'system', meta = nul
   return log
 }
 
-export const defaultWaTemplate = `🎫 *3oNs Project - E-Ticket*
+export const defaultWaTemplate = `🎫 *E-Ticket*
 
 Halo *{{nama}}*,
 Berikut adalah tiket masuk acara Anda untuk *Hari ke-{{hari}}*.

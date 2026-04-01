@@ -185,7 +185,7 @@ export default function Dashboard() {
       <div className="page-header dashboard-header">
         <div>
           <h1>Dashboard</h1>
-          <p>Overview check-in Hari {currentDay} — 3oNs Project</p>
+          <p>Overview check-in Hari {currentDay}</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in

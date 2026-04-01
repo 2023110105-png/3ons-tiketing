@@ -121,7 +121,7 @@ app.post('/api/send-ticket', async (req, res) => {
                 const base64Str = buffer.toString('base64');
                 const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
 
-                const waMessage = req.body.wa_message || `🎫 *3oNs Project - E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.`;
+                const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.`;
                 
                 // Kirim Gambar + Caption
                 await waClient.sendMessage(waNumber, media, { caption: waMessage });
@@ -140,12 +140,12 @@ app.post('/api/send-ticket', async (req, res) => {
         } else {
             try {
                 const mailOptions = {
-                    from: `"3oNs Project" <${transporter.options.auth.user}>`,
+                    from: `"Event Platform" <${transporter.options.auth.user}>`,
                     to: email,
-                    subject: `E-Ticket 3oNs Project Hari ke-${day_number} - ${name}`,
+                    subject: `E-Ticket Hari ke-${day_number} - ${name}`,
                     html: `
                         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; text-align: center; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                            <h2 style="color: #3c99dc">3oNs Project E-Ticket</h2>
+                            <h2 style="color: #3c99dc">E-Ticket</h2>
                             <p>Halo <b>${name}</b>,</p>
                             <p>Ini adalah tiket masuk acara Anda untuk <b>Hari ke-${day_number}</b>.</p>
                             <hr style="border-top:1px dashed #ccc; margin: 20px 0" />
