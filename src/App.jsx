@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
@@ -6,20 +6,30 @@ import Layout from './components/Layout/Layout'
 import OfflineIndicator from './components/OfflineIndicator'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
-const Login = lazy(() => import('./pages/Login'))
-const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
-const Participants = lazy(() => import('./pages/admin/Participants'))
-const QRGenerate = lazy(() => import('./pages/admin/QRGenerate'))
-const Reports = lazy(() => import('./pages/admin/Reports'))
-const FrontGate = lazy(() => import('./pages/gate/FrontGate'))
-const BackGate = lazy(() => import('./pages/gate/BackGate'))
-const Settings = lazy(() => import('./pages/admin/Settings'))
-const ConnectDevice = lazy(() => import('./pages/admin/ConnectDevice'))
+const loadLogin = () => import('./pages/Login')
+const loadDashboard = () => import('./pages/admin/Dashboard')
+const loadParticipants = () => import('./pages/admin/Participants')
+const loadQRGenerate = () => import('./pages/admin/QRGenerate')
+const loadReports = () => import('./pages/admin/Reports')
+const loadFrontGate = () => import('./pages/gate/FrontGate')
+const loadBackGate = () => import('./pages/gate/BackGate')
+const loadSettings = () => import('./pages/admin/Settings')
+const loadConnectDevice = () => import('./pages/admin/ConnectDevice')
+
+const Login = lazy(loadLogin)
+const Dashboard = lazy(loadDashboard)
+const Participants = lazy(loadParticipants)
+const QRGenerate = lazy(loadQRGenerate)
+const Reports = lazy(loadReports)
+const FrontGate = lazy(loadFrontGate)
+const BackGate = lazy(loadBackGate)
+const Settings = lazy(loadSettings)
+const ConnectDevice = lazy(loadConnectDevice)
 
 function RouteFallback() {
   return (
-    <div className="flex-center" style={{ height: '100vh' }}>
-      <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }}></div>
+    <div className="flex-center full-height-screen">
+      <div className="spinner spinner-lg"></div>
     </div>
   )
 }
@@ -29,8 +39,8 @@ function ProtectedRoute({ children, allowedRoles }) {
   
   if (loading) {
     return (
-      <div className="flex-center" style={{ height: '100vh' }}>
-        <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }}></div>
+      <div className="flex-center full-height-screen">
+        <div className="spinner spinner-lg"></div>
       </div>
     )
   }
@@ -48,6 +58,53 @@ function ProtectedRoute({ children, allowedRoles }) {
 
 function AppRoutes() {
   const { user } = useAuth()
+
+  useEffect(() => {
+    if (!user) return
+
+    const preloadForRole = () => {
+      if (user.role === 'super_admin') {
+        loadDashboard()
+        loadParticipants()
+        loadQRGenerate()
+        loadConnectDevice()
+        loadSettings()
+        loadFrontGate()
+        loadBackGate()
+        loadReports()
+        return
+      }
+
+      if (user.role === 'gate_front') {
+        loadFrontGate()
+        loadBackGate()
+        return
+      }
+
+      if (user.role === 'gate_back') {
+        loadBackGate()
+        loadFrontGate()
+      }
+    }
+
+    let idleId
+    let timeoutId
+
+    if ('requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(preloadForRole, { timeout: 1200 })
+    } else {
+      timeoutId = window.setTimeout(preloadForRole, 600)
+    }
+
+    return () => {
+      if (typeof idleId === 'number' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      }
+      if (typeof timeoutId === 'number') {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [user])
 
   return (
     <Routes>

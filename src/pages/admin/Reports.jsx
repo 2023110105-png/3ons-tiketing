@@ -9,6 +9,16 @@ import { FileText, FileSpreadsheet, ClipboardList, Users, UserCheck, UserX, Tren
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 
+const RECHARTS_TOOLTIP_CONTENT_STYLE = {
+  backgroundColor: 'rgba(22, 22, 31, 0.95)',
+  border: '1px solid rgba(255,255,255,0.05)',
+  borderRadius: 8,
+  color: '#fff'
+}
+
+const RECHARTS_TOOLTIP_ITEM_STYLE = { color: '#fff' }
+const RECHARTS_TOOLTIP_LABEL_STYLE = { color: '#9CA3AF' }
+
 export default function Reports() {
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
@@ -352,8 +362,8 @@ export default function Reports() {
                     <XAxis dataKey="time" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
                     <RechartsTooltip 
-                      contentStyle={{ backgroundColor: 'rgba(22, 22, 31, 0.95)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
+                      contentStyle={RECHARTS_TOOLTIP_CONTENT_STYLE}
+                      itemStyle={RECHARTS_TOOLTIP_ITEM_STYLE}
                     />
                     <Area type="monotone" dataKey="count" name="Peserta Hadir" stroke="#E60012" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
                   </AreaChart>
@@ -492,9 +502,9 @@ export default function Reports() {
                 <XAxis dataKey="time" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
                 <RechartsTooltip 
-                  contentStyle={{ backgroundColor: 'rgba(22, 22, 31, 0.95)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8, color: '#fff' }}
-                  itemStyle={{ color: '#fff' }}
-                  labelStyle={{ color: '#9CA3AF' }}
+                  contentStyle={RECHARTS_TOOLTIP_CONTENT_STYLE}
+                  itemStyle={RECHARTS_TOOLTIP_ITEM_STYLE}
+                  labelStyle={RECHARTS_TOOLTIP_LABEL_STYLE}
                 />
                 <Area type="monotone" dataKey="count" name="Jumlah Hadir" stroke="#E60012" strokeWidth={3} fillOpacity={1} fill="url(#colorCountDesktop)" />
               </AreaChart>

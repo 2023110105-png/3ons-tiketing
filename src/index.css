@@ -2290,6 +2290,16 @@ input, select, textarea, button {
   animation: spin 0.6s linear infinite;
 }
 
+.spinner-lg {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+.full-height-screen {
+  height: 100vh;
+}
+
 .skeleton {
   background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
   background-size: 200% 100%;
