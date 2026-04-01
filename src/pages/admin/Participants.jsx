@@ -630,33 +630,33 @@ export default function Participants() {
         <p>{allParticipants.length} peserta terdaftar, {checkedCount} sudah check-in</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="search-bar" style={{ flex: '1 1 200px' }}>
+      <div className="participants-toolbar">
+        <div className="search-bar participants-search">
           <span className="search-bar-icon"><Search size={16} /></span>
           <input placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+        <select className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">Semua Kategori</option>
           <option value="Regular">Regular</option>
           <option value="VIP">VIP</option>
           <option value="Dealer">Dealer</option>
           <option value="Media">Media</option>
         </select>
-        <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+        <select className="form-select select-sm" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
           {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
         </select>
-        <select className="form-select" style={{ width: 'auto', minWidth: 130 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+        <select className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="all">Semua Status</option>
           <option value="checked">Sudah Check-in</option>
           <option value="unchecked">Belum Hadir</option>
         </select>
-        <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="btn btn-secondary btn-inline-icon" onClick={() => fileInputRef.current?.click()}>
           <Upload size={14} /> Import Excel
         </button>
-        <button className="btn btn-whatsapp" onClick={handleBroadcast} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="btn btn-whatsapp btn-inline-icon" onClick={handleBroadcast}>
           <Zap size={14} /> Broadcast WA
         </button>
-        <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} title="Download template Excel" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button className="btn btn-ghost btn-sm btn-inline-icon" onClick={downloadTemplate} title="Download template Excel">
           <Download size={14} /> Template Excel
         </button>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}><UserPlus size={14} /> Tambah Peserta</button>
@@ -671,17 +671,17 @@ export default function Participants() {
           </thead>
           <tbody>
             {participants.length === 0 ? (
-              <tr><td colSpan={9}><div className="empty-state" style={{ padding: 40 }}><div className="empty-state-icon"><Search size={32} /></div><h3>Tidak ada data</h3><p>Coba ubah filter</p></div></td></tr>
+              <tr><td colSpan={9}><div className="empty-state empty-pad-lg"><div className="empty-state-icon"><Search size={32} /></div><h3>Tidak ada data</h3><p>Coba ubah filter</p></div></td></tr>
             ) : participants.map((p, i) => (
               <tr key={p.id}>
-                <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                <td className="td-muted">{i + 1}</td>
                 <td><code style={{ background: 'var(--bg-elevated)', padding: '3px 8px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, border: '1px solid var(--border-color)' }}>{p.ticket_id}</code></td>
-                <td style={{ fontWeight: 600 }}>{p.name}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{p.phone}</td>
+                <td className="td-strong">{p.name}</td>
+                <td className="td-secondary">{p.phone}</td>
                 <td><span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span></td>
                 <td>{p.is_checked_in ? <span className="badge badge-green"><CheckCircle size={10} /> Check-in</span> : <span className="badge badge-gray">Belum</span>}</td>
-                <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.checked_in_at ? new Date(p.checked_in_at).toLocaleTimeString('id-ID') : '—'}</td>
-                <td style={{ display: 'flex', gap: 4, alignItems: 'center', height: '100%', borderBottom: 'none' }}>
+                <td className="td-time-muted">{p.checked_in_at ? new Date(p.checked_in_at).toLocaleTimeString('id-ID') : '—'}</td>
+                <td className="actions-cell">
                   <button className="btn btn-ghost btn-blue btn-sm" onClick={() => handleSingleBotSend(p)} title="Kirim Otomatis (Bot)">
                     <Bot size={14} />
                   </button>
@@ -698,7 +698,7 @@ export default function Participants() {
         </table>
       </div>
 
-      <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+      <div className="summary-muted">
         Menampilkan {participants.length} dari {allParticipants.length} peserta
       </div>
 

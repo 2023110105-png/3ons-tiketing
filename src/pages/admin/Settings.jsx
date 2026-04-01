@@ -245,7 +245,7 @@ export default function Settings() {
           <h3 className="card-title mb-16 card-title-inline danger-title">
             <ShieldAlert size={20} /> Danger Zone (Zona Berbahaya)
           </h3>
-          <p className="text-note" style={{ marginBottom: 24 }}>
+          <p className="text-note mb-24">
             Aksi di bawah ini bersifat permanen dan tidak dapat dibatalkan. Pastikan Anda melakukan ini hanya untuk <strong>persiapan hari-H</strong> atau setelah event selesai.
           </p>
 

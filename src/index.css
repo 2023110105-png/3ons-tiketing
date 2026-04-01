@@ -578,6 +578,69 @@ input, select, textarea, button {
   background: var(--warning);
 }
 
+.participants-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.participants-search {
+  flex: 1 1 200px;
+}
+
+.select-sm {
+  width: auto;
+  min-width: 120px;
+}
+
+.select-md {
+  width: auto;
+  min-width: 130px;
+}
+
+.btn-inline-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty-pad-lg {
+  padding: 40px;
+}
+
+.td-muted {
+  color: var(--text-muted);
+}
+
+.td-strong {
+  font-weight: 600;
+}
+
+.td-secondary {
+  color: var(--text-secondary);
+}
+
+.td-time-muted {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.actions-cell {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 100%;
+  border-bottom: none;
+}
+
+.summary-muted {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .settings-wrap {
   max-width: 600px;
   display: flex;
