@@ -107,7 +107,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
         </button>
       </div>
 
-      <div className="grid grid-3 gap-16">
+      <div className="grid-responsive mt-24">
         {visibleTenants.map(tenant => (
           <div key={tenant.id} className={`card tenant-card ${tenant.id === activeTenantId ? 'border-primary' : ''}`}>
             <div className="card-pad">

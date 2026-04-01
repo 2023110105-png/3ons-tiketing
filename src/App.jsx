@@ -124,7 +124,8 @@ function AppRoutes() {
       } replace /> : <Login />} />
 
       {/* Owner Route */}
-      <Route path="/owner" element={
+      <Route path="/owner" element={<Navigate to="/owner/tenants" replace />} />
+      <Route path="/owner/:activeTab" element={
         <ProtectedRoute allowedRoles={['owner']}>
           <OwnerPanel />
         </ProtectedRoute>

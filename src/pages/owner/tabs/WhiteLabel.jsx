@@ -60,7 +60,7 @@ export default function WhiteLabel() {
       </div>
 
       {selectedTenant ? (
-        <div className="grid grid-2-1 gap-24">
+        <div className="grid-responsive gap-24">
           <div className="card">
             <div className="card-pad">
               <h3 className="card-title mb-24">Pengaturan Branding</h3>

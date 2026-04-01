@@ -3,7 +3,7 @@ import {
   Database, RefreshCw, Download, Trash2, 
   Search, ShieldAlert, History, Archive 
 } from 'lucide-react'
-import { getStoreBackups, restoreStoreBackup, getTenants } from '../../../store/mockData'
+import { getStoreBackups, restoreStoreBackup } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/AuthContext'
 
@@ -11,7 +11,6 @@ export default function BackupRestore() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
   const [backups, setBackups] = useState(getStoreBackups())
-  const [searchQuery, setSearchQuery] = useState('')
   const [isRestoring, setIsRestoring] = useState(false)
 
   const handleRestore = (backup) => {
@@ -56,7 +55,7 @@ export default function BackupRestore() {
         </button>
       </div>
 
-      <div className="grid grid-2 gap-16">
+      <div className="grid-responsive gap-16">
         {filteredBackups.length === 0 ? (
           <div className="card card-pad text-center col-span-2 p-48">
             <Archive size={48} className="text-muted mx-auto mb-16" />

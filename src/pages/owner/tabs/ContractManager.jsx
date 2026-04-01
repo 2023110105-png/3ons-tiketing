@@ -103,7 +103,7 @@ export default function ContractManager() {
 
               {isEditing === tenant.id && (
                 <div className="edit-form mt-24 pt-24" style={{ borderTop: '1px solid var(--border-color)' }}>
-                  <div className="grid grid-3 gap-16">
+                  <div className="grid-responsive gap-16">
                     <div className="form-group">
                       <label className="form-label">Paket Layanan</label>
                       <select 
@@ -139,7 +139,7 @@ export default function ContractManager() {
                     </div>
                   </div>
 
-                  <div className="grid grid-3 gap-16 mt-16">
+                  <div className="grid-responsive gap-16 mt-16">
                     <div className="form-group">
                       <label className="form-label">Mulai Sewa</label>
                       <input 
@@ -160,8 +160,9 @@ export default function ContractManager() {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Catatan Kontrak</label>
-                      <input 
+                      <textarea 
                         className="form-input"
+                        rows="1"
                         placeholder="Contoh: Termasuk support 24/7"
                         value={editData.notes}
                         onChange={e => setEditData({...editData, notes: e.target.value})}

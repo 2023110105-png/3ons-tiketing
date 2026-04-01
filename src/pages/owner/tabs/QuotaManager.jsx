@@ -59,7 +59,7 @@ export default function QuotaManager() {
         </div>
       </div>
 
-      <div className="grid grid-2 gap-16">
+      <div className="grid-responsive mt-24">
         {filteredHealth.map(health => {
           const tenant = tenants.find(t => t.id === health.tenantId)
           if (!tenant) return null
@@ -138,7 +138,7 @@ export default function QuotaManager() {
                       <div className="progress-bar-bg" style={{ height: '8px', background: 'var(--bg-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
                         <div 
                           className={`progress-bar-fill ${isCritical ? 'bg-danger' : isWarning ? 'bg-warning' : 'bg-primary'}`} 
-                          style={{ height: '100%', width: `${Math.min(100, health.usageParticipants)}%`, transition: 'width 1s ease' }}
+                          style={{ height: '100%', width: `${Math.min(100, health.usageParticipants)}%` }}
                         ></div>
                       </div>
                       {isCritical && (
@@ -148,7 +148,7 @@ export default function QuotaManager() {
                       )}
                     </div>
 
-                    <div className="grid grid-2 gap-16 mt-24">
+                    <div className="grid-responsive gap-16 mt-24">
                       <div className="p-12 bg-subtle rounded border border-color">
                          <div className="text-xs text-muted mb-4 font-bold">DEVICE LIMIT</div>
                          <div className="flex items-center gap-8">

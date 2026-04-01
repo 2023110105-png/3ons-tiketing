@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Activity, Users, CheckCircle, XCircle, 
   Clock, AlertTriangle, RefreshCw, BarChart 
@@ -31,7 +31,7 @@ export default function TenantHealth() {
         </button>
       </div>
 
-      <div className="grid grid-3 gap-16">
+      <div className="grid-responsive mt-24">
         {healthData.map(health => (
           <div key={health.tenantId} className="card">
             <div className="card-pad">
@@ -55,7 +55,7 @@ export default function TenantHealth() {
                 </div>
               </div>
 
-              <div className="grid grid-2 gap-8 mt-16">
+              <div className="grid-responsive gap-8 mt-16">
                 <div className="bg-subtle p-12 rounded border border-color text-center">
                   <div className="text-xs text-muted font-bold mb-4">CHECK-IN</div>
                   <div className="text-xl font-bold flex justify-center items-center gap-4">
@@ -82,7 +82,7 @@ export default function TenantHealth() {
                 <div className="progress-bar-bg" style={{ height: '6px', background: 'var(--bg-subtle)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div 
                       className={`progress-bar-fill ${health.usageParticipants > 90 ? 'bg-danger' : health.usageParticipants > 75 ? 'bg-warning' : 'bg-primary'}`} 
-                      style={{ height: '100%', width: `${Math.min(100, health.usageParticipants)}%`, transition: 'width 1s ease' }}
+                      style={{ height: '100%', width: `${Math.min(100, health.usageParticipants)}%` }}
                     ></div>
                 </div>
               </div>

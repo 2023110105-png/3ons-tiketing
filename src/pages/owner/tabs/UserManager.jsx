@@ -14,7 +14,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   const toast = useToast()
   const { user: currentUser } = useAuth()
   
-  const [tenants, setTenants] = useState(getTenants())
+  const [tenants] = useState(getTenants())
   const [selectedTenantId, setSelectedTenantId] = useState(initialTenant?.id || '')
   const [users, setUsers] = useState([])
   
@@ -29,11 +29,14 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    if (selectedTenantId) {
-      setUsers(getTenantUsers(selectedTenantId))
-    } else {
-      setUsers([])
+    const fetchUsers = async () => {
+      if (selectedTenantId) {
+        setUsers(getTenantUsers(selectedTenantId))
+      } else {
+        setUsers([])
+      }
     }
+    fetchUsers()
   }, [selectedTenantId])
 
   const handleCreateUser = (e) => {
@@ -94,17 +97,19 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
         <Users size={48} className="text-muted mx-auto mb-16" />
         <h3 className="card-title">Pilih Tenant untuk Mengelola User</h3>
         <p className="text-muted mb-24">Setiap tenant dapat memiliki admin client dan petugas gate sendiri.</p>
-        <div style={{ maxWidth: '400px', margin: '0 auto' }}>
-          <select 
-            className="form-select" 
-            value={selectedTenantId} 
-            onChange={e => setSelectedTenantId(e.target.value)}
-          >
-            <option value="">-- Pilih Tenant --</option>
-            {tenants.map(t => (
-              <option key={t.id} value={t.id}>{t.brandName} ({t.eventName})</option>
-            ))}
-          </select>
+        <div className="grid-responsive mt-24" style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <div className="form-group mb-0">
+            <select 
+              className="form-select" 
+              value={selectedTenantId} 
+              onChange={e => setSelectedTenantId(e.target.value)}
+            >
+              <option value="">-- Pilih Tenant --</option>
+              {tenants.map(t => (
+                <option key={t.id} value={t.id}>{t.brandName} ({t.eventName})</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     )
@@ -122,16 +127,16 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
       </div>
 
       <div className="card p-0 overflow-hidden">
-        <div className="card-pad p-16" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-subtle)' }}>
-           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-pad p-16 bg-subtle border-bottom">
+           <div className="flex justify-between items-center flex-wrap gap-12">
               <div>
                 <h3 className="card-title">{selectedTenant.brandName}</h3>
                 <p className="text-muted text-xs">ID Tenant: {selectedTenant.id}</p>
               </div>
-              <div className="admin-search-wrap" style={{ width: '200px' }}>
+              <div className="admin-search-wrap" style={{ minWidth: '240px', flex: 1 }}>
                 <Search size={14} className="admin-search-icon" />
                 <input 
-                  className="form-input p-8 pl-32 text-xs" 
+                  className="form-input" 
                   placeholder="Cari user..." 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}

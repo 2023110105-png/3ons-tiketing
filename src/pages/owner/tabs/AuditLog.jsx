@@ -3,7 +3,7 @@ import { ShieldCheck, Search, Filter, Download, Clock, User, Info } from 'lucide
 import { getOwnerAuditLog } from '../../../store/mockData'
 
 export default function AuditLog() {
-  const [logs, setLogs] = useState(getOwnerAuditLog())
+  const [logs] = useState(getOwnerAuditLog())
   const [searchQuery, setSearchQuery] = useState('')
   const [filterAction, setFilterAction] = useState('all')
 
@@ -75,9 +75,9 @@ export default function AuditLog() {
           <table className="data-table">
             <thead>
               <tr>
-                <th style={{ width: '180px' }}>Waktu</th>
-                <th style={{ width: '120px' }}>Aktor</th>
-                <th style={{ width: '150px' }}>Aksi</th>
+                <th>Waktu</th>
+                <th>Aktor</th>
+                <th>Aksi</th>
                 <th>Deskripsi</th>
               </tr>
             </thead>

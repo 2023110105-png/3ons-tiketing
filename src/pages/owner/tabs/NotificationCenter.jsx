@@ -22,7 +22,7 @@ export default function NotificationCenter() {
     toast.success('Sukses', 'Semua notifikasi ditandai dibaca')
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = () => {
     // In real app, call a delete notification function
     toast.success('Dihapus', 'Notifikasi berhasil dihapus')
   }
@@ -36,9 +36,9 @@ export default function NotificationCenter() {
 
   return (
     <div className="notification-center-container">
-      <div className="toolbar mb-16 flex justify-between items-center bg-white p-12 rounded border border-color">
-         <div className="flex items-center gap-12 flex-1">
-            <div className="admin-search-wrap" style={{ maxWidth: '300px' }}>
+      <div className="toolbar mb-16 flex justify-between items-center bg-white p-12 rounded border border-color flex-wrap gap-12">
+         <div className="flex items-center gap-12 flex-1 min-w-[240px]">
+            <div className="admin-search-wrap flex-1">
               <Search size={14} className="admin-search-icon" />
               <input 
                 className="form-input" 
@@ -47,7 +47,7 @@ export default function NotificationCenter() {
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <span className="text-xs text-muted font-bold">Total: {notifications.length}</span>
+            <span className="text-xs text-muted font-bold whitespace-nowrap">Total: {notifications.length}</span>
          </div>
          <button className="btn btn-ghost btn-sm text-primary" onClick={handleMarkAllRead}>
             Tandai Semua Dibaca
@@ -77,9 +77,9 @@ export default function NotificationCenter() {
                     <Bell size={18} />}
                  </div>
                  <div style={{ flex: 1 }}>
-                    <div className="flex justify-between items-start">
-                       <p className={`text-sm ${!n.read ? 'font-bold' : ''}`}>{n.message}</p>
-                       <span className="text-xs text-muted flex items-center gap-4">
+                    <div className="flex justify-between items-start flex-wrap gap-8">
+                       <p className={`text-sm flex-1 min-w-[200px] ${!n.read ? 'font-bold' : ''}`}>{n.message}</p>
+                       <span className="text-xs text-muted flex items-center gap-4 whitespace-nowrap h-fit">
                           <Clock size={12} /> {new Date(n.created_at).toLocaleString('id-ID')}
                        </span>
                     </div>

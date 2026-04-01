@@ -97,12 +97,6 @@ export default function BillingInvoice() {
     doc.text('Tenant Client ID:', 140, 66)
     doc.text(invoice.tenantId, 140, 72)
 
-    // Table
-    const tableData = [
-      ['Deskripsi Layanan', 'Periode', 'Total Tagihan'],
-      [`Layanan Sewa Platform Ticketing`, invoice.period, `Rp ${invoice.amount.toLocaleString()}`]
-    ]
-
     doc.autoTable({
       startY: 85,
       head: [['Deskripsi', 'Periode', 'Total']],
@@ -123,9 +117,9 @@ export default function BillingInvoice() {
 
   return (
     <div className="billing-invoice-container">
-      <div className="toolbar mb-16" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
-          <div className="admin-search-wrap" style={{ flex: 1, maxWidth: '300px' }}>
+      <div className="toolbar mb-16 flex justify-between gap-12 flex-wrap items-center">
+        <div className="flex gap-8 flex-1 flex-wrap">
+          <div className="admin-search-wrap" style={{ flex: '1 1 240px' }}>
             <Search size={14} className="admin-search-icon" />
             <input 
               className="form-input" 
@@ -135,8 +129,8 @@ export default function BillingInvoice() {
             />
           </div>
           <select 
-            className="form-select" 
-            style={{ width: 'auto' }}
+            className="form-select flex-1" 
+            style={{ minWidth: '160px' }}
             value={selectedTenantId}
             onChange={e => setSelectedTenantId(e.target.value)}
           >
@@ -147,7 +141,7 @@ export default function BillingInvoice() {
           </select>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={18} /> Buat Invoice Manual
+          <Plus size={18} /> Buat Invoice
         </button>
       </div>
 

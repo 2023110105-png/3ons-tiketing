@@ -114,7 +114,17 @@ export default function Layout({ children }) {
   ]
 
   const ownerNav = [
-    { path: '/owner', icon: <ShieldCheck size={18} />, label: 'Owner Panel' }
+    { path: '/owner/tenants', icon: <LayoutDashboard size={18} />, label: 'Tenants' },
+    { path: '/owner/contracts', icon: <FileText size={18} />, label: 'Kontrak Sewa' },
+    { path: '/owner/quotas', icon: <BarChart3 size={18} />, label: 'Kuota Tenant' },
+    { path: '/owner/users', icon: <Users size={18} />, label: 'User Management' },
+    { path: '/owner/impersonate', icon: <Eye size={18} />, label: 'Impersonate' },
+    { path: '/owner/billing', icon: <History size={18} />, label: 'Billing & Invoice' },
+    { path: '/owner/audit', icon: <ShieldCheck size={18} />, label: 'Audit Log' },
+    { path: '/owner/health', icon: <Activity size={18} />, label: 'Health Dashboard' },
+    { path: '/owner/backup', icon: <Database size={18} />, label: 'Backup / Restore' },
+    { path: '/owner/branding', icon: <Settings size={18} />, label: 'White-Label' },
+    { path: '/owner/notifications', icon: <Bell size={18} />, label: 'Pemberitahuan' },
   ]
 
   const mobileNavItems = getNavItems()

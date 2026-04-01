@@ -250,6 +250,58 @@ input, select, textarea, button {
   animation: fadeIn 0.3s ease-out;
 }
 
+@media (max-width: 768px) {
+  .page-container {
+    padding: 16px;
+  }
+}
+
+/* Responsive Grid System */
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .grid-responsive {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Owner-specific adjustments */
+.owner-card {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.owner-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand-primary-light);
+}
+
+.owner-tab-active {
+  background: var(--brand-primary-subtle) !important;
+  color: var(--brand-primary) !important;
+  border-right: 3px solid var(--brand-primary) !important;
+}
+
 .page-header {
   margin-bottom: 28px;
 }

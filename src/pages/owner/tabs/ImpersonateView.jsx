@@ -9,9 +9,9 @@ import { useAuth } from '../../../contexts/AuthContext'
 
 export default function ImpersonateView() {
   const toast = useToast()
-  const { user: currentUser, login } = useAuth()
+  const { login } = useAuth()
   
-  const [tenants, setTenants] = useState(getTenants())
+  const [tenants] = useState(getTenants())
   const [selectedTenantId, setSelectedTenantId] = useState('')
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,7 +81,7 @@ export default function ImpersonateView() {
         )}
       </div>
 
-      <div className="grid grid-3 gap-16">
+      <div className="grid-responsive gap-16 mt-24">
         {!selectedTenantId ? (
           <div className="col-span-3 text-center p-64 card text-muted">
             Pilih tenant terlebih dahulu untuk melihat daftar user yang bisa di-impersonate.
