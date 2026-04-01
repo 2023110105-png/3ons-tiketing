@@ -458,11 +458,11 @@ export default function Participants() {
         {isBroadcasting && (
           <div className="modal-overlay" style={{ zIndex: 9999 }}>
             <div className="modal" style={{ textAlign: 'center', padding: 30, maxWidth: 300 }}>
-              <Bot size={40} style={{ color: '#25D366', margin: '0 auto 12px', animation: 'bounce 1s infinite' }} />
-              <h3 style={{ marginBottom: 6 }}>Mengirim Pesan...</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>Mohon tunggu sejenak.</p>
+              <Bot size={44} style={{ display: 'block', color: '#25D366', margin: '0 auto 16px', animation: 'bounce 1s infinite' }} />
+              <h3 style={{ marginBottom: 8, fontSize: '1.2rem' }}>Mengirim Pesan...</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 20 }}>Mohon jangan tutup halaman ini.</p>
               
-              <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, height: 8, overflow: 'hidden', marginBottom: 10 }}>
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, height: 10, overflow: 'hidden', marginBottom: 12 }}>
                 <div style={{ 
                   background: '#25D366', height: '100%', 
                   width: `${(broadcastProgress.current / broadcastProgress.total) * 100}%`,
@@ -470,9 +470,14 @@ export default function Participants() {
                 }} />
               </div>
               
-              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>
                 {broadcastProgress.current} / {broadcastProgress.total} Tiket
               </div>
+              {(broadcastProgress.success > 0 || broadcastProgress.failed > 0) && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 10 }}>
+                  <span style={{ color: 'var(--success)' }}>Sukses: {broadcastProgress.success}</span> • <span style={{ color: 'var(--danger)' }}>Gagal: {broadcastProgress.failed}</span>
+                </div>
+              )}
             </div>
           </div>
         )}
