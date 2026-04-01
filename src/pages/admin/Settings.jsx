@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
@@ -29,7 +29,6 @@ function getInitialAutoRefreshInterval() {
 }
 
 export default function Settings() {
-  const currentDay = getCurrentDay()
   const toast = useToast()
   const { user } = useAuth()
   
@@ -58,8 +57,7 @@ export default function Settings() {
   const [backupAutoRefreshEnabled, setBackupAutoRefreshEnabled] = useState(getInitialAutoRefreshPreference)
   const [backupAutoRefreshInterval, setBackupAutoRefreshInterval] = useState(getInitialAutoRefreshInterval)
   const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
-  const [backupLastRefreshAt, setBackupLastRefreshAt] = useState(Date.now())
-  const [backupNowTick, setBackupNowTick] = useState(Date.now())
+  const [backupLastRefreshAgeSec, setBackupLastRefreshAgeSec] = useState(0)
   const [isBackupTabVisible, setIsBackupTabVisible] = useState(() => document.visibilityState === 'visible')
 
   const formatBackupSize = (value) => {
@@ -77,11 +75,13 @@ export default function Settings() {
 
   const refreshBackups = () => {
     setStoreBackups(getStoreBackups())
-    setBackupLastRefreshAt(Date.now())
+    setBackupLastRefreshAgeSec(0)
   }
 
   useEffect(() => {
-    const id = window.setInterval(() => setBackupNowTick(Date.now()), 1000)
+    const id = window.setInterval(() => {
+      setBackupLastRefreshAgeSec(prev => prev + 1)
+    }, 1000)
     return () => window.clearInterval(id)
   }, [])
 
@@ -108,7 +108,6 @@ export default function Settings() {
     let countdownId = null
 
     const intervalSeconds = Math.ceil(backupAutoRefreshInterval / 1000)
-    setBackupRefreshCountdown(intervalSeconds)
 
     const refreshWhenVisible = () => {
       if (document.visibilityState === 'visible') {
@@ -160,7 +159,6 @@ export default function Settings() {
   const validBackupCount = storeBackups.length - invalidBackupCount
   const totalBackupSize = storeBackups.reduce((sum, item) => sum + Number(item.size || 0), 0)
   const backupSessionDelta = storeBackups.length - backupBaselineCount
-  const backupLastRefreshAgeSec = Math.max(0, Math.floor((backupNowTick - backupLastRefreshAt) / 1000))
   const backupLastRefreshLabel = backupLastRefreshAgeSec <= 2
     ? 'baru saja'
     : `${backupLastRefreshAgeSec} detik lalu`
