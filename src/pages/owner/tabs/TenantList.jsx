@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users } from 'lucide-react'
+import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
 import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, deleteTenant, createTenant } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/AuthContext'
