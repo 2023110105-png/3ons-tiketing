@@ -116,21 +116,21 @@ export default function BillingInvoice() {
   }
 
   return (
-    <div className="billing-invoice-container">
-      <div className="toolbar mb-16 flex justify-between gap-12 flex-wrap items-center">
-        <div className="flex gap-8 flex-1 flex-wrap">
-          <div className="admin-search-wrap" style={{ flex: '1 1 240px' }}>
-            <Search size={14} className="admin-search-icon" />
+    <div className="billing-invoice-container owner-fade-in-up">
+      <div className="owner-toolbar">
+        <div className="owner-toolbar-left">
+          <div className="owner-search-input" style={{ flex: 1, maxWidth: '300px' }}>
+            <Search size={16} />
             <input 
-              className="form-input" 
+              className="owner-form-input" 
               placeholder="Cari invoice atau tenant..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           <select 
-            className="form-select flex-1" 
-            style={{ minWidth: '160px' }}
+            className="owner-form-select" 
+            style={{ minWidth: '180px' }}
             value={selectedTenantId}
             onChange={e => setSelectedTenantId(e.target.value)}
           >
@@ -140,23 +140,29 @@ export default function BillingInvoice() {
             ))}
           </select>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={18} /> Buat Invoice
-        </button>
+        <div className="owner-toolbar-right">
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            <Plus size={18} /> Invoice Baru
+          </button>
+        </div>
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <div className="table-responsive">
-          <table className="data-table">
+      <div className="owner-card-container" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="owner-card-header" style={{ borderRadius: 0 }}>
+          <div className="owner-card-title">💰 Invoices Management</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredInvoices.length} invoices</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="owner-data-table">
             <thead>
               <tr>
-                <th>ID Invoice</th>
-                <th>Tenant</th>
-                <th>Periode</th>
-                <th>Tgl Terbit</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th className="text-right">Aksi</th>
+                <th>📋 Invoice ID</th>
+                <th>👥 Tenant</th>
+                <th>📅 Periode</th>
+                <th>📤 Tgl Terbit</th>
+                <th>💵 Total</th>
+                <th>✓ Status</th>
+                <th style={{ textAlign: 'right' }}>⚙️ Aksi</th>
               </tr>
             </thead>
             <tbody>

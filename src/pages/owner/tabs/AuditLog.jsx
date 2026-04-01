@@ -42,21 +42,20 @@ export default function AuditLog() {
   }
 
   return (
-    <div className="audit-log-container">
-      <div className="toolbar mb-16" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
-          <div className="admin-search-wrap" style={{ flex: 1, maxWidth: '400px' }}>
-            <Search size={14} className="admin-search-icon" />
+    <div className="audit-log-container owner-fade-in-up">
+      <div className="owner-toolbar">
+        <div className="owner-toolbar-left">
+          <div className="owner-search-input" style={{ flex: 1, maxWidth: '400px' }}>
+            <Search size={16} />
             <input 
-              className="form-input" 
+              className="owner-form-input" 
               placeholder="Cari di log audit..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           <select 
-            className="form-select" 
-            style={{ width: 'auto' }}
+            className="owner-form-select" 
             value={filterAction}
             onChange={e => setFilterAction(e.target.value)}
           >
@@ -65,39 +64,47 @@ export default function AuditLog() {
             ))}
           </select>
         </div>
-        <button className="btn btn-ghost" onClick={handleExport}>
-          <Download size={18} /> Export CSV
-        </button>
+        <div className="owner-toolbar-right">
+          <button className="btn btn-ghost" onClick={handleExport} title="Export as CSV">
+            <Download size={18} /> Export
+          </button>
+        </div>
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <div className="table-responsive">
-          <table className="data-table">
+      <div className="owner-card-container" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="owner-card-header" style={{ borderRadius: 0 }}>
+          <div className="owner-card-title">Audit Log Immutable</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredLogs.length} entries</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="owner-data-table">
             <thead>
               <tr>
-                <th>Waktu</th>
-                <th>Aktor</th>
-                <th>Aksi</th>
-                <th>Deskripsi</th>
+                <th>📅 Waktu</th>
+                <th>👤 Aktor</th>
+                <th>⚡ Aksi</th>
+                <th>📝 Deskripsi</th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="text-center p-32 text-muted">Belum ada data log audit.</td>
+                  <td colSpan="4" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                    📋 Belum ada data log audit
+                  </td>
                 </tr>
               ) : (
                 filteredLogs.map(log => (
                   <tr key={log.id}>
-                    <td className="text-xs text-muted">
-                      <div className="flex items-center gap-4">
-                        <Clock size={12} />
+                    <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock size={14} />
                         {new Date(log.timestamp).toLocaleString('id-ID')}
                       </div>
                     </td>
                     <td>
-                      <div className="flex items-center gap-4 text-sm font-bold">
-                        <User size={12} className="text-primary" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', fontWeight: '600' }}>
+                        <User size={14} style={{ color: 'var(--brand-primary)' }} />
                         {log.actor}
                       </div>
                     </td>
