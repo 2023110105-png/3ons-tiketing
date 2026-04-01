@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getCurrentDay, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { AlertCircle, RotateCcw, Trash2, ShieldAlert } from 'lucide-react'
+import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History } from 'lucide-react'
 
 export default function Settings() {
   const currentDay = getCurrentDay()
@@ -26,10 +26,19 @@ export default function Settings() {
   const [maxRetryAttempts, setMaxRetryAttemptsState] = useState(getMaxPendingAttempts())
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
+  const [storeBackups, setStoreBackups] = useState(getStoreBackups())
+
+  const formatBackupSize = (value) => {
+    const size = Number(value || 0)
+    if (size < 1024) return `${size} B`
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  }
 
   const refreshEvents = () => {
     setEvents(getEventsWithOptions({ includeArchived: true }))
     setActiveEventId(getCurrentEventId())
+    setStoreBackups(getStoreBackups())
   }
 
 
@@ -146,6 +155,24 @@ export default function Settings() {
     toast.success('Sukses', 'Event berhasil dihapus')
   }
 
+  const handleRestoreBackup = (backup) => {
+    if (!backup?.isValid) {
+      toast.error('Gagal', 'Backup tidak valid dan tidak bisa direstore')
+      return
+    }
+    const confirmWord = window.prompt('Restore backup akan menimpa data aktif. Ketik RESTORE untuk lanjut:', '')
+    if (confirmWord === null) return
+    if (confirmWord !== 'RESTORE') return toast.error('Gagal', 'Konfirmasi harus RESTORE')
+    const reason = window.prompt('Alasan restore backup (minimal 15 karakter):', '')
+    if (reason === null) return
+
+    const res = restoreStoreBackup(backup.key, user, reason)
+    if (!res.success) return toast.error('Gagal', res.error || 'Restore backup gagal')
+
+    refreshEvents()
+    toast.success('Sukses', 'Backup berhasil direstore. Muat ulang halaman untuk sinkron penuh jika diperlukan.')
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -238,6 +265,37 @@ export default function Settings() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="card card-pad">
+          <h3 className="card-title mb-16 card-title-inline">
+            <History size={18} /> Backup Data Store
+          </h3>
+          <p className="text-note">
+            Sistem menyimpan snapshot otomatis sebelum data store ditulis ulang. Backup ini bisa dipakai untuk pemulihan cepat jika data aktif bermasalah.
+          </p>
+
+          {storeBackups.length === 0 ? (
+            <div className="event-meta">Belum ada backup tersedia.</div>
+          ) : (
+            <div className="event-list">
+              {storeBackups.map(backup => (
+                <div key={backup.key} className="event-item">
+                  <div className="event-row">
+                    <div>
+                      <div className="event-name">{new Date(backup.timestamp).toLocaleString('id-ID')}</div>
+                      <div className="event-meta">
+                        {formatBackupSize(backup.size)} • {backup.eventCount} event • {backup.isValid ? 'Valid' : 'Invalid'}
+                      </div>
+                    </div>
+                    <div className="event-actions">
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleRestoreBackup(backup)} disabled={!backup.isValid}>Restore</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* DANGER ZONE */}

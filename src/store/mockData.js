@@ -136,6 +136,15 @@ function saveStoreBackupSnapshot(previousRaw) {
   toDelete.forEach(key => safeStorageRemove(key))
 }
 
+function parseBackupTimestamp(backupKey) {
+  const raw = Number(backupKey.replace(STORE_BACKUP_PREFIX, ''))
+  return Number.isFinite(raw) ? raw : 0
+}
+
+function isValidStoreShape(candidate) {
+  return !!(candidate && typeof candidate === 'object' && candidate.events && typeof candidate.events === 'object')
+}
+
 function generateMockParticipants() {
   const namesDay1 = [
     'Ahmad Rizki', 'Budi Santoso', 'Citra Dewi', 'Dian Pratama', 'Eko Wahyudi',
@@ -350,6 +359,64 @@ function isStrongReason(reason) {
 
 export function getEvents() {
   return getEventsWithOptions({ includeArchived: false })
+}
+
+export function getStoreBackups() {
+  return safeStorageKeys()
+    .filter(key => key.startsWith(STORE_BACKUP_PREFIX))
+    .map(key => {
+      const raw = safeStorageGet(key)
+      const parsed = parseStoredJSON(raw)
+      const timestamp = parseBackupTimestamp(key)
+      const eventCount = isValidStoreShape(parsed) ? Object.keys(parsed.events).length : 0
+      return {
+        key,
+        timestamp,
+        created_at: timestamp ? new Date(timestamp).toISOString() : null,
+        size: raw ? raw.length : 0,
+        eventCount,
+        isValid: isValidStoreShape(parsed)
+      }
+    })
+    .sort((a, b) => b.timestamp - a.timestamp)
+}
+
+export function restoreStoreBackup(backupKey, actor = 'system', reason = '') {
+  if (!String(backupKey || '').startsWith(STORE_BACKUP_PREFIX)) {
+    return { success: false, error: 'Backup key tidak valid' }
+  }
+
+  if (!isStrongReason(reason)) {
+    return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
+  }
+
+  const raw = safeStorageGet(backupKey)
+  if (!raw) return { success: false, error: 'Backup tidak ditemukan' }
+
+  const parsed = parseStoredJSON(raw)
+  if (!isValidStoreShape(parsed)) {
+    return { success: false, error: 'Backup rusak atau format tidak didukung' }
+  }
+
+  // Save current store as a new snapshot before performing restore.
+  saveStoreBackupSnapshot(safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY))
+
+  safeStorageSet(STORE_KEY, raw)
+  safeStorageRemove(LEGACY_STORE_KEY)
+  store = getStore()
+
+  const cleanReason = normalizeReason(reason)
+  logAdminAction('store_restore_backup', `Restore data dari backup ${backupKey}`, actor, {
+    backup_key: backupKey,
+    reason: cleanReason,
+    restored_at: new Date().toISOString()
+  })
+
+  return {
+    success: true,
+    activeEventId: store.activeEventId,
+    eventCount: Object.keys(store.events || {}).length
+  }
 }
 
 export function getEventsWithOptions(options = {}) {
