@@ -26,6 +26,13 @@ export default function QRGenerate() {
     setParticipants(getParticipants(dayFilter))
   }, [dayFilter])
 
+  const getCategoryToneClass = (category) => {
+    if (category === 'VIP') return 'm-p-avatar-vip'
+    if (category === 'Dealer') return 'm-p-avatar-dealer'
+    if (category === 'Media') return 'm-p-avatar-media'
+    return 'm-p-avatar-regular'
+  }
+
   const generateQR = async (participant) => {
     setSelectedParticipant(participant)
     try {
@@ -147,10 +154,10 @@ export default function QRGenerate() {
   if (isMobile) {
     return (
       <div className="page-container">
-        <div className="m-section-header" style={{ marginBottom: 12 }}>
+        <div className="m-section-header qr-mobile-header">
           <div>
-            <h1 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 800 }}>QR Code</h1>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{participants.length} peserta</p>
+            <h1 className="qr-mobile-title">QR Code</h1>
+            <p className="qr-mobile-subtitle">{participants.length} peserta</p>
           </div>
           <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             <option value={1}>Hari 1</option>
@@ -160,14 +167,13 @@ export default function QRGenerate() {
 
         {/* Download All Button */}
         <button
-          className="btn btn-primary"
+          className="btn btn-primary qr-mobile-download-btn"
           onClick={generateAllQR}
           disabled={generating}
-          style={{ width: '100%', marginBottom: 12, padding: '14px' }}
         >
           {generating ? (
             <>
-              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></span>
+              <span className="spinner qr-spinner-sm"></span>
               {' '}Generating {generatedCount}/{participants.length}...
             </>
           ) : (
@@ -176,7 +182,7 @@ export default function QRGenerate() {
         </button>
 
         {generating && (
-          <div style={{ marginBottom: 12 }}>
+          <div className="qr-mobile-progress-wrap">
             <div className="progress-bar">
               <div className="progress-bar-fill" style={{ width: `${(generatedCount / participants.length) * 100}%` }}></div>
             </div>
@@ -187,11 +193,7 @@ export default function QRGenerate() {
         <div className="m-card-list">
           {participants.map(p => (
             <div key={p.id} className="m-participant-card" onClick={() => generateQR(p)}>
-              <div className="m-p-avatar" style={{
-                background: p.category === 'VIP' ? 'var(--brand-primary)' :
-                  p.category === 'Dealer' ? 'var(--info)' :
-                  p.category === 'Media' ? 'var(--warning)' : 'var(--text-muted)'
-              }}>
+              <div className={`m-p-avatar ${getCategoryToneClass(p.category)}`}>
                 {p.name.charAt(0)}
               </div>
               <div className="m-p-info">
@@ -204,17 +206,15 @@ export default function QRGenerate() {
                 </div>
               </div>
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm qr-icon-btn qr-whatsapp-btn"
                 onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}
-                style={{ fontSize: '1rem', color: '#25D366' }}
                 title="Share via WhatsApp"
               >
                 <MessageCircle size={16} />
               </button>
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm qr-icon-btn"
                 onClick={(e) => { e.stopPropagation(); downloadQR(p) }}
-                style={{ fontSize: '1rem' }}
               >
                 <Download size={16} />
               </button>
@@ -230,31 +230,24 @@ export default function QRGenerate() {
                 <h3 className="modal-title">QR Code</h3>
                 <button className="modal-close" onClick={() => setSelectedParticipant(null)}>✕</button>
               </div>
-              <div className="modal-body" style={{ textAlign: 'center' }}>
-                <div style={{
-                  background: 'white',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: 20,
-                  display: 'inline-block',
-                  marginBottom: 12
-                }}>
-                  {qrUrl && <img src={qrUrl} alt="QR Code" style={{ width: 200, height: 200 }} />}
+              <div className="modal-body qr-modal-body">
+                <div className="qr-preview-card qr-preview-card-sm">
+                  {qrUrl && <img src={qrUrl} alt="QR Code" className="qr-image-sm" />}
                 </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.1rem' }}>
+                <h3 className="qr-modal-name">
                   {selectedParticipant.name}
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: 4 }}>
+                <p className="qr-modal-meta">
                   {selectedParticipant.ticket_id} · {selectedParticipant.category}
                 </p>
               </div>
-              <div className="modal-footer" style={{ justifyContent: 'center', gap: 8 }}>
-                <button className="btn btn-primary" onClick={() => downloadQR(selectedParticipant)} style={{ flex: 1 }}>
+              <div className="modal-footer qr-modal-footer">
+                <button className="btn btn-primary qr-modal-action" onClick={() => downloadQR(selectedParticipant)}>
                   <Download size={16} /> Download
                 </button>
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-secondary qr-modal-action qr-modal-wa-btn"
                   onClick={() => shareViaWhatsApp(selectedParticipant)}
-                  style={{ flex: 1, background: '#25D366', borderColor: '#25D366', color: 'white' }}
                 >
                   <MessageCircle size={16} /> WhatsApp
                 </button>
@@ -274,31 +267,31 @@ export default function QRGenerate() {
         <p>Generate dan download QR Code tiket peserta</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="form-select" style={{ width: 'auto', minWidth: 120 }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+      <div className="qr-toolbar">
+        <select className="form-select qr-toolbar-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
           <option value={1}>Hari 1 ({getParticipants(1).length} peserta)</option>
           <option value={2}>Hari 2 ({getParticipants(2).length} peserta)</option>
         </select>
         <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
-          {generating ? (<><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua QR (PDF)</>)}
+          {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua QR (PDF)</>)}
         </button>
-        {generating && (<div style={{ flex: 1, minWidth: 200 }}><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${(generatedCount / participants.length) * 100}%` }}></div></div></div>)}
+        {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${(generatedCount / participants.length) * 100}%` }}></div></div></div>)}
       </div>
 
       <div className="grid-2">
-        <div className="card" style={{ maxHeight: '70vh', overflow: 'auto' }}>
+        <div className="card qr-list-card">
           <div className="card-header">
             <h3 className="card-title">Daftar Peserta Hari {dayFilter}</h3>
             <span className="badge badge-red">{participants.length}</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="qr-list">
             {participants.map(p => (
-              <div key={p.id} onClick={() => generateQR(p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s', background: selectedParticipant?.id === p.id ? 'var(--brand-primary-subtle)' : 'transparent', border: selectedParticipant?.id === p.id ? '1px solid var(--brand-primary)' : '1px solid transparent' }} onMouseEnter={e => { if (selectedParticipant?.id !== p.id) e.currentTarget.style.background = 'var(--bg-elevated)' }} onMouseLeave={e => { if (selectedParticipant?.id !== p.id) e.currentTarget.style.background = 'transparent' }}>
+              <div key={p.id} onClick={() => generateQR(p)} className={`qr-list-item ${selectedParticipant?.id === p.id ? 'is-selected' : ''}`}>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.ticket_id} · {p.category}</div>
+                  <div className="qr-list-name">{p.name}</div>
+                  <div className="qr-list-meta">{p.ticket_id} · {p.category}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 4 }}>
+                <div className="qr-list-actions">
                   <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
                   <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }}><Download size={14} /></button>
                 </div>
@@ -307,22 +300,21 @@ export default function QRGenerate() {
           </div>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+        <div className="card qr-preview-shell">
           {selectedParticipant ? (
-            <div className="animate-scale-in" style={{ textAlign: 'center' }}>
-              <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 24, display: 'inline-block', marginBottom: 16 }}>
-                {qrUrl && <img src={qrUrl} alt="QR Code" style={{ width: 250, height: 250 }} />}
+            <div className="animate-scale-in qr-preview-content">
+              <div className="qr-preview-card">
+                {qrUrl && <img src={qrUrl} alt="QR Code" className="qr-image-lg" />}
               </div>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.2rem' }}>{selectedParticipant.name}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: 4 }}>{selectedParticipant.ticket_id} · {selectedParticipant.category} · Hari {selectedParticipant.day_number}</p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
+              <h3 className="qr-preview-title">{selectedParticipant.name}</h3>
+              <p className="qr-preview-subtitle">{selectedParticipant.ticket_id} · {selectedParticipant.category} · Hari {selectedParticipant.day_number}</p>
+              <div className="qr-preview-actions">
                 <button className="btn btn-primary" onClick={() => downloadQR(selectedParticipant)}>
                   <Download size={14} /> Download QR
                 </button>
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-secondary qr-preview-wa-btn"
                   onClick={() => shareViaWhatsApp(selectedParticipant)}
-                  style={{ background: '#25D366', borderColor: '#25D366', color: 'white' }}
                 >
                   <MessageCircle size={14} /> Share via WA
                 </button>

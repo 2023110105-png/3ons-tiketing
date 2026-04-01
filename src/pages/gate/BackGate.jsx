@@ -96,7 +96,7 @@ export default function BackGate() {
     <div className="monitor-container">
       {/* Big Counter */}
       <div className="monitor-counter animate-fade-in-up">
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+        <div className="monitor-kicker">
           Live Attendance — Hari {currentDay}
         </div>
         <div className="monitor-counter-value">
@@ -105,10 +105,10 @@ export default function BackGate() {
         <div className="monitor-counter-label">
           Peserta sudah check-in
         </div>
-        <div className="progress-bar mt-16" style={{ maxWidth: 400, margin: '16px auto 0' }}>
+        <div className="progress-bar mt-16 monitor-progress-wrap">
           <div className="progress-bar-fill" style={{ width: `${stats.percentage}%` }}></div>
         </div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 8 }}>
+        <div className="monitor-subkicker">
           {stats.percentage}% kehadiran
         </div>
       </div>
@@ -117,9 +117,9 @@ export default function BackGate() {
       <div className="stats-grid mb-24">
         {Object.entries(stats.byCategory).map(([cat, data]) => (
           <div key={cat} className="stat-card">
-            <div className="stat-card-label" style={{ marginBottom: 4 }}>{cat}</div>
-            <div className="stat-card-value" style={{ fontSize: '1.5rem' }}>
-              {data.checkedIn}<span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/{data.total}</span>
+            <div className="stat-card-label monitor-stat-label">{cat}</div>
+            <div className="stat-card-value monitor-stat-value">
+              {data.checkedIn}<span className="monitor-stat-total">/{data.total}</span>
             </div>
             <div className="progress-bar mt-8">
               <div className="progress-bar-fill" style={{
@@ -135,8 +135,8 @@ export default function BackGate() {
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Live Check-in Feed</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', animation: 'pulse 2s infinite' }}></div>
+          <div className="monitor-live-head">
+            <div className="monitor-live-dot"></div>
             <span className="badge badge-green">Real-time</span>
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function BackGate() {
                       log.participant_category === 'VIP' ? 'badge-red' :
                       log.participant_category === 'Dealer' ? 'badge-blue' :
                       log.participant_category === 'Media' ? 'badge-yellow' : 'badge-gray'
-                    }`} style={{ marginRight: 6 }}>
+                    } monitor-meta-badge`}>
                       {log.participant_category}
                     </span>
                     {log.participant_ticket}
@@ -179,12 +179,12 @@ export default function BackGate() {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="card monitor-offline-card">
+        <div className="card-header monitor-offline-header">
+          <h3 className="card-title monitor-title-inline">
             <WifiOff size={16} /> Offline Queue Monitor
           </h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="monitor-offline-controls">
             <span className="badge badge-yellow">{pendingItems.length} pending</span>
             <span className={`badge ${getLimitBadgeClass()}`}>
               Limit: {getMaxPendingAttempts()}x
@@ -196,33 +196,27 @@ export default function BackGate() {
           </div>
         </div>
         {showLimitInfo && (
-          <div style={{
-            padding: '0 14px 10px',
-            fontSize: '0.74rem',
-            color: 'var(--text-muted)',
-            opacity: isLimitInfoFading ? 0 : 1,
-            transition: 'opacity 0.35s ease'
-          }}>
+          <div className={`monitor-limit-info ${isLimitInfoFading ? 'is-fading' : ''}`}>
             {getLimitBadgeInfo()}
           </div>
         )}
         {pendingItems.length === 0 ? (
-          <div style={{ padding: 14, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          <div className="monitor-empty-note">
             Tidak ada antrean offline saat ini.
           </div>
         ) : (
-          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+          <div className="monitor-offline-list">
             {pendingItems.slice(0, 20).map(item => (
-              <div key={item.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <div key={item.id} className="monitor-offline-item">
                 <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                  <div className="monitor-offline-time">
                     {new Date(item.created_at).toLocaleString('id-ID')}
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  <div className="monitor-offline-meta">
                     source: {item.source} · attempts: {item.attempts || 0}
                   </div>
                 </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--warning)', textAlign: 'right' }}>
+                <div className="monitor-offline-error">
                   {item.last_error || 'Menunggu sinkronisasi'}
                 </div>
               </div>

@@ -76,15 +76,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--danger-bg)',
-              color: 'var(--danger)',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              animation: 'fadeInDown 0.3s ease-out'
-            }}>
+            <div className="login-error-alert">
               {error}
             </div>
           )}
@@ -97,7 +89,7 @@ export default function Login() {
           >
             {loading ? (
               <>
-                <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }}></span>
+                <span className="spinner login-spinner"></span>
                 Memproses...
               </>
             ) : 'Masuk'}
@@ -105,21 +97,14 @@ export default function Login() {
         </form>
 
         {/* Demo Credentials */}
-        <div style={{
-          marginTop: 24,
-          padding: 16,
-          background: 'var(--bg-elevated)',
-          borderRadius: 'var(--radius-md)',
-          fontSize: '0.75rem',
-          color: 'var(--text-secondary)'
-        }}>
-          <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)', fontSize: '0.8rem' }}>
-            <ShieldCheck size={14} style={{ display: 'inline' }} /> Demo Credentials
+        <div className="login-demo-card">
+          <div className="login-demo-title">
+            <ShieldCheck size={14} className="login-demo-title-icon" /> Demo Credentials
           </div>
-          <div style={{ display: 'grid', gap: 4 }}>
-            <div><strong style={{ color: 'var(--brand-primary)' }}>Admin:</strong> admin / admin123</div>
-            <div><strong style={{ color: 'var(--success)' }}>Gate Depan:</strong> gate1 / gate123</div>
-            <div><strong style={{ color: 'var(--info)' }}>Gate Belakang:</strong> gate2 / gate123</div>
+          <div className="login-demo-grid">
+            <div><strong className="login-demo-admin">Admin:</strong> admin / admin123</div>
+            <div><strong className="login-demo-front">Gate Depan:</strong> gate1 / gate123</div>
+            <div><strong className="login-demo-back">Gate Belakang:</strong> gate2 / gate123</div>
           </div>
         </div>
       </div>
