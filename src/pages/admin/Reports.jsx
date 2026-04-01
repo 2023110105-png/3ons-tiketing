@@ -260,10 +260,10 @@ export default function Reports() {
   if (isMobile) {
     return (
       <div className="page-container">
-        <div className="m-section-header" style={{ marginBottom: 12 }}>
+        <div className="m-section-header mb-16">
           <div>
-            <h1 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 800 }}>Laporan</h1>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Hari {dayFilter}</p>
+            <h1 className="m-mobile-title">Laporan</h1>
+            <p className="m-mobile-subtitle">Hari {dayFilter}</p>
           </div>
           <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
@@ -284,7 +284,7 @@ export default function Reports() {
         </div>
 
         {/* Mobile Category Breakdown */}
-        <div className="m-chips-row" style={{ marginBottom: 16 }}>
+        <div className="m-chips-row mb-16">
           {Object.entries(stats.byCategory).map(([cat, data]) => (
             <div key={cat} className={`m-chip m-chip-${cat.toLowerCase()}`}>
               <span className="m-chip-num">{data.checkedIn}/{data.total}</span>
@@ -335,11 +335,11 @@ export default function Reports() {
         {/* Mobile Analytics Chart */}
         <div className="m-section">
           <div className="m-section-header">
-            <span className="m-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Activity size={16} /> Grafik Kedatangan</span>
+            <span className="m-section-title inline-title-icon"><Activity size={16} /> Grafik Kedatangan</span>
           </div>
-          <div className="card" style={{ padding: '16px 12px' }}>
+          <div className="card m-card-compact">
             {peakData.length > 0 ? (
-              <div style={{ width: '100%', height: 220 }}>
+              <div className="m-chart-shell">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={peakData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                     <defs>
@@ -360,9 +360,9 @@ export default function Reports() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="empty-state" style={{ padding: 20 }}>
-                <Activity size={24} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
-                <p style={{ fontSize: '0.8rem' }}>Grafik akan muncul setelah ada check-in</p>
+              <div className="empty-state m-empty-compact">
+                <Activity size={24} className="m-muted-icon" />
+                <p className="m-empty-text">Grafik akan muncul setelah ada check-in</p>
               </div>
             )}
           </div>
@@ -372,7 +372,7 @@ export default function Reports() {
         <div className="m-section">
           <div className="m-section-header">
             <span className="m-section-title">Riwayat Check-in</span>
-            <span className="badge badge-green" style={{ fontSize: '0.6rem' }}>{logs.length}</span>
+            <span className="badge badge-green badge-xs">{logs.length}</span>
           </div>
           {logs.length === 0 ? (
             <div className="m-empty"><span><ClipboardList size={28} /></span><p>Belum ada check-in</p></div>
@@ -380,7 +380,7 @@ export default function Reports() {
             <div className="m-activity-list">
               {logs.slice(0, 20).map(log => (
                 <div key={log.id} className="m-activity-card">
-                  <div className="m-activity-avatar" style={{ background: 'var(--success)' }}><CheckCircle size={16} /></div>
+                  <div className="m-activity-avatar m-activity-avatar-success"><CheckCircle size={16} /></div>
                   <div className="m-activity-info">
                     <div className="m-activity-name">{log.participant_name}</div>
                     <div className="m-activity-meta">
@@ -399,13 +399,13 @@ export default function Reports() {
 
         <div className="m-section">
           <div className="m-section-header">
-            <span className="m-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ShieldAlert size={16} /> Audit Admin</span>
-            <span className="badge badge-yellow" style={{ fontSize: '0.6rem' }}>{filteredAdminLogs.length}</span>
+            <span className="m-section-title inline-title-icon"><ShieldAlert size={16} /> Audit Admin</span>
+            <span className="badge badge-yellow badge-xs">{filteredAdminLogs.length}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-            <div style={{ gridColumn: '1 / -1', position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input className="form-input" type="text" placeholder="Cari aksi, actor, atau deskripsi..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} style={{ paddingLeft: 30 }} />
+          <div className="m-audit-filter-grid">
+            <div className="m-audit-search-wrap">
+              <Search size={14} className="m-audit-search-icon" />
+              <input className="form-input" type="text" placeholder="Cari aksi, actor, atau deskripsi..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} />
             </div>
             <select className="m-filter-select" value={auditActorFilter} onChange={e => setAuditActorFilter(e.target.value)}>
               <option value="all">Semua Actor</option>
@@ -421,7 +421,7 @@ export default function Reports() {
             <div className="m-activity-list">
               {filteredAdminLogs.slice(0, 20).map(log => (
                 <div key={log.id} className="m-activity-card">
-                  <div className="m-activity-avatar" style={{ background: 'var(--warning)' }}><ShieldAlert size={14} /></div>
+                  <div className="m-activity-avatar m-activity-avatar-warning"><ShieldAlert size={14} /></div>
                   <div className="m-activity-info">
                     <div className="m-activity-name">{log.description}</div>
                     <div className="m-activity-meta">
@@ -445,13 +445,13 @@ export default function Reports() {
   // ===== DESKTOP REPORTS =====
   return (
     <div className="page-container">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+      <div className="page-header admin-toolbar">
         <div>
           <h1>Laporan Kehadiran</h1>
           <p>Analisis data check-in project 3oNs</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select className="form-select" style={{ width: 'auto' }} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+        <div className="admin-actions-wrap">
+          <select className="form-select admin-select-auto" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
           <button className="btn btn-primary" onClick={exportPDF}><FileText size={14} /> Export PDF</button>
@@ -471,14 +471,14 @@ export default function Reports() {
 
       <div className="grid-2 mb-24">
         <div className="card"><div className="card-header"><h3 className="card-title">Per Kategori</h3></div><div className="chart-container"><Bar data={barData} options={barOptions} /></div></div>
-        <div className="card"><div className="card-header"><h3 className="card-title">Tingkat Kehadiran</h3></div><div className="chart-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Doughnut data={attendanceData} options={doughnutOptions} /></div></div>
+        <div className="card"><div className="card-header"><h3 className="card-title">Tingkat Kehadiran</h3></div><div className="chart-container chart-center"><Doughnut data={attendanceData} options={doughnutOptions} /></div></div>
       </div>
 
       <div className="card mb-24">
         <div className="card-header">
-          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Activity size={18} /> Puncak Kedatangan Peserta (Peak Hours)</h3>
+          <h3 className="card-title inline-title-icon"><Activity size={18} /> Puncak Kedatangan Peserta (Peak Hours)</h3>
         </div>
-        <div style={{ height: 300, width: '100%', padding: '10px 20px 20px 0' }}>
+        <div className="peak-chart-wrap">
           {peakData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={peakData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -500,7 +500,7 @@ export default function Reports() {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="empty-state" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div className="empty-state empty-state-fill">
               <div className="empty-state-icon"><Activity size={40} /></div>
               <h3>Belum ada pergerakan</h3>
               <p>Grafik otomatis diperbarui setelah proses check-in berjalan</p>
@@ -514,47 +514,47 @@ export default function Reports() {
         {logs.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon"><ClipboardList size={40} /></div><h3>Belum ada data</h3><p>Data akan muncul setelah peserta melakukan check-in</p></div>
         ) : (
-          <div className="activity-feed" style={{ maxHeight: 400, overflow: 'auto' }}>
+          <div className="activity-feed activity-feed-md">
             {logs.map(log => (
               <div key={log.id} className="activity-item">
                 <div className="activity-dot green"></div>
-                <div style={{ flex: 1 }}>
-                  <div className="activity-text"><strong>{log.participant_name}</strong> check-in <span className="badge badge-gray" style={{ marginLeft: 8 }}>{log.participant_category}</span></div>
+                <div className="flex-1">
+                  <div className="activity-text"><strong>{log.participant_name}</strong> check-in <span className="badge badge-gray ml-8">{log.participant_category}</span></div>
                   <div className="activity-time">{new Date(log.timestamp).toLocaleString('id-ID')}</div>
                 </div>
-                <code style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{log.participant_ticket}</code>
+                <code className="code-muted-sm">{log.participant_ticket}</code>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ShieldAlert size={18} /> Audit Log Admin</h3>
+      <div className="card mt-16">
+        <div className="card-header admin-toolbar">
+          <h3 className="card-title inline-title-icon"><ShieldAlert size={18} /> Audit Log Admin</h3>
           <span className="badge badge-yellow">{filteredAdminLogs.length} entries</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-          <div style={{ position: 'relative', minWidth: 240 }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input className="form-input" type="text" value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Cari aksi, actor, deskripsi" style={{ paddingLeft: 30 }} />
+        <div className="admin-filters">
+          <div className="admin-search-wrap">
+            <Search size={14} className="admin-search-icon" />
+            <input className="form-input" type="text" value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Cari aksi, actor, deskripsi" />
           </div>
-          <select className="form-select" style={{ width: 'auto', minWidth: 180 }} value={auditActorFilter} onChange={e => setAuditActorFilter(e.target.value)}>
+          <select className="form-select admin-select-auto" value={auditActorFilter} onChange={e => setAuditActorFilter(e.target.value)}>
             <option value="all">Semua Actor</option>
             {auditActorOptions.map(actor => <option key={actor} value={actor}>{actor}</option>)}
           </select>
-          <input className="form-input" type="date" value={auditDateFrom} onChange={e => setAuditDateFrom(e.target.value)} style={{ width: 'auto' }} />
-          <input className="form-input" type="date" value={auditDateTo} onChange={e => setAuditDateTo(e.target.value)} style={{ width: 'auto' }} />
+          <input className="form-input admin-date-input" type="date" value={auditDateFrom} onChange={e => setAuditDateFrom(e.target.value)} />
+          <input className="form-input admin-date-input" type="date" value={auditDateTo} onChange={e => setAuditDateTo(e.target.value)} />
           <button className="btn btn-ghost btn-sm" onClick={() => { setAuditActorFilter('all'); setAuditDateFrom(''); setAuditDateTo(''); setAuditSearch('') }}>Reset Filter</button>
         </div>
         {filteredAdminLogs.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon"><ShieldAlert size={40} /></div><h3>Belum ada aktivitas admin</h3><p>Aktivitas admin akan tercatat otomatis di sini</p></div>
         ) : (
-          <div className="activity-feed" style={{ maxHeight: 320, overflow: 'auto' }}>
+          <div className="activity-feed activity-feed-sm">
             {filteredAdminLogs.map(log => (
               <div key={log.id} className="activity-item">
-                <div className="activity-dot" style={{ background: 'var(--warning)' }}></div>
-                <div style={{ flex: 1 }}>
+                <div className="activity-dot warning"></div>
+                <div className="flex-1">
                   <div className="activity-text"><strong>{log.description}</strong></div>
                   <div className="activity-time">{new Date(log.timestamp).toLocaleString('id-ID')} · {log.actor}</div>
                 </div>

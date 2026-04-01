@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext'
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
   const toast = useToast()
+  const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
 
   useEffect(() => {
     let interval;
@@ -45,30 +46,26 @@ export default function ConnectDevice() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginTop: 20 }}>
+      <div className="admin-grid-2">
         {/* Kolom Informasi & Status */}
-        <div className="card" style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ 
-              width: 50, height: 50, borderRadius: '50%', 
-              background: waState.status === 'offline' ? 'var(--danger)' : waState.isReady ? 'var(--success)' : 'var(--warning)', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' 
-            }}>
+        <div className="card admin-panel">
+          <div className="status-head">
+            <div className={`status-bubble ${statusTone}`}>
               <Smartphone size={24} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Status Koneksi Server</h3>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+              <h3 className="status-title">Status Koneksi Server</h3>
+              <div className="status-subtitle">
                 {waState.status === 'offline' ? 'Server Terputus' : waState.isReady ? 'Sedang Aktif' : 'Menunggu Login'}
               </div>
             </div>
           </div>
 
-          <div style={{ background: 'var(--bg-elevated)', padding: 20, borderRadius: 12 }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div className="admin-note">
+            <h4 className="admin-note-title">
               <ShieldAlert size={16} /> Cara Kerja Sistem Otomatis
             </h4>
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            <ul className="admin-note-list">
               <li>Sistem ini akan meminjam nomor WhatsApp yang sedang kalian "Tautkan" (Scan).</li>
               <li>Aplikasi web membutuhkan server lokal (`Mulai_3ONS_Project.bat`) aktif di memori untuk mengirimnya.</li>
               <li>Tampilan QR akan disegarkan (*refresh*) otomatis jika kadaluwarsa.</li>
@@ -76,16 +73,16 @@ export default function ConnectDevice() {
           </div>
 
           {waState.isReady && (
-            <button onClick={handleLogout} className="btn danger" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, marginTop: 'auto' }}>
+            <button onClick={handleLogout} className="btn btn-danger admin-full-btn">
               <LogOut size={18} /> Putuskan Koneksi WA (Logout)
             </button>
           )}
         </div>
 
         {/* Kolom Scanner layaknya Web WhatsApp */}
-        <div className="card" style={{ padding: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, border: '2px dashed var(--border-color)', background: 'var(--bg-elevated)' }}>
+        <div className="card admin-qr-shell">
           {waState.status === 'offline' && (
-            <div style={{ textAlign: 'center' }}>
+            <div className="admin-center">
               <div style={{ color: 'var(--danger)', marginBottom: 20 }}><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
               <p style={{ color: 'var(--text-muted)', marginTop: 10 }}>Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_3ONS_Project.bat`</b> yang membangkitkan sinyal di port 3001.</p>
@@ -93,7 +90,7 @@ export default function ConnectDevice() {
           )}
 
           {waState.status === 'ready' && (
-            <div style={{ textAlign: 'center' }}>
+            <div className="admin-center">
               <div style={{ color: 'var(--success)', marginBottom: 20 }}><CheckCircle size={80} /></div>
               <h2>Perangkat Terhubung Sempurna!</h2>
               <p style={{ color: 'var(--text-muted)', marginTop: 10 }}>Nomor penyelenggara yang digunakan saat scan tadi akan bertugas mengirim tiket setiap kali Anda mencentang tombol "Simpan & Auto-Kirim" di halaman pendaftaran peserta.</p>
@@ -101,19 +98,19 @@ export default function ConnectDevice() {
           )}
 
           {waState.status === 'qr' && (
-            <div style={{ background: 'white', padding: 30, borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+            <div className="wa-qr-box">
               {waState.qrCode ? (
                 <>
-                  <h3 style={{ color: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+                  <h3 className="wa-qr-title">
                     <MessageCircle size={20} /> Pindai Kode Berikut
                   </h3>
-                  <img src={waState.qrCode} alt="WhatsApp QR" style={{ width: 260, height: 260, display: 'block', margin: '0 auto' }} />
-                  <p style={{ fontSize: '0.8rem', color: '#666', marginTop: 16, maxWidth: 260 }}>1. Buka <b>WhatsApp</b> di Ponsel<br/>2. Ketuk <b>Titik Tiga</b> atau <b>Pengaturan</b><br/>3. Pilih <b>Perangkat Tertaut</b><br/>4. <b>Tautkan Perangkat</b> ke layar ini.</p>
+                  <img src={waState.qrCode} alt="WhatsApp QR" className="wa-qr-image" />
+                  <p className="wa-qr-help">1. Buka <b>WhatsApp</b> di Ponsel<br/>2. Ketuk <b>Titik Tiga</b> atau <b>Pengaturan</b><br/>3. Pilih <b>Perangkat Tertaut</b><br/>4. <b>Tautkan Perangkat</b> ke layar ini.</p>
                 </>
               ) : (
-                <div style={{ padding: 60 }}>
+                <div className="wa-qr-loading">
                   <RefreshCw size={40} className="animate-spin" style={{ color: '#ccc', margin: '0 auto 16px auto' }} />
-                  <div style={{ color: '#888', fontWeight: 600 }}>Meracik QR Code baru...</div>
+                  <div className="wa-qr-loading-text">Meracik QR Code baru...</div>
                 </div>
               )}
             </div>
