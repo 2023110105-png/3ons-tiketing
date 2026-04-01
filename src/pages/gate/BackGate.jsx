@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react'
-import { getStats, getCheckInLogs, getCurrentDay, getParticipants, getPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts } from '../../store/mockData'
+import { getStats, getCheckInLogs, getCurrentDay, getPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts } from '../../store/mockData'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
 export default function BackGate() {
   const currentDay = getCurrentDay()
-  const [stats, setStats] = useState(getStats(currentDay))
-  const [logs, setLogs] = useState(getCheckInLogs(currentDay))
-  const [newEntries, setNewEntries] = useState(new Set())
-  const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
+  const [nowTs, setNowTs] = useState(() => Date.now())
   const { lastEvent } = useRealtime()
   const { playNotification } = useSound()
   const [refreshKey, setRefreshKey] = useState(0)
+
+  void refreshKey
+  const stats = getStats(currentDay)
+  const logs = getCheckInLogs(currentDay)
+  const pendingItems = getPendingCheckIns()
 
   // Refresh stats periodically
   useEffect(() => {
@@ -25,14 +27,14 @@ export default function BackGate() {
   }, [])
 
   useEffect(() => {
-    setStats(getStats(currentDay))
-    setLogs(getCheckInLogs(currentDay))
-    setPendingItems(getPendingCheckIns())
-  }, [currentDay, refreshKey])
+    const timer = setInterval(() => {
+      setNowTs(Date.now())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!showLimitInfo) return
-    setIsLimitInfoFading(false)
     const fadeTimer = setTimeout(() => setIsLimitInfoFading(true), 4650)
     const hideTimer = setTimeout(() => {
       setShowLimitInfo(false)
@@ -48,33 +50,24 @@ export default function BackGate() {
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'check_in') {
       playNotification()
-      setStats(getStats(currentDay))
-      setLogs(getCheckInLogs(currentDay))
-      
-      // Mark as new for animation
-      setNewEntries(prev => {
-        const next = new Set(prev)
-        next.add(lastEvent.log.id)
-        return next
-      })
-
-      // Remove "new" status after 5 seconds
-      setTimeout(() => {
-        setNewEntries(prev => {
-          const next = new Set(prev)
-          next.delete(lastEvent.log.id)
-          return next
-        })
-      }, 5000)
     }
-  }, [lastEvent])
+  }, [lastEvent, playNotification])
+
+  const handleToggleLimitInfo = () => {
+    setShowLimitInfo((prev) => {
+      if (!prev) {
+        setIsLimitInfoFading(false)
+      }
+      return !prev
+    })
+  }
 
   const getInitials = (name) => {
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
   }
 
   const timeSince = (timestamp) => {
-    const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000)
+    const diff = Math.floor((nowTs - new Date(timestamp).getTime()) / 1000)
     if (diff < 5) return 'Baru saja'
     if (diff < 60) return `${diff} detik lalu`
     if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`
@@ -159,7 +152,7 @@ export default function BackGate() {
             {logs.map((log) => (
               <div
                 key={log.id}
-                className={`monitor-feed-item ${newEntries.has(log.id) ? 'new' : ''}`}
+                className={`monitor-feed-item ${lastEvent?.log?.id === log.id ? 'new' : ''}`}
               >
                 <div className="monitor-feed-item-avatar">
                   {getInitials(log.participant_name)}
@@ -196,7 +189,7 @@ export default function BackGate() {
             <span className={`badge ${getLimitBadgeClass()}`}>
               Limit: {getMaxPendingAttempts()}x
             </span>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowLimitInfo(prev => !prev)} title="Info warna retry limit">
+            <button className="btn btn-ghost btn-sm" onClick={handleToggleLimitInfo} title="Info warna retry limit">
               <CircleHelp size={12} />
             </button>
             <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport}>Export</button>

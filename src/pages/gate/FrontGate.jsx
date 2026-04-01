@@ -9,7 +9,6 @@ export default function FrontGate() {
   const [result, setResult] = useState(null)
   const [stats, setStats] = useState(getStats(currentDay))
   const [manualInput, setManualInput] = useState('')
-  const [isScanning, setIsScanning] = useState(false)
   const [scanMode, setScanMode] = useState('manual') // 'camera', 'manual', 'search'
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -19,19 +18,19 @@ export default function FrontGate() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
-  const searchResultsRef = useRef(null) // Unused, just keeping ref pattern if needed
   const lastScanRef = useRef({ data: null, time: 0 })
-  const videoRef = useRef(null)
   const scannerRef = useRef(null)
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
 
-  const refreshStats = () => setStats(getStats(currentDay))
+  const refreshStats = useCallback(() => {
+    setStats(getStats(currentDay))
+  }, [currentDay])
 
-  const refreshPendingState = () => {
+  const refreshPendingState = useCallback(() => {
     const items = getPendingCheckIns()
     setPendingItems(items)
     setPendingCount(items.length)
-  }
+  }, [])
 
   const getLimitBadgeClass = () => {
     const limit = getMaxPendingAttempts()
@@ -63,7 +62,7 @@ export default function FrontGate() {
       setTimeout(() => setResult(null), 3000)
     }
     setIsSyncing(false)
-  }, [isSyncing])
+  }, [isSyncing, refreshPendingState, refreshStats])
 
   const handleScan = useCallback((qrData) => {
     const now = Date.now()
@@ -103,7 +102,7 @@ export default function FrontGate() {
 
     refreshStats()
     setTimeout(() => setResult(null), 3000)
-  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode])
+  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshPendingState, refreshStats])
 
   const handleManualSubmit = (e) => {
     e.preventDefault()
@@ -157,7 +156,6 @@ export default function FrontGate() {
         (decodedText) => handleScan(decodedText),
         () => {}
       )
-      setIsScanning(true)
     } catch (err) {
       console.error('Camera error:', err)
       setScanMode('manual')
@@ -166,10 +164,13 @@ export default function FrontGate() {
 
   const stopCamera = async () => {
     if (scannerRef.current) {
-      try { await scannerRef.current.stop() } catch (e) {}
+      try {
+        await scannerRef.current.stop()
+      } catch {
+        // Scanner may already be stopped.
+      }
       scannerRef.current = null
     }
-    setIsScanning(false)
   }
 
   useEffect(() => {
@@ -178,7 +179,7 @@ export default function FrontGate() {
 
   useEffect(() => {
     refreshPendingState()
-  }, [])
+  }, [refreshPendingState])
 
   useEffect(() => {
     const goOnline = () => {

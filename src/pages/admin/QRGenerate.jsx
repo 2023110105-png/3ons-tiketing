@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { getParticipants, getCurrentDay } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
@@ -35,7 +35,7 @@ export default function QRGenerate() {
         errorCorrectionLevel: 'H'
       })
       setQrUrl(url)
-    } catch (err) {
+    } catch {
       toast.error('Error', 'Gagal generate QR Code')
     }
   }
@@ -51,7 +51,7 @@ export default function QRGenerate() {
       link.download = `QR_${participant.ticket_id}_${participant.name.replace(/\s+/g, '_')}.png`
       link.href = url
       link.click()
-    } catch (err) {
+    } catch {
       toast.error('Error', 'Gagal download QR')
     }
   }

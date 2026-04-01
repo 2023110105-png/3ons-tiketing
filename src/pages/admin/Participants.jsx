@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getAvailableDays } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -34,7 +34,7 @@ export default function Participants() {
     return () => window.removeEventListener('resize', h)
   }, [])
 
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     setAvailableDays(getAvailableDays())
     let data = getParticipants(dayFilter)
     if (search) {
@@ -49,9 +49,9 @@ export default function Participants() {
       else data = data.filter(p => !p.is_checked_in)
     }
     setParticipants(data)
-  }
+  }, [search, dayFilter, categoryFilter, statusFilter])
 
-  useEffect(() => { refreshData() }, [search, dayFilter, categoryFilter, statusFilter])
+  useEffect(() => { refreshData() }, [refreshData])
 
   const handleAdd = (e) => {
     e.preventDefault()

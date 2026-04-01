@@ -26,4 +26,21 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: ['src/contexts/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: ['wa-server/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      parserOptions: {
+        sourceType: 'commonjs',
+      },
+    },
+  },
 ])

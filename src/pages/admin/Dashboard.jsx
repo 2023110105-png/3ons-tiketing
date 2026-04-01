@@ -2,29 +2,24 @@ import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
 import { getStats, getCheckInLogs, getCurrentDay, simulateCheckIns } from '../../store/mockData'
-import { useRealtime } from '../../hooks/useRealtime'
 import { Users, UserCheck, Clock, TrendingUp, Zap, ClipboardList } from 'lucide-react'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler)
 
 export default function Dashboard() {
   const currentDay = getCurrentDay()
-  const [stats, setStats] = useState(getStats(currentDay))
-  const [logs, setLogs] = useState(getCheckInLogs(currentDay))
-  const { lastEvent } = useRealtime()
   const [refreshKey, setRefreshKey] = useState(0)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  void refreshKey
+  const stats = getStats(currentDay)
+  const logs = getCheckInLogs(currentDay)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  useEffect(() => {
-    setStats(getStats(currentDay))
-    setLogs(getCheckInLogs(currentDay))
-  }, [currentDay, lastEvent, refreshKey])
 
   useEffect(() => {
     const interval = setInterval(() => setRefreshKey(k => k + 1), 2000)
@@ -35,11 +30,22 @@ export default function Dashboard() {
 
   // Chart configs...
   const hours = Array.from({ length: 12 }, (_, i) => `${8 + i}:00`)
+  const lineSeries = (() => {
+    const counts = new Map(hours.map(label => [label, 0]))
+    logs.forEach((log) => {
+      const hourLabel = `${new Date(log.timestamp).getHours()}:00`
+      if (counts.has(hourLabel)) {
+        counts.set(hourLabel, counts.get(hourLabel) + 1)
+      }
+    })
+    return hours.map(label => counts.get(label) || 0)
+  })()
+
   const lineData = {
     labels: hours,
     datasets: [{
       label: 'Check-in',
-      data: hours.map(() => Math.floor(Math.random() * (stats.checkedIn / 3))),
+      data: lineSeries,
       borderColor: '#E60012',
       backgroundColor: 'rgba(230, 0, 18, 0.1)',
       fill: true, tension: 0.4,
@@ -131,7 +137,7 @@ export default function Dashboard() {
         <div className="m-section">
           <div className="m-section-header">
             <span className="m-section-title">Aktivitas Terbaru</span>
-            <span className="badge badge-green" style={{ fontSize: '0.6rem' }}>● LIVE</span>
+            <span className="badge badge-green dashboard-live-badge">● LIVE</span>
           </div>
           {logs.length === 0 ? (
             <div className="m-empty">
@@ -173,7 +179,7 @@ export default function Dashboard() {
   // ===== DESKTOP DASHBOARD (unchanged) =====
   return (
     <div className="page-container">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="page-header dashboard-header">
         <div>
           <h1>Dashboard</h1>
           <p>Overview check-in Hari {currentDay} — 3oNs Project</p>

@@ -1,17 +1,11 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 import { getSession, login as doLogin, logout as doLogout } from '../store/mockData'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const session = getSession()
-    if (session) setUser(session)
-    setLoading(false)
-  }, [])
+  const [user, setUser] = useState(() => getSession())
+  const loading = false
 
   const login = useCallback((username, password) => {
     const result = doLogin(username, password)

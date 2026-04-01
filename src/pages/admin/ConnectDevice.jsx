@@ -15,7 +15,7 @@ export default function ConnectDevice() {
         const res = await fetch('http://localhost:3001/api/wa/status');
         const data = await res.json();
         setWaState(data);
-      } catch (err) {
+      } catch {
         setWaState({ status: 'offline', isReady: false, qrCode: null });
       }
     };
@@ -32,7 +32,7 @@ export default function ConnectDevice() {
       await fetch('http://localhost:3001/api/wa/logout', { method: 'POST' });
       setWaState({ status: 'qr', isReady: false, qrCode: null });
       toast.info('Session WhatsApp diputuskan.');
-    } catch(e) {
+    } catch {
       toast.error('Gagal memutus server', 'Pastikan Bot Server menyala.');
     }
   };

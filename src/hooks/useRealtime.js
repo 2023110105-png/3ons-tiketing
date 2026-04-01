@@ -47,7 +47,7 @@ export function useSound() {
         osc.start(ctx.currentTime + i * 0.12)
         osc.stop(ctx.currentTime + i * 0.12 + 0.5)
       })
-    } catch (e) { /* silent */ }
+    } catch { /* silent */ }
   }
 
   const playError = () => {
@@ -67,7 +67,7 @@ export function useSound() {
         osc.start(ctx.currentTime + i * 0.15)
         osc.stop(ctx.currentTime + i * 0.15 + 0.3)
       })
-    } catch (e) { /* silent */ }
+    } catch { /* silent */ }
   }
 
   const playNotification = () => {
@@ -87,7 +87,7 @@ export function useSound() {
         osc.start(ctx.currentTime + i * 0.15)
         osc.stop(ctx.currentTime + i * 0.15 + 0.5)
       })
-    } catch (e) { /* silent */ }
+    } catch { /* silent */ }
   }
 
   // VIP Alert — special fanfare sound
@@ -125,7 +125,7 @@ export function useSound() {
           osc.stop(ctx.currentTime + i * 0.1 + 0.5)
         })
       }, 500)
-    } catch (e) { /* silent */ }
+    } catch { /* silent */ }
   }
 
   // Warning beep for wrong day
@@ -145,7 +145,7 @@ export function useSound() {
         osc.start(ctx.currentTime + i * 0.2)
         osc.stop(ctx.currentTime + i * 0.2 + 0.15)
       })
-    } catch (e) { /* silent */ }
+    } catch { /* silent */ }
   }
 
   return { playSuccess, playError, playNotification, playVIPAlert, playWarning }

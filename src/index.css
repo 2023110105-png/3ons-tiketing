@@ -606,6 +606,17 @@ input, select, textarea, button {
   align-items: center;
 }
 
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dashboard-live-badge {
+  font-size: 0.6rem;
+}
+
 .participants-search {
   flex: 1 1 200px;
 }
@@ -1629,7 +1640,15 @@ input, select, textarea, button {
 
 .btn-ghost.btn-blue { color: var(--brand-blue); }
 .btn-ghost.btn-warning { color: var(--warning); }
-.btn-ghost.btn-danger { color: var(--danger); }
+.btn-ghost.btn-danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border-color));
+}
+.btn-ghost.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger-bg) 75%, transparent);
+  color: #b91c1c;
+}
 .btn-ghost.btn-whatsapp { color: #25d366; background: transparent; box-shadow: none; }
 .btn-ghost.btn-whatsapp:hover {
   background: rgba(37, 211, 102, 0.12);
@@ -2940,11 +2959,13 @@ input, select, textarea, button {
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.m-participant-search-input {
+.m-participant-search .m-participant-search-input {
   width: 100%;
-  padding-left: 36px;
+  padding-left: 40px;
 }
 
 .m-participant-summary {
