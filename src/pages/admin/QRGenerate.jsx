@@ -299,7 +299,7 @@ export default function QRGenerate() {
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.ticket_id} · {p.category}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }} style={{ color: '#25D366' }}><MessageCircle size={14} /></button>
+                  <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
                   <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }}><Download size={14} /></button>
                 </div>
               </div>

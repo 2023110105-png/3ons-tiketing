@@ -229,10 +229,10 @@ export default function Settings() {
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleRenameEvent(event)}>Rename</button>
                     {!event.isArchived && event.id !== activeEventId && (
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleArchiveEvent(event)} style={{ color: 'var(--warning)' }}>Archive</button>
+                      <button className="btn btn-ghost btn-warning btn-sm" onClick={() => handleArchiveEvent(event)}>Archive</button>
                     )}
                     {event.id !== activeEventId && (
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteEvent(event)} style={{ color: 'var(--danger)' }}>Delete</button>
+                      <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteEvent(event)}>Delete</button>
                     )}
                   </div>
                 </div>

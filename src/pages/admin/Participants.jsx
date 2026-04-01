@@ -653,7 +653,7 @@ export default function Participants() {
         <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Upload size={14} /> Import Excel
         </button>
-        <button className="btn btn-primary" onClick={handleBroadcast} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#25D366', borderColor: '#25D366' }}>
+        <button className="btn btn-whatsapp" onClick={handleBroadcast} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Zap size={14} /> Broadcast WA
         </button>
         <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} title="Download template Excel" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -675,20 +675,20 @@ export default function Participants() {
             ) : participants.map((p, i) => (
               <tr key={p.id}>
                 <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
-                <td><code style={{ background: 'var(--bg-elevated)', padding: '2px 8px', borderRadius: 4, fontSize: '0.8rem', fontWeight: 600 }}>{p.ticket_id}</code></td>
+                <td><code style={{ background: 'var(--bg-elevated)', padding: '3px 8px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, border: '1px solid var(--border-color)' }}>{p.ticket_id}</code></td>
                 <td style={{ fontWeight: 600 }}>{p.name}</td>
                 <td style={{ color: 'var(--text-secondary)' }}>{p.phone}</td>
                 <td><span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span></td>
                 <td>{p.is_checked_in ? <span className="badge badge-green"><CheckCircle size={10} /> Check-in</span> : <span className="badge badge-gray">Belum</span>}</td>
                 <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.checked_in_at ? new Date(p.checked_in_at).toLocaleTimeString('id-ID') : '—'}</td>
                 <td style={{ display: 'flex', gap: 4, alignItems: 'center', height: '100%', borderBottom: 'none' }}>
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleSingleBotSend(p)} style={{ color: 'var(--brand-blue)' }} title="Kirim Otomatis (Bot)">
+                  <button className="btn btn-ghost btn-blue btn-sm" onClick={() => handleSingleBotSend(p)} title="Kirim Otomatis (Bot)">
                     <Bot size={14} />
                   </button>
-                  <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ color: '#25D366' }} title="Kirim Manual (WA Web)">
+                  <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-whatsapp btn-sm" title="Kirim Manual (WA Web)">
                     <MessageCircle size={14} />
                   </a>
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(p)} style={{ color: 'var(--danger)' }} title="Hapus">
+                  <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDelete(p)} title="Hapus">
                     <Trash2 size={14} />
                   </button>
                 </td>
