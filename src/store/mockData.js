@@ -15,6 +15,8 @@ const SESSION_KEY = 'ons_session'
 const LEGACY_SESSION_KEY = 'yamaha_session'
 const TENANT_REGISTRY_KEY = 'ons_tenant_registry'
 const LEGACY_TENANT_REGISTRY_KEY = 'yamaha_tenant_registry'
+const OWNER_AUDIT_LOG_KEY = 'ons_owner_audit_log'
+const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
 
 const DEFAULT_TENANT_ID = 'tenant-default'
 const DEFAULT_TENANT = {
@@ -23,7 +25,23 @@ const DEFAULT_TENANT = {
   eventName: 'Event Platform',
   status: 'active',
   expires_at: null,
-  created_at: new Date().toISOString()
+  created_at: new Date().toISOString(),
+  contract: {
+    package: 'pro',
+    start_at: new Date().toISOString(),
+    payment_status: 'paid',
+    amount: 0
+  },
+  quota: {
+    maxParticipants: 5000,
+    maxGateDevices: 10,
+    maxActiveEvents: 5
+  },
+  users: [],
+  branding: {
+    primaryColor: '#0ea5e9'
+  },
+  invoices: []
 }
 
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
@@ -80,7 +98,12 @@ function normalizeSavedTenant(id, raw) {
     eventName: String(raw?.eventName || 'Event Platform').trim() || 'Event Platform',
     status: raw?.status === 'inactive' ? 'inactive' : 'active',
     expires_at: raw?.expires_at || null,
-    created_at: raw?.created_at || new Date().toISOString()
+    created_at: raw?.created_at || new Date().toISOString(),
+    contract: raw?.contract || { package: 'starter', payment_status: 'unpaid' },
+    quota: raw?.quota || { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
+    users: asArray(raw?.users),
+    branding: raw?.branding || { primaryColor: '#0ea5e9' },
+    invoices: asArray(raw?.invoices)
   }
 }
 
@@ -209,7 +232,12 @@ export function createTenant(data, actor = 'system') {
     eventName,
     status: 'active',
     expires_at: expiresAt,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    contract: { package: 'starter', start_at: new Date().toISOString(), payment_status: 'unpaid', amount: 0 },
+    quota: { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
+    users: [],
+    branding: { primaryColor: '#0ea5e9' },
+    invoices: []
   }
 
   tenantRegistry.tenants[tenant.id] = tenant
@@ -248,7 +276,96 @@ export function setTenantStatus(tenantId, nextStatus, actor = 'system') {
     status: normalizedStatus
   })
 
+  logOwnerAction('tenant_status_update', `Ubah status tenant ${tenant.brandName} ke ${normalizedStatus}`, actor, {
+    tenant_id: tenant.id,
+    status: normalizedStatus
+  })
+
   return { success: true }
+}
+
+export function logOwnerAction(action, description, actor = 'system', meta = null) {
+  const raw = safeStorageGet(OWNER_AUDIT_LOG_KEY)
+  const logs = asArray(parseStoredJSON(raw))
+  const newLog = {
+    id: generateId(),
+    action,
+    description,
+    actor: normalizeActor(actor),
+    meta,
+    timestamp: new Date().toISOString()
+  }
+  logs.unshift(newLog)
+  // Keep last 1000 logs
+  safeStorageSet(OWNER_AUDIT_LOG_KEY, JSON.stringify(logs.slice(0, 1000)))
+  return newLog
+}
+
+export function getOwnerAuditLog() {
+  const raw = safeStorageGet(OWNER_AUDIT_LOG_KEY)
+  return asArray(parseStoredJSON(raw))
+}
+
+export function getOwnerNotifications() {
+  const raw = safeStorageGet(OWNER_NOTIFICATIONS_KEY)
+  const notifs = asArray(parseStoredJSON(raw))
+  return notifs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+}
+
+export function addOwnerNotification(type, tenantId, message) {
+  const raw = safeStorageGet(OWNER_NOTIFICATIONS_KEY)
+  const notifs = asArray(parseStoredJSON(raw))
+  notifs.unshift({
+    id: generateId(),
+    type,
+    tenantId,
+    message,
+    read: false,
+    created_at: new Date().toISOString()
+  })
+  safeStorageSet(OWNER_NOTIFICATIONS_KEY, JSON.stringify(notifs.slice(0, 100)))
+}
+
+export function markNotificationRead(id) {
+  const raw = safeStorageGet(OWNER_NOTIFICATIONS_KEY)
+  const notifs = asArray(parseStoredJSON(raw))
+  const notif = notifs.find(n => n.id === id)
+  if (notif) {
+    notif.read = true
+    safeStorageSet(OWNER_NOTIFICATIONS_KEY, JSON.stringify(notifs))
+  }
+}
+
+export function getTenantHealth() {
+  const tenants = getTenants()
+  return tenants.map(t => {
+    const bucket = store.tenants[t.id]
+    const events = bucket ? Object.values(bucket.events) : []
+    const totalParticipants = events.reduce((sum, e) => sum + (e.participants?.length || 0), 0)
+    const totalCheckins = events.reduce((sum, e) => sum + (e.checkInLogs?.length || 0), 0)
+    
+    // Simulate real-time online status
+    // A tenant is "active" if there was a check-in or login in last 24h
+    const lastActivity = events.reduce((max, e) => {
+      const logs = e.checkInLogs || []
+      const latest = logs.length > 0 ? new Date(logs[logs.length - 1].timestamp).getTime() : 0
+      return Math.max(max, latest)
+    }, 0)
+    
+    const isOnline = lastActivity > (Date.now() - 24 * 60 * 60 * 1000)
+
+    return {
+      tenantId: t.id,
+      brandName: t.brandName,
+      status: t.status,
+      isOnline,
+      totalEvents: events.length,
+      totalParticipants,
+      totalCheckins,
+      usageParticipants: Math.round((totalParticipants / (t.quota?.maxParticipants || 1)) * 100),
+      lastBackup: t.created_at // fallback
+    }
+  })
 }
 
 export function deleteTenant(tenantId, actor = 'system') {
@@ -275,6 +392,175 @@ export function deleteTenant(tenantId, actor = 'system') {
     tenant_id: tenant.id
   })
 
+  logOwnerAction('tenant_delete', `Hapus tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenant.id
+  })
+
+  return { success: true }
+}
+
+export function updateTenantContract(tenantId, contractData, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  const prev = tenant.contract
+  tenant.contract = { ...prev, ...contractData }
+  saveTenantRegistry()
+  logOwnerAction('tenant_contract_update', `Update kontrak tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId,
+    previous: prev,
+    new: tenant.contract
+  })
+  return { success: true }
+}
+
+export function updateTenantQuota(tenantId, quotaData, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  const prev = tenant.quota
+  tenant.quota = { ...prev, ...quotaData }
+  saveTenantRegistry()
+  logOwnerAction('tenant_quota_update', `Update kuota tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId,
+    previous: prev,
+    new: tenant.quota
+  })
+  return { success: true }
+}
+
+export function getTenantUsers(tenantId) {
+  const tenant = tenantRegistry.tenants[tenantId]
+  return tenant ? asArray(tenant.users) : []
+}
+
+export function createTenantUser(tenantId, userData, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  
+  const username = String(userData?.username || '').trim().toLowerCase()
+  if (!username) return { success: false, error: 'Username wajib diisi' }
+  
+  // Check global uniqueness (simulated)
+  const allUsernames = Object.values(USERS).map(u => u.username)
+    .concat(Object.values(tenantRegistry.tenants).flatMap(t => asArray(t.users).map(u => u.username)))
+  
+  if (allUsernames.includes(username)) {
+    return { success: false, error: 'Username sudah digunakan' }
+  }
+
+  const newUser = {
+    id: generateId(),
+    username,
+    password: userData.password || '123456',
+    name: userData.name || username,
+    role: userData.role || 'gate_front',
+    tenantId: tenantId,
+    created_at: new Date().toISOString(),
+    is_active: true
+  }
+
+  tenant.users = asArray(tenant.users)
+  tenant.users.push(newUser)
+  saveTenantRegistry()
+  
+  logOwnerAction('tenant_user_create', `Tambah user ${username} ke tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId,
+    user_id: newUser.id,
+    role: newUser.role
+  })
+
+  return { success: true, user: newUser }
+}
+
+export function updateTenantUser(tenantId, userId, data, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  
+  const user = asArray(tenant.users).find(u => u.id === userId)
+  if (!user) return { success: false, error: 'User tidak ditemukan' }
+  
+  Object.assign(user, data)
+  saveTenantRegistry()
+  logOwnerAction('tenant_user_update', `Update user ${user.username} di tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId,
+    user_id: userId
+  })
+  return { success: true }
+}
+
+export function deleteTenantUser(tenantId, userId, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  
+  const users = asArray(tenant.users)
+  const index = users.findIndex(u => u.id === userId)
+  if (index === -1) return { success: false, error: 'User tidak ditemukan' }
+  
+  const username = users[index].username
+  users.splice(index, 1)
+  tenant.users = users
+  saveTenantRegistry()
+  
+  logOwnerAction('tenant_user_delete', `Hapus user ${username} dari tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId,
+    user_id: userId
+  })
+  return { success: true }
+}
+
+export function addTenantInvoice(tenantId, invoiceData, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  
+  const invoice = {
+    id: generateId().slice(0, 8).toUpperCase(),
+    period: invoiceData.period || new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+    amount: invoiceData.amount || 0,
+    status: invoiceData.status || 'unpaid',
+    issued_at: new Date().toISOString(),
+    paid_at: invoiceData.status === 'paid' ? new Date().toISOString() : null,
+    notes: invoiceData.notes || ''
+  }
+  
+  tenant.invoices = asArray(tenant.invoices)
+  tenant.invoices.unshift(invoice)
+  saveTenantRegistry()
+  
+  logOwnerAction('tenant_invoice_create', `Buat invoice untuk tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId,
+    invoice_id: invoice.id
+  })
+  return { success: true, invoice }
+}
+
+export function updateInvoiceStatus(tenantId, invoiceId, status, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  
+  const invoice = asArray(tenant.invoices).find(i => i.id === invoiceId)
+  if (!invoice) return { success: false, error: 'Invoice tidak ditemukan' }
+  
+  invoice.status = status
+  invoice.paid_at = status === 'paid' ? new Date().toISOString() : null
+  saveTenantRegistry()
+  
+  logOwnerAction('tenant_invoice_update', `Update status invoice ${invoiceId} menjadi ${status}`, actor, {
+    tenant_id: tenantId,
+    invoice_id: invoiceId
+  })
+  return { success: true }
+}
+
+export function updateTenantBranding(tenantId, brandingData, actor = 'system') {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
+  
+  tenant.branding = { ...(tenant.branding || {}), ...brandingData }
+  saveTenantRegistry()
+  dispatchTenantChangeEvent()
+  
+  logOwnerAction('tenant_branding_update', `Update branding tenant ${tenant.brandName}`, actor, {
+    tenant_id: tenantId
+  })
   return { success: true }
 }
 
@@ -993,15 +1279,14 @@ const USERS = {
 }
 
 export function login(username, password) {
-  const activeTenant = getActiveTenantState()
-  if (!canUseTenant(activeTenant)) {
-    return { success: false, error: 'Tenant aktif tidak bisa digunakan. Hubungi owner aplikasi.' }
-  }
-
-  const user = Object.values(USERS).find(u => u.username === username && u.password === password)
-  if (user) {
+  const cleanUsername = String(username || '').trim().toLowerCase()
+  
+  // 1. Check Global Users (Owner/SuperAdmin)
+  const globalUser = Object.values(USERS).find(u => u.username.toLowerCase() === cleanUsername && u.password === password)
+  if (globalUser) {
+    const activeTenant = getActiveTenantState()
     const session = {
-      ...user,
+      ...globalUser,
       tenant: {
         id: activeTenant.id,
         brandName: activeTenant.brandName,
@@ -1012,6 +1297,47 @@ export function login(username, password) {
     safeStorageRemove(LEGACY_SESSION_KEY)
     return { success: true, user: session }
   }
+
+  // 2. Check Tenant-Specific Users
+  let foundUser = null
+  let foundTenant = null
+
+  Object.values(tenantRegistry.tenants).forEach(tenant => {
+    const user = asArray(tenant.users).find(u => u.username.toLowerCase() === cleanUsername && u.password === password)
+    if (user) {
+      foundUser = user
+      foundTenant = tenant
+    }
+  })
+
+  if (foundUser && foundTenant) {
+    if (!foundUser.is_active) return { success: false, error: 'Akun Anda dinonaktifkan' }
+    if (!canUseTenant(foundTenant)) return { success: false, error: 'Tenant tidak aktif atau expired. Hubungi owner.' }
+
+    // Auto-Tenant Binding: Switch active tenant to the one this user belongs to
+    tenantRegistry.activeTenantId = foundTenant.id
+    saveTenantRegistry()
+    dispatchTenantChangeEvent()
+
+    const session = {
+      ...foundUser,
+      tenant: {
+        id: foundTenant.id,
+        brandName: foundTenant.brandName,
+        eventName: foundTenant.eventName
+      }
+    }
+    
+    safeStorageSet(SESSION_KEY, JSON.stringify(session))
+    safeStorageRemove(LEGACY_SESSION_KEY)
+    
+    // Ensure store bucket exists for this tenant
+    ensureTenantStore(foundTenant.id, foundTenant.eventName || 'Event 1', false)
+    saveStore()
+
+    return { success: true, user: session }
+  }
+
   return { success: false, error: 'Username atau password salah' }
 }
 

@@ -1,0 +1,111 @@
+import { useState, useMemo } from 'react'
+import { 
+  Bell, BellOff, CheckCircle, Clock, 
+  Trash2, AlertTriangle, Info, Search 
+} from 'lucide-react'
+import { getOwnerNotifications, markNotificationRead } from '../../../store/mockData'
+import { useToast } from '../../../contexts/ToastContext'
+
+export default function NotificationCenter() {
+  const toast = useToast()
+  const [notifications, setNotifications] = useState(getOwnerNotifications())
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const handleMarkRead = (id) => {
+    markNotificationRead(id)
+    setNotifications(getOwnerNotifications())
+  }
+
+  const handleMarkAllRead = () => {
+    notifications.forEach(n => !n.read && markNotificationRead(n.id))
+    setNotifications(getOwnerNotifications())
+    toast.success('Sukses', 'Semua notifikasi ditandai dibaca')
+  }
+
+  const handleDelete = (id) => {
+    // In real app, call a delete notification function
+    toast.success('Dihapus', 'Notifikasi berhasil dihapus')
+  }
+
+  const filteredNotifs = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim()
+    return notifications.filter(n => 
+      !q || n.message.toLowerCase().includes(q)
+    )
+  }, [notifications, searchQuery])
+
+  return (
+    <div className="notification-center-container">
+      <div className="toolbar mb-16 flex justify-between items-center bg-white p-12 rounded border border-color">
+         <div className="flex items-center gap-12 flex-1">
+            <div className="admin-search-wrap" style={{ maxWidth: '300px' }}>
+              <Search size={14} className="admin-search-icon" />
+              <input 
+                className="form-input" 
+                placeholder="Cari notifikasi..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <span className="text-xs text-muted font-bold">Total: {notifications.length}</span>
+         </div>
+         <button className="btn btn-ghost btn-sm text-primary" onClick={handleMarkAllRead}>
+            Tandai Semua Dibaca
+         </button>
+      </div>
+
+      <div className="grid grid-1 gap-8">
+        {filteredNotifs.length === 0 ? (
+          <div className="card card-pad text-center p-64">
+             <BellOff size={48} className="text-muted mx-auto mb-16" />
+             <p className="text-muted">Tidak ada notifikasi untuk saat ini.</p>
+          </div>
+        ) : (
+          filteredNotifs.map(n => (
+            <div 
+              key={n.id} 
+              className={`card notification-card ${!n.read ? 'border-primary unread-bg' : ''}`}
+            >
+              <div className="card-pad flex gap-12 p-16">
+                 <div className={`p-8 rounded-full h-fit ${
+                   n.type === 'expired' ? 'bg-red-light text-red' : 
+                   n.type === 'quota_warning' ? 'bg-yellow-light text-yellow' : 
+                   'bg-blue-light text-blue'
+                 }`}>
+                   {n.type === 'expired' ? <AlertTriangle size={18} /> : 
+                    n.type === 'quota_warning' ? <Info size={18} /> : 
+                    <Bell size={18} />}
+                 </div>
+                 <div style={{ flex: 1 }}>
+                    <div className="flex justify-between items-start">
+                       <p className={`text-sm ${!n.read ? 'font-bold' : ''}`}>{n.message}</p>
+                       <span className="text-xs text-muted flex items-center gap-4">
+                          <Clock size={12} /> {new Date(n.created_at).toLocaleString('id-ID')}
+                       </span>
+                    </div>
+                    <div className="mt-12 flex gap-8">
+                       {!n.read && (
+                          <button className="btn btn-ghost btn-sm text-xs px-8 h-24" onClick={() => handleMarkRead(n.id)}>
+                            Tandai Dibaca
+                          </button>
+                       )}
+                       <button className="btn btn-ghost btn-sm text-xs px-8 h-24 text-danger" onClick={() => handleDelete(n.id)}>
+                         Hapus
+                       </button>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <style>{`
+        .unread-bg { background: aliceblue; }
+        .bg-red-light { background: #fef2f2; }
+        .bg-yellow-light { background: #fffbeb; }
+        .bg-blue-light { background: #eff6ff; }
+      `}</style>
+    </div>
+  )
+}

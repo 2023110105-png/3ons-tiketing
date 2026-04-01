@@ -80,7 +80,7 @@ export default function Layout({ children }) {
   const isActive = (path) => location.pathname === path
 
   const getNavItems = () => {
-    if (user?.role === 'super_admin') {
+    if (user?.role === 'super_admin' || user?.role === 'admin_client') {
       return [
         { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
@@ -143,7 +143,7 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          {user?.role === 'super_admin' && (
+          {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
             <>
               <div className="nav-section">
                 <div className="nav-section-title">Admin Panel</div>

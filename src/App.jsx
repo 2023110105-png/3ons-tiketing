@@ -118,7 +118,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to={
         user.role === 'owner' ? '/owner' :
-        user.role === 'super_admin' ? '/admin' :
+        (user.role === 'super_admin' || user.role === 'admin_client') ? '/admin' :
         user.role === 'gate_front' ? '/gate/scan' :
         '/gate/monitor'
       } replace /> : <Login />} />
@@ -132,12 +132,12 @@ function AppRoutes() {
       
       {/* Admin Routes */}
       <Route path="/admin" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <Dashboard />
         </ProtectedRoute>
       } />
       <Route path="/admin/participants" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <Participants />
         </ProtectedRoute>
       } />
@@ -152,7 +152,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/admin/reports" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <Reports />
         </ProtectedRoute>
       } />
@@ -164,12 +164,12 @@ function AppRoutes() {
 
       {/* Gate Routes */}
       <Route path="/gate/scan" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'gate_front']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'gate_front']}>
           <FrontGate />
         </ProtectedRoute>
       } />
       <Route path="/gate/monitor" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'gate_back']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'gate_back']}>
           <BackGate />
         </ProtectedRoute>
       } />

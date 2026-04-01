@@ -1,192 +1,182 @@
-import { useMemo, useState } from 'react'
-import { useToast } from '../../contexts/ToastContext'
+import { useState, useMemo, useEffect } from 'react'
+import {
+  Users, ShieldCheck, FileText, BarChart3, 
+  Settings, Key, History, Activity, Database, 
+  Bell, Eye, LayoutGrid, X, Menu, Search, LogOut
+} from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getTenants, getActiveTenant, createTenant, setTenantStatus, switchActiveTenant, deleteTenant } from '../../store/mockData'
-import { Search, ShieldCheck } from 'lucide-react'
+import { useToast } from '../../contexts/ToastContext'
+import { getOwnerNotifications, markNotificationRead } from '../../store/mockData'
+
+// Tabs
+import TenantList from './tabs/TenantList'
+import ContractManager from './tabs/ContractManager'
+import QuotaManager from './tabs/QuotaManager'
+import UserManagement from './tabs/UserManager'
+import AuditLog from './tabs/AuditLog'
+import TenantHealth from './tabs/TenantHealth'
+import BillingInvoice from './tabs/BillingInvoice'
+import BackupRestore from './tabs/BackupRestore'
+import WhiteLabel from './tabs/WhiteLabel'
+import NotificationCenter from './tabs/NotificationCenter'
+import ImpersonateView from './tabs/ImpersonateView'
 
 export default function OwnerPanel() {
-  const toast = useToast()
   const { user } = useAuth()
+  const toast = useToast()
+  const [activeTab, setActiveTab] = useState('tenants')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [notifications, setNotifications] = useState(getOwnerNotifications())
+  const [showNotifications, setShowNotifications] = useState(false)
 
-  const [tenants, setTenants] = useState(getTenants())
-  const [activeTenantId, setActiveTenantId] = useState(getActiveTenant().id)
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications])
 
-  const [tenantBrandName, setTenantBrandName] = useState('')
-  const [tenantEventName, setTenantEventName] = useState('')
-  const [tenantExpiresAt, setTenantExpiresAt] = useState('')
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) setIsSidebarOpen(false)
+      else setIsSidebarOpen(true)
+    }
+    window.addEventListener('resize', handleResize)
+    handleResize()
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
-  const [tenantSearch, setTenantSearch] = useState('')
-  const [tenantFilter, setTenantFilter] = useState('all')
+  const menuItems = [
+    { id: 'tenants', label: 'Tenants', icon: <LayoutGrid size={20} /> },
+    { id: 'contracts', label: 'Kontrak Sewa', icon: <FileText size={20} /> },
+    { id: 'quotas', label: 'Kuota Tenant', icon: <BarChart3 size={20} /> },
+    { id: 'users', label: 'User Management', icon: <Users size={20} /> },
+    { id: 'impersonate', label: 'Impersonate', icon: <Eye size={20} /> },
+    { id: 'billing', label: 'Billing & Invoice', icon: <History size={20} /> },
+    { id: 'audit', label: 'Audit Log', icon: < ShieldCheck size={20} /> },
+    { id: 'health', label: 'Health Dashboard', icon: <Activity size={20} /> },
+    { id: 'backup', label: 'Backup / Restore', icon: <Database size={20} /> },
+    { id: 'branding', label: 'White-Label', icon: <Settings size={20} /> },
+    { id: 'notifications', label: 'Pemberitahuan', icon: <Bell size={20} /> },
+  ]
 
-  const refreshTenants = () => {
-    setTenants(getTenants())
-    setActiveTenantId(getActiveTenant().id)
+  const handleNotificationClick = (id) => {
+    markNotificationRead(id)
+    setNotifications(getOwnerNotifications())
   }
 
-  const handleCreateTenant = (e) => {
-    e.preventDefault()
-
-    if (!tenantBrandName.trim()) {
-      toast.error('Gagal', 'Nama brand tenant wajib diisi')
-      return
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'tenants':
+        return <TenantList 
+                  onManageUsers={(tenant) => { setActiveTab('users'); }} 
+                  onEditContract={(tenant) => { setActiveTab('contracts'); }} 
+                />
+      case 'contracts':
+        return <ContractManager />
+      case 'quotas':
+        return <QuotaManager />
+      case 'users':
+        return <UserManagement />
+      case 'impersonate':
+        return <ImpersonateView />
+      case 'billing':
+        return <BillingInvoice />
+      case 'audit':
+        return <AuditLog />
+      case 'health':
+        return <TenantHealth />
+      case 'backup':
+        return <BackupRestore />
+      case 'branding':
+        return <WhiteLabel />
+      case 'notifications':
+        return <NotificationCenter />
+      default:
+        return <TenantList />
     }
-
-    const result = createTenant({
-      brandName: tenantBrandName,
-      eventName: tenantEventName,
-      expiresAt: tenantExpiresAt || null
-    }, user)
-
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal membuat tenant')
-      return
-    }
-
-    setTenantBrandName('')
-    setTenantEventName('')
-    setTenantExpiresAt('')
-    refreshTenants()
-    toast.success('Sukses', 'Tenant baru berhasil dibuat')
   }
-
-  const handleActivateTenant = (tenant) => {
-    const result = switchActiveTenant(tenant.id, user)
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal mengaktifkan tenant')
-      return
-    }
-    refreshTenants()
-    toast.success('Sukses', `Tenant aktif: ${tenant.brandName}`)
-  }
-
-  const handleToggleTenantStatus = (tenant) => {
-    const nextStatus = tenant.status === 'active' ? 'inactive' : 'active'
-    const result = setTenantStatus(tenant.id, nextStatus, user)
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal update status tenant')
-      return
-    }
-    refreshTenants()
-    toast.success('Sukses', `Status tenant ${tenant.brandName} menjadi ${nextStatus}`)
-  }
-
-  const handleDeleteTenant = (tenant) => {
-    const confirmation = window.prompt(`Hapus tenant ${tenant.brandName}? Ketik HAPUS untuk lanjut:`, '')
-    if (confirmation === null) return
-    if (confirmation !== 'HAPUS') {
-      toast.error('Gagal', 'Konfirmasi harus HAPUS')
-      return
-    }
-
-    const result = deleteTenant(tenant.id, user)
-    if (!result.success) {
-      toast.error('Gagal', result.error || 'Gagal hapus tenant')
-      return
-    }
-
-    refreshTenants()
-    toast.success('Sukses', `Tenant ${tenant.brandName} berhasil dihapus`)
-  }
-
-  const normalizedTenantSearch = tenantSearch.toLowerCase().trim()
-
-  const visibleTenants = useMemo(() => {
-    return tenants
-      .filter(tenant => {
-        if (tenantFilter === 'active') return tenant.status === 'active' && !tenant.isExpired
-        if (tenantFilter === 'inactive') return tenant.status !== 'active'
-        if (tenantFilter === 'expired') return tenant.isExpired
-        return true
-      })
-      .filter(tenant => {
-        if (!normalizedTenantSearch) return true
-        const haystack = `${tenant.brandName} ${tenant.eventName}`.toLowerCase()
-        return haystack.includes(normalizedTenantSearch)
-      })
-  }, [tenants, tenantFilter, normalizedTenantSearch])
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>Owner Panel</h1>
-        <p>Kelola client sewa: brand, event, dan status akses tenant</p>
-      </div>
-
-      <div className="settings-wrap">
-        <div className="card card-pad">
-          <h3 className="card-title mb-16 card-title-inline"><ShieldCheck size={18} /> Buat Client/Tenant Baru</h3>
-          <form onSubmit={handleCreateTenant}>
-            <div className="form-group">
-              <label className="form-label">Nama Brand</label>
-              <input className="form-input" value={tenantBrandName} onChange={e => setTenantBrandName(e.target.value)} placeholder="Contoh: Yamaha Indonesia" required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Nama Event</label>
-              <input className="form-input" value={tenantEventName} onChange={e => setTenantEventName(e.target.value)} placeholder="Contoh: Yamaha Roadshow 2026" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tanggal Expired (opsional)</label>
-              <input className="form-input" type="date" value={tenantExpiresAt} onChange={e => setTenantExpiresAt(e.target.value)} />
-            </div>
-            <div className="actions-right">
-              <button type="submit" className="btn btn-primary">Tambah Tenant</button>
-            </div>
-          </form>
+    <div className="owner-panel-shell" style={{ display: 'flex', height: '100%', minHeight: 'calc(100vh - 120px)', background: 'var(--bg-subtle)' }}>
+      {/* Internal Sidebar for Owner Console */}
+      <aside className={`owner-sidebar ${isSidebarOpen ? 'open' : ''}`} style={{ 
+        width: isSidebarOpen ? '260px' : '0', 
+        overflow: 'hidden', 
+        transition: 'width 0.3s ease',
+        background: 'var(--card-bg)',
+        borderRight: '1px solid var(--border-color)',
+        zIndex: 10
+      }}>
+        <div className="owner-sidebar-header p-20" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldCheck className="text-primary" size={24} /> 
+            Owner Console
+          </h3>
         </div>
+        <nav className="owner-sidebar-nav p-12">
+          {menuItems.map(item => (
+            <button 
+              key={item.id} 
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+              style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'left', marginBottom: '4px' }}
+              onClick={() => setActiveTab(item.id)}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              {item.label}
+              {item.id === 'notifications' && unreadCount > 0 && (
+                <span className="badge badge-red ml-auto" style={{ padding: '2px 6px', fontSize: '0.7rem' }}>{unreadCount}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </aside>
 
-        <div className="card card-pad">
-          <h3 className="card-title mb-16">Daftar Client/Tenant</h3>
-          <div className="tenant-toolbar">
-            <div className="admin-search-wrap backup-search-wrap">
-              <Search size={14} className="admin-search-icon" />
-              <input className="form-input" type="text" placeholder="Cari brand atau event tenant..." value={tenantSearch} onChange={e => setTenantSearch(e.target.value)} />
-            </div>
-            <select className="form-select backup-select" value={tenantFilter} onChange={e => setTenantFilter(e.target.value)}>
-              <option value="all">Semua Tenant</option>
-              <option value="active">Aktif</option>
-              <option value="inactive">Nonaktif</option>
-              <option value="expired">Expired</option>
-            </select>
+      {/* Main Container */}
+      <div className="owner-main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <header className="owner-header p-16" style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="btn btn-ghost p-8" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <Menu size={20} />
+            </button>
+            <h2 className="text-lg font-bold">{menuItems.find(m => m.id === activeTab)?.label}</h2>
           </div>
-
-          <div className="tenant-stats-row">
-            <span className="badge badge-gray">Total: {tenants.length}</span>
-            <span className="badge badge-green">Aktif: {tenants.filter(t => t.status === 'active' && !t.isExpired).length}</span>
-            <span className="badge badge-yellow">Nonaktif: {tenants.filter(t => t.status !== 'active').length}</span>
-            <span className="badge badge-red">Expired: {tenants.filter(t => t.isExpired).length}</span>
-          </div>
-
-          <div className="event-list mt-16">
-            {visibleTenants.length === 0 && <div className="event-meta">Tidak ada tenant sesuai filter/pencarian.</div>}
-            {visibleTenants.map(tenant => (
-              <div key={tenant.id} className="event-item">
-                <div className="event-row">
-                  <div>
-                    <div className="event-name">{tenant.brandName}</div>
-                    <div className="event-meta">{tenant.eventName}</div>
-                    <div className="tenant-meta-badges">
-                      <span className={`badge ${tenant.status === 'active' ? 'badge-green' : 'badge-yellow'}`}>{tenant.status === 'active' ? 'Aktif' : 'Nonaktif'}</span>
-                      {tenant.isExpired && <span className="badge badge-red">Expired</span>}
-                      {tenant.id === activeTenantId && <span className="badge badge-blue">Sedang Dipakai</span>}
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+             <div style={{ position: 'relative' }}>
+                <button className="btn btn-ghost p-8" onClick={() => setShowNotifications(!showNotifications)}>
+                  <Bell size={20} />
+                  {unreadCount > 0 && <span className="notification-dot"></span>}
+                </button>
+                {showNotifications && (
+                  <div className="notifications-dropdown card" style={{ position: 'absolute', top: '100%', right: 0, width: '320px', zIndex: 100, maxHeight: '400px', overflowY: 'auto' }}>
+                    <div className="card-pad p-12" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <h4 className="card-title text-sm">Pemberitahuan Kontrol</h4>
+                    </div>
+                    <div className="p-4">
+                      {notifications.length === 0 ? (
+                        <div className="p-16 text-center text-muted text-sm">Tidak ada pemberitahuan baru</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div 
+                            key={n.id} 
+                            className={`p-12 text-sm notification-item ${!n.read ? 'unread' : ''}`} 
+                            style={{ cursor: 'pointer', borderRadius: '4px' }}
+                            onClick={() => handleNotificationClick(n.id)}
+                          >
+                            <div className="font-bold">{n.message}</div>
+                            <div className="text-xs text-muted mt-4">{new Date(n.created_at).toLocaleString()}</div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                  <div className="event-actions">
-                    {tenant.id !== activeTenantId && tenant.status === 'active' && !tenant.isExpired && (
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleActivateTenant(tenant)}>Pakai</button>
-                    )}
-                    {tenant.id !== 'tenant-default' && (
-                      <button className="btn btn-ghost btn-warning btn-sm" onClick={() => handleToggleTenantStatus(tenant)}>
-                        {tenant.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                      </button>
-                    )}
-                    {tenant.id !== 'tenant-default' && tenant.id !== activeTenantId && (
-                      <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteTenant(tenant)}>Delete</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                )}
+             </div>
+             <div className="owner-user-info" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <div className="avatar avatar-sm bg-primary">{user?.name?.charAt(0)}</div>
+               <span className="text-sm font-bold">{user?.name}</span>
+             </div>
           </div>
+        </header>
+
+        <div className="owner-content p-24" style={{ flex: 1, overflowY: 'auto' }}>
+          {renderActiveTab()}
         </div>
       </div>
     </div>
