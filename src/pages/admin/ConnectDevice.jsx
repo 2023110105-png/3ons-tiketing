@@ -32,7 +32,7 @@ export default function ConnectDevice() {
   const toast = useToast()
   const { user } = useAuth()
   const tenantId = user?.tenant?.id || 'tenant-default'
-  const canMonitorAllSessions = user?.role === 'owner' || user?.role === 'super_admin'
+  const canMonitorAllSessions = user?.role === 'owner'
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
   const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
   const filteredSessions = tenantSessions.filter((session) => {
