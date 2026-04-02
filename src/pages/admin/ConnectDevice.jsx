@@ -1,33 +1,42 @@
 import { useState, useEffect } from 'react'
 import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
-import { apiFetch } from '../../utils/api'
+import { apiFetch, getApiBaseUrl } from '../../utils/api'
 
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
   const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [lastError, setLastError] = useState('')
   const toast = useToast()
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
+  const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
 
   useEffect(() => {
     let interval;
     
     const checkWaStatus = async () => {
       try {
-        const res = await apiFetch('/api/wa/status');
-        const data = await res.json();
-        setWaState(data);
-      } catch {
-        setWaState({ status: 'offline', isReady: false, qrCode: null });
+        const res = await apiFetch('/api/wa/status')
+        const data = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          throw new Error(data?.error || `HTTP ${res.status}`)
+        }
+
+        setWaState(data)
+        setLastError('')
+      } catch (err) {
+        setWaState({ status: 'offline', isReady: false, qrCode: null })
+        setLastError(err?.message || 'Koneksi API gagal')
       }
-    };
+    }
 
-    checkWaStatus();
+    checkWaStatus()
     // Poll every 3 seconds
-    interval = setInterval(checkWaStatus, 3000);
+    interval = setInterval(checkWaStatus, 3000)
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(interval)
+  }, [])
 
   const handleLogout = async () => {
     if (isDisconnecting) return
@@ -42,18 +51,18 @@ export default function ConnectDevice() {
         throw new Error(msg)
       }
 
-      setWaState({ status: 'qr', isReady: false, qrCode: null });
+      setWaState({ status: 'qr', isReady: false, qrCode: null })
       if (data?.warning) {
         toast.warning('Session di-reset dengan catatan', data.warning)
       } else {
-        toast.info('Session WhatsApp diputuskan.');
+        toast.info('Session WhatsApp diputuskan.')
       }
     } catch (err) {
-      toast.error('Gagal memutus server', err?.message || 'Pastikan Bot Server menyala.');
+      toast.error('Gagal memutus server', err?.message || 'Pastikan Bot Server menyala.')
     } finally {
       setIsDisconnecting(false)
     }
-  };
+  }
 
   return (
     <div className="page-container animate-fade-in-up">
@@ -104,6 +113,8 @@ export default function ConnectDevice() {
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
               <p className="status-note">Sistem gagal mendeteksi server bot. Pastikan backend WhatsApp berjalan di URL yang diatur lewat <b>VITE_API_BASE_URL</b> atau, saat development lokal, lewat proxy Vite ke port 3001.</p>
+              <p className="status-note"><b>API Target:</b> {apiSource}</p>
+              {lastError && <p className="status-note"><b>Detail:</b> {lastError}</p>}
             </div>
           )}
 
