@@ -13,7 +13,8 @@ export default function ConnectDevice() {
   const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
 
   useEffect(() => {
-    let interval;
+    let timer;
+    let stopped = false;
     
     const checkWaStatus = async () => {
       try {
@@ -30,14 +31,19 @@ export default function ConnectDevice() {
         setWaState({ status: 'offline', isReady: false, qrCode: null })
         setLastError(err?.message || 'Koneksi API gagal')
       }
+
+      if (stopped) return
+      const nextIntervalMs = waState?.isReady ? 3000 : 1200
+      timer = setTimeout(checkWaStatus, nextIntervalMs)
     }
 
     checkWaStatus()
-    // Poll every 3 seconds
-    interval = setInterval(checkWaStatus, 3000)
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [waState?.isReady])
 
   const handleLogout = async () => {
     if (isDisconnecting) return
