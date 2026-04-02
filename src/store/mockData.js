@@ -5,8 +5,13 @@ import { apiFetch } from '../utils/api'
 import {
   syncAuditLog,
   syncCheckInLog,
+  syncEventDelete,
+  syncEventSnapshot,
   syncParticipantDelete,
   syncParticipantUpsert,
+  syncTenantDelete,
+  syncTenantUserDelete,
+  syncTenantUserUpsert,
   syncTenantUpsert
 } from '../lib/firebaseSync'
 
@@ -398,6 +403,7 @@ export function deleteTenant(tenantId, actor = 'system') {
   saveStore()
   saveTenantRegistry()
   dispatchTenantChangeEvent()
+  void syncTenantDelete(tenant.id)
 
   logAdminAction('tenant_delete', `Hapus tenant ${tenant.brandName}`, actor, {
     tenant_id: tenant.id
@@ -416,6 +422,7 @@ export function updateTenantContract(tenantId, contractData, actor = 'system') {
   const prev = tenant.contract
   tenant.contract = { ...prev, ...contractData }
   saveTenantRegistry()
+  void syncTenantUpsert(tenant)
   logOwnerAction('tenant_contract_update', `Update kontrak tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
     previous: prev,
@@ -430,6 +437,7 @@ export function updateTenantQuota(tenantId, quotaData, actor = 'system') {
   const prev = tenant.quota
   tenant.quota = { ...prev, ...quotaData }
   saveTenantRegistry()
+  void syncTenantUpsert(tenant)
   logOwnerAction('tenant_quota_update', `Update kuota tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
     previous: prev,
@@ -472,6 +480,7 @@ export function createTenantUser(tenantId, userData, actor = 'system') {
   tenant.users = asArray(tenant.users)
   tenant.users.push(newUser)
   saveTenantRegistry()
+  void syncTenantUserUpsert({ tenantId, user: newUser })
   
   logOwnerAction('tenant_user_create', `Tambah user ${username} ke tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
@@ -491,6 +500,7 @@ export function updateTenantUser(tenantId, userId, data, actor = 'system') {
   
   Object.assign(user, data)
   saveTenantRegistry()
+  void syncTenantUserUpsert({ tenantId, user })
   logOwnerAction('tenant_user_update', `Update user ${user.username} di tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
     user_id: userId
@@ -510,6 +520,7 @@ export function deleteTenantUser(tenantId, userId, actor = 'system') {
   users.splice(index, 1)
   tenant.users = users
   saveTenantRegistry()
+  void syncTenantUserDelete({ tenantId, userId })
   
   logOwnerAction('tenant_user_delete', `Hapus user ${username} dari tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
@@ -1165,6 +1176,7 @@ export function createEvent(name, actor = 'system') {
   bucket.events[event.id] = event
   bucket.activeEventId = event.id
   saveStore()
+  void syncEventSnapshot({ tenantId: activeTenant.id, event })
   logAdminAction('event_create', `Membuat event baru: ${eventName}`, actor, { event_id: event.id })
   return { id: event.id, name: event.name }
 }
@@ -1180,6 +1192,7 @@ export function renameEvent(eventId, newName, actor = 'system') {
   const prevName = event.name
   event.name = cleanName
   saveStore()
+  void syncEventSnapshot({ tenantId: activeTenant.id, event })
 
   if (prevName !== cleanName) {
     logAdminAction('event_rename', `Ubah nama event: ${prevName} -> ${cleanName}`, actor, { event_id: eventId })
@@ -1201,6 +1214,7 @@ export function archiveEvent(eventId, actor = 'system', reason = '') {
 
   event.isArchived = true
   saveStore()
+  void syncEventSnapshot({ tenantId: activeTenant.id, event })
   logAdminAction('event_archive', `Arsipkan event: ${event.name}`, actor, {
     event_id: eventId,
     reason: normalizeReason(reason)
@@ -1222,6 +1236,7 @@ export function deleteEvent(eventId, actor = 'system', reason = '') {
 
   delete bucket.events[eventId]
   saveStore()
+  void syncEventDelete({ tenantId: activeTenant.id, eventId })
   logAdminAction('event_delete', `Hapus event: ${event.name}`, actor, {
     event_id: eventId,
     reason: normalizeReason(reason)
@@ -1236,6 +1251,7 @@ export function setCurrentEvent(eventId, actor = 'system') {
   const prev = bucket.activeEventId
   bucket.activeEventId = eventId
   saveStore()
+  void syncEventSnapshot({ tenantId: activeTenant.id, event: bucket.events[eventId] })
   if (prev !== eventId) {
     logAdminAction('event_switch', `Pindah event aktif ke ${bucket.events[eventId].name}`, actor, {
       from: prev,

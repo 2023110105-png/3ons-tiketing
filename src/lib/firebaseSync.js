@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db, isFirebaseEnabled } from './firebase'
 
 function noopPromise() {
@@ -25,6 +25,42 @@ export function syncTenantUpsert(tenant) {
       },
       { merge: true }
     )
+    return true
+  })
+}
+
+export function syncTenantDelete(tenantId) {
+  if (!tenantId) return noopPromise()
+
+  return withSyncGuard(async () => {
+    await deleteDoc(doc(db, 'tenants', tenantId))
+    return true
+  })
+}
+
+export function syncTenantUserUpsert({ tenantId, user }) {
+  if (!tenantId || !user?.id) return noopPromise()
+
+  return withSyncGuard(async () => {
+    const ref = doc(db, 'tenants', tenantId, 'users', user.id)
+    await setDoc(
+      ref,
+      {
+        ...user,
+        tenant_id: tenantId,
+        updated_at: serverTimestamp()
+      },
+      { merge: true }
+    )
+    return true
+  })
+}
+
+export function syncTenantUserDelete({ tenantId, userId }) {
+  if (!tenantId || !userId) return noopPromise()
+
+  return withSyncGuard(async () => {
+    await deleteDoc(doc(db, 'tenants', tenantId, 'users', userId))
     return true
   })
 }
@@ -113,8 +149,15 @@ export function syncEventSnapshot({ tenantId, event }) {
       { merge: true }
     )
 
-    const participantsCol = collection(db, 'tenants', tenantId, 'events', event.id, 'participants')
-    void participantsCol
+    return true
+  })
+}
+
+export function syncEventDelete({ tenantId, eventId }) {
+  if (!tenantId || !eventId) return noopPromise()
+
+  return withSyncGuard(async () => {
+    await deleteDoc(doc(db, 'tenants', tenantId, 'events', eventId))
     return true
   })
 }
