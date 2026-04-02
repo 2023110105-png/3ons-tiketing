@@ -203,6 +203,12 @@ export default function ConnectDevice() {
       return
     }
 
+    const modeLabel = mode === 'offline' ? 'offline/disconnected' : mode === 'qr' ? 'qr' : 'non-ready'
+    const confirmed = window.confirm(
+      `Konfirmasi bulk reset\n\nMode: ${modeLabel}\nTarget tenant: ${targets.length}\n\nLanjutkan reset sesi tenant?`
+    )
+    if (!confirmed) return
+
     setIsBulkResetting(true)
     let successCount = 0
     let failedCount = 0
