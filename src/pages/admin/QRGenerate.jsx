@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
-import { getParticipants, getCurrentDay } from '../../store/mockData'
+import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, Share2, MessageCircle, X } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
@@ -31,11 +31,28 @@ export default function QRGenerate() {
   const [generatedCount, setGeneratedCount] = useState(0)
   const toast = useToast()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
+  const [activeEventName, setActiveEventName] = useState(getCurrentEventName())
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth <= 768)
     window.addEventListener('resize', h)
     return () => window.removeEventListener('resize', h)
+  }, [])
+
+  useEffect(() => {
+    const refreshBranding = () => {
+      setTicketBranding(getTenantBranding())
+      setActiveEventName(getCurrentEventName())
+    }
+
+    window.addEventListener('ons-tenant-changed', refreshBranding)
+    window.addEventListener('focus', refreshBranding)
+
+    return () => {
+      window.removeEventListener('ons-tenant-changed', refreshBranding)
+      window.removeEventListener('focus', refreshBranding)
+    }
   }, [])
 
   useEffect(() => {
@@ -54,6 +71,10 @@ export default function QRGenerate() {
     const height = options.height || 540
     const qrSize = options.qrSize || 320
     const style = CATEGORY_STYLES[participant.category] || CATEGORY_STYLES.Regular
+    const eventLabel = String(
+      (activeEventName && activeEventName !== '-') ? activeEventName : (ticketBranding.eventName || 'Event')
+    ).trim()
+    const brandLabel = String(ticketBranding.brandName || '3oNs Digital').trim()
 
     const qrDataUrl = await QRCode.toDataURL(participant.qr_data, {
       width: 640,
@@ -135,12 +156,12 @@ export default function QRGenerate() {
 
     ctx.fillStyle = '#475569'
     ctx.font = '600 21px "Arial"'
-    ctx.fillText('3oNs Digital Event Pass', 64, 146)
+    drawClampText(eventLabel || 'Event Pass', 64, 146, width - qrSize - 170)
 
     // Header identifier
     ctx.fillStyle = '#64748b'
     ctx.font = '700 13px "Arial"'
-    ctx.fillText('ADMIT ONE', 64, 166)
+    drawClampText((brandLabel || '3oNs Digital').toUpperCase(), 64, 166, width - qrSize - 170)
 
     // Category badge
     ctx.fillStyle = style.soft
@@ -217,6 +238,10 @@ export default function QRGenerate() {
 
   // Share QR via WhatsApp
   const shareViaWhatsApp = async (participant) => {
+    const eventLabel = String(
+      (activeEventName && activeEventName !== '-') ? activeEventName : (ticketBranding.eventName || 'Event')
+    ).trim()
+
     const message = `🎫 *E-Ticket*\n\n` +
       `Halo *${participant.name}*,\n` +
       `Berikut informasi tiket Anda:\n\n` +
@@ -225,7 +250,7 @@ export default function QRGenerate() {
       `📅 Hari: *${participant.day_number}*\n\n` +
       `Silakan tunjukkan QR Code ini saat registrasi di venue.\n` +
       `Terima kasih!\n\n` +
-      `_Event Platform_`
+      `_${eventLabel || 'Event Platform'}_`
 
     // Try Web Share API first (works on mobile, can share files)
     if (navigator.share) {
