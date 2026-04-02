@@ -5,6 +5,22 @@ import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, Share2, MessageCircle, X } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 
+const CATEGORY_STYLES = {
+  VIP: { accent: '#c62828', soft: '#fdecea', label: 'VIP' },
+  Dealer: { accent: '#1565c0', soft: '#e8f1ff', label: 'DEALER' },
+  Media: { accent: '#f9a825', soft: '#fff8e1', label: 'MEDIA' },
+  Regular: { accent: '#2e7d32', soft: '#eaf7ee', label: 'REGULAR' }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 export default function QRGenerate() {
   const currentDay = getCurrentDay()
   const [dayFilter, setDayFilter] = useState(currentDay)
@@ -33,14 +49,106 @@ export default function QRGenerate() {
     return 'm-p-avatar-regular'
   }
 
+  const buildTicketQrImage = async (participant, options = {}) => {
+    const width = options.width || 900
+    const height = options.height || 540
+    const qrSize = options.qrSize || 320
+    const style = CATEGORY_STYLES[participant.category] || CATEGORY_STYLES.Regular
+
+    const qrDataUrl = await QRCode.toDataURL(participant.qr_data, {
+      width: 640,
+      margin: 3,
+      color: { dark: '#111111', light: '#FFFFFF' },
+      errorCorrectionLevel: 'H'
+    })
+
+    const qrImage = await loadImage(qrDataUrl)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+
+    // Background
+    const bg = ctx.createLinearGradient(0, 0, width, height)
+    bg.addColorStop(0, '#fffdf8')
+    bg.addColorStop(1, '#f6f9ff')
+    ctx.fillStyle = bg
+    ctx.fillRect(0, 0, width, height)
+
+    // Outer border
+    ctx.strokeStyle = '#d8dce7'
+    ctx.lineWidth = 4
+    ctx.strokeRect(12, 12, width - 24, height - 24)
+
+    // Accent top strip
+    ctx.fillStyle = style.accent
+    ctx.fillRect(12, 12, width - 24, 18)
+
+    // Left info panel
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(42, 56, width - qrSize - 110, height - 96)
+    ctx.strokeStyle = '#edf0f6'
+    ctx.lineWidth = 2
+    ctx.strokeRect(42, 56, width - qrSize - 110, height - 96)
+
+    // QR panel
+    const qrX = width - qrSize - 58
+    const qrY = 100
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32)
+    ctx.strokeStyle = style.accent
+    ctx.lineWidth = 4
+    ctx.strokeRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32)
+    ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
+
+    // Header texts
+    ctx.fillStyle = '#0f172a'
+    ctx.font = '700 42px "Arial"'
+    ctx.fillText('E-TICKET', 64, 118)
+
+    ctx.fillStyle = '#475569'
+    ctx.font = '600 22px "Arial"'
+    ctx.fillText('3oNs Digital Event Pass', 64, 150)
+
+    // Category badge
+    ctx.fillStyle = style.soft
+    ctx.fillRect(64, 176, 190, 44)
+    ctx.strokeStyle = style.accent
+    ctx.lineWidth = 2
+    ctx.strokeRect(64, 176, 190, 44)
+    ctx.fillStyle = style.accent
+    ctx.font = '700 20px "Arial"'
+    ctx.fillText(style.label, 86, 205)
+
+    // Participant details
+    ctx.fillStyle = '#0f172a'
+    ctx.font = '700 30px "Arial"'
+    const safeName = String(participant.name || '-').slice(0, 28)
+    ctx.fillText(safeName, 64, 270)
+
+    ctx.fillStyle = '#334155'
+    ctx.font = '600 20px "Arial"'
+    ctx.fillText(`ID Tiket : ${participant.ticket_id}`, 64, 318)
+    ctx.fillText(`Hari      : ${participant.day_number}`, 64, 352)
+
+    // Footer note
+    ctx.fillStyle = '#64748b'
+    ctx.font = '500 17px "Arial"'
+    ctx.fillText('Tunjukkan tiket ini saat registrasi. Simpan baik-baik dan jangan dibagikan.', 64, 426)
+
+    // Scan note
+    ctx.fillStyle = '#475569'
+    ctx.font = '600 16px "Arial"'
+    ctx.fillText('Scan QR di pintu masuk', qrX + 44, qrY + qrSize + 42)
+
+    return canvas.toDataURL('image/png', 1)
+  }
+
   const generateQR = async (participant) => {
     setSelectedParticipant(participant)
     try {
-      const url = await QRCode.toDataURL(participant.qr_data, {
-        width: 300, margin: 2,
-        color: { dark: '#1A1A1A', light: '#FFFFFF' },
-        errorCorrectionLevel: 'H'
-      })
+      const url = await buildTicketQrImage(participant, { width: 900, height: 540, qrSize: 280 })
       setQrUrl(url)
     } catch {
       toast.error('Error', 'Gagal generate QR Code')
@@ -49,17 +157,13 @@ export default function QRGenerate() {
 
   const downloadQR = async (participant) => {
     try {
-      const url = await QRCode.toDataURL(participant.qr_data, {
-        width: 400, margin: 2,
-        color: { dark: '#1A1A1A', light: '#FFFFFF' },
-        errorCorrectionLevel: 'H'
-      })
+      const url = await buildTicketQrImage(participant, { width: 1200, height: 720, qrSize: 360 })
       const link = document.createElement('a')
-      link.download = `QR_${participant.ticket_id}_${participant.name.replace(/\s+/g, '_')}.png`
+      link.download = `Tiket_${participant.ticket_id}_${participant.name.replace(/\s+/g, '_')}.png`
       link.href = url
       link.click()
     } catch {
-      toast.error('Error', 'Gagal download QR')
+      toast.error('Error', 'Gagal download tiket')
     }
   }
 
@@ -78,13 +182,9 @@ export default function QRGenerate() {
     // Try Web Share API first (works on mobile, can share files)
     if (navigator.share) {
       try {
-        const url = await QRCode.toDataURL(participant.qr_data, {
-          width: 400, margin: 2,
-          color: { dark: '#1A1A1A', light: '#FFFFFF' },
-          errorCorrectionLevel: 'H'
-        })
+        const url = await buildTicketQrImage(participant, { width: 1200, height: 720, qrSize: 360 })
         const blob = await (await fetch(url)).blob()
-        const file = new File([blob], `QR_${participant.ticket_id}.png`, { type: 'image/png' })
+        const file = new File([blob], `Tiket_${participant.ticket_id}.png`, { type: 'image/png' })
 
         await navigator.share({
           title: `E-Ticket ${participant.name}`,
@@ -118,36 +218,34 @@ export default function QRGenerate() {
       const doc = new jsPDF('p', 'mm', 'a4')
       const pageWidth = doc.internal.pageSize.getWidth()
       const margin = 15
-      const qrSize = 40
-      const colWidth = (pageWidth - 2 * margin) / 3
-      const rowHeight = 60
+      const cardWidth = 86
+      const cardHeight = 52
+      const gapX = 6
+      const gapY = 8
+      const cols = 2
       let col = 0, row = 0
 
       for (let i = 0; i < participants.length; i++) {
         const p = participants[i]
-        if (row > 0 && row * rowHeight + margin > 260) {
+        if (row > 0 && margin + (row + 1) * cardHeight + row * gapY > 280) {
           doc.addPage(); row = 0; col = 0
         }
-        const x = margin + col * colWidth
-        const y = margin + row * rowHeight
-        const qrDataUrl = await QRCode.toDataURL(p.qr_data, {
-          width: 200, margin: 1,
-          color: { dark: '#1A1A1A', light: '#FFFFFF' },
-          errorCorrectionLevel: 'H'
+        const x = margin + col * (cardWidth + gapX)
+        const y = margin + row * (cardHeight + gapY)
+
+        const ticketImage = await buildTicketQrImage(p, {
+          width: 900,
+          height: 540,
+          qrSize: 260
         })
-        doc.addImage(qrDataUrl, 'PNG', x + (colWidth - qrSize) / 2, y, qrSize, qrSize)
-        doc.setFontSize(8)
-        doc.setFont(undefined, 'bold')
-        doc.text(p.name, x + colWidth / 2, y + qrSize + 5, { align: 'center' })
-        doc.setFont(undefined, 'normal')
-        doc.setFontSize(7)
-        doc.text(p.ticket_id + ' | ' + p.category, x + colWidth / 2, y + qrSize + 10, { align: 'center' })
+
+        doc.addImage(ticketImage, 'PNG', x, y, cardWidth, cardHeight)
         col++
-        if (col >= 3) { col = 0; row++ }
+        if (col >= cols) { col = 0; row++ }
         setGeneratedCount(i + 1)
       }
       doc.save(`QR_Tickets_Hari_${dayFilter}.pdf`)
-      toast.success('PDF Berhasil', `${participants.length} QR tiket diexport ke PDF`)
+      toast.success('PDF Berhasil', `${participants.length} tiket desain diexport ke PDF`)
     } catch (err) {
       toast.error('Error', 'Gagal generate PDF')
       console.error(err)
@@ -186,7 +284,7 @@ export default function QRGenerate() {
               {' '}Generating {generatedCount}/{participants.length}...
             </>
           ) : (
-            <><FileDown size={16} /> Download Semua QR (PDF)</>
+            <><FileDown size={16} /> Download Semua Tiket (PDF)</>
           )}
         </button>
 
@@ -224,6 +322,7 @@ export default function QRGenerate() {
               <button
                 className="btn btn-ghost btn-sm qr-icon-btn"
                 onClick={(e) => { e.stopPropagation(); downloadQR(p) }}
+                title="Download tiket"
               >
                 <Download size={16} />
               </button>
@@ -272,8 +371,8 @@ export default function QRGenerate() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Generate QR Code</h1>
-        <p>Generate dan download QR Code tiket peserta</p>
+        <h1>Generate Tiket QR</h1>
+        <p>Buat tiket QR dengan desain siap kirim dan siap cetak</p>
       </div>
 
       <div className="qr-toolbar">
@@ -282,7 +381,7 @@ export default function QRGenerate() {
           <option value={2}>Hari 2 ({getParticipants(2).length} peserta)</option>
         </select>
         <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
-          {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua QR (PDF)</>)}
+          {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua Tiket (PDF)</>)}
         </button>
         {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
       </div>
@@ -319,7 +418,7 @@ export default function QRGenerate() {
               <p className="qr-preview-subtitle">{selectedParticipant.ticket_id} · {selectedParticipant.category} · Hari {selectedParticipant.day_number}</p>
               <div className="qr-preview-actions">
                 <button className="btn btn-primary" onClick={() => downloadQR(selectedParticipant)}>
-                  <Download size={14} /> Download QR
+                  <Download size={14} /> Download Tiket
                 </button>
                 <button
                   className="btn btn-secondary qr-preview-wa-btn"
@@ -333,7 +432,7 @@ export default function QRGenerate() {
             <div className="empty-state">
               <div className="empty-state-icon"><QrCode size={40} /></div>
               <h3>Pilih Peserta</h3>
-              <p>Klik nama peserta di sebelah kiri untuk preview QR Code</p>
+              <p>Klik nama peserta di sebelah kiri untuk preview desain tiket QR</p>
             </div>
           )}
         </div>
