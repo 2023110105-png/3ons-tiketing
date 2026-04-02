@@ -51,7 +51,7 @@ export default function Dashboard() {
   const lineData = {
     labels: hours,
     datasets: [{
-      label: 'Check-in',
+      label: 'Kehadiran',
       data: lineSeries,
       borderColor: '#E60012',
       backgroundColor: 'rgba(230, 0, 18, 0.1)',
@@ -144,7 +144,7 @@ export default function Dashboard() {
         <div className="m-section">
           <div className="m-section-header">
             <span className="m-section-title">Aktivitas Terbaru</span>
-            <span className="badge badge-green dashboard-live-badge">● LIVE</span>
+            <span className="badge badge-green dashboard-live-badge">● LANGSUNG</span>
           </div>
           {logs.length === 0 ? (
             <div className="m-empty">
@@ -184,8 +184,8 @@ export default function Dashboard() {
     <div className="page-container">
       <div className="page-header dashboard-header">
         <div>
-          <h1>Dashboard</h1>
-          <p>Overview check-in Hari {currentDay}</p>
+          <h1>Ringkasan</h1>
+          <p>Ringkasan kehadiran hari {currentDay}</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in
@@ -201,7 +201,7 @@ export default function Dashboard() {
         <div className="stat-card stagger-2">
           <div className="stat-card-icon green"><UserCheck size={22} /></div>
           <div className="stat-card-value">{stats.checkedIn}</div>
-          <div className="stat-card-label">Sudah Check-in</div>
+          <div className="stat-card-label">Sudah Hadir</div>
           <div className="stat-card-change up">↑ {stats.percentage}%</div>
         </div>
         <div className="stat-card stagger-3">
@@ -221,7 +221,7 @@ export default function Dashboard() {
 
       <div className="grid-2 mb-24">
         <div className="card animate-fade-in-up">
-          <div className="card-header"><h3 className="card-title">Timeline Check-in</h3></div>
+          <div className="card-header"><h3 className="card-title">Tren Kehadiran</h3></div>
           <div className="chart-container"><Line data={lineData} options={lineOptions} /></div>
         </div>
         <div className="card animate-fade-in-up stagger-2">
@@ -233,13 +233,13 @@ export default function Dashboard() {
       <div className="card animate-fade-in-up stagger-3">
         <div className="card-header">
           <h3 className="card-title">Aktivitas Terbaru</h3>
-          <span className="badge badge-green">Live</span>
+          <span className="badge badge-green">Langsung</span>
         </div>
         {logs.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon"><ClipboardList size={40} /></div>
             <h3>Belum ada aktivitas</h3>
-            <p>Aktivitas check-in akan muncul di sini secara real-time</p>
+              <p>Aktivitas kehadiran akan muncul di sini secara langsung</p>
           </div>
         ) : (
           <div className="activity-feed">

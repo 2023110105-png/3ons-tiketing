@@ -20,6 +20,14 @@ export default function Layout({ children }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
 
+  const roleLabel = {
+    super_admin: 'Admin Utama',
+    admin_client: 'Admin Acara',
+    gate_front: 'Petugas Pintu Depan',
+    gate_back: 'Petugas Pintu Belakang',
+    owner: 'Pemilik Platform'
+  }
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768)
     window.addEventListener('resize', handleResize)
@@ -83,16 +91,16 @@ export default function Layout({ children }) {
   const getNavItems = () => {
     if (user?.role === 'super_admin' || user?.role === 'admin_client') {
       return [
-        { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+        { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
-        { path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan' }
+        { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai' }
       ]
     }
     if (user?.role === 'owner') {
       return [{ path: '/owner', icon: <ShieldCheck size={18} />, label: 'Owner' }]
     }
     if (user?.role === 'gate_front') {
-      return [{ path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan QR' }]
+      return [{ path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai QR' }]
     }
     if (user?.role === 'gate_back') {
       return [{ path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Monitor' }]
@@ -101,30 +109,30 @@ export default function Layout({ children }) {
   }
 
   const adminNav = [
-    { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+    { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
     { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
-    { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Connect Device' },
-    { path: '/admin/qr-generate', icon: <QrCode size={18} />, label: 'Generate QR' },
+    { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
+    { path: '/admin/qr-generate', icon: <QrCode size={18} />, label: 'Buat QR' },
     { path: '/admin/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },
     { path: '/admin/settings', icon: <Settings size={18} />, label: 'Pengaturan' },
   ]
 
   const gateNav = [
-    { path: '/gate/scan', icon: <Camera size={18} />, label: 'Scan QR' },
-    { path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Monitor' },
+    { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai QR' },
+    { path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Pantau Langsung' },
   ]
 
   const ownerNav = [
-    { path: '/owner/tenants', icon: <LayoutDashboard size={18} />, label: 'Tenants' },
+    { path: '/owner/tenants', icon: <LayoutDashboard size={18} />, label: 'Tenant' },
     { path: '/owner/contracts', icon: <FileText size={18} />, label: 'Kontrak Sewa' },
     { path: '/owner/quotas', icon: <BarChart3 size={18} />, label: 'Kuota Tenant' },
-    { path: '/owner/users', icon: <Users size={18} />, label: 'User Management' },
-    { path: '/owner/impersonate', icon: <Eye size={18} />, label: 'Impersonate' },
-    { path: '/owner/billing', icon: <History size={18} />, label: 'Billing & Invoice' },
-    { path: '/owner/audit', icon: <ShieldCheck size={18} />, label: 'Audit Log' },
-    { path: '/owner/health', icon: <Activity size={18} />, label: 'Health Dashboard' },
-    { path: '/owner/backup', icon: <Database size={18} />, label: 'Backup / Restore' },
-    { path: '/owner/branding', icon: <Settings size={18} />, label: 'White-Label' },
+    { path: '/owner/users', icon: <Users size={18} />, label: 'Kelola Pengguna' },
+    { path: '/owner/impersonate', icon: <Eye size={18} />, label: 'Mode Penyamaran' },
+    { path: '/owner/billing', icon: <History size={18} />, label: 'Tagihan & Invoice' },
+    { path: '/owner/audit', icon: <ShieldCheck size={18} />, label: 'Log Audit' },
+    { path: '/owner/health', icon: <Activity size={18} />, label: 'Kesehatan Sistem' },
+    { path: '/owner/backup', icon: <Database size={18} />, label: 'Cadangkan / Pulihkan' },
+    { path: '/owner/branding', icon: <Settings size={18} />, label: 'Brand Kustom' },
     { path: '/owner/notifications', icon: <Bell size={18} />, label: 'Pemberitahuan' },
   ]
 
@@ -150,7 +158,7 @@ export default function Layout({ children }) {
           {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
             <>
               <div className="nav-section">
-                <div className="nav-section-title">Admin Panel</div>
+                <div className="nav-section-title">Panel Admin</div>
                 {adminNav.map(item => (
                   <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                     <span className="nav-icon">{item.icon}</span>
@@ -159,7 +167,7 @@ export default function Layout({ children }) {
                 ))}
               </div>
               <div className="nav-section">
-                <div className="nav-section-title">Gate Access</div>
+                <div className="nav-section-title">Akses Pintu</div>
                 {gateNav.map(item => (
                   <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                     <span className="nav-icon">{item.icon}</span>
@@ -172,10 +180,10 @@ export default function Layout({ children }) {
 
           {user?.role === 'gate_front' && (
             <div className="nav-section">
-              <div className="nav-section-title">Scanner</div>
+              <div className="nav-section-title">Pemindai</div>
               <Link to="/gate/scan" className={`nav-item ${isActive('/gate/scan') ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                 <span className="nav-icon"><Camera size={18} /></span>
-                Scan QR Code
+                Pindai Kode QR
               </Link>
             </div>
           )}
@@ -185,14 +193,14 @@ export default function Layout({ children }) {
               <div className="nav-section-title">Monitor</div>
               <Link to="/gate/monitor" className={`nav-item ${isActive('/gate/monitor') ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                 <span className="nav-icon"><MonitorSmartphone size={18} /></span>
-                Live Monitor
+                Pantau Langsung
               </Link>
             </div>
           )}
 
           {user?.role === 'owner' && (
             <div className="nav-section">
-              <div className="nav-section-title">Owner Console</div>
+              <div className="nav-section-title">Panel Owner</div>
               {ownerNav.map(item => (
                 <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                   <span className="nav-icon">{item.icon}</span>
@@ -210,7 +218,7 @@ export default function Layout({ children }) {
             </div>
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{user?.name}</div>
-              <div className="sidebar-user-role">{user?.role?.replace('_', ' ')}</div>
+              <div className="sidebar-user-role">{roleLabel[user?.role] || 'Pengguna'}</div>
             </div>
           </div>
         </div>
@@ -238,13 +246,13 @@ export default function Layout({ children }) {
                   value={activeEventId}
                   onChange={(e) => handleEventChange(e.target.value)}
                   style={{ width: isMobile ? 130 : 180, height: 34, fontSize: '0.8rem' }}
-                  title="Pilih project aktif"
+                  title="Pilih acara aktif"
                 >
                   {events.map(ev => (
                     <option key={ev.id} value={ev.id}>{ev.name}</option>
                   ))}
                 </select>
-                <button className="header-btn" onClick={handleCreateEvent} title="Tambah event" style={{ borderColor: 'var(--border-color)' }}>
+                <button className="header-btn" onClick={handleCreateEvent} title="Tambah acara" style={{ borderColor: 'var(--border-color)' }}>
                   <Plus size={16} />
                 </button>
               </>
@@ -260,11 +268,11 @@ export default function Layout({ children }) {
                   onBlur={handleDaySubmit}
                   className="form-input"
                   style={{ width: isMobile ? 64 : 78, height: 34, padding: '6px 10px', fontWeight: 700 }}
-                  title="Isi hari aktif event (custom)"
+                  title="Isi hari aktif acara"
                 />
               </form>
             )}
-            <button className="header-btn danger" onClick={handleLogout} title="Logout">
+            <button className="header-btn danger" onClick={handleLogout} title="Keluar">
               <LogOut size={16} />
             </button>
           </div>

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { ShieldCheck } from 'lucide-react'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -10,6 +9,21 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  const getFriendlyLoginError = (message) => {
+    const text = String(message || '').toLowerCase()
+    if (!text) return 'Login gagal. Silakan coba lagi.'
+    if (text.includes('invalid credentials') || text.includes('kredensial tidak cocok')) {
+      return 'Nama pengguna atau kata sandi tidak sesuai.'
+    }
+    if (text.includes('too many requests')) {
+      return 'Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.'
+    }
+    if (text.includes('firebase')) {
+      return 'Sistem login sedang bermasalah. Silakan coba lagi beberapa saat.'
+    }
+    return message
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -25,7 +39,7 @@ export default function Login() {
       else if (role === 'gate_front') navigate('/gate/scan')
       else if (role === 'gate_back') navigate('/gate/monitor')
     } else {
-      setError(result.error)
+      setError(getFriendlyLoginError(result.error))
     }
     setLoading(false)
   }
@@ -40,24 +54,26 @@ export default function Login() {
 
       {/* Login Card */}
       <div className="login-card">
-        <div className="logo-3ons login-logo">
-          <span className="l3">3</span>
-          <span className="lo">o</span>
-          <span className="lN">N</span>
-          <span className="ls">s</span>
-          <span className="digital-tag">Digital</span>
+        <div className="login-brand">
+          <div className="logo-3ons login-logo">
+            <span className="l3">3</span>
+            <span className="lo">o</span>
+            <span className="lN">N</span>
+            <span className="ls">s</span>
+          </div>
+          <div className="login-brand-subtitle">Digital</div>
         </div>
-        <h1 className="login-title">Masuk Aplikasi</h1>
-        <p className="login-subtitle">Silakan masukkan kredensial Anda</p>
+        <h1 className="login-title">Selamat Datang</h1>
+        <p className="login-subtitle">Silakan masuk untuk melanjutkan pengelolaan acara dan data peserta.</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label">Nama Pengguna</label>
             <input
               id="login-username"
               type="text"
               className="form-input"
-              placeholder="Masukkan username"
+              placeholder="Contoh: admin, owner, atau email"
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
@@ -66,12 +82,12 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label">Kata sandi</label>
             <input
               id="login-password"
               type="password"
               className="form-input"
-              placeholder="Masukkan password"
+              placeholder="Masukkan kata sandi"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
@@ -93,23 +109,21 @@ export default function Login() {
             {loading ? (
               <>
                 <span className="spinner login-spinner"></span>
-                Memproses...
+                Sedang memverifikasi...
               </>
             ) : 'Masuk'}
           </button>
         </form>
 
-        {/* Demo Credentials */}
         <div className="login-demo-card">
-          <div className="login-demo-title">
-            <ShieldCheck size={14} className="login-demo-title-icon" /> Demo Credentials
-          </div>
-          <div className="login-demo-grid">
-            <div><strong className="login-demo-admin">Owner:</strong> owner / owner123</div>
-            <div><strong className="login-demo-admin">Admin:</strong> admin / admin123</div>
-            <div><strong className="login-demo-front">Gate Depan:</strong> gate1 / gate123</div>
-            <div><strong className="login-demo-back">Gate Belakang:</strong> gate2 / gate123</div>
-          </div>
+          <div className="login-demo-title">Informasi Akses</div>
+          <p className="login-demo-text">
+            Jika belum memiliki akun, silakan hubungi pemilik aplikasi 3oNs Digital melalui WhatsApp
+            untuk permintaan akun dan pengaturan akses.
+          </p>
+          <p className="login-demo-text login-demo-text-muted">
+            Akses akun akan disesuaikan dengan kebutuhan peran Anda di sistem.
+          </p>
         </div>
       </div>
     </div>

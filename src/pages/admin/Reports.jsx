@@ -141,10 +141,10 @@ export default function Reports() {
       })
 
       doc.save(`Laporan_Kehadiran_Hari_${dayFilter}.pdf`)
-      toast.success('PDF Exported', 'Laporan kehadiran berhasil didownload')
+      toast.success('Unduhan Berhasil', 'Laporan kehadiran berhasil diunduh')
     } catch (err) {
       console.error(err)
-      toast.error('Error', 'Gagal export PDF')
+      toast.error('Terjadi Kendala', 'Gagal mengunduh PDF laporan')
     }
   }
 
@@ -161,15 +161,15 @@ export default function Reports() {
       doc.setFont(undefined, 'normal')
       doc.text(`Digenerate: ${new Date().toLocaleString('id-ID')}`, 105, 26, { align: 'center' })
 
-      const actorLabel = auditActorFilter === 'all' ? 'Semua Actor' : auditActorFilter
+      const actorLabel = auditActorFilter === 'all' ? 'Semua Pengguna' : auditActorFilter
       const rangeLabel = `${auditDateFrom || '-'} s/d ${auditDateTo || '-'}`
-      doc.text(`Filter Actor: ${actorLabel}`, 14, 36)
+      doc.text(`Filter Pengguna: ${actorLabel}`, 14, 36)
       doc.text(`Filter Tanggal: ${rangeLabel}`, 14, 43)
       doc.text(`Total Data: ${filteredAdminLogs.length}`, 14, 50)
 
       autoTable(doc, {
         startY: 56,
-        head: [['No', 'Waktu', 'Actor', 'Severity', 'Aksi', 'Deskripsi']],
+        head: [['No', 'Waktu', 'Pengguna', 'Tingkat Risiko', 'Aksi', 'Deskripsi']],
         body: filteredAdminLogs.map((log, i) => [
           i + 1,
           new Date(log.timestamp).toLocaleString('id-ID'),
@@ -184,10 +184,10 @@ export default function Reports() {
       })
 
       doc.save('Audit_Log_Admin.pdf')
-      toast.success('PDF Exported', 'Audit log admin berhasil didownload')
+      toast.success('Unduhan Berhasil', 'Audit admin berhasil diunduh')
     } catch (err) {
       console.error(err)
-      toast.error('Error', 'Gagal export PDF audit')
+      toast.error('Terjadi Kendala', 'Gagal mengunduh PDF audit')
     }
   }
 
@@ -319,35 +319,35 @@ export default function Reports() {
           <button className="m-report-btn" onClick={exportPDF}>
             <div className="m-report-icon red"><FileText size={22} /></div>
             <div className="m-report-content">
-              <div className="m-report-title">Export PDF</div>
+              <div className="m-report-title">Unduh PDF</div>
               <div className="m-report-desc">Laporan lengkap untuk presentasi</div>
             </div>
           </button>
-          <button className="m-report-btn" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Exported!', 'File Excel berhasil didownload') }}>
+          <button className="m-report-btn" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Unduhan Berhasil', 'File Excel berhasil diunduh') }}>
             <div className="m-report-icon green"><FileSpreadsheet size={22} /></div>
             <div className="m-report-content">
-              <div className="m-report-title">Export Excel</div>
+              <div className="m-report-title">Unduh Excel</div>
               <div className="m-report-desc">Data peserta format spreadsheet</div>
             </div>
           </button>
-          <button className="m-report-btn" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Exported!', 'Log check-in berhasil didownload') }}>
+          <button className="m-report-btn" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh') }}>
             <div className="m-report-icon blue"><ClipboardList size={22} /></div>
             <div className="m-report-content">
-              <div className="m-report-title">Export Log Check-in</div>
+              <div className="m-report-title">Unduh Riwayat Kehadiran</div>
               <div className="m-report-desc">Riwayat scan dengan timestamp</div>
             </div>
           </button>
-          <button className="m-report-btn" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Exported!', 'Audit log admin berhasil didownload') }}>
+          <button className="m-report-btn" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Unduhan Berhasil', 'Audit admin berhasil diunduh') }}>
             <div className="m-report-icon yellow"><ShieldAlert size={22} /></div>
             <div className="m-report-content">
-              <div className="m-report-title">Export Audit Admin</div>
+              <div className="m-report-title">Unduh Audit Admin</div>
               <div className="m-report-desc">Riwayat aktivitas admin</div>
             </div>
           </button>
           <button className="m-report-btn" onClick={exportAuditPDF}>
             <div className="m-report-icon red"><FileText size={22} /></div>
             <div className="m-report-content">
-              <div className="m-report-title">Export Audit PDF</div>
+              <div className="m-report-title">Unduh Audit PDF</div>
               <div className="m-report-desc">Lampiran resmi aktivitas admin</div>
             </div>
           </button>
@@ -392,11 +392,11 @@ export default function Reports() {
         {/* Mobile Activity Feed */}
         <div className="m-section">
           <div className="m-section-header">
-            <span className="m-section-title">Riwayat Check-in</span>
+            <span className="m-section-title">Riwayat Kehadiran</span>
             <span className="badge badge-green badge-xs">{logs.length}</span>
           </div>
           {logs.length === 0 ? (
-            <div className="m-empty"><span><ClipboardList size={28} /></span><p>Belum ada check-in</p></div>
+            <div className="m-empty"><span><ClipboardList size={28} /></span><p>Belum ada data kehadiran</p></div>
           ) : (
             <div className="m-activity-list">
               {logs.slice(0, 20).map(log => (
@@ -426,15 +426,15 @@ export default function Reports() {
           <div className="m-audit-filter-grid">
             <div className="m-audit-search-wrap">
               <Search size={14} className="m-audit-search-icon" />
-              <input className="form-input" type="text" placeholder="Cari aksi, actor, atau deskripsi..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} />
+              <input className="form-input" type="text" placeholder="Cari aksi, pengguna, atau deskripsi..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} />
             </div>
             <select className="m-filter-select" value={auditActorFilter} onChange={e => setAuditActorFilter(e.target.value)}>
-              <option value="all">Semua Actor</option>
+              <option value="all">Semua Pengguna</option>
               {auditActorOptions.map(actor => <option key={actor} value={actor}>{actor}</option>)}
             </select>
             <input className="form-input" type="date" value={auditDateFrom} onChange={e => setAuditDateFrom(e.target.value)} />
             <input className="form-input" type="date" value={auditDateTo} onChange={e => setAuditDateTo(e.target.value)} />
-            <button className="btn btn-secondary btn-sm" onClick={() => { setAuditActorFilter('all'); setAuditDateFrom(''); setAuditDateTo(''); setAuditSearch('') }}>Reset Filter</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setAuditActorFilter('all'); setAuditDateFrom(''); setAuditDateTo(''); setAuditSearch('') }}>Atur Ulang Filter</button>
           </div>
           {filteredAdminLogs.length === 0 ? (
             <div className="m-empty"><span><ShieldAlert size={28} /></span><p>Belum ada aktivitas admin</p></div>
@@ -469,17 +469,17 @@ export default function Reports() {
       <div className="page-header admin-toolbar">
         <div>
           <h1>Laporan Kehadiran</h1>
-          <p>Analisis data check-in platform event</p>
+          <p>Analisis data kehadiran acara</p>
         </div>
         <div className="admin-actions-wrap">
           <select className="form-select admin-select-auto" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
-          <button className="btn btn-primary" onClick={exportPDF}><FileText size={14} /> Export PDF</button>
-          <button className="btn btn-secondary" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Excel Exported', 'Data peserta berhasil didownload (.xlsx)') }}><FileSpreadsheet size={14} /> Export Excel</button>
-          <button className="btn btn-secondary" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Log Exported', 'Log check-in berhasil didownload (.xlsx)') }}><ClipboardList size={14} /> Export Log</button>
-          <button className="btn btn-secondary" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Audit Exported', 'Audit log admin berhasil didownload (.xlsx)') }}><ShieldAlert size={14} /> Export Audit</button>
-          <button className="btn btn-secondary" onClick={exportAuditPDF}><FileText size={14} /> Export Audit PDF</button>
+          <button className="btn btn-primary" onClick={exportPDF}><FileText size={14} /> Unduh PDF</button>
+          <button className="btn btn-secondary" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Unduhan Berhasil', 'Data peserta berhasil diunduh (.xlsx)') }}><FileSpreadsheet size={14} /> Unduh Excel</button>
+          <button className="btn btn-secondary" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh (.xlsx)') }}><ClipboardList size={14} /> Unduh Riwayat</button>
+          <button className="btn btn-secondary" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Unduhan Berhasil', 'Audit admin berhasil diunduh (.xlsx)') }}><ShieldAlert size={14} /> Unduh Audit</button>
+          <button className="btn btn-secondary" onClick={exportAuditPDF}><FileText size={14} /> Unduh Audit PDF</button>
         </div>
       </div>
 
@@ -497,7 +497,7 @@ export default function Reports() {
 
       <div className="card mb-24">
         <div className="card-header">
-          <h3 className="card-title inline-title-icon"><Activity size={18} /> Puncak Kedatangan Peserta (Peak Hours)</h3>
+          <h3 className="card-title inline-title-icon"><Activity size={18} /> Puncak Kedatangan Peserta</h3>
         </div>
         <div className="peak-chart-wrap">
           {peakData.length > 0 ? (
@@ -531,7 +531,7 @@ export default function Reports() {
       </div>
 
       <div className="card">
-        <div className="card-header"><h3 className="card-title">Timeline Check-in</h3><span className="badge badge-green">{logs.length} entries</span></div>
+        <div className="card-header"><h3 className="card-title">Riwayat Kehadiran</h3><span className="badge badge-green">{logs.length} data</span></div>
         {logs.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon"><ClipboardList size={40} /></div><h3>Belum ada data</h3><p>Data akan muncul setelah peserta melakukan check-in</p></div>
         ) : (
@@ -540,7 +540,7 @@ export default function Reports() {
               <div key={log.id} className="activity-item">
                 <div className="activity-dot green"></div>
                 <div className="flex-1">
-                  <div className="activity-text"><strong>{log.participant_name}</strong> check-in <span className="badge badge-gray ml-8">{log.participant_category}</span></div>
+                  <div className="activity-text"><strong>{log.participant_name}</strong> hadir <span className="badge badge-gray ml-8">{log.participant_category}</span></div>
                   <div className="activity-time">{new Date(log.timestamp).toLocaleString('id-ID')}</div>
                 </div>
                 <code className="code-muted-sm">{log.participant_ticket}</code>
@@ -552,21 +552,21 @@ export default function Reports() {
 
       <div className="card mt-16">
         <div className="card-header admin-toolbar">
-          <h3 className="card-title inline-title-icon"><ShieldAlert size={18} /> Audit Log Admin</h3>
-          <span className="badge badge-yellow">{filteredAdminLogs.length} entries</span>
+          <h3 className="card-title inline-title-icon"><ShieldAlert size={18} /> Log Audit Admin</h3>
+          <span className="badge badge-yellow">{filteredAdminLogs.length} data</span>
         </div>
         <div className="admin-filters">
           <div className="admin-search-wrap">
             <Search size={14} className="admin-search-icon" />
-            <input className="form-input" type="text" value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Cari aksi, actor, deskripsi" />
+            <input className="form-input" type="text" value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="Cari aksi, pengguna, deskripsi" />
           </div>
           <select className="form-select admin-select-auto" value={auditActorFilter} onChange={e => setAuditActorFilter(e.target.value)}>
-            <option value="all">Semua Actor</option>
+            <option value="all">Semua Pengguna</option>
             {auditActorOptions.map(actor => <option key={actor} value={actor}>{actor}</option>)}
           </select>
           <input className="form-input admin-date-input" type="date" value={auditDateFrom} onChange={e => setAuditDateFrom(e.target.value)} />
           <input className="form-input admin-date-input" type="date" value={auditDateTo} onChange={e => setAuditDateTo(e.target.value)} />
-          <button className="btn btn-ghost btn-sm" onClick={() => { setAuditActorFilter('all'); setAuditDateFrom(''); setAuditDateTo(''); setAuditSearch('') }}>Reset Filter</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setAuditActorFilter('all'); setAuditDateFrom(''); setAuditDateTo(''); setAuditSearch('') }}>Atur Ulang Filter</button>
         </div>
         {filteredAdminLogs.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon"><ShieldAlert size={40} /></div><h3>Belum ada aktivitas admin</h3><p>Aktivitas admin akan tercatat otomatis di sini</p></div>
