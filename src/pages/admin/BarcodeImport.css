@@ -110,6 +110,41 @@
   margin-top: 8px;
 }
 
+.advanced-toggle {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px dashed #b8c7d1;
+  background: #f7fafc;
+  color: #445566;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.advanced-box {
+  background: #f8fafc;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.status-box {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.status-info {
+  background: #eef6ff;
+  border: 1px solid #b9d9ff;
+  color: #1f4f82;
+}
+
 /* ===== BUTTONS ===== */
 .btn-primary,
 .btn-secondary {
