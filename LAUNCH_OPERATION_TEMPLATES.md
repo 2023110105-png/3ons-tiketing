@@ -3,6 +3,7 @@
 Dokumen ini berisi 3 template siap pakai untuk minggu pertama setelah go-live.
 
 Versi ringkas untuk briefing lapangan tersedia di [LAUNCH_BRIEFING_ONE_PAGE.md](LAUNCH_BRIEFING_ONE_PAGE.md).
+Runbook gate siap print tersedia di [LAUNCH_GATE_RUNBOOK_ONE_PAGE.md](LAUNCH_GATE_RUNBOOK_ONE_PAGE.md).
 
 ## 1) SOP Gangguan 15 Menit
 
