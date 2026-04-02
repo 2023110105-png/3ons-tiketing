@@ -3546,15 +3546,17 @@ input, select, textarea, button {
 .qr-preview-card {
   background: white;
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 16px;
   text-align: center;
-  width: 220px;
+  width: min(100%, 420px);
 }
 
 .qr-preview-card canvas,
 .qr-preview-card img {
   display: block;
   margin: 0 auto;
+  width: 100%;
+  height: auto;
 }
 
 .qr-preview-name {
@@ -4351,14 +4353,18 @@ input, select, textarea, button {
 }
 
 .qr-preview-card-sm {
-  padding: 20px;
+  padding: 12px;
   margin: 0 auto 12px;
   display: inline-block;
+  width: min(100%, 340px);
 }
 
 .qr-image-sm {
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  aspect-ratio: 5 / 3;
+  object-fit: contain;
 }
 
 .qr-modal-name {
@@ -4466,8 +4472,10 @@ input, select, textarea, button {
 }
 
 .qr-image-lg {
-  width: 250px;
-  height: 250px;
+  width: min(100%, 420px);
+  height: auto;
+  aspect-ratio: 5 / 3;
+  object-fit: contain;
 }
 
 .qr-preview-title {

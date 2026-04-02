@@ -6,10 +6,10 @@ import { FileDown, Download, QrCode, Share2, MessageCircle, X } from 'lucide-rea
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 
 const CATEGORY_STYLES = {
-  VIP: { accent: '#c62828', soft: '#fdecea', label: 'VIP' },
-  Dealer: { accent: '#1565c0', soft: '#e8f1ff', label: 'DEALER' },
-  Media: { accent: '#f9a825', soft: '#fff8e1', label: 'MEDIA' },
-  Regular: { accent: '#2e7d32', soft: '#eaf7ee', label: 'REGULAR' }
+  VIP: { accent: '#b91c1c', soft: '#fdecea', dark: '#7f1d1d', label: 'VIP' },
+  Dealer: { accent: '#1d4ed8', soft: '#e8f1ff', dark: '#1e3a8a', label: 'DEALER' },
+  Media: { accent: '#ca8a04', soft: '#fff8e1', dark: '#854d0e', label: 'MEDIA' },
+  Regular: { accent: '#15803d', soft: '#eaf7ee', dark: '#14532d', label: 'REGULAR' }
 }
 
 function loadImage(src) {
@@ -69,21 +69,47 @@ export default function QRGenerate() {
     canvas.height = height
     const ctx = canvas.getContext('2d')
 
+    const drawClampText = (text, x, y, maxWidth) => {
+      const value = String(text || '')
+      if (ctx.measureText(value).width <= maxWidth) {
+        ctx.fillText(value, x, y)
+        return
+      }
+
+      let clipped = value
+      while (clipped.length > 0 && ctx.measureText(`${clipped}...`).width > maxWidth) {
+        clipped = clipped.slice(0, -1)
+      }
+      ctx.fillText(`${clipped}...`, x, y)
+    }
+
     // Background
     const bg = ctx.createLinearGradient(0, 0, width, height)
-    bg.addColorStop(0, '#fffdf8')
-    bg.addColorStop(1, '#f6f9ff')
+    bg.addColorStop(0, '#fffefb')
+    bg.addColorStop(1, '#f8fbff')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, width, height)
 
-    // Outer border
+    // Outer border + safe print area
     ctx.strokeStyle = '#d8dce7'
-    ctx.lineWidth = 4
+    ctx.lineWidth = 3
     ctx.strokeRect(12, 12, width - 24, height - 24)
+    ctx.strokeStyle = '#eef2f7'
+    ctx.lineWidth = 1
+    ctx.strokeRect(24, 24, width - 48, height - 48)
 
     // Accent top strip
     ctx.fillStyle = style.accent
-    ctx.fillRect(12, 12, width - 24, 18)
+    ctx.fillRect(12, 12, width - 24, 20)
+
+    // Decorative right ribbon
+    ctx.fillStyle = `${style.accent}20`
+    ctx.beginPath()
+    ctx.moveTo(width - 190, 32)
+    ctx.lineTo(width - 24, 32)
+    ctx.lineTo(width - 24, 98)
+    ctx.closePath()
+    ctx.fill()
 
     // Left info panel
     ctx.fillStyle = '#ffffff'
@@ -104,43 +130,65 @@ export default function QRGenerate() {
 
     // Header texts
     ctx.fillStyle = '#0f172a'
-    ctx.font = '700 42px "Arial"'
-    ctx.fillText('E-TICKET', 64, 118)
+    ctx.font = '800 44px "Arial"'
+    ctx.fillText('E-TICKET', 64, 114)
 
     ctx.fillStyle = '#475569'
-    ctx.font = '600 22px "Arial"'
-    ctx.fillText('3oNs Digital Event Pass', 64, 150)
+    ctx.font = '600 21px "Arial"'
+    ctx.fillText('3oNs Digital Event Pass', 64, 146)
+
+    // Header identifier
+    ctx.fillStyle = '#64748b'
+    ctx.font = '700 13px "Arial"'
+    ctx.fillText('ADMIT ONE', 64, 166)
 
     // Category badge
     ctx.fillStyle = style.soft
-    ctx.fillRect(64, 176, 190, 44)
+    ctx.fillRect(64, 184, 198, 44)
     ctx.strokeStyle = style.accent
     ctx.lineWidth = 2
-    ctx.strokeRect(64, 176, 190, 44)
-    ctx.fillStyle = style.accent
-    ctx.font = '700 20px "Arial"'
-    ctx.fillText(style.label, 86, 205)
+    ctx.strokeRect(64, 184, 198, 44)
+    ctx.fillStyle = style.dark
+    ctx.font = '800 20px "Arial"'
+    ctx.fillText(style.label, 84, 214)
 
     // Participant details
     ctx.fillStyle = '#0f172a'
     ctx.font = '700 30px "Arial"'
-    const safeName = String(participant.name || '-').slice(0, 28)
-    ctx.fillText(safeName, 64, 270)
+    drawClampText(participant.name || '-', 64, 276, width - qrSize - 170)
 
-    ctx.fillStyle = '#334155'
-    ctx.font = '600 20px "Arial"'
-    ctx.fillText(`ID Tiket : ${participant.ticket_id}`, 64, 318)
-    ctx.fillText(`Hari      : ${participant.day_number}`, 64, 352)
-
-    // Footer note
     ctx.fillStyle = '#64748b'
-    ctx.font = '500 17px "Arial"'
-    ctx.fillText('Tunjukkan tiket ini saat registrasi. Simpan baik-baik dan jangan dibagikan.', 64, 426)
+    ctx.font = '700 14px "Arial"'
+    ctx.fillText('ID TIKET', 64, 316)
+    ctx.fillText('HARI', 64, 358)
+    ctx.fillText('KATEGORI', 64, 400)
+
+    ctx.fillStyle = '#1e293b'
+    ctx.font = '700 24px "Arial"'
+    ctx.fillText(participant.ticket_id, 64, 340)
+    ctx.fillText(String(participant.day_number), 64, 382)
+    ctx.fillText(style.label, 64, 424)
+
+    // Divider before notes
+    ctx.strokeStyle = '#e2e8f0'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(64, 442)
+    ctx.lineTo(width - qrSize - 84, 442)
+    ctx.stroke()
+
+    // Footer notes
+    ctx.fillStyle = '#334155'
+    ctx.font = '700 14px "Arial"'
+    ctx.fillText('Valid untuk 1 orang. Dilarang duplikasi tiket.', 64, 468)
+    ctx.fillStyle = '#64748b'
+    ctx.font = '600 13px "Arial"'
+    ctx.fillText('Tunjukkan tiket ini saat registrasi di pintu masuk.', 64, 490)
 
     // Scan note
-    ctx.fillStyle = '#475569'
-    ctx.font = '600 16px "Arial"'
-    ctx.fillText('Scan QR di pintu masuk', qrX + 44, qrY + qrSize + 42)
+    ctx.fillStyle = '#1e293b'
+    ctx.font = '700 16px "Arial"'
+    ctx.fillText('Scan QR di pintu masuk', qrX + 40, qrY + qrSize + 42)
 
     return canvas.toDataURL('image/png', 1)
   }
