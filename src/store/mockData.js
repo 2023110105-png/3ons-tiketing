@@ -2,6 +2,13 @@
 // Replace with real Supabase client when ready
 
 import { apiFetch } from '../utils/api'
+import {
+  syncAuditLog,
+  syncCheckInLog,
+  syncParticipantDelete,
+  syncParticipantUpsert,
+  syncTenantUpsert
+} from '../lib/firebaseSync'
 
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
@@ -246,6 +253,7 @@ export function createTenant(data, actor = 'system') {
   ensureTenantStore(tenant.id, tenant.eventName || 'Event 1', false)
   saveStore()
   saveTenantRegistry()
+  void syncTenantUpsert(tenant)
 
   logAdminAction('tenant_create', `Membuat tenant ${brandName}`, actor, {
     tenant_id: tenant.id
@@ -272,6 +280,7 @@ export function setTenantStatus(tenantId, nextStatus, actor = 'system') {
   saveStore()
   saveTenantRegistry()
   dispatchTenantChangeEvent()
+  void syncTenantUpsert(tenant)
 
   logAdminAction('tenant_status_update', `Ubah status tenant ${tenant.brandName} menjadi ${normalizedStatus}`, actor, {
     tenant_id: tenant.id,
@@ -1238,6 +1247,7 @@ export function setCurrentEvent(eventId, actor = 'system') {
 
 export function logAdminAction(action, description, actor = 'system', meta = null) {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const log = {
     id: generateId(),
     action,
@@ -1248,6 +1258,7 @@ export function logAdminAction(action, description, actor = 'system', meta = nul
   }
   ev.adminLogs.push(log)
   saveStore()
+  void syncAuditLog({ tenantId: tenant.id, eventId: ev.id, log })
   return log
 }
 
@@ -1455,6 +1466,7 @@ export function addParticipant(data) {
   }
   ev.participants.push(participant)
   saveStore()
+  void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
 
   logAdminAction('participant_add', `Tambah peserta ${participant.name} (${participant.ticket_id})`, data.actor, {
     participant_id: participant.id,
@@ -1492,9 +1504,14 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
   }
 
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const participant = ev.participants.find(p => p.id === id)
   ev.participants = ev.participants.filter(p => p.id !== id)
   saveStore()
+
+  if (participant) {
+    void syncParticipantDelete({ tenantId: tenant.id, eventId: ev.id, participantId: participant.id })
+  }
 
   if (participant) {
     const cleanReason = normalizeReason(reason)
@@ -1514,6 +1531,7 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
 
 export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const participant = ev.participants.find(p => p.id === participantId)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
@@ -1554,6 +1572,8 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   }
   ev.checkInLogs.push(log)
   saveStore()
+  void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
+  void syncCheckInLog({ tenantId: tenant.id, eventId: ev.id, log })
 
   notifyListeners({ type: 'check_in', participant, log })
 
@@ -1675,6 +1695,8 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
   }
   ev.checkInLogs.push(log)
   saveStore()
+  void syncParticipantUpsert({ tenantId: activeTenant.id, eventId: ev.id, participant })
+  void syncCheckInLog({ tenantId: activeTenant.id, eventId: ev.id, log })
 
   notifyListeners({ type: 'check_in', participant, log })
 
