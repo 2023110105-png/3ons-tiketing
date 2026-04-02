@@ -3,6 +3,7 @@ import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searc
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
+import { apiFetch } from '../../utils/api'
 
 export default function FrontGate() {
   const currentDay = getCurrentDay()
@@ -64,7 +65,45 @@ export default function FrontGate() {
     setIsSyncing(false)
   }, [isSyncing, refreshPendingState, refreshStats])
 
-  const handleScan = useCallback((qrData) => {
+  const verifyScanWithServer = useCallback(async (qrData) => {
+    let parsed
+    try {
+      parsed = JSON.parse(String(qrData || ''))
+    } catch {
+      return { valid: false, reason: 'invalid_payload', enforced: true }
+    }
+
+    const matched = getParticipants().find(p => p.ticket_id === parsed?.tid)
+
+    try {
+      const response = await apiFetch('/api/ticket/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qr_data: qrData,
+          tenant_id: parsed?.t,
+          secure_code: matched?.secure_code || '',
+          secure_ref: matched?.secure_ref || ''
+        })
+      })
+
+      if (!response.ok) {
+        return { valid: false, reason: 'verify_http_error', enforced: false }
+      }
+
+      const data = await response.json()
+      return {
+        valid: !!data.valid,
+        reason: data.reason || 'unknown',
+        mode: data.mode || 'unknown',
+        enforced: true
+      }
+    } catch {
+      return { valid: false, reason: 'verify_unreachable', enforced: false }
+    }
+  }, [])
+
+  const handleScan = useCallback(async (qrData) => {
     const now = Date.now()
     if (lastScanRef.current.data === qrData && now - lastScanRef.current.time < 3000) {
       return // Abaikan jika QR yang sama discan dalam waktu < 3 detik
@@ -80,6 +119,18 @@ export default function FrontGate() {
         message: `Offline: scan disimpan ke antrean (${getPendingCheckIns().length} pending)`
       })
       playWarning()
+      setTimeout(() => setResult(null), 3000)
+      return
+    }
+
+    const verify = await verifyScanWithServer(qrData)
+    if (verify.enforced && !verify.valid) {
+      setResult({
+        success: false,
+        status: 'invalid_server',
+        message: `Server verify gagal (${verify.reason})`
+      })
+      playError()
       setTimeout(() => setResult(null), 3000)
       return
     }
@@ -102,7 +153,7 @@ export default function FrontGate() {
 
     refreshStats()
     setTimeout(() => setResult(null), 3000)
-  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshPendingState, refreshStats])
+  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshPendingState, refreshStats, verifyScanWithServer])
 
   const handleManualSubmit = (e) => {
     e.preventDefault()
@@ -243,6 +294,7 @@ export default function FrontGate() {
     if (result.status === 'queued_offline') return 'TERSIMPAN OFFLINE'
     if (result.status === 'synced') return 'SYNC BERHASIL'
     if (result.status === 'sync_partial') return 'SYNC SEBAGIAN'
+    if (result.status === 'invalid_server') return 'VERIFIKASI SERVER GAGAL'
     if (result.success) return 'CHECK-IN BERHASIL'
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
     if (result.status === 'wrong_day') return 'SALAH HARI'

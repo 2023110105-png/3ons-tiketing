@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const qrcode = require('qrcode');
+const crypto = require('crypto');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const nodemailer = require('nodemailer');
 
@@ -204,6 +205,34 @@ function formatPhoneWA(phone) {
     return `${cleaned}@c.us`; 
 }
 
+function buildLegacySignature({ tenantId, eventId, ticketId, dayNumber }) {
+    return Buffer.from(`${tenantId}|${eventId}|${ticketId}|${dayNumber}|event-2026`).toString('base64');
+}
+
+function buildSecureSignature({ tenantId, eventId, ticketId, dayNumber, secureCode, secureRef }) {
+    return Buffer.from(`${tenantId}|${eventId}|${ticketId}|${dayNumber}|${secureCode}|${secureRef}|event-secure-v3`).toString('base64');
+}
+
+function normalizeQRPayload(rawQr) {
+    let parsed;
+    try {
+        parsed = JSON.parse(String(rawQr || ''));
+    } catch {
+        return null;
+    }
+
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+        ticketId: String(parsed.tid || '').trim(),
+        tenantId: String(parsed.t || '').trim(),
+        eventId: String(parsed.e || '').trim(),
+        dayNumber: Number(parsed.d),
+        signature: String(parsed.sig || '').trim(),
+        secureRef: String(parsed.r || '').trim(),
+        version: Number(parsed.v || 1)
+    };
+}
+
 
 // ----- API ROUTES -----
 
@@ -363,6 +392,52 @@ app.post('/api/send-ticket', async (req, res) => {
     }
 
     res.json({ success: true, results, tenant_id: tenantId });
+});
+
+// 3. Verify ticket signature (server-side check)
+app.post('/api/ticket/verify', (req, res) => {
+    const qr = normalizeQRPayload(req?.body?.qr_data);
+    if (!qr || !qr.ticketId || !qr.tenantId || !qr.eventId || !qr.signature || !Number.isFinite(qr.dayNumber)) {
+        return res.status(400).json({ valid: false, reason: 'invalid_payload' });
+    }
+
+    const requestedTenant = normalizeTenantId(req?.body?.tenant_id || qr.tenantId);
+    if (requestedTenant !== qr.tenantId) {
+        return res.status(400).json({ valid: false, reason: 'tenant_mismatch' });
+    }
+
+    const secureCode = String(req?.body?.secure_code || '').trim();
+    const secureRef = String(req?.body?.secure_ref || '').trim();
+
+    // v3 secure mode: verify with hidden participant token sent by scanner app
+    if (qr.version >= 3 || qr.secureRef) {
+        if (!secureCode || !secureRef || secureRef !== qr.secureRef) {
+            return res.json({ valid: false, reason: 'missing_secure_token', mode: 'v3-secure' });
+        }
+
+        const expected = buildSecureSignature({
+            tenantId: qr.tenantId,
+            eventId: qr.eventId,
+            ticketId: qr.ticketId,
+            dayNumber: qr.dayNumber,
+            secureCode,
+            secureRef
+        });
+
+        const valid = expected === qr.signature;
+        return res.json({ valid, reason: valid ? 'ok' : 'invalid_signature', mode: 'v3-secure' });
+    }
+
+    // Legacy mode fallback for old tickets
+    const expectedLegacy = buildLegacySignature({
+        tenantId: qr.tenantId,
+        eventId: qr.eventId,
+        ticketId: qr.ticketId,
+        dayNumber: qr.dayNumber
+    });
+
+    const validLegacy = expectedLegacy === qr.signature;
+    return res.json({ valid: validLegacy, reason: validLegacy ? 'ok' : 'invalid_signature', mode: 'legacy-v2' });
 });
 
 // Start Server
