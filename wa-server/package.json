@@ -4,7 +4,8 @@
   "description": "3oNs Digital - Local API server for WhatsApp and Email automations",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "start:safe": "bash ../start-wa-safe.sh"
   },
   "dependencies": {
     "cors": "^2.8.5",
