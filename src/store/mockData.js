@@ -659,16 +659,44 @@ function buildTicketId(dayNumber, index, tenant = getActiveTenantState()) {
   return `${prefix}-D${dayNumber}-${String(index).padStart(3, '0')}`
 }
 
-function encodeQrPayload({ ticketId, name, dayNumber, tenantId, eventId }) {
-  const signature = btoa(`${tenantId}|${eventId}|${ticketId}|${dayNumber}|event-2026`)
+function generateRandomToken(size = 18) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < size; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
+function ensureParticipantSecurity(raw = {}) {
+  const secure_code = String(raw.secure_code || '').trim() || generateRandomToken(24)
+  const secure_ref = String(raw.secure_ref || '').trim() || generateRandomToken(14)
+  return { secure_code, secure_ref }
+}
+
+function buildQrSignature({ tenantId, eventId, ticketId, dayNumber, secureCode = '', secureRef = '' }) {
+  const payload = `${tenantId}|${eventId}|${ticketId}|${dayNumber}|${secureCode}|${secureRef}|event-secure-v3`
+  return btoa(payload)
+}
+
+function encodeQrPayload({ ticketId, name, dayNumber, tenantId, eventId, secureCode = '', secureRef = '' }) {
+  const signature = buildQrSignature({
+    tenantId,
+    eventId,
+    ticketId,
+    dayNumber,
+    secureCode,
+    secureRef
+  })
   return JSON.stringify({
     tid: ticketId,
     n: name,
     d: dayNumber,
     t: tenantId,
     e: eventId,
+    r: secureRef,
     sig: signature,
-    v: 2
+    v: 3
   })
 }
 
@@ -676,12 +704,15 @@ function normalizeStoredParticipant(raw, index = 0) {
   const dayNumber = normalizeParticipantDay(raw?.day_number, 1)
   const ticketId = String(raw?.ticket_id || '').trim() || `YMH-D${dayNumber}-${String(index + 1).padStart(3, '0')}`
   const name = normalizeParticipantName(raw?.name) || 'Peserta'
+  const security = ensureParticipantSecurity(raw)
 
   return {
     ...raw,
     id: raw?.id || generateId(),
     ticket_id: ticketId,
     name,
+    secure_code: security.secure_code,
+    secure_ref: security.secure_ref,
     phone: normalizeParticipantPhone(raw?.phone),
     email: normalizeParticipantEmail(raw?.email),
     category: normalizeParticipantCategory(raw?.category),
@@ -793,15 +824,26 @@ function generateMockParticipants(tenantId = DEFAULT_TENANT_ID, eventId = DEFAUL
 
   namesDay1.forEach((name, i) => {
     const ticketId = buildTicketId(1, i + 1, tenant)
+    const security = ensureParticipantSecurity({})
     participants.push({
       id: generateId(),
       ticket_id: ticketId,
       name,
+      secure_code: security.secure_code,
+      secure_ref: security.secure_ref,
       phone: `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       category: categories[Math.floor(Math.random() * categories.length)],
       day_number: 1,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: encodeQrPayload({ ticketId, name, dayNumber: 1, tenantId, eventId }),
+      qr_data: encodeQrPayload({
+        ticketId,
+        name,
+        dayNumber: 1,
+        tenantId,
+        eventId,
+        secureCode: security.secure_code,
+        secureRef: security.secure_ref
+      }),
       is_checked_in: false,
       checked_in_at: null,
       checked_in_by: null,
@@ -811,15 +853,26 @@ function generateMockParticipants(tenantId = DEFAULT_TENANT_ID, eventId = DEFAUL
 
   namesDay2.forEach((name, i) => {
     const ticketId = buildTicketId(2, i + 1, tenant)
+    const security = ensureParticipantSecurity({})
     participants.push({
       id: generateId(),
       ticket_id: ticketId,
       name,
+      secure_code: security.secure_code,
+      secure_ref: security.secure_ref,
       phone: `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       category: categories[Math.floor(Math.random() * categories.length)],
       day_number: 2,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: encodeQrPayload({ ticketId, name, dayNumber: 2, tenantId, eventId }),
+      qr_data: encodeQrPayload({
+        ticketId,
+        name,
+        dayNumber: 2,
+        tenantId,
+        eventId,
+        secureCode: security.secure_code,
+        secureRef: security.secure_ref
+      }),
       is_checked_in: false,
       checked_in_at: null,
       checked_in_by: null,
@@ -1620,10 +1673,13 @@ export function addParticipant(data) {
   const name = clean.name || 'Peserta'
   const dayCount = ev.participants.filter(p => p.day_number === clean.day_number).length
   const ticketId = buildTicketId(clean.day_number, dayCount + 1, tenant)
+  const security = ensureParticipantSecurity({})
   const participant = {
     id: generateId(),
     ticket_id: ticketId,
     name,
+    secure_code: security.secure_code,
+    secure_ref: security.secure_ref,
     phone: clean.phone,
     email: clean.email,
     category: clean.category,
@@ -1633,7 +1689,9 @@ export function addParticipant(data) {
       name,
       dayNumber: clean.day_number,
       tenantId: tenant.id,
-      eventId: ev.id
+      eventId: ev.id,
+      secureCode: security.secure_code,
+      secureRef: security.secure_ref
     }),
     is_checked_in: false,
     checked_in_at: null,
@@ -1830,9 +1888,30 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
   }
 
   if (parsed.sig) {
-    const expectedSig = btoa(`${activeTenant.id}|${ev.id}|${participant.ticket_id}|${participant.day_number}|event-2026`)
-    if (parsed.sig !== expectedSig) {
-      return { success: false, status: 'invalid', message: 'Signature barcode tidak valid' }
+    const hasSecureFields = !!participant.secure_code && !!participant.secure_ref
+
+    if (hasSecureFields) {
+      if (!parsed.r || parsed.r !== participant.secure_ref) {
+        return { success: false, status: 'invalid', message: 'Token barcode tidak cocok' }
+      }
+
+      const secureSignature = buildQrSignature({
+        tenantId: activeTenant.id,
+        eventId: ev.id,
+        ticketId: participant.ticket_id,
+        dayNumber: participant.day_number,
+        secureCode: participant.secure_code,
+        secureRef: participant.secure_ref
+      })
+
+      if (parsed.sig !== secureSignature) {
+        return { success: false, status: 'invalid', message: 'Signature barcode tidak valid' }
+      }
+    } else {
+      const legacySig = btoa(`${activeTenant.id}|${ev.id}|${participant.ticket_id}|${participant.day_number}|event-2026`)
+      if (parsed.sig !== legacySig) {
+        return { success: false, status: 'invalid', message: 'Signature barcode tidak valid' }
+      }
     }
   }
 
