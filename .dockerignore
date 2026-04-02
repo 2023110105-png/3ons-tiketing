@@ -1,0 +1,9 @@
+node_modules
+dist
+auth_data
+.git
+.github
+wa-server/node_modules
+wa-server/auth_data
+wa-server/.env
+wa-server/.env.*

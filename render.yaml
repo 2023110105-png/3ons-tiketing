@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: yamaha-scan-tiketing-wa-server
+    env: docker
+    plan: starter
+    autoDeploy: true
+    dockerfilePath: ./wa-server/Dockerfile
+    envVars:
+      - key: PORT
+        value: 3001
+    disk:
+      name: wa-auth-data
+      mountPath: /app/auth_data
+      sizeGB: 1

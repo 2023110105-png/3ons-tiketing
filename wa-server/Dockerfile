@@ -41,12 +41,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   xdg-utils \
   && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /app/wa-server
 
-COPY package*.json ./
+COPY wa-server/package*.json ./
 RUN npm install --omit=dev
 
-COPY . .
+COPY wa-server/ .
 
 EXPOSE 3001
 
