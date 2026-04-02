@@ -6,6 +6,7 @@ import { apiFetch, getApiBaseUrl } from '../../utils/api'
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
   const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [isRegeneratingQr, setIsRegeneratingQr] = useState(false)
   const [lastError, setLastError] = useState('')
   const toast = useToast()
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
@@ -64,6 +65,28 @@ export default function ConnectDevice() {
     }
   }
 
+  const handleRegenerateQr = async () => {
+    if (isRegeneratingQr || isDisconnecting) return
+    setIsRegeneratingQr(true)
+
+    try {
+      const res = await apiFetch('/api/wa/logout', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.error || `HTTP ${res.status}`)
+      }
+
+      setWaState({ status: 'qr', isReady: false, qrCode: null })
+      setLastError('')
+      toast.info('QR diperbarui', 'Silakan scan kode QR terbaru.')
+    } catch (err) {
+      toast.error('Gagal membuat QR baru', err?.message || 'Coba lagi beberapa detik.')
+    } finally {
+      setIsRegeneratingQr(false)
+    }
+  }
+
   return (
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
@@ -108,6 +131,19 @@ export default function ConnectDevice() {
 
         {/* Kolom Scanner layaknya Web WhatsApp */}
         <div className="card admin-qr-shell">
+          {!['offline', 'ready', 'qr'].includes(waState.status) && (
+            <div className="admin-center">
+              <div className="status-icon-danger"><RefreshCw size={64} className="animate-spin" /></div>
+              <h2>Menunggu Kode QR</h2>
+              <p className="status-note">Server sedang menyiapkan QR login WhatsApp. Jika terlalu lama, tekan tombol di bawah untuk memaksa refresh sesi.</p>
+              <p className="status-note"><b>Status:</b> {waState.status}</p>
+              <p className="status-note"><b>API Target:</b> {apiSource}</p>
+              <button onClick={handleRegenerateQr} className="btn btn-primary admin-full-btn" disabled={isRegeneratingQr || isDisconnecting}>
+                {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Generate Ulang QR'}
+              </button>
+            </div>
+          )}
+
           {waState.status === 'offline' && (
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
@@ -115,6 +151,9 @@ export default function ConnectDevice() {
               <p className="status-note">Sistem gagal mendeteksi server bot. Pastikan backend WhatsApp berjalan di URL yang diatur lewat <b>VITE_API_BASE_URL</b> atau, saat development lokal, lewat proxy Vite ke port 3001.</p>
               <p className="status-note"><b>API Target:</b> {apiSource}</p>
               {lastError && <p className="status-note"><b>Detail:</b> {lastError}</p>}
+              <button onClick={handleRegenerateQr} className="btn btn-primary admin-full-btn" disabled={isRegeneratingQr || isDisconnecting}>
+                {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Coba Sambungkan Lagi'}
+              </button>
             </div>
           )}
 
