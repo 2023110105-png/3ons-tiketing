@@ -21,6 +21,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [newUser, setNewUser] = useState({ 
     username: '', 
+    email: '',
     password: '', 
     name: '', 
     role: 'gate_front' 
@@ -48,7 +49,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
       toast.success('Sukses', `User ${newUser.username} berhasil dibuat`)
       setUsers(getTenantUsers(selectedTenantId))
       setShowAddModal(false)
-      setNewUser({ username: '', password: '', name: '', role: 'gate_front' })
+      setNewUser({ username: '', email: '', password: '', name: '', role: 'gate_front' })
     } else {
       toast.error('Gagal', result.error)
     }
@@ -150,6 +151,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
             <thead>
               <tr>
                 <th>Username</th>
+                <th>Email Firebase</th>
                 <th>Nama</th>
                 <th>Role</th>
                 <th>Status</th>
@@ -159,12 +161,13 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center p-32 text-muted">Belum ada user untuk tenant ini.</td>
+                  <td colSpan="6" className="text-center p-32 text-muted">Belum ada user untuk tenant ini.</td>
                 </tr>
               ) : (
                 filteredUsers.map(u => (
                   <tr key={u.id}>
                     <td><div className="font-bold">{u.username}</div></td>
+                    <td className="text-muted text-xs">{u.email || '-'}</td>
                     <td>{u.name}</td>
                     <td>
                       <span className={`badge ${
@@ -219,6 +222,17 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                     value={newUser.username}
                     onChange={e => setNewUser({...newUser, username: e.target.value})}
                     placeholder="Contoh: admin_acme" 
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="new-user-email" className="form-label">Email Firebase (opsional)</label>
+                  <input
+                    id="new-user-email"
+                    className="form-input"
+                    type="email"
+                    value={newUser.email}
+                    onChange={e => setNewUser({...newUser, email: e.target.value})}
+                    placeholder="contoh: admin.client@brand.com"
                   />
                 </div>
                 <div className="form-group">

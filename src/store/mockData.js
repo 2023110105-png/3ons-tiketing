@@ -4,6 +4,7 @@
 import { apiFetch } from '../utils/api'
 import {
   syncAuditLog,
+  fetchFirebaseWorkspaceSnapshot,
   syncCheckInLog,
   syncEventDelete,
   syncEventSnapshot,
@@ -40,6 +41,7 @@ const DEFAULT_TENANT = {
   status: 'active',
   expires_at: null,
   created_at: new Date().toISOString(),
+  activeEventId: DEFAULT_EVENT_ID,
   contract: {
     package: 'pro',
     start_at: new Date().toISOString(),
@@ -113,6 +115,7 @@ function normalizeSavedTenant(id, raw) {
     status: raw?.status === 'inactive' ? 'inactive' : 'active',
     expires_at: raw?.expires_at || null,
     created_at: raw?.created_at || new Date().toISOString(),
+    activeEventId: raw?.activeEventId || null,
     contract: raw?.contract || { package: 'starter', payment_status: 'unpaid' },
     quota: raw?.quota || { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
     users: asArray(raw?.users),
@@ -247,6 +250,7 @@ export function createTenant(data, actor = 'system') {
     status: 'active',
     expires_at: expiresAt,
     created_at: new Date().toISOString(),
+    activeEventId: null,
     contract: { package: 'starter', start_at: new Date().toISOString(), payment_status: 'unpaid', amount: 0 },
     quota: { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
     users: [],
@@ -256,6 +260,7 @@ export function createTenant(data, actor = 'system') {
 
   tenantRegistry.tenants[tenant.id] = tenant
   ensureTenantStore(tenant.id, tenant.eventName || 'Event 1', false)
+  tenant.activeEventId = store.tenants[tenant.id]?.activeEventId || null
   saveStore()
   saveTenantRegistry()
   void syncTenantUpsert(tenant)
@@ -281,6 +286,8 @@ export function setTenantStatus(tenantId, nextStatus, actor = 'system') {
     tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
     ensureTenantStore(DEFAULT_TENANT_ID, 'Event Platform 2026', true)
   }
+
+  tenant.activeEventId = store.tenants?.[tenant.id]?.activeEventId || tenant.activeEventId || null
 
   saveStore()
   saveTenantRegistry()
@@ -456,19 +463,26 @@ export function createTenantUser(tenantId, userData, actor = 'system') {
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   
   const username = String(userData?.username || '').trim().toLowerCase()
+  const email = normalizeParticipantEmail(userData?.email)
   if (!username) return { success: false, error: 'Username wajib diisi' }
   
   // Check global uniqueness (simulated)
   const allUsernames = Object.values(USERS).map(u => u.username)
     .concat(Object.values(tenantRegistry.tenants).flatMap(t => asArray(t.users).map(u => u.username)))
+  const allEmails = Object.values(USERS).map(u => normalizeParticipantEmail(u.email))
+    .concat(Object.values(tenantRegistry.tenants).flatMap(t => asArray(t.users).map(u => normalizeParticipantEmail(u.email))))
   
   if (allUsernames.includes(username)) {
     return { success: false, error: 'Username sudah digunakan' }
+  }
+  if (email && allEmails.includes(email)) {
+    return { success: false, error: 'Email sudah digunakan' }
   }
 
   const newUser = {
     id: generateId(),
     username,
+    email,
     password: userData.password || '123456',
     name: userData.name || username,
     role: userData.role || 'gate_front',
@@ -498,7 +512,11 @@ export function updateTenantUser(tenantId, userId, data, actor = 'system') {
   const user = asArray(tenant.users).find(u => u.id === userId)
   if (!user) return { success: false, error: 'User tidak ditemukan' }
   
-  Object.assign(user, data)
+  const nextData = { ...data }
+  if (Object.prototype.hasOwnProperty.call(nextData, 'email')) {
+    nextData.email = normalizeParticipantEmail(nextData.email)
+  }
+  Object.assign(user, nextData)
   saveTenantRegistry()
   void syncTenantUserUpsert({ tenantId, user })
   logOwnerAction('tenant_user_update', `Update user ${user.username} di tenant ${tenant.brandName}`, actor, {
@@ -971,6 +989,8 @@ function getStore() {
 
 let store = getStore()
 let realtimeListeners = []
+let firebaseBootstrapPromise = null
+let firebaseStoreReady = false
 
 function ensureTenantStore(tenantId, fallbackEventName = 'Event 1', withMockParticipants = false) {
   if (!store.tenants || typeof store.tenants !== 'object') {
@@ -990,6 +1010,83 @@ function saveStore() {
   saveStoreBackupSnapshot(previous)
   safeStorageSet(STORE_KEY, JSON.stringify(store))
   safeStorageRemove(LEGACY_STORE_KEY)
+}
+
+function persistHydratedState() {
+  safeStorageSet(TENANT_REGISTRY_KEY, JSON.stringify(tenantRegistry))
+  safeStorageSet(STORE_KEY, JSON.stringify(store))
+  safeStorageRemove(LEGACY_TENANT_REGISTRY_KEY)
+  safeStorageRemove(LEGACY_STORE_KEY)
+}
+
+function normalizeHydratedTenantRegistry(snapshot) {
+  if (!snapshot?.tenants || typeof snapshot.tenants !== 'object') {
+    return createDefaultTenantRegistry()
+  }
+
+  const normalizedTenants = {}
+  Object.keys(snapshot.tenants).forEach(id => {
+    normalizedTenants[id] = normalizeSavedTenant(id, snapshot.tenants[id])
+  })
+
+  if (!normalizedTenants[DEFAULT_TENANT_ID]) {
+    normalizedTenants[DEFAULT_TENANT_ID] = { ...DEFAULT_TENANT }
+  }
+
+  const activeTenantId = normalizedTenants[snapshot.activeTenantId]
+    ? snapshot.activeTenantId
+    : Object.keys(normalizedTenants)[0] || DEFAULT_TENANT_ID
+
+  return {
+    activeTenantId,
+    tenants: normalizedTenants
+  }
+}
+
+function normalizeHydratedStore(snapshot) {
+  if (!snapshot?.tenants || typeof snapshot.tenants !== 'object') {
+    return createDefaultStore()
+  }
+
+  const normalizedTenants = {}
+  Object.keys(snapshot.tenants).forEach(tenantId => {
+    const tenantMeta = tenantRegistry.tenants[tenantId]
+    const fallbackEventName = tenantMeta?.eventName || `Event ${tenantId.slice(0, 6)}`
+    normalizedTenants[tenantId] = normalizeTenantStoreBucket(snapshot.tenants[tenantId], fallbackEventName)
+  })
+
+  if (!normalizedTenants[DEFAULT_TENANT_ID]) {
+    normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', true)
+  }
+
+  return { tenants: normalizedTenants }
+}
+
+export async function bootstrapStoreFromFirebase(force = false) {
+  if (!isFirebaseEnabled) return false
+  if (firebaseStoreReady && !force) return true
+  if (firebaseBootstrapPromise && !force) return firebaseBootstrapPromise
+
+  firebaseBootstrapPromise = (async () => {
+    const snapshot = await fetchFirebaseWorkspaceSnapshot()
+    if (!snapshot?.tenantRegistry || !snapshot?.store) {
+      firebaseStoreReady = true
+      return false
+    }
+
+    tenantRegistry = normalizeHydratedTenantRegistry(snapshot.tenantRegistry)
+    store = normalizeHydratedStore(snapshot.store)
+    persistHydratedState()
+    firebaseStoreReady = true
+    return true
+  })().catch(err => {
+    console.error('[FirebaseBootstrap] hydrate failed:', err?.message || err)
+    return false
+  }).finally(() => {
+    firebaseBootstrapPromise = null
+  })
+
+  return firebaseBootstrapPromise
 }
 
 function getActiveEvent() {
@@ -1175,7 +1272,9 @@ export function createEvent(name, actor = 'system') {
   const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
   bucket.events[event.id] = event
   bucket.activeEventId = event.id
+  activeTenant.activeEventId = bucket.activeEventId
   saveStore()
+  void syncTenantUpsert(activeTenant)
   void syncEventSnapshot({ tenantId: activeTenant.id, event })
   logAdminAction('event_create', `Membuat event baru: ${eventName}`, actor, { event_id: event.id })
   return { id: event.id, name: event.name }
@@ -1250,7 +1349,9 @@ export function setCurrentEvent(eventId, actor = 'system') {
   if (!bucket.events[eventId]) return false
   const prev = bucket.activeEventId
   bucket.activeEventId = eventId
+  activeTenant.activeEventId = bucket.activeEventId
   saveStore()
+  void syncTenantUpsert(activeTenant)
   void syncEventSnapshot({ tenantId: activeTenant.id, event: bucket.events[eventId] })
   if (prev !== eventId) {
     logAdminAction('event_switch', `Pindah event aktif ke ${bucket.events[eventId].name}`, actor, {
@@ -1334,73 +1435,132 @@ function notifyListeners(event) {
 }
 
 const USERS = {
-  owner: { username: 'owner', password: 'owner123', role: 'owner', name: 'Owner Platform' },
-  admin: { username: 'admin', password: 'admin123', role: 'super_admin', name: 'Super Admin' },
-  gate1: { username: 'gate1', password: 'gate123', role: 'gate_front', name: 'Panitia Depan' },
-  gate2: { username: 'gate2', password: 'gate123', role: 'gate_back', name: 'Panitia Belakang' }
+  owner: { username: 'owner', email: 'owner@ons.local', password: 'owner123', role: 'owner', name: 'Owner Platform' },
+  admin: { username: 'admin', email: 'admin@ons.local', password: 'admin123', role: 'super_admin', name: 'Super Admin' },
+  gate1: { username: 'gate1', email: 'gate1@ons.local', password: 'gate123', role: 'gate_front', name: 'Panitia Depan' },
+  gate2: { username: 'gate2', email: 'gate2@ons.local', password: 'gate123', role: 'gate_back', name: 'Panitia Belakang' }
 }
 
-export function login(username, password) {
-  const cleanUsername = String(username || '').trim().toLowerCase()
-  
-  // 1. Check Global Users (Owner/SuperAdmin)
-  const globalUser = Object.values(USERS).find(u => u.username.toLowerCase() === cleanUsername && u.password === password)
-  if (globalUser) {
-    const activeTenant = getActiveTenantState()
-    const session = {
-      ...globalUser,
-      tenant: {
-        id: activeTenant.id,
-        brandName: activeTenant.brandName,
-        eventName: activeTenant.eventName
-      }
+function normalizeLoginIdentifier(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function isEmailLike(value) {
+  return String(value || '').includes('@')
+}
+
+function persistSession(session) {
+  safeStorageSet(SESSION_KEY, JSON.stringify(session))
+  safeStorageRemove(LEGACY_SESSION_KEY)
+}
+
+function buildSessionForGlobalUser(globalUser) {
+  const activeTenant = getActiveTenantState()
+  return {
+    ...globalUser,
+    tenant: {
+      id: activeTenant.id,
+      brandName: activeTenant.brandName,
+      eventName: activeTenant.eventName
     }
-    safeStorageSet(SESSION_KEY, JSON.stringify(session))
-    safeStorageRemove(LEGACY_SESSION_KEY)
-    return { success: true, user: session }
+  }
+}
+
+function buildSessionForTenantUser(foundUser, foundTenant) {
+  tenantRegistry.activeTenantId = foundTenant.id
+  saveTenantRegistry()
+  dispatchTenantChangeEvent()
+
+  ensureTenantStore(foundTenant.id, foundTenant.eventName || 'Event 1', false)
+  saveStore()
+
+  return {
+    ...foundUser,
+    tenant: {
+      id: foundTenant.id,
+      brandName: foundTenant.brandName,
+      eventName: foundTenant.eventName
+    }
+  }
+}
+
+function findUserByIdentifier(identifier, password, skipPasswordCheck = false) {
+  const cleanIdentifier = normalizeLoginIdentifier(identifier)
+
+  const globalUser = Object.values(USERS).find(u => {
+    const matchUsername = normalizeLoginIdentifier(u.username) === cleanIdentifier
+    const matchEmail = normalizeLoginIdentifier(u.email) === cleanIdentifier
+    if (!(matchUsername || matchEmail)) return false
+    return skipPasswordCheck ? true : u.password === password
+  })
+
+  if (globalUser) {
+    return { scope: 'global', user: globalUser, tenant: null }
   }
 
-  // 2. Check Tenant-Specific Users
   let foundUser = null
   let foundTenant = null
 
   Object.values(tenantRegistry.tenants).forEach(tenant => {
-    const user = asArray(tenant.users).find(u => u.username.toLowerCase() === cleanUsername && u.password === password)
+    const user = asArray(tenant.users).find(u => {
+      const matchUsername = normalizeLoginIdentifier(u.username) === cleanIdentifier
+      const matchEmail = normalizeLoginIdentifier(u.email) === cleanIdentifier
+      if (!(matchUsername || matchEmail)) return false
+      return skipPasswordCheck ? true : u.password === password
+    })
+
     if (user) {
       foundUser = user
       foundTenant = tenant
     }
   })
 
-  if (foundUser && foundTenant) {
-    if (!foundUser.is_active) return { success: false, error: 'Akun Anda dinonaktifkan' }
-    if (!canUseTenant(foundTenant)) return { success: false, error: 'Tenant tidak aktif atau expired. Hubungi owner.' }
+  if (!foundUser || !foundTenant) return null
+  return { scope: 'tenant', user: foundUser, tenant: foundTenant }
+}
 
-    // Auto-Tenant Binding: Switch active tenant to the one this user belongs to
-    tenantRegistry.activeTenantId = foundTenant.id
-    saveTenantRegistry()
-    dispatchTenantChangeEvent()
+function signInWithResolvedUser(resolvedUser) {
+  if (!resolvedUser) return { success: false, error: 'Username atau password salah' }
 
-    const session = {
-      ...foundUser,
-      tenant: {
-        id: foundTenant.id,
-        brandName: foundTenant.brandName,
-        eventName: foundTenant.eventName
-      }
-    }
-    
-    safeStorageSet(SESSION_KEY, JSON.stringify(session))
-    safeStorageRemove(LEGACY_SESSION_KEY)
-    
-    // Ensure store bucket exists for this tenant
-    ensureTenantStore(foundTenant.id, foundTenant.eventName || 'Event 1', false)
-    saveStore()
-
+  if (resolvedUser.scope === 'global') {
+    const session = buildSessionForGlobalUser(resolvedUser.user)
+    persistSession(session)
     return { success: true, user: session }
   }
 
-  return { success: false, error: 'Username atau password salah' }
+  if (!resolvedUser.user.is_active) {
+    return { success: false, error: 'Akun Anda dinonaktifkan' }
+  }
+
+  if (!canUseTenant(resolvedUser.tenant)) {
+    return { success: false, error: 'Tenant tidak aktif atau expired. Hubungi owner.' }
+  }
+
+  const session = buildSessionForTenantUser(resolvedUser.user, resolvedUser.tenant)
+  persistSession(session)
+  return { success: true, user: session }
+}
+
+export function resolveLoginEmail(identifier) {
+  const cleanIdentifier = normalizeLoginIdentifier(identifier)
+  if (!cleanIdentifier) return null
+  if (isEmailLike(cleanIdentifier)) return cleanIdentifier
+
+  const resolved = findUserByIdentifier(cleanIdentifier, null, true)
+  if (!resolved?.user) return null
+
+  const email = normalizeLoginIdentifier(resolved.user.email)
+  return email || null
+}
+
+export function loginByIdentity(identifier) {
+  const resolved = findUserByIdentifier(identifier, null, true)
+  return signInWithResolvedUser(resolved)
+}
+
+export function login(username, password) {
+  const resolved = findUserByIdentifier(username, password, false)
+  return signInWithResolvedUser(resolved)
 }
 
 export function getSession() {

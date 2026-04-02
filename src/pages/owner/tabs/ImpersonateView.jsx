@@ -21,11 +21,11 @@ export default function ImpersonateView() {
     setUsers(getTenantUsers(tenantId))
   }
 
-  const handleImpersonate = (targetUser) => {
+  const handleImpersonate = async (targetUser) => {
     if (window.confirm(`Masuk sebagai ${targetUser.username} (${targetUser.role})? Anda akan keluar dari Owner Panel.`)) {
       // In our mock system, login() function handles the session update.
       // We'll use the secret "owner-bypass" logic (since we know the passwords)
-      const result = login(targetUser.username, targetUser.password)
+      const result = await login(targetUser.username, targetUser.password)
       if (result.success) {
         toast.success('Sukses', `Sekarang masuk sebagai ${targetUser.username}`)
         setTimeout(() => window.location.href = '/admin', 1000)

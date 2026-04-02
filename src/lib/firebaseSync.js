@@ -1,4 +1,4 @@
-import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db, isFirebaseEnabled } from './firebase'
 
 function noopPromise() {
@@ -11,6 +11,140 @@ function withSyncGuard(task) {
     console.error('[FirebaseSync] sync failed:', err?.message || err)
     return false
   })
+}
+
+function toPlainValue(value) {
+  if (value == null) return value
+  if (typeof value?.toDate === 'function') return value.toDate().toISOString()
+  if (value instanceof Date) return value.toISOString()
+  if (Array.isArray(value)) return value.map(toPlainValue)
+  if (typeof value === 'object') {
+    const plain = {}
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      plain[key] = toPlainValue(nestedValue)
+    })
+    return plain
+  }
+  return value
+}
+
+async function readCollectionDocs(pathSegments) {
+  if (!isFirebaseEnabled || !db) return []
+  const snapshot = await getDocs(collection(db, ...pathSegments))
+  return snapshot.docs.map(documentSnapshot => ({
+    id: documentSnapshot.id,
+    ...toPlainValue(documentSnapshot.data())
+  }))
+}
+
+function getTimestampScore(item, fieldNames) {
+  for (const field of fieldNames) {
+    const rawValue = item?.[field]
+    const score = new Date(rawValue || 0).getTime()
+    if (Number.isFinite(score) && score > 0) return score
+  }
+  return 0
+}
+
+function sortByTimestampAscending(items, fieldNames = ['created_at', 'timestamp', 'updated_at']) {
+  return [...items].sort((a, b) => getTimestampScore(a, fieldNames) - getTimestampScore(b, fieldNames))
+}
+
+function sortByTimestampDescending(items, fieldNames = ['timestamp', 'created_at', 'updated_at']) {
+  return [...items].sort((a, b) => getTimestampScore(b, fieldNames) - getTimestampScore(a, fieldNames))
+}
+
+async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
+  const [tenantUsers, tenantEvents] = await Promise.all([
+    readCollectionDocs(['tenants', tenantId, 'users']),
+    readCollectionDocs(['tenants', tenantId, 'events'])
+  ])
+
+  const events = {}
+
+  for (const event of tenantEvents) {
+    const [participants, checkInLogs, adminLogs] = await Promise.all([
+      readCollectionDocs(['tenants', tenantId, 'events', event.id, 'participants']),
+      readCollectionDocs(['tenants', tenantId, 'events', event.id, 'checkins']),
+      readCollectionDocs(['tenants', tenantId, 'events', event.id, 'admin_logs'])
+    ])
+
+    events[event.id] = {
+      id: event.id,
+      name: String(event.name || 'Event Platform').trim() || 'Event Platform',
+      isArchived: !!event.isArchived,
+      created_at: event.created_at || new Date().toISOString(),
+      currentDay: Number.isInteger(event.currentDay) && event.currentDay > 0 ? event.currentDay : 1,
+      participants: sortByTimestampAscending(participants),
+      checkInLogs: sortByTimestampDescending(checkInLogs),
+      adminLogs: sortByTimestampDescending(adminLogs),
+      pendingCheckIns: Array.isArray(event.pendingCheckIns) ? event.pendingCheckIns : [],
+      offlineQueueHistory: Array.isArray(event.offlineQueueHistory) ? event.offlineQueueHistory : [],
+      offlineConfig: {
+        maxPendingAttempts: Number.isInteger(event?.offlineConfig?.maxPendingAttempts) && event.offlineConfig.maxPendingAttempts >= 1
+          ? event.offlineConfig.maxPendingAttempts
+          : 5
+      },
+      waTemplate: event.waTemplate || null
+    }
+  }
+
+  const eventIds = Object.keys(events)
+  const preferredActiveEventId = String(tenantMeta?.activeEventId || '').trim()
+  const activeEventId = eventIds.includes(preferredActiveEventId)
+    ? preferredActiveEventId
+    : (eventIds[0] || null)
+
+  return {
+    users: sortByTimestampAscending(tenantUsers),
+    activeEventId,
+    events
+  }
+}
+
+export async function fetchFirebaseWorkspaceSnapshot() {
+  if (!isFirebaseEnabled || !db) return null
+
+  const tenantSnapshots = await readCollectionDocs(['tenants'])
+  if (tenantSnapshots.length === 0) {
+    return {
+      tenantRegistry: null,
+      store: null
+    }
+  }
+
+  const tenantRegistry = {
+    activeTenantId: tenantSnapshots[0].id,
+    tenants: {}
+  }
+  const store = {
+    tenants: {}
+  }
+
+  for (const tenant of tenantSnapshots) {
+    const workspace = await readTenantWorkspaceSnapshot(tenant.id, tenant)
+    tenantRegistry.tenants[tenant.id] = {
+      id: tenant.id,
+      brandName: String(tenant.brandName || tenant.name || 'Tenant').trim() || 'Tenant',
+      eventName: String(tenant.eventName || 'Event Platform').trim() || 'Event Platform',
+      status: tenant.status === 'inactive' ? 'inactive' : 'active',
+      expires_at: tenant.expires_at || null,
+      created_at: tenant.created_at || new Date().toISOString(),
+      activeEventId: workspace.activeEventId,
+      contract: tenant.contract || { package: 'starter', payment_status: 'unpaid' },
+      quota: tenant.quota || { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
+      users: workspace.users,
+      branding: tenant.branding || { primaryColor: '#0ea5e9' },
+      invoices: Array.isArray(tenant.invoices) ? tenant.invoices : []
+    }
+
+    store.tenants[tenant.id] = {
+      activeEventId: workspace.activeEventId,
+      events: workspace.events
+    }
+  }
+
+  return { tenantRegistry, store }
 }
 
 export function syncTenantUpsert(tenant) {

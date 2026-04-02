@@ -11,24 +11,23 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    setTimeout(() => {
-      const result = login(username, password)
-      if (result.success) {
-        const role = result.user.role
-        if (role === 'owner') navigate('/owner')
-        else if (role === 'super_admin') navigate('/admin')
-        else if (role === 'gate_front') navigate('/gate/scan')
-        else if (role === 'gate_back') navigate('/gate/monitor')
-      } else {
-        setError(result.error)
-      }
-      setLoading(false)
-    }, 500)
+    await new Promise(resolve => setTimeout(resolve, 250))
+    const result = await login(username, password)
+    if (result.success) {
+      const role = result.user.role
+      if (role === 'owner') navigate('/owner')
+      else if (role === 'super_admin' || role === 'admin_client') navigate('/admin')
+      else if (role === 'gate_front') navigate('/gate/scan')
+      else if (role === 'gate_back') navigate('/gate/monitor')
+    } else {
+      setError(result.error)
+    }
+    setLoading(false)
   }
 
   return (
