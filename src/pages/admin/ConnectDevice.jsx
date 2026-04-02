@@ -24,6 +24,15 @@ export default function ConnectDevice() {
     if (!q) return true
     return String(session.tenant_id || '').toLowerCase().includes(q)
   })
+  const sessionSummary = filteredSessions.reduce((acc, session) => {
+    const key = String(session?.status || 'unknown').toLowerCase()
+    if (key === 'ready') acc.ready += 1
+    else if (key === 'qr') acc.qr += 1
+    else if (key === 'offline' || key === 'disconnected') acc.offline += 1
+    else if (key === 'checking') acc.checking += 1
+    else acc.other += 1
+    return acc
+  }, { ready: 0, qr: 0, offline: 0, checking: 0, other: 0 })
 
   useEffect(() => {
     let timer;
@@ -280,6 +289,16 @@ export default function ConnectDevice() {
               placeholder="Cari tenant id..."
               className="input"
             />
+          </div>
+          <div className="admin-note" style={{ marginBottom: 12 }}>
+            <div className="admin-note-list" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span className="badge badge-green">Ready: {sessionSummary.ready}</span>
+              <span className="badge badge-blue">QR: {sessionSummary.qr}</span>
+              <span className="badge badge-red">Offline: {sessionSummary.offline}</span>
+              <span className="badge badge-yellow">Checking: {sessionSummary.checking}</span>
+              {sessionSummary.other > 0 && <span className="badge badge-gray">Other: {sessionSummary.other}</span>}
+              <span className="badge badge-gray">Total: {filteredSessions.length}</span>
+            </div>
           </div>
           {sessionsError ? (
             <p className="status-note"><b>Gagal memuat:</b> {sessionsError}</p>
