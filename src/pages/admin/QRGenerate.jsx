@@ -360,6 +360,14 @@ export default function QRGenerate() {
     setRegeneratingSecure(false)
   }
 
+  const prettyVerifyData = (data) => {
+    try {
+      return JSON.stringify(data, null, 2)
+    } catch {
+      return String(data)
+    }
+  }
+
   const runServerVerifySelfTest = async () => {
     if (verifyTesting) return
     setVerifyTesting(true)
@@ -413,10 +421,17 @@ export default function QRGenerate() {
             key: scenario.key,
             ok: response.ok && scenario.expected(data),
             responseOk: response.ok,
+            status: response.status,
             data
           })
         } catch (err) {
-          results.push({ key: scenario.key, ok: false, responseOk: false, data: { error: err?.message || 'network_error' } })
+          results.push({
+            key: scenario.key,
+            ok: false,
+            responseOk: false,
+            status: 0,
+            data: { error: err?.message || 'network_error' }
+          })
         }
       }
 
@@ -502,6 +517,18 @@ export default function QRGenerate() {
             </div>
             <div className="scanner-note scanner-note-tight">
               {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
+            </div>
+            <div style={{ marginTop: 10 }}>
+              {verifyReport.results.map(item => (
+                <details key={item.key} style={{ marginBottom: 8 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                    {item.ok ? 'OK' : 'FAIL'} {item.key} (HTTP {item.status || '-'})
+                  </summary>
+                  <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
+                    {prettyVerifyData(item.data)}
+                  </pre>
+                </details>
+              ))}
             </div>
           </div>
         )}
@@ -623,6 +650,18 @@ export default function QRGenerate() {
           <p className="scanner-note scanner-note-tight">
             {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
           </p>
+          <div style={{ marginTop: 10 }}>
+            {verifyReport.results.map(item => (
+              <details key={item.key} style={{ marginBottom: 8 }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                  {item.ok ? 'OK' : 'FAIL'} {item.key} (HTTP {item.status || '-'})
+                </summary>
+                <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
+                  {prettyVerifyData(item.data)}
+                </pre>
+              </details>
+            ))}
+          </div>
         </div>
       )}
 
