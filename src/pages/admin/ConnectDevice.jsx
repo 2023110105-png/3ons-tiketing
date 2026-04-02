@@ -6,13 +6,13 @@ import { apiFetch, getApiBaseUrl } from '../../utils/api'
 
 function formatConnectionError(message) {
   const text = String(message || '').trim()
-  if (!text) return 'Koneksi API gagal'
+  if (!text) return 'Sambungan ke server belum berhasil.'
 
   const isPortIssue = /failed to fetch|networkerror|err_connection_refused/i.test(text)
   const looksLocalPort = /localhost|127\.0\.0\.1|0\.0\.0\.0|:3001/i.test(text)
 
   if (isPortIssue && looksLocalPort) {
-    return 'Gagal menghubungkan port backend lokal. Pastikan VITE_API_BASE_URL mengarah ke URL server publik (bukan localhost:3001).'
+    return 'Aplikasi belum tersambung ke server. Coba muat ulang halaman atau hubungi tim teknis.'
   }
 
   return text
@@ -34,7 +34,7 @@ export default function ConnectDevice() {
   const tenantId = user?.tenant?.id || 'tenant-default'
   const canMonitorAllSessions = user?.role === 'owner'
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
-  const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
+  const apiSource = getApiBaseUrl() ? 'Server online' : 'Sambungan lokal'
   const filteredSessions = tenantSessions.filter((session) => {
     const q = sessionQuery.trim().toLowerCase()
     const textMatch = !q || String(session.tenant_id || '').toLowerCase().includes(q)
@@ -104,7 +104,7 @@ export default function ConnectDevice() {
         setTenantSessions(Array.isArray(data?.sessions) ? data.sessions : [])
         setSessionsError('')
       } catch (err) {
-        setSessionsError(err?.message || 'Gagal memuat monitor sesi tenant')
+        setSessionsError(err?.message || 'Gagal memuat data pemantauan akun')
       }
 
       if (stopped) return
@@ -134,12 +134,12 @@ export default function ConnectDevice() {
 
       setWaState({ status: 'qr', isReady: false, qrCode: null })
       if (data?.warning) {
-        toast.warning('Session di-reset dengan catatan', data.warning)
+        toast.warning('Sambungan diatur ulang dengan catatan', data.warning)
       } else {
-        toast.info('Session WhatsApp diputuskan.')
+        toast.info('Sambungan WhatsApp diputuskan.')
       }
     } catch (err) {
-      toast.error('Gagal memutus server', err?.message || 'Pastikan Bot Server menyala.')
+      toast.error('Gagal memutus sambungan', err?.message || 'Pastikan layanan WhatsApp aktif.')
     } finally {
       setIsDisconnecting(false)
     }
@@ -180,7 +180,7 @@ export default function ConnectDevice() {
         throw new Error(data?.error || `HTTP ${res.status}`)
       }
 
-      toast.success('Session tenant direset', targetTenantId)
+      toast.success('Sambungan akun direset', targetTenantId)
 
       // If owner resets currently active tenant, reflect state immediately.
       if (targetTenantId === tenantId) {
@@ -194,7 +194,7 @@ export default function ConnectDevice() {
         setTenantSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : [])
       }
     } catch (err) {
-      toast.error('Gagal reset session tenant', err?.message || 'Coba lagi beberapa detik.')
+      toast.error('Gagal reset sambungan akun', err?.message || 'Coba lagi beberapa detik.')
     } finally {
       setSessionActionTenantId('')
     }
@@ -213,13 +213,13 @@ export default function ConnectDevice() {
       .map((session) => session.tenant_id)
 
     if (targets.length === 0) {
-      toast.info('Tidak ada target reset', 'Session pada filter saat ini tidak memerlukan reset.')
+      toast.info('Tidak ada target reset', 'Sambungan pada filter saat ini tidak memerlukan reset.')
       return
     }
 
-    const modeLabel = mode === 'offline' ? 'offline/disconnected' : mode === 'qr' ? 'qr' : 'non-ready'
+    const modeLabel = mode === 'offline' ? 'tidak terhubung' : mode === 'qr' ? 'kode QR' : 'belum siap'
     const confirmed = window.confirm(
-      `Konfirmasi bulk reset\n\nMode: ${modeLabel}\nTarget tenant: ${targets.length}\n\nLanjutkan reset sesi tenant?`
+      `Konfirmasi reset massal\n\nMode: ${modeLabel}\nTarget akun: ${targets.length}\n\nLanjutkan reset sambungan?`
     )
     if (!confirmed) return
 
@@ -252,9 +252,9 @@ export default function ConnectDevice() {
     }
 
     if (failedCount === 0) {
-      toast.success('Bulk reset selesai', `${successCount} tenant berhasil direset.`)
+      toast.success('Reset massal selesai', `${successCount} akun berhasil direset.`)
     } else {
-      toast.warning('Bulk reset selesai sebagian', `Berhasil: ${successCount}, gagal: ${failedCount}`)
+      toast.warning('Reset massal selesai sebagian', `Berhasil: ${successCount}, gagal: ${failedCount}`)
     }
     setIsBulkResetting(false)
   }
@@ -263,8 +263,8 @@ export default function ConnectDevice() {
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
         <div className="page-title-group">
-          <h1>Tautkan Perangkat (Bot WA)</h1>
-          <p>Kelola koneksi nomor WhatsApp panitia untuk pengiriman tiket otomatis.</p>
+          <h1>Sambungkan WhatsApp</h1>
+          <p>Kelola sambungan nomor WhatsApp panitia untuk pengiriman tiket otomatis.</p>
         </div>
       </div>
 
@@ -276,27 +276,27 @@ export default function ConnectDevice() {
               <Smartphone size={24} />
             </div>
             <div>
-              <h3 className="status-title">Status Koneksi Server</h3>
+              <h3 className="status-title">Status Sambungan</h3>
               <div className="status-subtitle">
-                {waState.status === 'offline' ? 'Server Terputus' : waState.isReady ? 'Sedang Aktif' : 'Menunggu Login'}
+                {waState.status === 'offline' ? 'Tidak Terhubung' : waState.isReady ? 'Siap Digunakan' : 'Menunggu Sambungan'}
               </div>
             </div>
           </div>
 
           <div className="admin-note">
             <h4 className="admin-note-title">
-              <ShieldAlert size={16} /> Cara Kerja Sistem Otomatis
+              <ShieldAlert size={16} /> Cara Kerja
             </h4>
             <ul className="admin-note-list">
-              <li>Sistem ini akan meminjam nomor WhatsApp yang sedang kalian "Tautkan" (Scan).</li>
-              <li>Aplikasi web membutuhkan server lokal (`Mulai_Event_Platform.bat`) aktif di memori untuk mengirimnya.</li>
-              <li>Tampilan QR akan disegarkan (*refresh*) otomatis jika kadaluwarsa.</li>
+              <li>Sistem akan memakai nomor WhatsApp yang sedang disambungkan.</li>
+              <li>Pastikan aplikasi dan layanan WhatsApp aktif saat digunakan.</li>
+              <li>Kode QR akan diperbarui otomatis jika sudah kedaluwarsa.</li>
             </ul>
           </div>
 
           {waState.isReady && (
             <button onClick={handleLogout} className="btn btn-danger admin-full-btn" disabled={isDisconnecting}>
-              {isDisconnecting ? <RefreshCw size={18} className="animate-spin" /> : <LogOut size={18} />} {isDisconnecting ? 'Memutuskan koneksi...' : 'Putuskan Koneksi WA (Logout)'}
+              {isDisconnecting ? <RefreshCw size={18} className="animate-spin" /> : <LogOut size={18} />} {isDisconnecting ? 'Memutuskan sambungan...' : 'Putuskan Sambungan WhatsApp'}
             </button>
           )}
         </div>
@@ -307,11 +307,11 @@ export default function ConnectDevice() {
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} className="animate-spin" /></div>
               <h2>Menunggu Kode QR</h2>
-              <p className="status-note">Server sedang menyiapkan QR login WhatsApp. Jika terlalu lama, tekan tombol di bawah untuk memaksa refresh sesi.</p>
+              <p className="status-note">Kode QR sedang disiapkan. Jika terlalu lama, tekan tombol di bawah untuk mencoba lagi.</p>
               <p className="status-note"><b>Status:</b> {waState.status}</p>
-              <p className="status-note"><b>API Target:</b> {apiSource}</p>
+              <p className="status-note"><b>Sumber sambungan:</b> {apiSource}</p>
               <button onClick={handleRegenerateQr} className="btn btn-primary admin-full-btn" disabled={isRegeneratingQr || isDisconnecting}>
-                {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Generate Ulang QR'}
+                {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Buat QR Baru'}
               </button>
             </div>
           )}
@@ -319,12 +319,12 @@ export default function ConnectDevice() {
           {waState.status === 'offline' && (
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
-              <h2>Bot Server Terputus</h2>
-              <p className="status-note">Sistem gagal mendeteksi server bot. Pastikan backend WhatsApp berjalan di URL yang diatur lewat <b>VITE_API_BASE_URL</b> atau, saat development lokal, lewat proxy Vite ke port 3001.</p>
-              <p className="status-note"><b>API Target:</b> {apiSource}</p>
+              <h2>WhatsApp Belum Tersambung</h2>
+              <p className="status-note">Sistem belum mendeteksi sambungan WhatsApp. Coba lagi dalam beberapa saat atau hubungi tim teknis.</p>
+              <p className="status-note"><b>Sumber sambungan:</b> {apiSource}</p>
               {lastError && <p className="status-note"><b>Detail:</b> {lastError}</p>}
               <button onClick={handleRegenerateQr} className="btn btn-primary admin-full-btn" disabled={isRegeneratingQr || isDisconnecting}>
-                {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Coba Sambungkan Lagi'}
+                {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Coba Lagi'}
               </button>
             </div>
           )}
@@ -332,7 +332,7 @@ export default function ConnectDevice() {
           {waState.status === 'ready' && (
             <div className="admin-center">
               <div className="status-icon-success"><CheckCircle size={80} /></div>
-              <h2>Perangkat Terhubung Sempurna!</h2>
+              <h2>WhatsApp Sudah Siap Digunakan!</h2>
               <p className="status-note">Nomor penyelenggara yang digunakan saat scan tadi akan bertugas mengirim tiket setiap kali Anda mencentang tombol "Simpan & Auto-Kirim" di halaman pendaftaran peserta.</p>
             </div>
           )}
@@ -361,7 +361,7 @@ export default function ConnectDevice() {
       {canMonitorAllSessions && (
         <div className="card mt-16">
           <div className="card-header">
-            <h3 className="card-title">Monitor Sesi WA Semua Tenant</h3>
+            <h3 className="card-title">Pantau Sambungan Semua Akun</h3>
           </div>
           <div className="admin-note" style={{ marginBottom: 12 }}>
             <div style={{ display: 'grid', gap: 8 }}>
@@ -369,7 +369,7 @@ export default function ConnectDevice() {
                 type="text"
                 value={sessionQuery}
                 onChange={(e) => setSessionQuery(e.target.value)}
-                placeholder="Cari tenant id..."
+                placeholder="Cari akun..."
                 className="input"
               />
               <select
@@ -381,7 +381,7 @@ export default function ConnectDevice() {
                 <option value="ready">Ready</option>
                 <option value="qr">QR</option>
                 <option value="checking">Checking</option>
-                <option value="offline">Offline/Disconnected</option>
+                <option value="offline">Tidak Terhubung</option>
               </select>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -389,37 +389,37 @@ export default function ConnectDevice() {
                   onClick={() => handleBulkReset('offline')}
                   disabled={isBulkResetting || !!sessionActionTenantId}
                 >
-                  {isBulkResetting ? 'Memproses...' : 'Reset Semua Offline'}
+                  {isBulkResetting ? 'Memproses...' : 'Reset Semua Tidak Terhubung'}
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={() => handleBulkReset('qr')}
                   disabled={isBulkResetting || !!sessionActionTenantId}
                 >
-                  {isBulkResetting ? 'Memproses...' : 'Reset Semua QR'}
+                  {isBulkResetting ? 'Memproses...' : 'Reset Semua Kode QR'}
                 </button>
               </div>
             </div>
           </div>
           <div className="admin-note" style={{ marginBottom: 12 }}>
             <div className="admin-note-list" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span className="badge badge-green">Ready: {sessionSummary.ready}</span>
-              <span className="badge badge-blue">QR: {sessionSummary.qr}</span>
-              <span className="badge badge-red">Offline: {sessionSummary.offline}</span>
-              <span className="badge badge-yellow">Checking: {sessionSummary.checking}</span>
-              {sessionSummary.other > 0 && <span className="badge badge-gray">Other: {sessionSummary.other}</span>}
+              <span className="badge badge-green">Siap: {sessionSummary.ready}</span>
+              <span className="badge badge-blue">Kode QR: {sessionSummary.qr}</span>
+              <span className="badge badge-red">Tidak Terhubung: {sessionSummary.offline}</span>
+              <span className="badge badge-yellow">Menunggu: {sessionSummary.checking}</span>
+              {sessionSummary.other > 0 && <span className="badge badge-gray">Lainnya: {sessionSummary.other}</span>}
               <span className="badge badge-gray">Total: {filteredSessions.length}</span>
             </div>
           </div>
           {sessionsError ? (
             <p className="status-note"><b>Gagal memuat:</b> {sessionsError}</p>
           ) : filteredSessions.length === 0 ? (
-            <p className="status-note">Belum ada sesi tenant aktif.</p>
+            <p className="status-note">Belum ada sambungan aktif.</p>
           ) : (
             <div className="admin-note-list">
               {filteredSessions.map((session) => (
                 <div key={session.tenant_id} className="status-note" style={{ marginBottom: 10 }}>
-                  <b>{session.tenant_id}</b> - {session.status} {session.isReady ? '(ready)' : ''} {session.hasQr ? '(qr)' : ''}
+                  <b>ID Akun:</b> {session.tenant_id} - {session.status} {session.isReady ? '(siap)' : ''} {session.hasQr ? '(kode QR)' : ''}
                   {session.lastError ? ` - error: ${session.lastError}` : ''}
                   <div style={{ marginTop: 8 }}>
                     <button
@@ -427,7 +427,7 @@ export default function ConnectDevice() {
                       onClick={() => handleResetTenantSession(session.tenant_id)}
                       disabled={!!sessionActionTenantId}
                     >
-                      {sessionActionTenantId === session.tenant_id ? 'Memproses...' : 'Reset Session Tenant'}
+                      {sessionActionTenantId === session.tenant_id ? 'Memproses...' : 'Reset Sambungan'}
                     </button>
                   </div>
                 </div>

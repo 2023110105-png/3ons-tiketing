@@ -30,7 +30,7 @@ afterEach(() => cleanup())
 describe('UserManager', () => {
   it('shows tenant selection when no tenant selected', () => {
     render(<UserManager />)
-    expect(screen.getByText(/Pilih Tenant untuk Mengelola User/i)).toBeTruthy()
+    expect(screen.getByText(/Pilih Akun Brand untuk Mengelola Pengguna/i)).toBeTruthy()
   })
 
   it('loads users when tenant selected and allows adding user', () => {
@@ -39,7 +39,7 @@ describe('UserManager', () => {
 
     expect(screen.getByText(/admin_acme/i)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /Tambah User Baru/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Tambah Pengguna Baru/i }))
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'newuser' } })
     fireEvent.change(screen.getByLabelText('Password Awal'), { target: { value: '123456' } })
     fireEvent.change(screen.getByLabelText('Nama Lengkap'), { target: { value: 'New User' } })

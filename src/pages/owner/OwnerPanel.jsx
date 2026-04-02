@@ -52,8 +52,8 @@ export default function OwnerPanel() {
   return (
     <div className="owner-console-wrapper animate-fade-in">
       <div className="page-header mb-24">
-        <h1>Owner Control Center</h1>
-        <p>Manajemen platform, tenant, dan pemantauan sistem secara terpusat.</p>
+        <h1>Pusat Kontrol Pemilik</h1>
+        <p>Kelola platform, akun, dan pemantauan sistem dari satu tempat.</p>
       </div>
       
       <div className="owner-tab-content card">

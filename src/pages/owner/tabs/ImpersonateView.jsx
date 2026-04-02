@@ -22,7 +22,7 @@ export default function ImpersonateView() {
   }
 
   const handleImpersonate = async (targetUser) => {
-    if (window.confirm(`Masuk sebagai ${targetUser.username} (${targetUser.role})? Anda akan keluar dari Owner Panel.`)) {
+    if (window.confirm(`Masuk sebagai ${targetUser.username} (${targetUser.role})? Anda akan keluar dari panel pemilik.`)) {
       // In our mock system, login() function handles the session update.
       // We'll use the secret "owner-bypass" logic (since we know the passwords)
       const result = await login(targetUser.username, targetUser.password)
@@ -50,8 +50,8 @@ export default function ImpersonateView() {
             <Eye size={28} />
           </div>
           <div>
-            <h3 className="font-bold">Mode Impersonate (View as Client)</h3>
-            <p className="text-sm text-muted">Fitur ini memungkinkan Anda untuk masuk ke dashboard client tanpa mengetahui password mereka untuk keperluan bantuan teknis (support). Aksi Anda akan tercatat sebagai aksi owner di log audit.</p>
+            <h3 className="font-bold">Mode Masuk Sebagai Pengguna</h3>
+            <p className="text-sm text-muted">Fitur ini memungkinkan Anda masuk ke dashboard pengguna untuk keperluan bantuan teknis. Semua tindakan tetap tercatat di riwayat aktivitas pemilik.</p>
           </div>
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function ImpersonateView() {
           value={selectedTenantId}
           onChange={e => handleSelectTenant(e.target.value)}
         >
-          <option value="">-- Pilih Tenant --</option>
+          <option value="">-- Pilih Akun Brand --</option>
           {tenants.map(t => (
             <option key={t.id} value={t.id}>{t.brandName}</option>
           ))}
@@ -73,7 +73,7 @@ export default function ImpersonateView() {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari user tenant..." 
+              placeholder="Cari pengguna akun..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -84,11 +84,11 @@ export default function ImpersonateView() {
       <div className="grid-responsive gap-16 mt-24">
         {!selectedTenantId ? (
           <div className="col-span-3 text-center p-64 card text-muted">
-            Pilih tenant terlebih dahulu untuk melihat daftar user yang bisa di-impersonate.
+            Pilih akun terlebih dahulu untuk melihat daftar pengguna yang bisa dimasuki.
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="col-span-3 text-center p-64 card text-muted">
-            Tidak ada user aktif ditemukan untuk tenant ini.
+            Tidak ada pengguna aktif ditemukan untuk akun ini.
           </div>
         ) : (
           filteredUsers.map(u => (

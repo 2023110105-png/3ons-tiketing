@@ -46,14 +46,14 @@ describe('QuotaManager', () => {
     expect(screen.getByText('Acme Test')).toBeTruthy()
     expect(screen.getByText(/Peserta Terdaftar/i)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /Edit Batas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Ubah Batas/i }))
     expect(screen.getByText(/Batas Peserta Total/i)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Simpan Perubahan Kuota/i })).toBeTruthy()
   })
 
   it('updates quota values and saves', () => {
     render(<QuotaManager />)
-    fireEvent.click(screen.getByRole('button', { name: /Edit Batas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Ubah Batas/i }))
 
     const numberInputs = screen.getAllByRole('spinbutton')
     expect(numberInputs.length).toBeGreaterThan(0)

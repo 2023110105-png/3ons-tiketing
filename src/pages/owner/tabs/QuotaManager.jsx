@@ -29,7 +29,7 @@ export default function QuotaManager() {
   const handleSave = (tenantId) => {
     const result = updateTenantQuota(tenantId, editData, currentUser)
     if (result.success) {
-      toast.success('Sukses', 'Kuota tenant berhasil diperbarui')
+      toast.success('Sukses', 'Kuota akun berhasil diperbarui')
       setTenants(getTenants())
       setHealthData(getTenantHealth())
       setIsEditing(null)
@@ -53,7 +53,7 @@ export default function QuotaManager() {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari tenant untuk kuota..." 
+              placeholder="Cari akun untuk kuota..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -81,7 +81,7 @@ export default function QuotaManager() {
                   {isEditing === health.tenantId ? (
                     <button className="owner-action-btn" onClick={() => setIsEditing(null)}>Batal</button>
                   ) : (
-                    <button className="owner-action-btn" onClick={() => handleEdit(tenant)}>Edit Batas</button>
+                    <button className="owner-action-btn" onClick={() => handleEdit(tenant)}>Ubah Batas</button>
                   )}
                 </div>
 
@@ -143,14 +143,14 @@ export default function QuotaManager() {
                       </div>
                       {isCritical && (
                          <div className="text-xs text-red mt-8 font-bold flex items-center gap-4">
-                            <AlertTriangle size={12} /> Melebihi kuota! Client tidak dapat menambah peserta lagi.
+                           <AlertTriangle size={12} /> Melebihi kuota! Akun ini tidak dapat menambah peserta lagi.
                          </div>
                       )}
                     </div>
 
                     <div className="grid-responsive gap-16 mt-24">
                       <div className="p-12 bg-subtle rounded border border-color">
-                         <div className="text-xs text-muted mb-4 font-bold">DEVICE LIMIT</div>
+                         <div className="text-xs text-muted mb-4 font-bold">BATAS PERANGKAT</div>
                          <div className="flex items-center gap-8">
                             <Smartphone size={16} className="text-primary" />
                             <span className="text-lg font-bold">{tenant.quota?.maxGateDevices}</span>
@@ -158,7 +158,7 @@ export default function QuotaManager() {
                          </div>
                       </div>
                       <div className="p-12 bg-subtle rounded border border-color">
-                         <div className="text-xs text-muted mb-4 font-bold">PROJECT LIMIT</div>
+                         <div className="text-xs text-muted mb-4 font-bold">BATAS ACARA</div>
                          <div className="flex items-center gap-8">
                             <LayoutGrid size={16} className="text-primary" />
                             <span className="text-lg font-bold">{tenant.quota?.maxActiveEvents}</span>

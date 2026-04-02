@@ -29,11 +29,11 @@ describe('AuditLog', () => {
   it('renders audit log entries and filter works', () => {
     render(<AuditLog />)
 
-    expect(screen.getByText('Audit Log Immutable')).toBeTruthy()
+    expect(screen.getByText('Riwayat Aktivitas Pemilik')).toBeTruthy()
     expect(screen.getByText('tenant Acme berhasil dibuat', { exact: false })).toBeTruthy()
-    expect(screen.getByText('2 entries')).toBeTruthy()
+    expect(screen.getByText('2 catatan')).toBeTruthy()
 
-    fireEvent.change(screen.getByPlaceholderText('Cari di log audit...'), { target: { value: 'quota' } })
+    fireEvent.change(screen.getByPlaceholderText('Cari di riwayat aktivitas...'), { target: { value: 'quota' } })
     expect(screen.queryByText('Tenant Acme berhasil dibuat')).toBeNull()
     expect(screen.getByText('Quota tenant diupdate', { exact: false })).toBeTruthy()
   })
@@ -51,7 +51,7 @@ describe('AuditLog', () => {
     })
 
     render(<AuditLog />)
-    fireEvent.click(screen.getByRole('button', { name: /Export/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Unduh CSV/i }))
 
     expect(clickSpy).toHaveBeenCalled()
     document.createElement.mockRestore()

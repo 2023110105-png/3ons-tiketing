@@ -31,7 +31,7 @@ export default function ContractManager() {
   const handleSave = (tenantId) => {
     const result = updateTenantContract(tenantId, editData, currentUser)
     if (result.success) {
-      toast.success('Sukses', 'Kontrak tenant berhasil diperbarui')
+      toast.success('Sukses', 'Kontrak akun berhasil diperbarui')
       setTenants(getTenants())
       setIsEditing(null)
     } else {
@@ -54,7 +54,7 @@ export default function ContractManager() {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari tenant untuk kontrak..." 
+              placeholder="Cari akun untuk kontrak..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />

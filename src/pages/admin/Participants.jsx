@@ -99,23 +99,23 @@ export default function Participants() {
       });
       return true;
     } catch (e) {
-      console.error('Bot Server Offline:', e);
+      console.error('Layanan pengiriman sedang tidak aktif:', e);
       return false;
     }
   }
 
   const handleSingleBotSend = async (participant) => {
-    toast.info('Mengirim...', `Meneruskan tiket ${participant.name} ke Bot`);
+    toast.info('Mengirim...', `Meneruskan tiket ${participant.name} ke layanan pengiriman`);
     const success = await sendTicketViaBot(participant);
-    if (success) toast.success('Terkirim!', `Tiket masuk antrean Bot WA untuk ${participant.name}`);
-    else toast.error('Gagal', 'Bot Server sedang offline.');
+    if (success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
+    else toast.error('Gagal', 'Layanan pengiriman sedang tidak aktif.');
   }
 
   const handleBroadcast = async () => {
     const targetParticipants = participants; // They can filter first, then broadcast the current view
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
     
-    if (!window.confirm(`Perhatian!\nAnda akan membroadcast pesan tiket otomatis ke ${targetParticipants.length} peserta.\nPastikan ponsel WA server sudah "Connected" dan internet stabil.\nLanjutkan?`)) return;
+    if (!window.confirm(`Perhatian!\nAnda akan mengirim pesan tiket otomatis ke ${targetParticipants.length} peserta.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
 
     setIsBroadcasting(true);
     setBroadcastProgress({ current: 0, total: targetParticipants.length, success: 0, failed: 0 });
@@ -480,7 +480,7 @@ export default function Participants() {
           <Search size={16} className="m-participant-search-icon" />
           <input
             className="form-input m-participant-search-input"
-            placeholder="Cari nama atau ticket..."
+            placeholder="Cari nama atau tiket..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -530,7 +530,7 @@ export default function Participants() {
                   )}
                 </div>
                 <div className="m-p-actions">
-                  <button className="m-p-delete m-p-delete-bot" onClick={() => handleSingleBotSend(p)} title="Kirim via Bot">
+                  <button className="m-p-delete m-p-delete-bot" onClick={() => handleSingleBotSend(p)} title="Kirim otomatis">
                     <Bot size={16} />
                   </button>
                   <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="m-p-delete m-p-delete-wa" title="Kirim WA">
@@ -592,7 +592,7 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
                   <div className="form-group checkbox-inline-row">
                     <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} className="checkbox-brand" />
-                    <label htmlFor="m-auto-send" className="checkbox-inline-label">Otomatis Kirim WA / Email (Bot Server)</label>
+                    <label htmlFor="m-auto-send" className="checkbox-inline-label">Kirim WA / Email otomatis</label>
                   </div>
                 </div>
                 <div className="modal-footer">
@@ -642,7 +642,7 @@ export default function Participants() {
           <Upload size={14} /> Import Excel
         </button>
         <button className="btn btn-whatsapp btn-inline-icon" onClick={handleBroadcast}>
-          <Zap size={14} /> Broadcast WA
+          <Zap size={14} /> Kirim Massal WA
         </button>
         <button className="btn btn-ghost btn-sm btn-inline-icon" onClick={downloadTemplate} title="Download template Excel">
           <Download size={14} /> Template Excel
@@ -670,7 +670,7 @@ export default function Participants() {
                 <td>{p.is_checked_in ? <span className="badge badge-green"><CheckCircle size={10} /> Check-in</span> : <span className="badge badge-gray">Belum</span>}</td>
                 <td className="td-time-muted">{p.checked_in_at ? new Date(p.checked_in_at).toLocaleTimeString('id-ID') : '—'}</td>
                 <td className="actions-cell">
-                  <button className="btn btn-ghost btn-blue btn-sm" onClick={() => handleSingleBotSend(p)} title="Kirim Otomatis (Bot)">
+                  <button className="btn btn-ghost btn-blue btn-sm" onClick={() => handleSingleBotSend(p)} title="Kirim Otomatis">
                     <Bot size={14} />
                   </button>
                   <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-whatsapp btn-sm" title="Kirim Manual (WA Web)">
@@ -728,15 +728,15 @@ export default function Participants() {
                 <div className="form-group"><label className="form-label">Nama Peserta</label><input className="form-input" placeholder="Masukkan nama lengkap" value={newParticipant.name} onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })} required autoFocus /></div>
                 <div className="grid-2">
                   <div className="form-group"><label className="form-label">Nomor WhatsApp</label><input className="form-input" placeholder="08xxxxxxxxxx" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">Email Address</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">Alamat Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
                 </div>
                 <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
                 <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
                 <div className="form-group auto-send-card">
                   <input type="checkbox" id="d-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} className="checkbox-success" />
                   <div>
-                    <label htmlFor="d-auto-send" className="auto-send-title">Kirim Tiket Otomatis via Bot</label>
-                    <span className="auto-send-note">Bot lokal akan mengirim WA/Email di background secara langsung</span>
+                    <label htmlFor="d-auto-send" className="auto-send-title">Kirim tiket otomatis</label>
+                    <span className="auto-send-note">Sistem akan mengirim WA/Email otomatis di latar belakang</span>
                   </div>
                 </div>
               </div>

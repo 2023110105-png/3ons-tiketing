@@ -14,7 +14,7 @@ export default function BackupRestore() {
   const [isRestoring, setIsRestoring] = useState(false)
 
   const handleRestore = (backup) => {
-    const reason = window.prompt(`Konfirmasi Restore data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan client untuk restore data')
+    const reason = window.prompt(`Konfirmasi pulihkan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')
     
     if (reason === null) return
     
@@ -22,7 +22,7 @@ export default function BackupRestore() {
     const result = restoreStoreBackup(backup.key, currentUser, reason)
     
     if (result.success) {
-      toast.success('Sukses', 'Data berhasil direstore ke titik ini')
+      toast.success('Sukses', 'Data berhasil dipulihkan ke titik ini')
       setTimeout(() => window.location.reload(), 1500)
     } else {
       toast.error('Gagal', result.error)
@@ -42,7 +42,7 @@ export default function BackupRestore() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success('Sukses', 'Backup berhasil didownload')
+      toast.success('Sukses', 'Cadangan berhasil diunduh')
     } else {
       toast.error('Gagal', result.error)
     }
@@ -61,15 +61,15 @@ export default function BackupRestore() {
           </div>
           <div>
             <h3 className="font-bold">Peringatan Keamanan</h3>
-            <p className="text-sm text-muted">Aksi restore akan menimpa seluruh data AKTIF saat ini dengan data dari cadangan. Pastikan Anda melakukan backup manual sebelum melakukan restore.</p>
+            <p className="text-sm text-muted">Aksi pemulihan akan menimpa seluruh data aktif saat ini dengan data cadangan. Pastikan Anda membuat cadangan manual sebelum melanjutkan.</p>
           </div>
         </div>
       </div>
 
       <div className="toolbar mb-16 flex justify-between items-center">
-        <h3 className="card-title">Riwayat Cadangan Sistem (Auto-Snapshots)</h3>
+        <h3 className="card-title">Riwayat Cadangan Sistem</h3>
         <button className="btn btn-ghost" onClick={() => setBackups(getStoreBackups())}>
-          <RefreshCw size={18} /> Refresh List
+          <RefreshCw size={18} /> Muat Ulang Daftar
         </button>
       </div>
 
@@ -77,7 +77,7 @@ export default function BackupRestore() {
         {filteredBackups.length === 0 ? (
           <div className="card card-pad text-center col-span-2 p-48">
             <Archive size={48} className="text-muted mx-auto mb-16" />
-            <p className="text-muted">Belum ada snapshot cadangan otomatis yang tersedia.</p>
+            <p className="text-muted">Belum ada cadangan otomatis yang tersedia.</p>
           </div>
         ) : (
           filteredBackups.map(backup => (
@@ -87,7 +87,7 @@ export default function BackupRestore() {
                   <div>
                     <div className="flex items-center gap-8 mb-4">
                       <Database size={16} className="text-primary" />
-                      <span className="font-bold">Snapshot {new Date(backup.timestamp).toLocaleDateString()}</span>
+                      <span className="font-bold">Cadangan {new Date(backup.timestamp).toLocaleDateString()}</span>
                     </div>
                     <div className="text-xs text-muted flex items-center gap-4">
                       <Clock size={12} /> {new Date(backup.timestamp).toLocaleTimeString()}
@@ -115,7 +115,7 @@ export default function BackupRestore() {
                     onClick={() => handleRestore(backup)}
                     disabled={isRestoring}
                   >
-                    <RefreshCw size={14} className="mr-4" /> Restore Data
+                    <RefreshCw size={14} className="mr-4" /> Pulihkan Data
                   </button>
                   <button className="btn btn-ghost btn-sm" title="Download JSON" onClick={() => handleDownload(backup)}>
                     <Download size={14} />
@@ -129,9 +129,9 @@ export default function BackupRestore() {
 
       <div className="mt-24 p-24 bg-white rounded border border-color">
          <h4 className="font-bold mb-8 flex items-center gap-8">
-           <History size={18} className="text-muted" /> Audit Backup Terakhir
+           <History size={18} className="text-muted" /> Riwayat Cadangan Terakhir
          </h4>
-         <p className="text-xs text-muted">Sistem melakukan pencadangan otomatis setiap kali ada perubahan data signifikan di tingkat owner. Maksimal 3 snapshot terakhir disimpan secara lokal.</p>
+         <p className="text-xs text-muted">Sistem membuat cadangan otomatis setiap kali ada perubahan data penting di panel pemilik. Maksimal 3 cadangan terakhir disimpan secara lokal.</p>
       </div>
     </div>
   )

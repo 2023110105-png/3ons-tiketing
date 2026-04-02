@@ -28,7 +28,7 @@ describe('ContractManager', () => {
   it('renders tenant card and supports search filtering', () => {
     render(<ContractManager />)
     expect(screen.getByText('Acme Event')).toBeTruthy()
-    fireEvent.change(screen.getByPlaceholderText('Cari tenant untuk kontrak...'), { target: { value: 'Nonexistent' } })
+    fireEvent.change(screen.getByPlaceholderText('Cari akun untuk kontrak...'), { target: { value: 'Nonexistent' } })
     expect(screen.queryByText('Acme Event')).toBeNull()
   })
 

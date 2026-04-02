@@ -12,7 +12,7 @@ export default function Login() {
 
   const getFriendlyLoginError = (message) => {
     const text = String(message || '').toLowerCase()
-    if (!text) return 'Login gagal. Silakan coba lagi.'
+    if (!text) return 'Proses masuk gagal. Silakan coba lagi.'
     if (text.includes('invalid credentials') || text.includes('kredensial tidak cocok')) {
       return 'Nama pengguna atau kata sandi tidak sesuai.'
     }
@@ -20,7 +20,7 @@ export default function Login() {
       return 'Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.'
     }
     if (text.includes('firebase')) {
-      return 'Sistem login sedang bermasalah. Silakan coba lagi beberapa saat.'
+      return 'Layanan masuk sedang bermasalah. Silakan coba lagi beberapa saat.'
     }
     return message
   }
@@ -73,7 +73,7 @@ export default function Login() {
               id="login-username"
               type="text"
               className="form-input"
-              placeholder="Contoh: admin, owner, atau email"
+              placeholder="Contoh: admin, petugas depan, petugas belakang"
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
@@ -118,11 +118,11 @@ export default function Login() {
         <div className="login-demo-card">
           <div className="login-demo-title">Informasi Akses</div>
           <p className="login-demo-text">
-            Jika belum memiliki akun, silakan hubungi pemilik aplikasi 3oNs Digital melalui WhatsApp
-            untuk permintaan akun dan pengaturan akses.
+            Jika belum memiliki akun, silakan hubungi tim kami melalui WhatsApp untuk permintaan akun
+            dan pengaturan akses.
           </p>
           <p className="login-demo-text login-demo-text-muted">
-            Akses akun akan disesuaikan dengan kebutuhan peran Anda di sistem.
+            Hak akses akan disesuaikan dengan kebutuhan peran Anda di sistem.
           </p>
         </div>
       </div>

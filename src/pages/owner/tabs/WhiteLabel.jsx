@@ -52,7 +52,7 @@ export default function WhiteLabel() {
           value={selectedTenantId}
           onChange={e => handleSelectTenant(e.target.value)}
         >
-          <option value="">-- Pilih Tenant untuk Kustomisasi --</option>
+          <option value="">-- Pilih Akun Brand untuk Kustomisasi --</option>
           {tenants.map(t => (
             <option key={t.id} value={t.id}>{t.brandName}</option>
           ))}
@@ -99,7 +99,7 @@ export default function WhiteLabel() {
               </div>
 
               <div className="owner-form-group mb-24">
-                <label className="owner-form-label">Logo Tenant (URL atau Base64)</label>
+                <label className="owner-form-label">Logo Brand (URL atau Base64)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <ImageIcon size={18} className="text-muted" />
                   <input 
@@ -151,7 +151,7 @@ export default function WhiteLabel() {
                 
                 <div className="mt-24 p-12 bg-white rounded text-center border-dashed border-color" style={{ fontSize: '0.75rem' }}>
                    <Layout size={16} className="mx-auto mb-8 text-muted" />
-                   Perubahan warna tema akan diaplikasikan ke seluruh dashboard tenant tersebut.
+                   Perubahan warna tema akan diterapkan ke seluruh tampilan akun brand ini.
                 </div>
               </div>
             </div>
@@ -160,7 +160,7 @@ export default function WhiteLabel() {
       ) : (
         <div className="card card-pad text-center p-64">
            <Settings size={48} className="text-muted mx-auto mb-16" />
-           <p className="text-muted">Pilih tenant untuk mulai mengatur tampilan aplikasi mereka.</p>
+           <p className="text-muted">Pilih akun brand untuk mulai mengatur tampilan aplikasinya.</p>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import TenantHealth from './TenantHealth'
 
@@ -13,7 +13,7 @@ afterEach(() => cleanup())
 describe('TenantHealth', () => {
   it('renders health cards and refresh button', () => {
     render(<TenantHealth />)
-    expect(screen.getByText(/Real-time Health Dashboard/i)).toBeTruthy()
+    expect(screen.getByText(/Pantauan Kesehatan Sistem/i)).toBeTruthy()
     expect(screen.getByText('Acme Event')).toBeTruthy()
   })
 
@@ -25,8 +25,11 @@ describe('TenantHealth', () => {
     fireEvent.click(refreshBtn)
     expect(refreshBtn.disabled).toBe(true)
 
-    vi.advanceTimersByTime(800)
-    await waitFor(() => expect(screen.getByRole('button', { name: /Segarkan Data/i }).disabled).toBe(false))
+    await act(async () => {
+      vi.advanceTimersByTime(800)
+    })
+
+    expect(screen.getByRole('button', { name: /Segarkan Data/i }).disabled).toBe(false)
     vi.useRealTimers()
   })
 })

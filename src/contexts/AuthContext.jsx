@@ -16,17 +16,17 @@ const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'strict' 
 function mapFirebaseAuthError(errorCode) {
   switch (errorCode) {
     case 'auth/invalid-email':
-      return 'Format email tidak valid'
+      return 'Format email belum benar'
     case 'auth/user-disabled':
-      return 'Akun Firebase dinonaktifkan'
+      return 'Akun dinonaktifkan'
     case 'auth/user-not-found':
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return 'Kredensial tidak cocok'
+      return 'Nama pengguna atau kata sandi tidak sesuai'
     case 'auth/too-many-requests':
-      return 'Terlalu banyak percobaan login, coba lagi sebentar'
+      return 'Terlalu banyak percobaan masuk, coba lagi sebentar'
     default:
-      return 'Autentikasi Firebase gagal'
+      return 'Proses masuk gagal'
   }
 }
 
@@ -71,7 +71,7 @@ export function AuthProvider({ children }) {
           await signOut(auth)
           return {
             success: false,
-            error: 'Akun Firebase valid, tetapi tidak terdaftar di tenant sistem'
+            error: 'Akun valid, tetapi belum terdaftar di sistem'
           }
         } catch (error) {
           if (FIREBASE_AUTH_MODE === 'strict') {
@@ -79,7 +79,7 @@ export function AuthProvider({ children }) {
           }
         }
       } else if (FIREBASE_AUTH_MODE === 'strict') {
-        return { success: false, error: 'Akun belum memiliki email login Firebase' }
+        return { success: false, error: 'Akun ini belum memiliki email masuk' }
       }
     }
 

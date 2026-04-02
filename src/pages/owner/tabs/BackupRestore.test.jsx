@@ -24,8 +24,8 @@ afterEach(() => cleanup())
 describe('BackupRestore', () => {
   it('renders backup entries excluding invalid', () => {
     render(<BackupRestore />)
-    expect(screen.getAllByText(/Snapshot/i).length).toBeGreaterThan(0)
-    expect(screen.queryByText(/Belum ada snapshot/i)).toBeNull()
+    expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Belum ada cadangan/i)).toBeNull()
   })
 
   it('downloads backup when download button clicked', () => {
@@ -35,14 +35,14 @@ describe('BackupRestore', () => {
     const downloadBtn = screen.getAllByRole('button', { name: /Download JSON/i })[0]
     fireEvent.click(downloadBtn)
 
-    expect(screen.getAllByText(/Snapshot/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
   })
 
   it('restore backup asks prompt and calls restore function', () => {
     window.prompt = vi.fn(() => 'testing alasan restore')
     render(<BackupRestore />)
 
-    const restoreBtn = screen.getAllByRole('button', { name: /Restore Data/i })[0]
+    const restoreBtn = screen.getAllByRole('button', { name: /Pulihkan Data/i })[0]
     fireEvent.click(restoreBtn)
     expect(window.prompt).toHaveBeenCalled()
   })

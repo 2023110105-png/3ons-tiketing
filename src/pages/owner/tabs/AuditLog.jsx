@@ -49,7 +49,7 @@ export default function AuditLog() {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari di log audit..." 
+              placeholder="Cari di riwayat aktivitas..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -65,16 +65,16 @@ export default function AuditLog() {
           </select>
         </div>
         <div className="owner-toolbar-right">
-          <button className="btn btn-ghost" onClick={handleExport} title="Export as CSV">
-            <Download size={18} /> Export
+          <button className="btn btn-ghost" onClick={handleExport} title="Unduh sebagai CSV">
+            <Download size={18} /> Unduh CSV
           </button>
         </div>
       </div>
 
       <div className="owner-card-container" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="owner-card-header" style={{ borderRadius: 0 }}>
-          <div className="owner-card-title">Audit Log Immutable</div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredLogs.length} entries</span>
+          <div className="owner-card-title">Riwayat Aktivitas Pemilik</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredLogs.length} catatan</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="owner-data-table">
@@ -90,7 +90,7 @@ export default function AuditLog() {
               {filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan="4" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                    📋 Belum ada data log audit
+                    📋 Belum ada riwayat aktivitas
                   </td>
                 </tr>
               ) : (

@@ -96,8 +96,8 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     return (
       <div className="owner-empty-state owner-fade-in-up" style={{ padding: '64px 24px' }}>
         <div className="owner-empty-icon">👥</div>
-        <div className="owner-empty-title">Pilih Tenant untuk Mengelola User</div>
-        <p className="text-muted mb-24">Setiap tenant dapat memiliki admin client dan petugas gate sendiri.</p>
+        <div className="owner-empty-title">Pilih Akun Brand untuk Mengelola Pengguna</div>
+        <p className="text-muted mb-24">Setiap akun brand dapat memiliki admin acara dan petugas pintu sendiri.</p>
         <div className="grid-responsive mt-24" style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div className="form-group mb-0">
             <select 
@@ -105,7 +105,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
               value={selectedTenantId} 
               onChange={e => setSelectedTenantId(e.target.value)}
             >
-              <option value="">-- Pilih Tenant --</option>
+              <option value="">-- Pilih Akun Brand --</option>
               {tenants.map(t => (
                 <option key={t.id} value={t.id}>{t.brandName} ({t.eventName})</option>
               ))}
@@ -120,10 +120,10 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     <div className="user-manager-container owner-fade-in-up">
       <div className="owner-toolbar">
         <button className="btn btn-ghost p-0" onClick={() => setSelectedTenantId('')}>
-          <ArrowLeft size={18} /> Kembali ke daftar tenant
+          <ArrowLeft size={18} /> Kembali ke daftar akun
         </button>
         <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <UserPlus size={18} /> Tambah User Baru
+          <UserPlus size={18} /> Tambah Pengguna Baru
         </button>
       </div>
 
@@ -132,13 +132,13 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
            <div className="flex justify-between items-center flex-wrap gap-12">
               <div>
                 <h3 className="card-title">{selectedTenant.brandName}</h3>
-                <p className="text-muted text-xs">ID Tenant: {selectedTenant.id}</p>
+                <p className="text-muted text-xs">ID Akun: {selectedTenant.id}</p>
               </div>
               <div className="admin-search-wrap" style={{ minWidth: '240px', flex: 1 }}>
                 <Search size={14} className="admin-search-icon" />
                 <input 
                   className="form-input" 
-                  placeholder="Cari user..." 
+                  placeholder="Cari pengguna..." 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
@@ -150,10 +150,10 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Username</th>
-                <th>Email Firebase</th>
+                <th>Nama Pengguna</th>
+                <th>Email Login</th>
                 <th>Nama</th>
-                <th>Role</th>
+                <th>Peran</th>
                 <th>Status</th>
                 <th className="text-right">Aksi</th>
               </tr>
@@ -161,7 +161,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center p-32 text-muted">Belum ada user untuk tenant ini.</td>
+                  <td colSpan="6" className="text-center p-32 text-muted">Belum ada pengguna untuk akun ini.</td>
                 </tr>
               ) : (
                 filteredUsers.map(u => (
@@ -211,7 +211,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
         <div className="modal-overlay">
           <div className="modal-content card" style={{ maxWidth: '450px' }}>
             <div className="card-pad">
-              <h3 className="card-title mb-16">Buat User Tenant Baru</h3>
+              <h3 className="card-title mb-16">Buat Pengguna Baru</h3>
               <form onSubmit={handleCreateUser}>
                 <div className="form-group">
                   <label htmlFor="new-user-username" className="form-label">Username</label>
@@ -225,7 +225,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="new-user-email" className="form-label">Email Firebase (opsional)</label>
+                  <label htmlFor="new-user-email" className="form-label">Email Login (opsional)</label>
                   <input
                     id="new-user-email"
                     className="form-input"
@@ -259,27 +259,27 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="new-user-role" className="form-label">Role</label>
+                  <label htmlFor="new-user-role" className="form-label">Peran</label>
                   <select 
                     id="new-user-role"
                     className="form-select"
                     value={newUser.role}
                     onChange={e => setNewUser({...newUser, role: e.target.value})}
                   >
-                    <option value="admin_client">Admin Client (Full Dashboard)</option>
-                    <option value="gate_front">Gate Front (Scanner Only)</option>
-                    <option value="gate_back">Gate Back (Monitor Only)</option>
+                    <option value="admin_client">Admin Acara (Akses Penuh)</option>
+                    <option value="gate_front">Petugas Pintu Depan (Pindai Saja)</option>
+                    <option value="gate_back">Petugas Pintu Belakang (Pantau Saja)</option>
                   </select>
                 </div>
                 
                 <div className="bg-subtle p-12 mb-20 rounded" style={{ fontSize: '0.75rem', border: '1px dashed var(--border-color)' }}>
                   <ShieldAlert size={14} className="inline mr-4 text-warning" />
-                  <strong>Peringatan!</strong> User petugas gate (Front/Back) hanya akan memiliki akses terbatas ke menu Scan atau Monitor untuk tenant ini.
+                  <strong>Peringatan!</strong> Petugas pintu hanya akan memiliki akses terbatas ke menu Pindai atau Pantau untuk akun ini.
                 </div>
 
                 <div className="actions-right mt-24">
                   <button type="button" className="btn btn-ghost" onClick={() => setShowAddModal(false)}>Batal</button>
-                  <button type="submit" className="btn btn-primary">Simpan User</button>
+                  <button type="submit" className="btn btn-primary">Simpan Pengguna</button>
                 </div>
               </form>
             </div>

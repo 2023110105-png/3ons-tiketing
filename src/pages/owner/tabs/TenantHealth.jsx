@@ -25,7 +25,7 @@ export default function TenantHealth() {
   return (
     <div className="tenant-health-container owner-fade-in-up">
       <div className="owner-toolbar">
-        <div className="owner-card-title">🏥 Real-time Health Dashboard</div>
+        <div className="owner-card-title">🏥 Pantauan Kesehatan Sistem</div>
         <button className="btn btn-ghost" onClick={handleRefresh} disabled={isRefreshing}>
           <RefreshCw size={18} className={isRefreshing ? 'spinner' : ''} /> Segarkan Data
         </button>
@@ -97,8 +97,8 @@ export default function TenantHealth() {
             <Activity size={24} />
           </div>
           <div>
-            <h4 className="font-bold">System Status: Operasional</h4>
-            <p className="text-sm text-muted">Semua layanan gate dan sinkronisasi offline berjalan normal. Data diperbarui secara otomatis.</p>
+            <h4 className="font-bold">Status Sistem: Normal</h4>
+            <p className="text-sm text-muted">Semua layanan antrean, pemindai, dan sinkronisasi berjalan normal. Data diperbarui secara otomatis.</p>
           </div>
         </div>
       </div>

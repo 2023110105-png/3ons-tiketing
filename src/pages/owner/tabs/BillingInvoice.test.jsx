@@ -50,7 +50,7 @@ describe('BillingInvoice', () => {
     expect(acmeOptions.length).toBeGreaterThanOrEqual(2) // row + select option
     expect(bandungOptions.length).toBeGreaterThanOrEqual(2)
 
-    fireEvent.change(screen.getByPlaceholderText(/Cari invoice atau tenant/i), { target: { value: 'Bandung' } })
+    fireEvent.change(screen.getByPlaceholderText(/Cari tagihan atau akun/i), { target: { value: 'Bandung' } })
     expect(screen.queryByText('Acme Zone', { selector: 'td' })).toBeNull()
     expect(screen.getByText('Bandung Expo', { selector: 'td' })).toBeTruthy()
   })

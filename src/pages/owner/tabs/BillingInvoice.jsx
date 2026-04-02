@@ -40,7 +40,7 @@ export default function BillingInvoice() {
   const handleAddInvoice = (e) => {
     e.preventDefault()
     if (!selectedTenantId) {
-      toast.error('Gagal', 'Pilih tenant terlebih dahulu')
+      toast.error('Gagal', 'Pilih akun terlebih dahulu')
       return
     }
     
@@ -123,7 +123,7 @@ export default function BillingInvoice() {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari invoice atau tenant..." 
+              placeholder="Cari tagihan atau akun..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -134,7 +134,7 @@ export default function BillingInvoice() {
             value={selectedTenantId}
             onChange={e => setSelectedTenantId(e.target.value)}
           >
-            <option value="">Semua Tenant</option>
+            <option value="">Semua Akun</option>
             {tenants.map(t => (
               <option key={t.id} value={t.id}>{t.brandName}</option>
             ))}
@@ -142,22 +142,22 @@ export default function BillingInvoice() {
         </div>
         <div className="owner-toolbar-right">
           <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-            <Plus size={18} /> Invoice Baru
+            <Plus size={18} /> Tagihan Baru
           </button>
         </div>
       </div>
 
       <div className="owner-card-container" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="owner-card-header" style={{ borderRadius: 0 }}>
-          <div className="owner-card-title">💰 Invoices Management</div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredInvoices.length} invoices</span>
+          <div className="owner-card-title">💰 Manajemen Tagihan</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredInvoices.length} tagihan</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="owner-data-table">
             <thead>
               <tr>
-                <th>📋 Invoice ID</th>
-                <th>👥 Tenant</th>
+                <th>📋 ID Tagihan</th>
+                <th>👥 Akun</th>
                 <th>📅 Periode</th>
                 <th>📤 Tgl Terbit</th>
                 <th>💵 Total</th>
@@ -168,7 +168,7 @@ export default function BillingInvoice() {
             <tbody>
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center p-32 text-muted">Belum ada data invoice billing.</td>
+                  <td colSpan="7" className="text-center p-32 text-muted">Belum ada data tagihan.</td>
                 </tr>
               ) : (
                 filteredInvoices.map(invoice => (
@@ -207,14 +207,14 @@ export default function BillingInvoice() {
               <h3 className="card-title mb-16">Buat Tagihan Baru</h3>
               <form onSubmit={handleAddInvoice}>
                 <div className="form-group">
-                  <label className="form-label">Pilih Tenant</label>
+                  <label className="form-label">Pilih Akun</label>
                   <select 
                     className="form-select"
                     required
                     value={selectedTenantId}
                     onChange={e => setSelectedTenantId(e.target.value)}
                   >
-                    <option value="">-- Pilih Tenant --</option>
+                    <option value="">-- Pilih Akun --</option>
                     {tenants.map(t => (
                       <option key={t.id} value={t.id}>{t.brandName}</option>
                     ))}
