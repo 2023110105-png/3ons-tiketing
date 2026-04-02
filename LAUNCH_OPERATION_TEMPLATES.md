@@ -2,6 +2,8 @@
 
 Dokumen ini berisi 3 template siap pakai untuk minggu pertama setelah go-live.
 
+Versi ringkas untuk briefing lapangan tersedia di [LAUNCH_BRIEFING_ONE_PAGE.md](LAUNCH_BRIEFING_ONE_PAGE.md).
+
 ## 1) SOP Gangguan 15 Menit
 
 Tujuan: memulihkan layanan inti secepat mungkin saat terjadi gangguan.
