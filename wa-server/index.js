@@ -207,6 +207,22 @@ function formatPhoneWA(phone) {
 
 // ----- API ROUTES -----
 
+app.get('/', (_req, res) => {
+    res.json({
+        service: '3oNs Digital WA/Email Bot API Server',
+        status: 'running',
+        docs: {
+            waStatus: '/api/wa/status?tenant_id=tenant-default',
+            sessions: '/api/wa/sessions',
+            health: '/health'
+        }
+    });
+});
+
+app.get('/health', (_req, res) => {
+    res.json({ ok: true, uptime: process.uptime() });
+});
+
 // 1. Status Check & QR Retreival
 app.get('/api/wa/status', (req, res) => {
     const tenantId = resolveTenantId(req);
