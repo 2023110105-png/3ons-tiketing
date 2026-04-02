@@ -2854,6 +2854,13 @@ input, select, textarea, button {
   margin-top: 8px;
 }
 
+.scanner-feedback-action {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .scanner-search-row {
   display: flex;
   align-items: center;
@@ -3079,6 +3086,27 @@ input, select, textarea, button {
   font-weight: 800;
   color: white;
   text-align: center;
+}
+
+.scanner-result-action {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.95);
+  text-align: center;
+  max-width: 80%;
+  font-weight: 600;
+}
+
+.scanner-detail-toggle {
+  margin-top: 10px;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.scanner-detail-toggle-inline {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .scanner-result-detail {

@@ -16,6 +16,7 @@ export default function FrontGate() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(getPendingCheckIns().length)
   const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
+  const [showResultDetail, setShowResultDetail] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
@@ -137,6 +138,7 @@ export default function FrontGate() {
 
     const res = checkIn(qrData)
     setResult(res)
+    setShowResultDetail(false)
 
     if (res.success) {
       // VIP gets special fanfare
@@ -166,6 +168,7 @@ export default function FrontGate() {
   const handleManualCheckIn = (participant) => {
     const res = manualCheckIn(participant.id, 'gate_front')
     setResult(res)
+    setShowResultDetail(false)
 
     if (res.success) {
       if (res.participant?.category === 'VIP') {
@@ -308,6 +311,18 @@ export default function FrontGate() {
     return 'error'
   }
 
+  const getResultActionHint = () => {
+    if (!result) return ''
+    if (result.status === 'queued_offline') return 'Lanjut scan. Data disimpan dan akan sinkron otomatis.'
+    if (result.status === 'synced') return 'Sinkron berhasil. Lanjut scan berikutnya.'
+    if (result.status === 'sync_partial') return 'Sebagian gagal. Coba sinkron ulang saat koneksi stabil.'
+    if (result.success) return 'Silakan peserta masuk.'
+    if (result.status === 'duplicate') return 'Arahkan peserta ke helpdesk untuk verifikasi ulang.'
+    if (result.status === 'wrong_day') return 'Informasikan hari tiket yang benar.'
+    if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
+    return 'Tiket ditolak. Arahkan ke helpdesk.'
+  }
+
   const getCategoryAvatarClass = (category) => {
     if (category === 'VIP') return 'm-p-avatar-vip'
     if (category === 'Dealer') return 'm-p-avatar-dealer'
@@ -414,17 +429,25 @@ export default function FrontGate() {
               <div className="scanner-result-text">
                 {getResultTitle()}
               </div>
-              {result.participant && (
-                <div className="scanner-result-detail">{result.participant.name}</div>
+              <div className="scanner-result-action">{getResultActionHint()}</div>
+              <button className="btn btn-ghost btn-sm scanner-detail-toggle" onClick={() => setShowResultDetail(prev => !prev)}>
+                {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
+              </button>
+              {showResultDetail && (
+                <>
+                  {result.participant && (
+                    <div className="scanner-result-detail">{result.participant.name}</div>
+                  )}
+                  {result.security && (
+                    <div className="scanner-result-detail scanner-result-subdetail">
+                      Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
+                    </div>
+                  )}
+                  <div className="scanner-result-detail scanner-result-subdetail">
+                    {result.message}
+                  </div>
+                </>
               )}
-              {result.security && (
-                <div className="scanner-result-detail scanner-result-subdetail">
-                  Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
-                </div>
-              )}
-              <div className="scanner-result-detail scanner-result-subdetail">
-                {result.message}
-              </div>
             </div>
           )}
         </div>
@@ -465,7 +488,11 @@ export default function FrontGate() {
                 <h2 className={`scanner-feedback-title scanner-feedback-title-lg scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
-                {result.participant && (
+                <p className="scanner-feedback-action">{getResultActionHint()}</p>
+                <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
+                  {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
+                </button>
+                {showResultDetail && result.participant && (
                   <div className="scanner-feedback-participant">
                     <div className="scanner-feedback-name scanner-feedback-name-lg">{result.participant.name}</div>
                     <div className="scanner-feedback-meta scanner-feedback-meta-lg">
@@ -473,12 +500,12 @@ export default function FrontGate() {
                     </div>
                   </div>
                 )}
-                {result.security && (
+                {showResultDetail && result.security && (
                   <p className="scanner-feedback-meta scanner-feedback-message">
                     Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
                   </p>
                 )}
-                <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>
+                {showResultDetail && <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>}
               </div>
             </div>
           )}
@@ -554,7 +581,11 @@ export default function FrontGate() {
                 <h2 className={`scanner-feedback-title scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
-                {result.participant && (
+                <p className="scanner-feedback-action">{getResultActionHint()}</p>
+                <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
+                  {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
+                </button>
+                {showResultDetail && result.participant && (
                   <div className="scanner-feedback-participant scanner-feedback-participant-tight">
                     <div className="scanner-feedback-name">{result.participant.name}</div>
                     <div className="scanner-feedback-meta">
@@ -562,6 +593,7 @@ export default function FrontGate() {
                     </div>
                   </div>
                 )}
+                {showResultDetail && <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>}
               </div>
             </div>
           )}
