@@ -365,6 +365,11 @@ export default function FrontGate() {
               {result.participant && (
                 <div className="scanner-result-detail">{result.participant.name}</div>
               )}
+              {result.security && (
+                <div className="scanner-result-detail scanner-result-subdetail">
+                  Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
+                </div>
+              )}
               <div className="scanner-result-detail scanner-result-subdetail">
                 {result.message}
               </div>
@@ -415,6 +420,11 @@ export default function FrontGate() {
                       {result.participant.ticket_id} · {result.participant.category}
                     </div>
                   </div>
+                )}
+                {result.security && (
+                  <p className="scanner-feedback-meta scanner-feedback-message">
+                    Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
+                  </p>
                 )}
                 <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>
               </div>

@@ -679,6 +679,15 @@ function buildQrSignature({ tenantId, eventId, ticketId, dayNumber, secureCode =
   return btoa(payload)
 }
 
+function buildSecurityMeta(participant) {
+  const hasSecure = !!participant?.secure_code && !!participant?.secure_ref
+  return {
+    mode: hasSecure ? 'v3-secure' : 'legacy-v2',
+    secure_ref_mask: hasSecure ? `***${String(participant.secure_ref).slice(-6)}` : '-',
+    has_secure_token: hasSecure
+  }
+}
+
 function encodeQrPayload({ ticketId, name, dayNumber, tenantId, eventId, secureCode = '', secureRef = '' }) {
   const signature = buildQrSignature({
     tenantId,
@@ -1844,7 +1853,8 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
       success: false,
       status: 'wrong_day',
       message: `Tiket untuk Hari ${participant.day_number}, sekarang Hari ${ev.currentDay}`,
-      participant
+      participant,
+      security: buildSecurityMeta(participant)
     }
   }
 
@@ -1854,7 +1864,8 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
       success: false,
       status: 'duplicate',
       message: `Sudah check-in pukul ${checkedTime}`,
-      participant
+      participant,
+      security: buildSecurityMeta(participant)
     }
   }
 
@@ -1879,7 +1890,13 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
 
   notifyListeners({ type: 'check_in', participant, log })
 
-  return { success: true, status: 'valid', message: 'Manual check-in berhasil!', participant }
+  return {
+    success: true,
+    status: 'valid',
+    message: 'Manual check-in berhasil!',
+    participant,
+    security: buildSecurityMeta(participant)
+  }
 }
 
 export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
@@ -1960,7 +1977,13 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
 
     if (hasSecureFields) {
       if (!parsed.r || parsed.r !== participant.secure_ref) {
-        return { success: false, status: 'invalid', message: 'Token barcode tidak cocok' }
+        return {
+          success: false,
+          status: 'invalid',
+          message: 'Token barcode tidak cocok',
+          participant,
+          security: buildSecurityMeta(participant)
+        }
       }
 
       const secureSignature = buildQrSignature({
@@ -1973,12 +1996,24 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
       })
 
       if (parsed.sig !== secureSignature) {
-        return { success: false, status: 'invalid', message: 'Signature barcode tidak valid' }
+        return {
+          success: false,
+          status: 'invalid',
+          message: 'Signature barcode tidak valid',
+          participant,
+          security: buildSecurityMeta(participant)
+        }
       }
     } else {
       const legacySig = btoa(`${activeTenant.id}|${ev.id}|${participant.ticket_id}|${participant.day_number}|event-2026`)
       if (parsed.sig !== legacySig) {
-        return { success: false, status: 'invalid', message: 'Signature barcode tidak valid' }
+        return {
+          success: false,
+          status: 'invalid',
+          message: 'Signature barcode tidak valid',
+          participant,
+          security: buildSecurityMeta(participant)
+        }
       }
     }
   }
@@ -1988,7 +2023,8 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
       success: false,
       status: 'wrong_day',
       message: `Tiket untuk Hari ${participant.day_number}, sekarang Hari ${ev.currentDay}`,
-      participant
+      participant,
+      security: buildSecurityMeta(participant)
     }
   }
 
@@ -1998,7 +2034,8 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
       success: false,
       status: 'duplicate',
       message: `Sudah check-in pukul ${checkedTime}`,
-      participant
+      participant,
+      security: buildSecurityMeta(participant)
     }
   }
 
@@ -2023,7 +2060,13 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
 
   notifyListeners({ type: 'check_in', participant, log })
 
-  return { success: true, status: 'valid', message: 'Check-in berhasil!', participant }
+  return {
+    success: true,
+    status: 'valid',
+    message: 'Check-in berhasil!',
+    participant,
+    security: buildSecurityMeta(participant)
+  }
 }
 
 export function getStats(day = null) {
