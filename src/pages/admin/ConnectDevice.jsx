@@ -4,6 +4,20 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 
+function formatConnectionError(message) {
+  const text = String(message || '').trim()
+  if (!text) return 'Koneksi API gagal'
+
+  const isPortIssue = /failed to fetch|networkerror|err_connection_refused/i.test(text)
+  const looksLocalPort = /localhost|127\.0\.0\.1|0\.0\.0\.0|:3001/i.test(text)
+
+  if (isPortIssue && looksLocalPort) {
+    return 'Gagal menghubungkan port backend lokal. Pastikan VITE_API_BASE_URL mengarah ke URL server publik (bukan localhost:3001).'
+  }
+
+  return text
+}
+
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
   const [tenantSessions, setTenantSessions] = useState([])
@@ -60,7 +74,7 @@ export default function ConnectDevice() {
         setLastError('')
       } catch (err) {
         setWaState({ status: 'offline', isReady: false, qrCode: null })
-        setLastError(err?.message || 'Koneksi API gagal')
+        setLastError(formatConnectionError(err?.message))
       }
 
       if (stopped) return
