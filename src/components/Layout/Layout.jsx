@@ -222,6 +222,13 @@ export default function Layout({ children }) {
             <button className="mobile-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
               <Menu size={20} />
             </button>
+            <Link to="/" className="logo-3ons">
+              <span className="l3">3</span>
+              <span className="lo">o</span>
+              <span className="lN">N</span>
+              <span className="ls">s</span>
+              <span className="digital-tag">Digital</span>
+            </Link>
           </div>
           <div className="header-right">
             {user?.role === 'super_admin' && (

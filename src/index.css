@@ -48,6 +48,59 @@
   --warning-bg: rgba(245, 158, 11, 0.1);
   --danger: #EF4444;
   --danger-bg: rgba(239, 68, 68, 0.1);
+
+/* ============================================
+  3oNs LOGO STYLING
+  ============================================ */
+
+  /* 3oNs Logo Typography */
+  .logo-3ons {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 2rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    text-decoration: none;
+    color: var(--text-primary);
+  }
+
+  .logo-3ons .l3 { color: #4da6e8; }  /* Blue */
+  .logo-3ons .lo { color: #2eab6e; }  /* Green */
+  .logo-3ons .lN { color: #e84040; }  /* Red */
+  .logo-3ons .ls { color: #e84393; }  /* Pink */
+
+  .logo-3ons .digital-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #b8960a;
+    margin-left: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* Responsive logo sizes */
+  @media (max-width: 768px) {
+    .logo-3ons {
+      font-size: 1.5rem;
+    }
+    .logo-3ons .digital-tag {
+      font-size: 0.6rem;
+    }
+  }
+
+  /* Login page logo */
+  .login-logo {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 2.5rem;
+  }
+
+  @media (max-width: 768px) {
+    .login-logo {
+      font-size: 2rem;
+    }
+  }
   --danger-glow: rgba(239, 68, 68, 0.4);
   --info: var(--brand-blue);
   --info-bg: rgba(59, 130, 246, 0.1);

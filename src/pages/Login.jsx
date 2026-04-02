@@ -41,6 +41,13 @@ export default function Login() {
 
       {/* Login Card */}
       <div className="login-card">
+        <div className="logo-3ons login-logo">
+          <span className="l3">3</span>
+          <span className="lo">o</span>
+          <span className="lN">N</span>
+          <span className="ls">s</span>
+          <span className="digital-tag">Digital</span>
+        </div>
         <h1 className="login-title">Masuk Aplikasi</h1>
         <p className="login-subtitle">Silakan masukkan kredensial Anda</p>
 

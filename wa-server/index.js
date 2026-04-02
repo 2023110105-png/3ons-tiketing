@@ -121,7 +121,7 @@ app.post('/api/send-ticket', async (req, res) => {
                 const base64Str = buffer.toString('base64');
                 const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
 
-                const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.`;
+                const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
                 
                 // Kirim Gambar + Caption
                 await waClient.sendMessage(waNumber, media, { caption: waMessage });
@@ -140,22 +140,32 @@ app.post('/api/send-ticket', async (req, res) => {
         } else {
             try {
                 const mailOptions = {
-                    from: `"Event Platform" <${transporter.options.auth.user}>`,
+                    from: `"3oNs Digital" <${transporter.options.auth.user}>`,
                     to: email,
                     subject: `E-Ticket Hari ke-${day_number} - ${name}`,
                     html: `
-                        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; text-align: center; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                            <h2 style="color: #3c99dc">E-Ticket</h2>
-                            <p>Halo <b>${name}</b>,</p>
-                            <p>Ini adalah tiket masuk acara Anda untuk <b>Hari ke-${day_number}</b>.</p>
-                            <hr style="border-top:1px dashed #ccc; margin: 20px 0" />
-                            <div style="margin: 20px 0;">
-                                <img src="${qrPublicUrl}" width="200" alt="QR Code Ticket" />
+                        <div style="font-family: 'Plus Jakarta Sans', Arial, sans-serif; max-width: 500px; margin: 0 auto; text-align: center; border: 1px solid #e8e4d0; padding: 20px; border-radius: 10px; background: #f5f3eb;">
+                            <div style="margin-bottom: 20px;">
+                                <span style="font-size: 2.5rem; font-weight: 800; color: #1a1a1a;">
+                                    <span style="color: #4da6e8;">3</span>
+                                    <span style="color: #2eab6e;">o</span>
+                                    <span style="color: #e84040;">N</span>
+                                    <span style="color: #e84393;">s</span>
+                                    <span style="font-size: 1rem; color: #b8960a; margin-left: 0.5rem;">Digital</span>
+                                </span>
                             </div>
-                            <h3>${ticket_id}</h3>
-                            <p style="background: ${category === 'VIP' ? '#3c99dc' : '#333'}; color: white; display: inline-block; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 14px;">KATEGORI: ${category.toUpperCase()}</p>
-                            <hr style="border-top:1px dashed #ccc; margin: 20px 0" />
-                            <p style="font-size: 12px; color: #777;">Tunjukkan QR Code ini pada saat registrasi acara berlangsung.<br/>Harap tidak membagikan kode ini kepada orang lain.</p>
+                            <h2 style="color: #4da6e8; margin-bottom: 10px;">E-Ticket</h2>
+                            <p style="margin-bottom: 20px;">Halo <b>${name}</b>,</p>
+                            <p style="margin-bottom: 20px;">Ini adalah tiket masuk acara Anda untuk <b>Hari ke-${day_number}</b>.</p>
+                            <hr style="border-top:1px dashed #d7d1b8; margin: 20px 0" />
+                            <div style="margin: 20px 0;">
+                                <img src="${qrPublicUrl}" width="200" alt="QR Code Ticket" style="border-radius: 8px;" />
+                            </div>
+                            <h3 style="color: #1a1a1a; margin: 10px 0;">${ticket_id}</h3>
+                            <p style="background: ${category === 'VIP' ? '#4da6e8' : '#2eab6e'}; color: white; display: inline-block; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 14px;">KATEGORI: ${category.toUpperCase()}</p>
+                            <hr style="border-top:1px dashed #d7d1b8; margin: 20px 0" />
+                            <p style="font-size: 12px; color: #6b7280;">Tunjukkan QR Code ini pada saat registrasi acara berlangsung.<br/>Harap tidak membagikan kode ini kepada orang lain.</p>
+                            <p style="font-size: 10px; color: #9ca3af; margin-top: 20px;">Powered by 3oNs Digital</p>
                         </div>
                     `
                 };
@@ -174,5 +184,5 @@ app.post('/api/send-ticket', async (req, res) => {
 // Start Server
 const PORT = 3001;
 app.listen(PORT, () => {
-    console.log(`\n🚀 WA/Email Bot API Server berjalan di http://localhost:${PORT}`);
+    console.log(`\n🚀 3oNs Digital WA/Email Bot API Server berjalan di http://localhost:${PORT}`);
 });
