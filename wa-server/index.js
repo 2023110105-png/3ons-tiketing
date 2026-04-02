@@ -182,7 +182,7 @@ app.post('/api/send-ticket', async (req, res) => {
 });
 
 // Start Server
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`\n🚀 3oNs Digital WA/Email Bot API Server berjalan di http://localhost:${PORT}`);
 });

@@ -1,16 +1,59 @@
 # 3oNs Project Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Deployment Model
 
-Currently, two official plugins are available:
+Frontend React/Vite dapat di-deploy ke Vercel. Bot WhatsApp tidak disarankan berjalan di Vercel karena prosesnya panjang, butuh Chromium/Puppeteer, dan harus menjaga session login tetap hidup.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Pola yang disarankan:
 
-## React Compiler
+1. Frontend di Vercel.
+2. `wa-server` di VPS, Render, Railway, Fly.io, atau server selalu aktif.
+3. Frontend membaca URL backend dari environment variable `VITE_API_BASE_URL`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Contoh:
 
-## Expanding the ESLint configuration
+```bash
+VITE_API_BASE_URL=https://bot-api.domain-anda.com
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Local Development
+
+Untuk development lokal, gunakan proxy Vite ke backend di port `3001`.
+
+Run:
+
+```bash
+npm run start:tablet
+```
+
+## Backend
+
+Server WA mendukung `PORT` dari environment supaya mudah dipindah ke hosting lain.
+
+## Deployment Yang Disarankan
+
+### Frontend di Vercel
+
+Set environment variable berikut di project Vercel:
+
+```bash
+VITE_API_BASE_URL=https://bot-api.domain-anda.com
+```
+
+### Bot WA di server selalu hidup
+
+Bangun image dari folder `wa-server` lalu jalankan pada VPS/Render/Railway/Fly.io.
+
+Contoh build lokal:
+
+```bash
+cd wa-server
+docker build -t 3ons-wa-server .
+docker run -p 3001:3001 -e PORT=3001 3ons-wa-server
+```
+
+Penting:
+
+1. Jangan taruh bot WhatsApp yang prosesnya panjang di Vercel.
+2. Simpan session login pada storage yang persisten di server tersebut.
+3. Jika backend diganti URL-nya, update `VITE_API_BASE_URL` di frontend.

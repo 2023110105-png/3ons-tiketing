@@ -1,6 +1,8 @@
 // Mock data store - simulates Supabase backend
 // Replace with real Supabase client when ready
 
+import { apiFetch } from '../utils/api'
+
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
 const DEFAULT_MAX_PENDING_ATTEMPTS = 5
@@ -1428,7 +1430,7 @@ export function addParticipant(data) {
       .replace(/\{\{hari\}\}/g, participant.day_number || '')
       .replace(/\{\{kategori\}\}/g, participant.category || '')
 
-    fetch('/api/send-ticket', {
+    apiFetch('/api/send-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

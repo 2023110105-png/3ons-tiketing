@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
+import { apiFetch } from '../../utils/api'
 
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
@@ -12,7 +13,7 @@ export default function ConnectDevice() {
     
     const checkWaStatus = async () => {
       try {
-        const res = await fetch('/api/wa/status');
+        const res = await apiFetch('/api/wa/status');
         const data = await res.json();
         setWaState(data);
       } catch {
@@ -29,7 +30,7 @@ export default function ConnectDevice() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/wa/logout', { method: 'POST' });
+      await apiFetch('/api/wa/logout', { method: 'POST' });
       setWaState({ status: 'qr', isReady: false, qrCode: null });
       toast.info('Session WhatsApp diputuskan.');
     } catch {
@@ -85,7 +86,7 @@ export default function ConnectDevice() {
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
-              <p className="status-note">Sistem gagal mendeteksi sinyal bot. Jalankan server melalui <b>npm run start:tablet</b> (Linux/Tablet) atau file .bat di Windows agar API aktif di port 3001.</p>
+              <p className="status-note">Sistem gagal mendeteksi server bot. Pastikan backend WhatsApp berjalan di URL yang diatur lewat <b>VITE_API_BASE_URL</b> atau, saat development lokal, lewat proxy Vite ke port 3001.</p>
             </div>
           )}
 

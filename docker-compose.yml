@@ -1,0 +1,11 @@
+services:
+  wa-server:
+    build:
+      context: ./wa-server
+    environment:
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./auth_data:/app/auth_data
+    restart: unless-stopped

@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
+import { apiFetch } from '../../utils/api'
 
 export default function Participants() {
   const currentDay = getCurrentDay()
@@ -85,7 +86,7 @@ export default function Participants() {
       .replace(/\{\{kategori\}\}/g, participant.category || '');
 
     try {
-      await fetch('/api/send-ticket', {
+      await apiFetch('/api/send-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
