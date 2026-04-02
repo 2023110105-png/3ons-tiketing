@@ -9,7 +9,9 @@ export default function ConnectDevice() {
   const [tenantSessions, setTenantSessions] = useState([])
   const [sessionsError, setSessionsError] = useState('')
   const [sessionQuery, setSessionQuery] = useState('')
+  const [sessionStatusFilter, setSessionStatusFilter] = useState('all')
   const [sessionActionTenantId, setSessionActionTenantId] = useState('')
+  const [isBulkResetting, setIsBulkResetting] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRegeneratingQr, setIsRegeneratingQr] = useState(false)
   const [lastError, setLastError] = useState('')
@@ -21,8 +23,15 @@ export default function ConnectDevice() {
   const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
   const filteredSessions = tenantSessions.filter((session) => {
     const q = sessionQuery.trim().toLowerCase()
-    if (!q) return true
-    return String(session.tenant_id || '').toLowerCase().includes(q)
+    const textMatch = !q || String(session.tenant_id || '').toLowerCase().includes(q)
+
+    if (sessionStatusFilter === 'all') return textMatch
+    if (sessionStatusFilter === 'offline') {
+      const key = String(session?.status || '').toLowerCase()
+      return textMatch && (key === 'offline' || key === 'disconnected')
+    }
+
+    return textMatch && String(session?.status || '').toLowerCase() === sessionStatusFilter
   })
   const sessionSummary = filteredSessions.reduce((acc, session) => {
     const key = String(session?.status || 'unknown').toLowerCase()
@@ -177,6 +186,59 @@ export default function ConnectDevice() {
     }
   }
 
+  const handleBulkReset = async (mode = 'offline') => {
+    if (isBulkResetting || sessionActionTenantId) return
+
+    const targets = filteredSessions
+      .filter((session) => {
+        const key = String(session?.status || '').toLowerCase()
+        if (mode === 'offline') return key === 'offline' || key === 'disconnected'
+        if (mode === 'qr') return key === 'qr'
+        return key !== 'ready'
+      })
+      .map((session) => session.tenant_id)
+
+    if (targets.length === 0) {
+      toast.info('Tidak ada target reset', 'Session pada filter saat ini tidak memerlukan reset.')
+      return
+    }
+
+    setIsBulkResetting(true)
+    let successCount = 0
+    let failedCount = 0
+
+    for (const target of targets) {
+      try {
+        const res = await apiFetch(`/api/wa/logout?tenant_id=${encodeURIComponent(target)}`, { method: 'POST' })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || data?.success === false) {
+          failedCount += 1
+        } else {
+          successCount += 1
+        }
+      } catch {
+        failedCount += 1
+      }
+    }
+
+    try {
+      const sessionRes = await apiFetch('/api/wa/sessions')
+      const sessionData = await sessionRes.json().catch(() => ({}))
+      if (sessionRes.ok) {
+        setTenantSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : [])
+      }
+    } catch {
+      // ignore refresh errors; next polling tick will update data.
+    }
+
+    if (failedCount === 0) {
+      toast.success('Bulk reset selesai', `${successCount} tenant berhasil direset.`)
+    } else {
+      toast.warning('Bulk reset selesai sebagian', `Berhasil: ${successCount}, gagal: ${failedCount}`)
+    }
+    setIsBulkResetting(false)
+  }
+
   return (
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
@@ -282,13 +344,42 @@ export default function ConnectDevice() {
             <h3 className="card-title">Monitor Sesi WA Semua Tenant</h3>
           </div>
           <div className="admin-note" style={{ marginBottom: 12 }}>
-            <input
-              type="text"
-              value={sessionQuery}
-              onChange={(e) => setSessionQuery(e.target.value)}
-              placeholder="Cari tenant id..."
-              className="input"
-            />
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input
+                type="text"
+                value={sessionQuery}
+                onChange={(e) => setSessionQuery(e.target.value)}
+                placeholder="Cari tenant id..."
+                className="input"
+              />
+              <select
+                value={sessionStatusFilter}
+                onChange={(e) => setSessionStatusFilter(e.target.value)}
+                className="input"
+              >
+                <option value="all">Semua status</option>
+                <option value="ready">Ready</option>
+                <option value="qr">QR</option>
+                <option value="checking">Checking</option>
+                <option value="offline">Offline/Disconnected</option>
+              </select>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleBulkReset('offline')}
+                  disabled={isBulkResetting || !!sessionActionTenantId}
+                >
+                  {isBulkResetting ? 'Memproses...' : 'Reset Semua Offline'}
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleBulkReset('qr')}
+                  disabled={isBulkResetting || !!sessionActionTenantId}
+                >
+                  {isBulkResetting ? 'Memproses...' : 'Reset Semua QR'}
+                </button>
+              </div>
+            </div>
           </div>
           <div className="admin-note" style={{ marginBottom: 12 }}>
             <div className="admin-note-list" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
