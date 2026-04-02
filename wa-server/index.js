@@ -2,14 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const qrcode = require('qrcode');
 const crypto = require('crypto');
+const jsQR = require('jsqr');
+const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb' }));
 
 const tenantSessions = new Map();
+const importLogs = new Map(); // tenant_id -> [{ id, ticket_id, verified_at, ... }]
 
 function normalizeTenantId(rawTenantId) {
     const value = String(rawTenantId || 'tenant-default').trim();
@@ -233,6 +237,62 @@ function normalizeQRPayload(rawQr) {
     };
 }
 
+// ===== IMPORT BARCODE HELPERS =====
+
+// Helper: Extract QR data from image (base64)
+async function extractQRFromImage(base64Data) {
+    try {
+        // Decode base64 to buffer
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Load image with Jimp
+        const image = await Jimp.read(imageBuffer);
+        
+        // Get image data
+        const imageData = {
+            data: new Uint8ClampedArray(image.bitmap.data),
+            width: image.bitmap.width,
+            height: image.bitmap.height
+        };
+        
+        // Scan for QR code
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code && code.data) {
+            return code.data;
+        }
+        
+        return null;
+    } catch (err) {
+        console.error('[QR Extract Error]:', err.message);
+        return null;
+    }
+}
+
+// Helper: Validate barcode format
+function validateBarcodeFormat(qrString) {
+    try {
+        const parsed = JSON.parse(qrString);
+        const isValid = !!(parsed.tid && parsed.t && parsed.e && parsed.sig);
+        return { isValid, data: parsed };
+    } catch {
+        return { isValid: false, data: null };
+    }
+}
+
+// Helper: Store import log
+function storeImportLog(tenantId, importRecord) {
+    if (!importLogs.has(tenantId)) {
+        importLogs.set(tenantId, []);
+    }
+    const logs = importLogs.get(tenantId);
+    logs.unshift(importRecord); // Newest first
+    // Keep last 100 imports per tenant
+    if (logs.length > 100) {
+        logs.pop();
+    }
+}
+
 
 // ----- API ROUTES -----
 
@@ -438,6 +498,205 @@ app.post('/api/ticket/verify', (req, res) => {
 
     const validLegacy = expectedLegacy === qr.signature;
     return res.json({ valid: validLegacy, reason: validLegacy ? 'ok' : 'invalid_signature', mode: 'legacy-v2' });
+});
+
+// ===== IMPORT BARCODE API ENDPOINTS =====
+
+// API: Extract QR from image
+app.post('/api/import/barcode', async (req, res) => {
+    const tenantId = normalizeTenantId(req?.body?.tenant_id);
+    const { image_base64, source_type, qr_string } = req.body;
+
+    // source_type: 'camera', 'upload', 'manual_paste'
+    
+    if (!image_base64 && source_type !== 'manual_paste') {
+        return res.status(400).json({
+            success: false,
+            error: 'image_base64 diperlukan untuk camera/upload'
+        });
+    }
+
+    let qrData;
+
+    // 1. Extract QR dari image
+    if (source_type === 'camera' || source_type === 'upload') {
+        try {
+            qrData = await extractQRFromImage(image_base64);
+            if (!qrData) {
+                return res.json({
+                    success: false,
+                    error: 'Tidak bisa extract QR dari gambar. Coba ulang atau manual paste.'
+                });
+            }
+        } catch (err) {
+            return res.json({
+                success: false,
+                error: 'Error parsing image: ' + err.message
+            });
+        }
+    } else if (source_type === 'manual_paste') {
+        qrData = qr_string?.trim();
+        if (!qrData) {
+            return res.status(400).json({
+                success: false,
+                error: 'qr_string diperlukan untuk manual import'
+            });
+        }
+    } else {
+        return res.status(400).json({
+            success: false,
+            error: 'source_type tidak dikenal'
+        });
+    }
+
+    // 2. Validate barcode format
+    const { isValid, data } = validateBarcodeFormat(qrData);
+    if (!isValid) {
+        return res.json({
+            success: false,
+            error: 'Format barcode tidak valid',
+            hint: 'QR harus berisi field: tid, t, e, sig, d, r (if v3)'
+        });
+    }
+
+    // 3. Normalize payload
+    const normalized = normalizeQRPayload(qrData);
+    if (!normalized) {
+        return res.json({
+            success: false,
+            error: 'Tidak bisa parse QR payload'
+        });
+    }
+
+    // 4. Verify tenant match
+    if (normalized.tenantId !== tenantId) {
+        return res.json({
+            success: false,
+            error: 'Barcode milik brand/tenant lain',
+            details: {
+                expected: tenantId,
+                found: normalized.tenantId
+            }
+        });
+    }
+
+    // 5. Return import summary
+    return res.json({
+        success: true,
+        import_data: {
+            ticket_id: normalized.ticketId,
+            tenant_id: normalized.tenantId,
+            event_id: normalized.eventId,
+            day_number: normalized.dayNumber,
+            secure_ref: normalized.secureRef,
+            signature: normalized.signature,
+            version: normalized.version,
+            source: source_type
+        },
+        next_step: 'SERVER_VERIFY',
+        message: 'QR extracted berhasil. Lanjut ke server verify step.'
+    });
+});
+
+// API: Server verify + register import
+app.post('/api/import/verify-and-register', (req, res) => {
+    const tenantId = normalizeTenantId(req?.body?.tenant_id);
+    const {
+        ticket_id,
+        secure_code,
+        secure_ref,
+        signature,
+        event_id,
+        day_number,
+        version,
+        verified_by
+    } = req.body;
+
+    // Validate required fields
+    if (!ticket_id || !secure_code || !secure_ref || !signature) {
+        return res.status(400).json({
+            valid: false,
+            reason: 'missing_fields',
+            message: 'Fields wajib: ticket_id, secure_code, secure_ref, signature'
+        });
+    }
+
+    // Version check
+    const qrVersion = Number(version || 3);
+    
+    let expectedSignature;
+    let mode = 'unknown';
+
+    if (qrVersion >= 3) {
+        expectedSignature = buildSecureSignature({
+            tenantId,
+            eventId: event_id,
+            ticketId: ticket_id,
+            dayNumber: day_number,
+            secureCode: secure_code,
+            secureRef: secure_ref
+        });
+        mode = 'v3-secure';
+    } else {
+        expectedSignature = buildLegacySignature({
+            tenantId,
+            eventId: event_id,
+            ticketId: ticket_id,
+            dayNumber: day_number
+        });
+        mode = 'legacy-v2';
+    }
+
+    const signatureMatch = expectedSignature === signature;
+
+    if (!signatureMatch) {
+        return res.json({
+            valid: false,
+            reason: 'invalid_signature',
+            mode,
+            message: 'Signature tidak cocok. Data barcode mungkin dimanipulasi.'
+        });
+    }
+
+    // ✅ VALID! Simpan import record
+    const importRecord = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        ticket_id,
+        event_id,
+        day_number,
+        mode,
+        verified_at: new Date().toISOString(),
+        verified_by: verified_by || 'system',
+        secure_ref_masked: `***${secure_ref.slice(-6)}`,
+        import_status: 'verified'
+    };
+
+    storeImportLog(tenantId, importRecord);
+
+    return res.json({
+        valid: true,
+        reason: 'ok',
+        mode,
+        import_id: importRecord.id,
+        message: 'Barcode terverifikasi dan siap diakses.',
+        secure_display: {
+            ticket_id,
+            security_mode: mode,
+            ref_masked: importRecord.secure_ref_masked
+        }
+    });
+});
+
+// API: Get import logs (for audit)
+app.get('/api/import/logs', (req, res) => {
+    const tenantId = normalizeTenantId(req?.query?.tenant_id);
+    const logs = importLogs.get(tenantId) || [];
+    res.json({
+        tenant_id: tenantId,
+        total: logs.length,
+        logs: logs.slice(0, 20) // Return latest 20
+    });
 });
 
 // Start Server

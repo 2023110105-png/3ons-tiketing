@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding, regenerateSecureQRTokens } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
-import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X } from 'lucide-react'
+import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
+import BarcodeImport from './BarcodeImport'
 
 const CATEGORY_STYLES = {
   VIP: { accent: '#b91c1c', soft: '#fdecea', dark: '#7f1d1d', label: 'VIP' },
@@ -33,6 +34,7 @@ export default function QRGenerate() {
   const [regeneratingSecure, setRegeneratingSecure] = useState(false)
   const [verifyTesting, setVerifyTesting] = useState(false)
   const [verifyReport, setVerifyReport] = useState(null)
+  const [activeTab, setActiveTab] = useState('generate') // 'generate' or 'import'
   const toast = useToast()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -616,106 +618,156 @@ export default function QRGenerate() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Generate Tiket QR</h1>
-        <p>Buat tiket QR dengan desain siap kirim dan siap cetak</p>
+        <h1>Manajemen Tiket QR</h1>
+        <p>Generate, kelola, dan verifikasi tiket QR dengan keamanan berlapis</p>
       </div>
 
-      <div className="qr-toolbar">
-        <select className="form-select qr-toolbar-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
-          <option value={1}>Hari 1 ({getParticipants(1).length} peserta)</option>
-          <option value={2}>Hari 2 ({getParticipants(2).length} peserta)</option>
-        </select>
-        <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
-          {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua Tiket (PDF)</>)}
+      {/* ===== TAB NAVIGATION ===== */}
+      <div className="tab-navigation" style={{ marginBottom: 24, display: 'flex', gap: 12, borderBottom: '2px solid #e8e4d0', paddingBottom: 0 }}>
+        <button
+          onClick={() => setActiveTab('generate')}
+          className={`tab-button ${activeTab === 'generate' ? 'active' : ''}`}
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            color: activeTab === 'generate' ? '#4da6e8' : '#6b7280',
+            borderBottom: activeTab === 'generate' ? '3px solid #4da6e8' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <QrCode size={16} style={{ display: 'inline', marginRight: 6 }} /> Generate Tiket
         </button>
-        <button className="btn btn-secondary" onClick={regenerateSecureQrForDay} disabled={regeneratingSecure || generating} title="Upgrade tiket lama ke QR aman">
-          {regeneratingSecure
-            ? (<><span className="spinner qr-spinner-sm"></span> Upgrade keamanan...</>)
-            : (<><ShieldCheck size={16} /> Upgrade QR Aman (Hari {dayFilter})</>)}
+        <button
+          onClick={() => setActiveTab('import')}
+          className={`tab-button ${activeTab === 'import' ? 'active' : ''}`}
+          style={{
+            padding: '12px 20px',
+            border: 'none',
+            background: 'none',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            color: activeTab === 'import' ? '#4da6e8' : '#6b7280',
+            borderBottom: activeTab === 'import' ? '3px solid #4da6e8' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <Upload size={16} style={{ display: 'inline', marginRight: 6 }} /> Import Barcode
         </button>
-        <button className="btn btn-secondary" onClick={runServerVerifySelfTest} disabled={verifyTesting} title="Uji endpoint verifikasi keamanan server">
-          {verifyTesting
-            ? (<><span className="spinner qr-spinner-sm"></span> Test verify...</>)
-            : (<><ShieldCheck size={16} /> Test Server Verify</>)}
-        </button>
-        {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
       </div>
 
-      {verifyReport && (
-        <div className={`card ${verifyReport.allPassed ? 'border-success' : 'border-error'}`} style={{ marginBottom: 16 }}>
-          <div className="card-header">
-            <h3 className="card-title">Hasil Test Verify Server</h3>
-            <span className={`badge ${verifyReport.allPassed ? 'badge-green' : 'badge-red'}`}>{verifyReport.passed}/{verifyReport.total}</span>
+      {/* ===== GENERATE TAB ===== */}
+      {activeTab === 'generate' && (
+        <>
+          <div className="qr-toolbar">
+            <select className="form-select qr-toolbar-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+              <option value={1}>Hari 1 ({getParticipants(1).length} peserta)</option>
+              <option value={2}>Hari 2 ({getParticipants(2).length} peserta)</option>
+            </select>
+            <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
+              {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua Tiket (PDF)</>)}
+            </button>
+            <button className="btn btn-secondary" onClick={regenerateSecureQrForDay} disabled={regeneratingSecure || generating} title="Upgrade tiket lama ke QR aman">
+              {regeneratingSecure
+                ? (<><span className="spinner qr-spinner-sm"></span> Upgrade keamanan...</>)
+                : (<><ShieldCheck size={16} /> Upgrade QR Aman (Hari {dayFilter})</>)}
+            </button>
+            <button className="btn btn-secondary" onClick={runServerVerifySelfTest} disabled={verifyTesting} title="Uji endpoint verifikasi keamanan server">
+              {verifyTesting
+                ? (<><span className="spinner qr-spinner-sm"></span> Test verify...</>)
+                : (<><ShieldCheck size={16} /> Test Server Verify</>)}
+            </button>
+            {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
           </div>
-          <p className="scanner-note scanner-note-tight">
-            {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
-          </p>
-          <div style={{ marginTop: 10 }}>
-            {verifyReport.results.map(item => (
-              <details key={item.key} style={{ marginBottom: 8 }}>
-                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-                  {item.ok ? 'OK' : 'FAIL'} {item.key} (HTTP {item.status || '-'})
-                </summary>
-                <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
-                  {prettyVerifyData(item.data)}
-                </pre>
-              </details>
-            ))}
-          </div>
-        </div>
-      )}
 
-      <div className="grid-2">
-        <div className="card qr-list-card">
-          <div className="card-header">
-            <h3 className="card-title">Daftar Peserta Hari {dayFilter}</h3>
-            <span className="badge badge-red">{participants.length}</span>
-          </div>
-          <div className="qr-list">
-            {participants.map(p => (
-              <div key={p.id} onClick={() => generateQR(p)} className={`qr-list-item ${selectedParticipant?.id === p.id ? 'is-selected' : ''}`}>
-                <div>
-                  <div className="qr-list-name">{p.name}</div>
-                  <div className="qr-list-meta">{p.ticket_id} · {p.category}</div>
-                </div>
-                <div className="qr-list-actions">
-                  <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
-                  <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }}><Download size={14} /></button>
-                </div>
+          {verifyReport && (
+            <div className={`card ${verifyReport.allPassed ? 'border-success' : 'border-error'}`} style={{ marginBottom: 16 }}>
+              <div className="card-header">
+                <h3 className="card-title">Hasil Test Verify Server</h3>
+                <span className={`badge ${verifyReport.allPassed ? 'badge-green' : 'badge-red'}`}>{verifyReport.passed}/{verifyReport.total}</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card qr-preview-shell">
-          {selectedParticipant ? (
-            <div className="animate-scale-in qr-preview-content">
-              <div className="qr-preview-card">
-                {qrUrl && <img src={qrUrl} alt="QR Code" className="qr-image-lg" />}
+              <p className="scanner-note scanner-note-tight">
+                {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
+              </p>
+              <div style={{ marginTop: 10 }}>
+                {verifyReport.results.map(item => (
+                  <details key={item.key} style={{ marginBottom: 8 }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                      {item.ok ? 'OK' : 'FAIL'} {item.key} (HTTP {item.status || '-'})
+                    </summary>
+                    <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
+                      {prettyVerifyData(item.data)}
+                    </pre>
+                  </details>
+                ))}
               </div>
-              <h3 className="qr-preview-title">{selectedParticipant.name}</h3>
-              <p className="qr-preview-subtitle">{selectedParticipant.ticket_id} · {selectedParticipant.category} · Hari {selectedParticipant.day_number}</p>
-              <div className="qr-preview-actions">
-                <button className="btn btn-primary" onClick={() => downloadQR(selectedParticipant)}>
-                  <Download size={14} /> Download Tiket
-                </button>
-                <button
-                  className="btn btn-secondary qr-preview-wa-btn"
-                  onClick={() => shareViaWhatsApp(selectedParticipant)}
-                >
-                  <MessageCircle size={14} /> Share via WA
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-icon"><QrCode size={40} /></div>
-              <h3>Pilih Peserta</h3>
-              <p>Klik nama peserta di sebelah kiri untuk preview desain tiket QR</p>
             </div>
           )}
-        </div>
-      </div>
+
+          <div className="grid-2">
+            <div className="card qr-list-card">
+              <div className="card-header">
+                <h3 className="card-title">Daftar Peserta Hari {dayFilter}</h3>
+                <span className="badge badge-red">{participants.length}</span>
+              </div>
+              <div className="qr-list">
+                {participants.map(p => (
+                  <div key={p.id} onClick={() => generateQR(p)} className={`qr-list-item ${selectedParticipant?.id === p.id ? 'is-selected' : ''}`}>
+                    <div>
+                      <div className="qr-list-name">{p.name}</div>
+                      <div className="qr-list-meta">{p.ticket_id} · {p.category}</div>
+                    </div>
+                    <div className="qr-list-actions">
+                      <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }}><Download size={14} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card qr-preview-shell">
+              {selectedParticipant ? (
+                <div className="animate-scale-in qr-preview-content">
+                  <div className="qr-preview-card">
+                    {qrUrl && <img src={qrUrl} alt="QR Code" className="qr-image-lg" />}
+                  </div>
+                  <h3 className="qr-preview-title">{selectedParticipant.name}</h3>
+                  <p className="qr-preview-subtitle">{selectedParticipant.ticket_id} · {selectedParticipant.category} · Hari {selectedParticipant.day_number}</p>
+                  <div className="qr-preview-actions">
+                    <button className="btn btn-primary" onClick={() => downloadQR(selectedParticipant)}>
+                      <Download size={14} /> Download Tiket
+                    </button>
+                    <button
+                      className="btn btn-secondary qr-preview-wa-btn"
+                      onClick={() => shareViaWhatsApp(selectedParticipant)}
+                    >
+                      <MessageCircle size={14} /> Share via WA
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-state-icon"><QrCode size={40} /></div>
+                  <h3>Pilih Peserta</h3>
+                  <p>Klik nama peserta di sebelah kiri untuk preview desain tiket QR</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ===== IMPORT TAB ===== */}
+      {activeTab === 'import' && (
+        <>
+          <BarcodeImport />
+        </>
+      )}
     </div>
   )
 }
