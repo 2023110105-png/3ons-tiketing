@@ -1732,6 +1732,74 @@ export function addParticipant(data) {
   return participant
 }
 
+export function regenerateSecureQRTokens(dayFilter = null, actor = 'system') {
+  const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
+  const targets = dayFilter
+    ? ev.participants.filter(p => p.day_number === dayFilter)
+    : ev.participants
+
+  let updated = 0
+
+  targets.forEach(participant => {
+    const security = ensureParticipantSecurity(participant)
+    const expectedSig = buildQrSignature({
+      tenantId: tenant.id,
+      eventId: ev.id,
+      ticketId: participant.ticket_id,
+      dayNumber: participant.day_number,
+      secureCode: security.secure_code,
+      secureRef: security.secure_ref
+    })
+
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(participant.qr_data || ''))
+    } catch {
+      parsed = null
+    }
+
+    const alreadySecure =
+      parsed?.v === 3 &&
+      parsed?.r === security.secure_ref &&
+      parsed?.sig === expectedSig
+
+    if (alreadySecure) return
+
+    participant.secure_code = security.secure_code
+    participant.secure_ref = security.secure_ref
+    participant.qr_data = encodeQrPayload({
+      ticketId: participant.ticket_id,
+      name: participant.name,
+      dayNumber: participant.day_number,
+      tenantId: tenant.id,
+      eventId: ev.id,
+      secureCode: participant.secure_code,
+      secureRef: participant.secure_ref
+    })
+
+    updated += 1
+    void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
+  })
+
+  if (updated > 0) {
+    saveStore()
+    logAdminAction(
+      'participant_qr_secure_regenerate',
+      `Regenerate QR aman ${updated} peserta`,
+      actor,
+      { day_number: dayFilter || null, total_target: targets.length, updated }
+    )
+  }
+
+  return {
+    success: true,
+    updated,
+    total: targets.length,
+    skipped: Math.max(0, targets.length - updated)
+  }
+}
+
 export function deleteParticipant(id, actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }

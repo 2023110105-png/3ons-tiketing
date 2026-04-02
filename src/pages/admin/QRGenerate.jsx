@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
-import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding } from '../../store/mockData'
+import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding, regenerateSecureQRTokens } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
-import { FileDown, Download, QrCode, Share2, MessageCircle, X } from 'lucide-react'
+import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 
 const CATEGORY_STYLES = {
@@ -29,6 +29,7 @@ export default function QRGenerate() {
   const [qrUrl, setQrUrl] = useState('')
   const [generating, setGenerating] = useState(false)
   const [generatedCount, setGeneratedCount] = useState(0)
+  const [regeneratingSecure, setRegeneratingSecure] = useState(false)
   const toast = useToast()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -326,6 +327,36 @@ export default function QRGenerate() {
     setGenerating(false)
   }
 
+  const regenerateSecureQrForDay = () => {
+    if (regeneratingSecure) return
+    setRegeneratingSecure(true)
+
+    try {
+      const result = regenerateSecureQRTokens(dayFilter, 'admin')
+      const refreshed = getParticipants(dayFilter)
+      setParticipants(refreshed)
+
+      if (selectedParticipant) {
+        const latest = refreshed.find(p => p.id === selectedParticipant.id)
+        if (latest) {
+          setSelectedParticipant(latest)
+          void generateQR(latest)
+        }
+      }
+
+      if (result.updated > 0) {
+        toast.success('QR Aman Diperbarui', `${result.updated} tiket hari ${dayFilter} sudah upgrade keamanan`) 
+      } else {
+        toast.success('Sudah Aman', `Semua tiket hari ${dayFilter} sudah menggunakan mode keamanan terbaru`)
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal', 'Tidak berhasil melakukan upgrade QR aman')
+    }
+
+    setRegeneratingSecure(false)
+  }
+
   const generationProgress = participants.length > 0
     ? Math.round((generatedCount / participants.length) * 100)
     : 0
@@ -349,7 +380,7 @@ export default function QRGenerate() {
         <button
           className="btn btn-primary qr-mobile-download-btn"
           onClick={generateAllQR}
-          disabled={generating}
+          disabled={generating || regeneratingSecure}
         >
           {generating ? (
             <>
@@ -359,6 +390,17 @@ export default function QRGenerate() {
           ) : (
             <><FileDown size={16} /> Download Semua Tiket (PDF)</>
           )}
+        </button>
+
+        <button
+          className="btn btn-secondary qr-mobile-download-btn"
+          onClick={regenerateSecureQrForDay}
+          disabled={regeneratingSecure || generating}
+          title="Upgrade tiket lama ke QR aman"
+        >
+          {regeneratingSecure
+            ? <><span className="spinner qr-spinner-sm"></span> Upgrade keamanan...</>
+            : <><ShieldCheck size={16} /> Upgrade QR Aman (Hari {dayFilter})</>}
         </button>
 
         {generating && (
@@ -455,6 +497,11 @@ export default function QRGenerate() {
         </select>
         <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
           {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua Tiket (PDF)</>)}
+        </button>
+        <button className="btn btn-secondary" onClick={regenerateSecureQrForDay} disabled={regeneratingSecure || generating} title="Upgrade tiket lama ke QR aman">
+          {regeneratingSecure
+            ? (<><span className="spinner qr-spinner-sm"></span> Upgrade keamanan...</>)
+            : (<><ShieldCheck size={16} /> Upgrade QR Aman (Hari {dayFilter})</>)}
         </button>
         {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
       </div>
