@@ -5,6 +5,7 @@ import { apiFetch } from '../../utils/api'
 
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
   const toast = useToast()
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
 
@@ -29,12 +30,28 @@ export default function ConnectDevice() {
   }, []);
 
   const handleLogout = async () => {
+    if (isDisconnecting) return
+    setIsDisconnecting(true)
+
     try {
-      await apiFetch('/api/wa/logout', { method: 'POST' });
+      const res = await apiFetch('/api/wa/logout', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok || data?.success === false) {
+        const msg = data?.error || `HTTP ${res.status}`
+        throw new Error(msg)
+      }
+
       setWaState({ status: 'qr', isReady: false, qrCode: null });
-      toast.info('Session WhatsApp diputuskan.');
-    } catch {
-      toast.error('Gagal memutus server', 'Pastikan Bot Server menyala.');
+      if (data?.warning) {
+        toast.warning('Session di-reset dengan catatan', data.warning)
+      } else {
+        toast.info('Session WhatsApp diputuskan.');
+      }
+    } catch (err) {
+      toast.error('Gagal memutus server', err?.message || 'Pastikan Bot Server menyala.');
+    } finally {
+      setIsDisconnecting(false)
     }
   };
 
@@ -74,8 +91,8 @@ export default function ConnectDevice() {
           </div>
 
           {waState.isReady && (
-            <button onClick={handleLogout} className="btn btn-danger admin-full-btn">
-              <LogOut size={18} /> Putuskan Koneksi WA (Logout)
+            <button onClick={handleLogout} className="btn btn-danger admin-full-btn" disabled={isDisconnecting}>
+              {isDisconnecting ? <RefreshCw size={18} className="animate-spin" /> : <LogOut size={18} />} {isDisconnecting ? 'Memutuskan koneksi...' : 'Putuskan Koneksi WA (Logout)'}
             </button>
           )}
         </div>

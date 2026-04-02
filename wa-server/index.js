@@ -8,49 +8,66 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ----- WHATSAPP CLIENT -----
-const waClient = new Client({
-    authStrategy: new LocalAuth({ dataPath: 'auth_data' }),
-    puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
-});
-
 let isWaReady = false;
 let waStatus = 'disconnected'; // disconnected, qr, ready
 let currentQR = null;
+let waClient;
 
-waClient.on('qr', async (qr) => {
-    console.log('\n==== STATUS: BUTUH SCAN QR ====');
-    waStatus = 'qr';
-    try {
-        currentQR = await qrcode.toDataURL(qr);
-    } catch (err) {
-        console.error('Failed to generate QR DataURL', err);
-    }
-});
+function createWaClient() {
+    const client = new Client({
+        authStrategy: new LocalAuth({ dataPath: 'auth_data' }),
+        puppeteer: {
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        }
+    });
 
-waClient.on('ready', () => {
-    console.log('✅ WhatsApp Bot Ready!');
-    isWaReady = true;
-    waStatus = 'ready';
-    currentQR = null;
-});
+    client.on('qr', async (qr) => {
+        console.log('\n==== STATUS: BUTUH SCAN QR ====');
+        waStatus = 'qr';
+        isWaReady = false;
+        try {
+            currentQR = await qrcode.toDataURL(qr);
+        } catch (err) {
+            console.error('Failed to generate QR DataURL', err);
+        }
+    });
 
-waClient.on('disconnected', () => {
-    console.log('❌ WhatsApp Disconnected!');
+    client.on('ready', () => {
+        console.log('✅ WhatsApp Bot Ready!');
+        isWaReady = true;
+        waStatus = 'ready';
+        currentQR = null;
+    });
+
+    client.on('disconnected', () => {
+        console.log('❌ WhatsApp Disconnected!');
+        isWaReady = false;
+        waStatus = 'disconnected';
+        currentQR = null;
+    });
+
+    client.on('auth_failure', () => {
+        console.error('❌ WhatsApp Auth Failed');
+        waStatus = 'disconnected';
+        isWaReady = false;
+        currentQR = null;
+    });
+
+    return client;
+}
+
+async function bootWaClient() {
+    waClient = createWaClient();
+    await waClient.initialize();
+}
+
+bootWaClient().catch((err) => {
+    console.error('Failed to initialize WhatsApp client', err.message);
+    waStatus = 'disconnected';
     isWaReady = false;
-    waStatus = 'disconnected';
     currentQR = null;
 });
-
-waClient.on('auth_failure', () => {
-    console.error('❌ WhatsApp Auth Failed');
-    waStatus = 'disconnected';
-});
-
-waClient.initialize();
 
 
 // ----- EMAIL CLIENT (NODEMAILER) -----
@@ -85,17 +102,31 @@ app.get('/api/wa/status', (req, res) => {
 
 // 1.5. Logout/Disconnect Bot
 app.post('/api/wa/logout', async (req, res) => {
+    let warning = null;
+
     try {
         await waClient.logout();
-        waStatus = 'disconnected';
-        isWaReady = false;
-        currentQR = null;
-        res.json({ success: true, message: 'Bot Logout Successfully' });
-        
-        // Re-initialize to get a new QR code
-        waClient.initialize();
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        warning = err.message;
+    }
+
+    // Even when logout fails, force reset so UI can reconnect with fresh QR.
+    try {
+        await waClient.destroy();
+    } catch {
+        // Ignore destroy errors and continue re-initialization.
+    }
+
+    waStatus = 'disconnected';
+    isWaReady = false;
+    currentQR = null;
+
+    try {
+        waClient = createWaClient();
+        await waClient.initialize();
+        res.json({ success: true, message: 'Bot session reset successfully', warning });
+    } catch (initErr) {
+        res.status(500).json({ success: false, error: initErr.message, warning });
     }
 });
 
