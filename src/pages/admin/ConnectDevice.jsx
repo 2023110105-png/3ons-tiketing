@@ -6,12 +6,15 @@ import { apiFetch, getApiBaseUrl } from '../../utils/api'
 
 export default function ConnectDevice() {
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
+  const [tenantSessions, setTenantSessions] = useState([])
+  const [sessionsError, setSessionsError] = useState('')
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRegeneratingQr, setIsRegeneratingQr] = useState(false)
   const [lastError, setLastError] = useState('')
   const toast = useToast()
   const { user } = useAuth()
   const tenantId = user?.tenant?.id || 'tenant-default'
+  const canMonitorAllSessions = user?.role === 'owner' || user?.role === 'super_admin'
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
   const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
 
@@ -47,6 +50,35 @@ export default function ConnectDevice() {
       if (timer) clearTimeout(timer)
     }
   }, [waState?.isReady, tenantId])
+
+  useEffect(() => {
+    if (!canMonitorAllSessions) return
+
+    let timer
+    let stopped = false
+
+    const loadSessions = async () => {
+      try {
+        const res = await apiFetch('/api/wa/sessions')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+        setTenantSessions(Array.isArray(data?.sessions) ? data.sessions : [])
+        setSessionsError('')
+      } catch (err) {
+        setSessionsError(err?.message || 'Gagal memuat monitor sesi tenant')
+      }
+
+      if (stopped) return
+      timer = setTimeout(loadSessions, 5000)
+    }
+
+    loadSessions()
+
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [canMonitorAllSessions])
 
   const handleLogout = async () => {
     if (isDisconnecting) return
@@ -194,6 +226,28 @@ export default function ConnectDevice() {
           )}
         </div>
       </div>
+
+      {canMonitorAllSessions && (
+        <div className="card mt-16">
+          <div className="card-header">
+            <h3 className="card-title">Monitor Sesi WA Semua Tenant</h3>
+          </div>
+          {sessionsError ? (
+            <p className="status-note"><b>Gagal memuat:</b> {sessionsError}</p>
+          ) : tenantSessions.length === 0 ? (
+            <p className="status-note">Belum ada sesi tenant aktif.</p>
+          ) : (
+            <div className="admin-note-list">
+              {tenantSessions.map((session) => (
+                <div key={session.tenant_id} className="status-note" style={{ marginBottom: 8 }}>
+                  <b>{session.tenant_id}</b> - {session.status} {session.isReady ? '(ready)' : ''} {session.hasQr ? '(qr)' : ''}
+                  {session.lastError ? ` - error: ${session.lastError}` : ''}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

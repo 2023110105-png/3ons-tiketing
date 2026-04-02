@@ -35,6 +35,17 @@ function getOrCreateTenantSession(tenantId) {
     return tenantSessions.get(tenantId);
 }
 
+function serializeSession(session) {
+    return {
+        tenant_id: session.tenantId,
+        status: session.status,
+        isReady: session.isReady,
+        hasQr: !!session.currentQR,
+        hasClient: !!session.client,
+        lastError: session.lastError || null
+    };
+}
+
 function createWaClient(tenantId, session) {
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: `auth_data/${tenantId}` }),
@@ -215,6 +226,15 @@ app.get('/api/wa/status', (req, res) => {
         qrCode: session.currentQR,
         isReady: session.isReady,
         lastError: session.lastError
+    });
+});
+
+// 1.2. Session monitor for owner/super admin dashboard
+app.get('/api/wa/sessions', (req, res) => {
+    const list = Array.from(tenantSessions.values()).map(serializeSession);
+    res.json({
+        total: list.length,
+        sessions: list
     });
 });
 
