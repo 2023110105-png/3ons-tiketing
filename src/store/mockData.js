@@ -602,6 +602,38 @@ function normalizeParticipantCategory(value) {
   return categories.find(c => c.toLowerCase() === clean.toLowerCase()) || 'Regular'
 }
 
+function toSafeCode(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+}
+
+function getTenantTicketPrefix(tenant = getActiveTenantState()) {
+  const brandCode = toSafeCode(tenant?.brandName).slice(0, 4)
+  if (brandCode.length >= 3) return brandCode
+
+  const fallback = toSafeCode(tenant?.id).slice(0, 4)
+  return fallback || 'YMH'
+}
+
+function buildTicketId(dayNumber, index, tenant = getActiveTenantState()) {
+  const prefix = getTenantTicketPrefix(tenant)
+  return `${prefix}-D${dayNumber}-${String(index).padStart(3, '0')}`
+}
+
+function encodeQrPayload({ ticketId, name, dayNumber, tenantId, eventId }) {
+  const signature = btoa(`${tenantId}|${eventId}|${ticketId}|${dayNumber}|event-2026`)
+  return JSON.stringify({
+    tid: ticketId,
+    n: name,
+    d: dayNumber,
+    t: tenantId,
+    e: eventId,
+    sig: signature,
+    v: 2
+  })
+}
+
 function normalizeStoredParticipant(raw, index = 0) {
   const dayNumber = normalizeParticipantDay(raw?.day_number, 1)
   const ticketId = String(raw?.ticket_id || '').trim() || `YMH-D${dayNumber}-${String(index + 1).padStart(3, '0')}`
@@ -680,7 +712,8 @@ function countEventsInSnapshot(snapshot) {
   return 0
 }
 
-function generateMockParticipants() {
+function generateMockParticipants(tenantId = DEFAULT_TENANT_ID, eventId = DEFAULT_EVENT_ID) {
+  const tenant = tenantRegistry.tenants[tenantId] || DEFAULT_TENANT
   const namesDay1 = [
     'Ahmad Rizki', 'Budi Santoso', 'Citra Dewi', 'Dian Pratama', 'Eko Wahyudi',
     'Fitri Handayani', 'Gunawan Setiawan', 'Hana Puspita', 'Irfan Maulana', 'Joko Widodo',
@@ -721,7 +754,7 @@ function generateMockParticipants() {
   const participants = []
 
   namesDay1.forEach((name, i) => {
-    const ticketId = `YMH-D1-${String(i + 1).padStart(3, '0')}`
+    const ticketId = buildTicketId(1, i + 1, tenant)
     participants.push({
       id: generateId(),
       ticket_id: ticketId,
@@ -730,7 +763,7 @@ function generateMockParticipants() {
       category: categories[Math.floor(Math.random() * categories.length)],
       day_number: 1,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: JSON.stringify({ tid: ticketId, n: name, d: 1, h: btoa(ticketId + '-event-2026') }),
+      qr_data: encodeQrPayload({ ticketId, name, dayNumber: 1, tenantId, eventId }),
       is_checked_in: false,
       checked_in_at: null,
       checked_in_by: null,
@@ -739,7 +772,7 @@ function generateMockParticipants() {
   })
 
   namesDay2.forEach((name, i) => {
-    const ticketId = `YMH-D2-${String(i + 1).padStart(3, '0')}`
+    const ticketId = buildTicketId(2, i + 1, tenant)
     participants.push({
       id: generateId(),
       ticket_id: ticketId,
@@ -748,7 +781,7 @@ function generateMockParticipants() {
       category: categories[Math.floor(Math.random() * categories.length)],
       day_number: 2,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: JSON.stringify({ tid: ticketId, n: name, d: 2, h: btoa(ticketId + '-event-2026') }),
+      qr_data: encodeQrPayload({ ticketId, name, dayNumber: 2, tenantId, eventId }),
       is_checked_in: false,
       checked_in_at: null,
       checked_in_by: null,
@@ -779,7 +812,7 @@ function createEmptyEventState(name = 'Event Platform') {
 function createDefaultStore() {
   const defaultEvent = createEmptyEventState('Event Platform 2026')
   defaultEvent.id = DEFAULT_EVENT_ID
-  defaultEvent.participants = generateMockParticipants()
+  defaultEvent.participants = generateMockParticipants(DEFAULT_TENANT_ID, defaultEvent.id)
 
   return {
     tenants: {
@@ -797,7 +830,7 @@ function createTenantStoreBucket(eventName = 'Event 1', withMockParticipants = f
   const event = createEmptyEventState(eventName)
   if (withMockParticipants) {
     event.id = DEFAULT_EVENT_ID
-    event.participants = generateMockParticipants()
+    event.participants = generateMockParticipants(DEFAULT_TENANT_ID, event.id)
   }
 
   return {
@@ -1395,10 +1428,11 @@ export function getParticipant(id) {
 
 export function addParticipant(data) {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const clean = sanitizeParticipantInput(data, ev.currentDay || 1)
   const name = clean.name || 'Peserta'
   const dayCount = ev.participants.filter(p => p.day_number === clean.day_number).length
-  const ticketId = `YMH-D${clean.day_number}-${String(dayCount + 1).padStart(3, '0')}`
+  const ticketId = buildTicketId(clean.day_number, dayCount + 1, tenant)
   const participant = {
     id: generateId(),
     ticket_id: ticketId,
@@ -1407,7 +1441,13 @@ export function addParticipant(data) {
     email: clean.email,
     category: clean.category,
     day_number: clean.day_number,
-    qr_data: JSON.stringify({ tid: ticketId, n: name, d: clean.day_number, h: btoa(ticketId + '-event-2026') }),
+    qr_data: encodeQrPayload({
+      ticketId,
+      name,
+      dayNumber: clean.day_number,
+      tenantId: tenant.id,
+      eventId: ev.id
+    }),
     is_checked_in: false,
     checked_in_at: null,
     checked_in_by: null,
@@ -1563,6 +1603,7 @@ export function searchParticipants(query, dayFilter = null) {
 
 export function checkIn(qrData, scannedBy = 'gate_front') {
   const ev = getActiveEvent()
+  const activeTenant = getActiveTenantState()
   let parsed
   try {
     parsed = JSON.parse(qrData)
@@ -1573,6 +1614,29 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
   const participant = ev.participants.find(p => p.ticket_id === parsed.tid)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
+  }
+
+  if (parsed.t && parsed.t !== activeTenant.id) {
+    return {
+      success: false,
+      status: 'wrong_tenant',
+      message: 'Barcode ini milik brand lain'
+    }
+  }
+
+  if (parsed.e && parsed.e !== ev.id) {
+    return {
+      success: false,
+      status: 'wrong_event',
+      message: 'Barcode ini milik event lain'
+    }
+  }
+
+  if (parsed.sig) {
+    const expectedSig = btoa(`${activeTenant.id}|${ev.id}|${participant.ticket_id}|${participant.day_number}|event-2026`)
+    if (parsed.sig !== expectedSig) {
+      return { success: false, status: 'invalid', message: 'Signature barcode tidak valid' }
+    }
   }
 
   if (participant.day_number !== ev.currentDay) {
