@@ -1428,7 +1428,7 @@ export function addParticipant(data) {
       .replace(/\{\{hari\}\}/g, participant.day_number || '')
       .replace(/\{\{kategori\}\}/g, participant.category || '')
 
-    fetch('http://localhost:3001/api/send-ticket', {
+    fetch('/api/send-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

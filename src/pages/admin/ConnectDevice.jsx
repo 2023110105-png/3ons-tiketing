@@ -12,7 +12,7 @@ export default function ConnectDevice() {
     
     const checkWaStatus = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/wa/status');
+        const res = await fetch('/api/wa/status');
         const data = await res.json();
         setWaState(data);
       } catch {
@@ -29,7 +29,7 @@ export default function ConnectDevice() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3001/api/wa/logout', { method: 'POST' });
+      await fetch('/api/wa/logout', { method: 'POST' });
       setWaState({ status: 'qr', isReady: false, qrCode: null });
       toast.info('Session WhatsApp diputuskan.');
     } catch {
@@ -85,7 +85,7 @@ export default function ConnectDevice() {
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
               <h2>Bot Server Terputus</h2>
-              <p className="status-note">Sistem gagal mendeteksi sinyal lokal. Pastikan Anda telah menjalankan aplikasi menggunakan <b>`Mulai_Event_Platform.bat`</b> yang membangkitkan sinyal di port 3001.</p>
+              <p className="status-note">Sistem gagal mendeteksi sinyal bot. Jalankan server melalui <b>npm run start:tablet</b> (Linux/Tablet) atau file .bat di Windows agar API aktif di port 3001.</p>
             </div>
           )}
 

@@ -85,7 +85,7 @@ export default function Participants() {
       .replace(/\{\{kategori\}\}/g, participant.category || '');
 
     try {
-      await fetch('http://localhost:3001/api/send-ticket', {
+      await fetch('/api/send-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

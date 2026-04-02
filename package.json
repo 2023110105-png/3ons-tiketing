@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start:tablet": "bash ./start-tablet.sh",
     "build": "vite build",
     "lint": "eslint .",
     "test": "vitest run",
