@@ -10,5 +10,5 @@ services:
         value: 3001
     disk:
       name: wa-auth-data
-      mountPath: /app/auth_data
+      mountPath: /app/wa-server/auth_data
       sizeGB: 1

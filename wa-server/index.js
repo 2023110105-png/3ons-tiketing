@@ -8,14 +8,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-let isWaReady = false;
-let waStatus = 'disconnected'; // disconnected, qr, ready
-let currentQR = null;
-let waClient;
+const tenantSessions = new Map();
 
-function createWaClient() {
+function normalizeTenantId(rawTenantId) {
+    const value = String(rawTenantId || 'tenant-default').trim();
+    const safe = value.replace(/[^a-zA-Z0-9_-]/g, '');
+    return safe || 'tenant-default';
+}
+
+function resolveTenantId(req) {
+    return normalizeTenantId(req?.query?.tenant_id || req?.body?.tenant_id);
+}
+
+function getOrCreateTenantSession(tenantId) {
+    if (!tenantSessions.has(tenantId)) {
+        tenantSessions.set(tenantId, {
+            tenantId,
+            client: null,
+            isReady: false,
+            status: 'disconnected',
+            currentQR: null,
+            initPromise: null,
+            lastError: null
+        });
+    }
+    return tenantSessions.get(tenantId);
+}
+
+function createWaClient(tenantId, session) {
     const client = new Client({
-        authStrategy: new LocalAuth({ dataPath: 'auth_data' }),
+        authStrategy: new LocalAuth({ dataPath: `auth_data/${tenantId}` }),
         puppeteer: {
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -23,50 +45,129 @@ function createWaClient() {
     });
 
     client.on('qr', async (qr) => {
-        console.log('\n==== STATUS: BUTUH SCAN QR ====');
-        waStatus = 'qr';
-        isWaReady = false;
+        console.log(`\n==== STATUS: BUTUH SCAN QR [${tenantId}] ====`);
+        session.status = 'qr';
+        session.isReady = false;
+        session.lastError = null;
         try {
-            currentQR = await qrcode.toDataURL(qr);
+            session.currentQR = await qrcode.toDataURL(qr);
         } catch (err) {
             console.error('Failed to generate QR DataURL', err);
+            session.lastError = err.message;
         }
     });
 
     client.on('ready', () => {
-        console.log('✅ WhatsApp Bot Ready!');
-        isWaReady = true;
-        waStatus = 'ready';
-        currentQR = null;
+        console.log(`✅ WhatsApp Bot Ready! [${tenantId}]`);
+        session.isReady = true;
+        session.status = 'ready';
+        session.currentQR = null;
+        session.lastError = null;
     });
 
     client.on('disconnected', () => {
-        console.log('❌ WhatsApp Disconnected!');
-        isWaReady = false;
-        waStatus = 'disconnected';
-        currentQR = null;
+        console.log(`❌ WhatsApp Disconnected! [${tenantId}]`);
+        session.isReady = false;
+        session.status = 'disconnected';
+        session.currentQR = null;
     });
 
     client.on('auth_failure', () => {
-        console.error('❌ WhatsApp Auth Failed');
-        waStatus = 'disconnected';
-        isWaReady = false;
-        currentQR = null;
+        console.error(`❌ WhatsApp Auth Failed [${tenantId}]`);
+        session.status = 'disconnected';
+        session.isReady = false;
+        session.currentQR = null;
+        session.lastError = 'Authentication failure';
     });
 
     return client;
 }
 
-async function bootWaClient() {
-    waClient = createWaClient();
-    await waClient.initialize();
+async function ensureTenantClient(tenantId) {
+    const session = getOrCreateTenantSession(tenantId);
+
+    if (session.client) {
+        return session;
+    }
+
+    if (session.initPromise) {
+        await session.initPromise;
+        return session;
+    }
+
+    session.status = 'checking';
+    session.isReady = false;
+    session.currentQR = null;
+    session.lastError = null;
+    session.client = createWaClient(tenantId, session);
+    session.initPromise = session.client.initialize()
+        .catch((err) => {
+            session.status = 'offline';
+            session.isReady = false;
+            session.currentQR = null;
+            session.lastError = err.message;
+            throw err;
+        })
+        .finally(() => {
+            session.initPromise = null;
+        });
+
+    await session.initPromise;
+    return session;
 }
 
-bootWaClient().catch((err) => {
-    console.error('Failed to initialize WhatsApp client', err.message);
-    waStatus = 'disconnected';
-    isWaReady = false;
-    currentQR = null;
+async function resetTenantClient(tenantId) {
+    const session = getOrCreateTenantSession(tenantId);
+    let warning = null;
+
+    try {
+        if (!session.client && !session.initPromise) {
+            await ensureTenantClient(tenantId);
+        }
+    } catch (err) {
+        warning = err.message;
+    }
+
+    if (session.initPromise) {
+        try {
+            await session.initPromise;
+        } catch (err) {
+            warning = warning || err.message;
+        }
+    }
+
+    if (session.client) {
+        try {
+            await session.client.logout();
+        } catch (err) {
+            warning = warning || err.message;
+        }
+
+        try {
+            await session.client.destroy();
+        } catch {
+            // ignore
+        }
+    }
+
+    session.client = null;
+    session.isReady = false;
+    session.status = 'disconnected';
+    session.currentQR = null;
+    session.initPromise = null;
+    session.lastError = null;
+
+    await ensureTenantClient(tenantId);
+    return warning;
+}
+
+ensureTenantClient('tenant-default').catch((err) => {
+    const session = getOrCreateTenantSession('tenant-default');
+    console.error('Failed to initialize WhatsApp client [tenant-default]', err.message);
+    session.status = 'offline';
+    session.isReady = false;
+    session.currentQR = null;
+    session.lastError = err.message;
 });
 
 
@@ -97,49 +198,65 @@ function formatPhoneWA(phone) {
 
 // 1. Status Check & QR Retreival
 app.get('/api/wa/status', (req, res) => {
-    res.json({ status: waStatus, qrCode: currentQR, isReady: isWaReady });
+    const tenantId = resolveTenantId(req);
+    const session = getOrCreateTenantSession(tenantId);
+
+    if (!session.client && !session.initPromise) {
+        ensureTenantClient(tenantId).catch((err) => {
+            const current = getOrCreateTenantSession(tenantId);
+            current.status = 'offline';
+            current.lastError = err.message;
+        });
+    }
+
+    res.json({
+        tenant_id: tenantId,
+        status: session.status,
+        qrCode: session.currentQR,
+        isReady: session.isReady,
+        lastError: session.lastError
+    });
 });
 
 // 1.5. Logout/Disconnect Bot
 app.post('/api/wa/logout', async (req, res) => {
-    let warning = null;
+    const tenantId = resolveTenantId(req);
 
     try {
-        await waClient.logout();
-    } catch (err) {
-        warning = err.message;
-    }
-
-    // Even when logout fails, force reset so UI can reconnect with fresh QR.
-    try {
-        await waClient.destroy();
-    } catch {
-        // Ignore destroy errors and continue re-initialization.
-    }
-
-    waStatus = 'disconnected';
-    isWaReady = false;
-    currentQR = null;
-
-    try {
-        waClient = createWaClient();
-        await waClient.initialize();
-        res.json({ success: true, message: 'Bot session reset successfully', warning });
+        const warning = await resetTenantClient(tenantId);
+        res.json({ success: true, message: 'Bot session reset successfully', warning, tenant_id: tenantId });
     } catch (initErr) {
-        res.status(500).json({ success: false, error: initErr.message, warning });
+        res.status(500).json({ success: false, error: initErr.message, tenant_id: tenantId });
     }
 });
 
 // 2. Send Ticket (WA & Email)
 app.post('/api/send-ticket', async (req, res) => {
+    const tenantId = resolveTenantId(req);
     const { name, phone, email, ticket_id, category, day_number, qr_data, send_wa, send_email } = req.body;
 
     const results = { wa: null, email: null };
     const qrPublicUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr_data)}`;
 
+    let session = getOrCreateTenantSession(tenantId);
+    if (!session.client && !session.initPromise) {
+        ensureTenantClient(tenantId).catch(() => {
+            // status will be reflected by session state on next request
+        });
+    }
+
+    if (session.initPromise) {
+        try {
+            await session.initPromise;
+        } catch {
+            // continue, readiness check below handles failure
+        }
+    }
+    session = getOrCreateTenantSession(tenantId);
+
     // A. PROSES SEND WHATSAPP
     if (send_wa && phone) {
-        if (!isWaReady) {
+        if (!session.isReady || !session.client) {
             results.wa = 'Failed - WA Client Not Ready';
         } else {
             try {
@@ -155,7 +272,7 @@ app.post('/api/send-ticket', async (req, res) => {
                 const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
                 
                 // Kirim Gambar + Caption
-                await waClient.sendMessage(waNumber, media, { caption: waMessage });
+                await session.client.sendMessage(waNumber, media, { caption: waMessage });
                 results.wa = 'Success';
             } catch (err) {
                 console.error('WA Send Error:', err.message);
@@ -209,7 +326,7 @@ app.post('/api/send-ticket', async (req, res) => {
         }
     }
 
-    res.json({ success: true, results });
+    res.json({ success: true, results, tenant_id: tenantId });
 });
 
 // Start Server

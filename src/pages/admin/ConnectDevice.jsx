@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 
 export default function ConnectDevice() {
@@ -9,6 +10,8 @@ export default function ConnectDevice() {
   const [isRegeneratingQr, setIsRegeneratingQr] = useState(false)
   const [lastError, setLastError] = useState('')
   const toast = useToast()
+  const { user } = useAuth()
+  const tenantId = user?.tenant?.id || 'tenant-default'
   const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
   const apiSource = getApiBaseUrl() || 'Proxy lokal /api'
 
@@ -18,7 +21,7 @@ export default function ConnectDevice() {
     
     const checkWaStatus = async () => {
       try {
-        const res = await apiFetch('/api/wa/status')
+        const res = await apiFetch(`/api/wa/status?tenant_id=${encodeURIComponent(tenantId)}`)
         const data = await res.json().catch(() => ({}))
 
         if (!res.ok) {
@@ -43,14 +46,14 @@ export default function ConnectDevice() {
       stopped = true
       if (timer) clearTimeout(timer)
     }
-  }, [waState?.isReady])
+  }, [waState?.isReady, tenantId])
 
   const handleLogout = async () => {
     if (isDisconnecting) return
     setIsDisconnecting(true)
 
     try {
-      const res = await apiFetch('/api/wa/logout', { method: 'POST' })
+      const res = await apiFetch(`/api/wa/logout?tenant_id=${encodeURIComponent(tenantId)}`, { method: 'POST' })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok || data?.success === false) {
@@ -76,7 +79,7 @@ export default function ConnectDevice() {
     setIsRegeneratingQr(true)
 
     try {
-      const res = await apiFetch('/api/wa/logout', { method: 'POST' })
+      const res = await apiFetch(`/api/wa/logout?tenant_id=${encodeURIComponent(tenantId)}`, { method: 'POST' })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok || data?.success === false) {

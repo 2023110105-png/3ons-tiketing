@@ -1475,6 +1475,7 @@ export function addParticipant(data) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...participant,
+        tenant_id: tenant.id,
         send_wa: !!participant.phone,
         send_email: !!participant.email,
         wa_message

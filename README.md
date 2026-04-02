@@ -47,8 +47,7 @@ Bangun image dari folder `wa-server` lalu jalankan pada VPS/Render/Railway/Fly.i
 Contoh build lokal:
 
 ```bash
-cd wa-server
-docker build -t 3ons-wa-server .
+docker build -f wa-server/Dockerfile -t 3ons-wa-server .
 docker run -p 3001:3001 -e PORT=3001 3ons-wa-server
 ```
 
@@ -56,7 +55,7 @@ docker run -p 3001:3001 -e PORT=3001 3ons-wa-server
 
 Gunakan file [render.yaml](render.yaml) untuk membuat service backend dari repo ini. Setelah service aktif, set `VITE_API_BASE_URL` di Vercel ke URL Render yang diberikan.
 
-Untuk login WhatsApp yang stabil, pastikan storage `auth_data` dipasang sebagai disk persisten di service Render.
+Untuk login WhatsApp yang stabil, pastikan storage `auth_data` dipasang sebagai disk persisten di path `/app/wa-server/auth_data` pada service Render.
 
 ### Deploy cepat ke Railway
 
@@ -65,7 +64,7 @@ Gunakan [railway.json](railway.json) agar Railway memakai Dockerfile di folder `
 Langkah umum:
 
 1. Jika service Railway sudah ada, pastikan yang dipakai adalah service backend `wa-server`.
-2. Tambahkan volume atau storage persisten untuk folder `/app/auth_data`.
+2. Tambahkan volume atau storage persisten untuk folder `/app/wa-server/auth_data`.
 3. Set `PORT=3001` bila Railway meminta port eksplisit.
 4. Ambil public URL service Railway, misalnya `https://nama-service.up.railway.app`.
 5. Isi `VITE_API_BASE_URL` di frontend Vercel dengan URL tersebut.

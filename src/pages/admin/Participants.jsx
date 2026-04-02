@@ -91,6 +91,7 @@ export default function Participants() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...participant,
+          tenant_id: user?.tenant?.id || 'tenant-default',
           send_wa: !!participant.phone,
           send_email: !!participant.email,
           wa_message
