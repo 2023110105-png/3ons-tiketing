@@ -4,6 +4,7 @@ import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding,
 import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
+import { apiFetch } from '../../utils/api'
 
 const CATEGORY_STYLES = {
   VIP: { accent: '#b91c1c', soft: '#fdecea', dark: '#7f1d1d', label: 'VIP' },
@@ -30,6 +31,8 @@ export default function QRGenerate() {
   const [generating, setGenerating] = useState(false)
   const [generatedCount, setGeneratedCount] = useState(0)
   const [regeneratingSecure, setRegeneratingSecure] = useState(false)
+  const [verifyTesting, setVerifyTesting] = useState(false)
+  const [verifyReport, setVerifyReport] = useState(null)
   const toast = useToast()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -357,6 +360,83 @@ export default function QRGenerate() {
     setRegeneratingSecure(false)
   }
 
+  const runServerVerifySelfTest = async () => {
+    if (verifyTesting) return
+    setVerifyTesting(true)
+
+    try {
+      const base64 = (value) => btoa(value)
+
+      const legacySig = base64('tenant-default|event-1|YMH-D1-001|1|event-2026')
+      const legacyQr = JSON.stringify({ tid: 'YMH-D1-001', t: 'tenant-default', e: 'event-1', d: 1, sig: legacySig, v: 2 })
+      const badQr = JSON.stringify({ tid: 'YMH-D1-001', t: 'tenant-default', e: 'event-1', d: 1, sig: 'BAD_SIGNATURE', v: 2 })
+
+      const secureCode = 'SECURE-CODE-EXAMPLE-123'
+      const secureRef = 'REFABC123456'
+      const v3Sig = base64(`tenant-default|event-1|YMH-D1-001|1|${secureCode}|${secureRef}|event-secure-v3`)
+      const v3Qr = JSON.stringify({ tid: 'YMH-D1-001', t: 'tenant-default', e: 'event-1', d: 1, r: secureRef, sig: v3Sig, v: 3 })
+
+      const scenarios = [
+        {
+          key: 'legacy_valid',
+          expected: (data) => data?.valid === true && data?.mode === 'legacy-v2',
+          payload: { qr_data: legacyQr, tenant_id: 'tenant-default' }
+        },
+        {
+          key: 'legacy_invalid',
+          expected: (data) => data?.valid === false && data?.reason === 'invalid_signature',
+          payload: { qr_data: badQr, tenant_id: 'tenant-default' }
+        },
+        {
+          key: 'v3_valid',
+          expected: (data) => data?.valid === true && data?.mode === 'v3-secure',
+          payload: { qr_data: v3Qr, tenant_id: 'tenant-default', secure_code: secureCode, secure_ref: secureRef }
+        },
+        {
+          key: 'v3_missing_token',
+          expected: (data) => data?.valid === false && data?.reason === 'missing_secure_token',
+          payload: { qr_data: v3Qr, tenant_id: 'tenant-default' }
+        }
+      ]
+
+      const results = []
+      for (const scenario of scenarios) {
+        try {
+          const response = await apiFetch('/api/ticket/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(scenario.payload)
+          })
+
+          const data = await response.json().catch(() => ({}))
+          results.push({
+            key: scenario.key,
+            ok: response.ok && scenario.expected(data),
+            responseOk: response.ok,
+            data
+          })
+        } catch (err) {
+          results.push({ key: scenario.key, ok: false, responseOk: false, data: { error: err?.message || 'network_error' } })
+        }
+      }
+
+      const passed = results.filter(item => item.ok).length
+      const allPassed = passed === results.length
+      setVerifyReport({ checkedAt: new Date().toISOString(), passed, total: results.length, allPassed, results })
+
+      if (allPassed) {
+        toast.success('Verify Server OK', 'Semua skenario keamanan lulus')
+      } else {
+        toast.error('Verify Server Gagal', `${passed}/${results.length} skenario lulus`)
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal Test Verify', 'Tidak bisa menjalankan uji endpoint verify')
+    }
+
+    setVerifyTesting(false)
+  }
+
   const generationProgress = participants.length > 0
     ? Math.round((generatedCount / participants.length) * 100)
     : 0
@@ -402,6 +482,29 @@ export default function QRGenerate() {
             ? <><span className="spinner qr-spinner-sm"></span> Upgrade keamanan...</>
             : <><ShieldCheck size={16} /> Upgrade QR Aman (Hari {dayFilter})</>}
         </button>
+
+        <button
+          className="btn btn-secondary qr-mobile-download-btn"
+          onClick={runServerVerifySelfTest}
+          disabled={verifyTesting}
+          title="Uji endpoint verifikasi keamanan server"
+        >
+          {verifyTesting
+            ? <><span className="spinner qr-spinner-sm"></span> Test verify...</>
+            : <><ShieldCheck size={16} /> Test Server Verify</>}
+        </button>
+
+        {verifyReport && (
+          <div className={`card ${verifyReport.allPassed ? 'border-success' : 'border-error'}`} style={{ marginTop: 12 }}>
+            <div className="card-header">
+              <h3 className="card-title">Hasil Test Verify</h3>
+              <span className={`badge ${verifyReport.allPassed ? 'badge-green' : 'badge-red'}`}>{verifyReport.passed}/{verifyReport.total}</span>
+            </div>
+            <div className="scanner-note scanner-note-tight">
+              {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
+            </div>
+          </div>
+        )}
 
         {generating && (
           <div className="qr-mobile-progress-wrap">
@@ -503,8 +606,25 @@ export default function QRGenerate() {
             ? (<><span className="spinner qr-spinner-sm"></span> Upgrade keamanan...</>)
             : (<><ShieldCheck size={16} /> Upgrade QR Aman (Hari {dayFilter})</>)}
         </button>
+        <button className="btn btn-secondary" onClick={runServerVerifySelfTest} disabled={verifyTesting} title="Uji endpoint verifikasi keamanan server">
+          {verifyTesting
+            ? (<><span className="spinner qr-spinner-sm"></span> Test verify...</>)
+            : (<><ShieldCheck size={16} /> Test Server Verify</>)}
+        </button>
         {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
       </div>
+
+      {verifyReport && (
+        <div className={`card ${verifyReport.allPassed ? 'border-success' : 'border-error'}`} style={{ marginBottom: 16 }}>
+          <div className="card-header">
+            <h3 className="card-title">Hasil Test Verify Server</h3>
+            <span className={`badge ${verifyReport.allPassed ? 'badge-green' : 'badge-red'}`}>{verifyReport.passed}/{verifyReport.total}</span>
+          </div>
+          <p className="scanner-note scanner-note-tight">
+            {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
+          </p>
+        </div>
+      )}
 
       <div className="grid-2">
         <div className="card qr-list-card">
