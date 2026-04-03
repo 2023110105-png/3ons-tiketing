@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { 
   getTenants, getTenantUsers, createTenantUser, 
-  updateTenantUser, deleteTenantUser 
+  updateTenantUser, deleteTenantUser, bootstrapStoreFromFirebase
 } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
@@ -14,7 +14,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   const toast = useToast()
   const { user: currentUser } = useAuth()
   
-  const [tenants] = useState(getTenants())
+  const [tenants, setTenants] = useState(getTenants())
   const [selectedTenantId, setSelectedTenantId] = useState(initialTenant?.id || '')
   const [users, setUsers] = useState([])
   
@@ -29,25 +29,47 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
 
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (selectedTenantId) {
-        setUsers(getTenantUsers(selectedTenantId))
-      } else {
-        setUsers([])
-      }
+  const runFirebaseHydrate = async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
     }
-    fetchUsers()
+  }
+
+  const refreshTenantData = async (tenantId = selectedTenantId, forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
+    const nextTenants = getTenants()
+    setTenants(nextTenants)
+    if (tenantId) {
+      setUsers(getTenantUsers(tenantId))
+    } else {
+      setUsers([])
+    }
+  }
+
+  useEffect(() => {
+    void refreshTenantData(selectedTenantId, true)
   }, [selectedTenantId])
 
-  const handleCreateUser = (e) => {
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshTenantData(selectedTenantId, true)
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [selectedTenantId])
+
+  const handleCreateUser = async (e) => {
     e.preventDefault()
     if (!selectedTenantId) return
     
     const result = createTenantUser(selectedTenantId, newUser, currentUser)
     if (result.success) {
       toast.success('Sukses', `User ${newUser.username} berhasil dibuat`)
-      setUsers(getTenantUsers(selectedTenantId))
+      await refreshTenantData(selectedTenantId, true)
       setShowAddModal(false)
       setNewUser({ username: '', email: '', password: '', name: '', role: 'gate_front' })
     } else {
@@ -55,19 +77,19 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     }
   }
 
-  const handleToggleStatus = (user) => {
+  const handleToggleStatus = async (user) => {
     const result = updateTenantUser(selectedTenantId, user.id, { is_active: !user.is_active }, currentUser)
     if (result.success) {
-      setUsers(getTenantUsers(selectedTenantId))
+      await refreshTenantData(selectedTenantId, true)
       toast.success('Update', `Status user ${user.username} diperbarui`)
     }
   }
 
-  const handleDeleteUser = (user) => {
+  const handleDeleteUser = async (user) => {
     if (window.confirm(`Hapus user ${user.username}?`)) {
       const result = deleteTenantUser(selectedTenantId, user.id, currentUser)
       if (result.success) {
-        setUsers(getTenantUsers(selectedTenantId))
+        await refreshTenantData(selectedTenantId, true)
         toast.success('Dihapus', `User ${user.username} berhasil dihapus`)
       }
     }

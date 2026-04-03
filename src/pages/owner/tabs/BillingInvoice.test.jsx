@@ -25,6 +25,7 @@ vi.mock('../../../store/mockData', () => {
   const updateInvoiceStatus = vi.fn(() => ({ success: true }))
 
   return {
+    bootstrapStoreFromFirebase: vi.fn(async () => true),
     getTenants,
     addTenantInvoice,
     updateInvoiceStatus

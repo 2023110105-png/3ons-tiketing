@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { 
   FileText, History, DollarSign, Download, 
   Search, CheckCircle, Clock, Plus, Filter 
 } from 'lucide-react'
-import { getTenants, addTenantInvoice, updateInvoiceStatus } from '../../../store/mockData'
+import { getTenants, addTenantInvoice, updateInvoiceStatus, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 import jsPDF from 'jspdf'
@@ -24,6 +24,33 @@ export default function BillingInvoice() {
     notes: '' 
   })
 
+  const runFirebaseHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }, [])
+
+  const refreshTenants = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
+    setTenants(getTenants())
+  }, [runFirebaseHydrate])
+
+  useEffect(() => {
+    void refreshTenants(true)
+  }, [refreshTenants])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshTenants(true)
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [refreshTenants])
+
   const allInvoices = useMemo(() => {
     return tenants.flatMap(t => (t.invoices || []).map(i => ({ ...i, tenantId: t.id, tenantName: t.brandName })))
       .sort((a, b) => new Date(b.issued_at) - new Date(a.issued_at))
@@ -37,7 +64,7 @@ export default function BillingInvoice() {
     )
   }, [allInvoices, selectedTenantId, searchQuery])
 
-  const handleAddInvoice = (e) => {
+  const handleAddInvoice = async (e) => {
     e.preventDefault()
     if (!selectedTenantId) {
       toast.error('Gagal', 'Pilih akun terlebih dahulu')
@@ -47,17 +74,17 @@ export default function BillingInvoice() {
     const result = addTenantInvoice(selectedTenantId, newInvoice, currentUser)
     if (result.success) {
       toast.success('Sukses', `Tagihan ${result.invoice.id} berhasil dibuat`)
-      setTenants(getTenants())
+      await refreshTenants(true)
       setShowAddModal(false)
       setNewInvoice({ period: '', amount: 0, status: 'unpaid', notes: '' })
     }
   }
 
-  const handleToggleStatus = (tenantId, invoiceId, currentStatus) => {
+  const handleToggleStatus = async (tenantId, invoiceId, currentStatus) => {
     const nextStatus = currentStatus === 'paid' ? 'unpaid' : 'paid'
     const result = updateInvoiceStatus(tenantId, invoiceId, nextStatus, currentUser)
     if (result.success) {
-      setTenants(getTenants())
+      await refreshTenants(true)
       toast.success('Update', 'Status tagihan diperbarui')
     }
   }

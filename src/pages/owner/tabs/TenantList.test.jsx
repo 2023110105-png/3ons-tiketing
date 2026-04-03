@@ -34,6 +34,7 @@ const sampleTenants = [
 ]
 
 vi.mock('../../../store/mockData', () => ({
+  bootstrapStoreFromFirebase: vi.fn(async () => true),
   getTenants: () => sampleTenants,
   getActiveTenant: () => sampleTenants[0],
   switchActiveTenant: vi.fn(() => ({ success: true })),

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
-import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, deleteTenant, createTenant } from '../../../store/mockData'
+import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, deleteTenant, createTenant, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -16,48 +16,71 @@ export default function TenantList({ onManageUsers, onEditContract }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newTenant, setNewTenant] = useState({ brandName: '', eventName: '', expiresAt: '' })
 
-  const refreshTenants = () => {
+  const runFirebaseHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }, [])
+
+  const refreshTenants = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
     setTenants(getTenants())
     setActiveTenantId(getActiveTenant().id)
-  }
+  }, [runFirebaseHydrate])
 
-  const handleCreate = (e) => {
+  useEffect(() => {
+    void refreshTenants(true)
+  }, [refreshTenants])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshTenants(true)
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [refreshTenants])
+
+  const handleCreate = async (e) => {
     e.preventDefault()
     const result = createTenant(newTenant, user)
     if (result.success) {
       toast.success('Sukses', 'Akun brand baru berhasil dibuat')
       setShowCreateModal(false)
       setNewTenant({ brandName: '', eventName: '', expiresAt: '' })
-      refreshTenants()
+      await refreshTenants(true)
     } else {
       toast.error('Gagal', result.error)
     }
   }
 
-  const handleActivate = (tenant) => {
+  const handleActivate = async (tenant) => {
     const result = switchActiveTenant(tenant.id, user)
     if (result.success) {
-      refreshTenants()
+      await refreshTenants(true)
       toast.success('Aktif', `Sekarang mengelola: ${tenant.brandName}`)
     } else {
       toast.error('Gagal', result.error)
     }
   }
 
-  const handleToggleStatus = (tenant) => {
+  const handleToggleStatus = async (tenant) => {
     const nextStatus = tenant.status === 'active' ? 'inactive' : 'active'
     const result = setTenantStatus(tenant.id, nextStatus, user)
     if (result.success) {
-      refreshTenants()
+      await refreshTenants(true)
       toast.success('Update', `Status ${tenant.brandName} menjadi ${nextStatus}`)
     }
   }
 
-  const handleDelete = (tenant) => {
+  const handleDelete = async (tenant) => {
     if (window.confirm(`Hapus akun brand ${tenant.brandName}? Semua data terkait akan hilang.`)) {
       const result = deleteTenant(tenant.id, user)
       if (result.success) {
-        refreshTenants()
+        await refreshTenants(true)
         toast.success('Dihapus', `Akun brand ${tenant.brandName} berhasil dihapus`)
       }
     }

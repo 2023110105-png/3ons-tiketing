@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { 
   FileText, Calendar, DollarSign, Clock, 
   Search, CheckCircle, AlertCircle, Plus 
 } from 'lucide-react'
-import { getTenants, updateTenantContract } from '../../../store/mockData'
+import { getTenants, updateTenantContract, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -15,6 +15,33 @@ export default function ContractManager() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isEditing, setIsEditing] = useState(null)
   const [editData, setEditData] = useState({})
+
+  const runFirebaseHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }, [])
+
+  const refreshTenants = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
+    setTenants(getTenants())
+  }, [runFirebaseHydrate])
+
+  useEffect(() => {
+    void refreshTenants(true)
+  }, [refreshTenants])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshTenants(true)
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [refreshTenants])
 
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)
@@ -28,11 +55,11 @@ export default function ContractManager() {
     })
   }
 
-  const handleSave = (tenantId) => {
+  const handleSave = async (tenantId) => {
     const result = updateTenantContract(tenantId, editData, currentUser)
     if (result.success) {
       toast.success('Sukses', 'Kontrak akun berhasil diperbarui')
-      setTenants(getTenants())
+      await refreshTenants(true)
       setIsEditing(null)
     } else {
       toast.error('Gagal', result.error)

@@ -3,6 +3,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest'
 import ContractManager from './ContractManager'
 
 vi.mock('../../../store/mockData', () => ({
+  bootstrapStoreFromFirebase: vi.fn(async () => true),
   getTenants: () => [
     {
       id: 'tenant-1',
