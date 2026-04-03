@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
-import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding } from '../../store/mockData'
+import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding, bootstrapStoreFromFirebase } from '../../store/mockData'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
   BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck,
@@ -19,6 +19,7 @@ export default function Layout({ children }) {
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
+  const [syncRevision, setSyncRevision] = useState(0)
 
   const roleLabel = {
     super_admin: 'Admin Utama',
@@ -41,6 +42,32 @@ export default function Layout({ children }) {
     return () => {
       window.removeEventListener('ons-tenant-changed', refreshTenantBranding)
       window.removeEventListener('focus', refreshTenantBranding)
+    }
+  }, [])
+
+  useEffect(() => {
+    let stopped = false
+
+    const pullLatestWorkspace = async () => {
+      try {
+        const changed = await bootstrapStoreFromFirebase(true)
+        if (!changed || stopped) return
+
+        refreshEventState()
+        setTenantBranding(getTenantBranding())
+        setSyncRevision(prev => prev + 1)
+      } catch {
+        // Keep UI running even if sync pull fails temporarily.
+      }
+    }
+
+    const id = window.setInterval(() => {
+      void pullLatestWorkspace()
+    }, 5000)
+
+    return () => {
+      stopped = true
+      window.clearInterval(id)
     }
   }, [])
 
@@ -279,7 +306,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <div className="page-wrapper" key={`${tenantBranding.tenantId}-${activeEventId}`}>
+        <div className="page-wrapper" key={`${tenantBranding.tenantId}-${activeEventId}-${syncRevision}`}>
           {children}
         </div>
       </main>

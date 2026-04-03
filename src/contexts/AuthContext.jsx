@@ -64,6 +64,13 @@ export function AuthProvider({ children }) {
         return { success: false, error: 'Konfigurasi Firebase belum aktif untuk mode strict' }
       }
 
+      // Always refresh latest tenant/user snapshot before credential checks.
+      try {
+        await bootstrapStoreFromFirebase(true)
+      } catch {
+        // Continue with current snapshot if refresh fails.
+      }
+
       const candidateEmail = resolveLoginEmail(username)
       if (!candidateEmail) {
         const localResult = doLogin(username, password)
