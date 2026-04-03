@@ -248,7 +248,7 @@ export function switchActiveTenant(tenantId, actor = 'system') {
   return { success: true, tenant: { ...tenant } }
 }
 
-export function createTenant(data, actor = 'system') {
+export async function createTenant(data, actor = 'system') {
   const brandName = String(data?.brandName || '').trim()
   const eventName = String(data?.eventName || '').trim() || 'Event Platform'
   const expiresAt = data?.expiresAt ? new Date(data.expiresAt).toISOString() : null
@@ -275,7 +275,20 @@ export function createTenant(data, actor = 'system') {
   tenant.activeEventId = store.tenants[tenant.id]?.activeEventId || null
   saveStore()
   saveTenantRegistry()
-  void syncTenantUpsert(tenant)
+
+  const synced = await syncTenantUpsert(tenant)
+  if (IS_FIREBASE_STRICT_DATA_MODE && !synced) {
+    delete tenantRegistry.tenants[tenant.id]
+    if (store?.tenants?.[tenant.id]) {
+      delete store.tenants[tenant.id]
+    }
+    saveStore()
+    saveTenantRegistry()
+    return {
+      success: false,
+      error: 'Tenant gagal disimpan ke Firestore. Periksa Authentication/Rules Firebase lalu coba lagi.'
+    }
+  }
 
   logAdminAction('tenant_create', `Membuat tenant ${brandName}`, actor, {
     tenant_id: tenant.id

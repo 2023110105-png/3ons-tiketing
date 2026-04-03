@@ -46,7 +46,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
 
   const handleCreate = async (e) => {
     e.preventDefault()
-    const result = createTenant(newTenant, user)
+    const result = await createTenant(newTenant, user)
     if (result.success) {
       toast.success('Sukses', 'Akun brand baru berhasil dibuat')
       setShowCreateModal(false)
