@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
 import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, deleteTenant, createTenant } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function TenantList({ onManageUsers, onEditContract }) {
   const toast = useToast()
@@ -25,7 +25,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
     e.preventDefault()
     const result = createTenant(newTenant, user)
     if (result.success) {
-      toast.success('Sukses', 'Tenant baru berhasil dibuat')
+      toast.success('Sukses', 'Akun brand baru berhasil dibuat')
       setShowCreateModal(false)
       setNewTenant({ brandName: '', eventName: '', expiresAt: '' })
       refreshTenants()
@@ -54,11 +54,11 @@ export default function TenantList({ onManageUsers, onEditContract }) {
   }
 
   const handleDelete = (tenant) => {
-    if (window.confirm(`Hapus tenant ${tenant.brandName}? Semua data terkait akan hilang.`)) {
+    if (window.confirm(`Hapus akun brand ${tenant.brandName}? Semua data terkait akan hilang.`)) {
       const result = deleteTenant(tenant.id, user)
       if (result.success) {
         refreshTenants()
-        toast.success('Dihapus', `Tenant ${tenant.brandName} berhasil dihapus`)
+        toast.success('Dihapus', `Akun brand ${tenant.brandName} berhasil dihapus`)
       }
     }
   }
@@ -85,7 +85,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari tenant..." 
+              placeholder="Cari akun brand..." 
               value={tenantSearch} 
               onChange={e => setTenantSearch(e.target.value)} 
             />
@@ -99,12 +99,12 @@ export default function TenantList({ onManageUsers, onEditContract }) {
             <option value="all">Semua Status</option>
             <option value="active">✓ Aktif</option>
             <option value="inactive">○ Nonaktif</option>
-            <option value="expired">⚠ Expired</option>
+            <option value="expired">⚠ Kedaluwarsa</option>
           </select>
         </div>
         <div className="owner-toolbar-right">
           <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-            <Plus size={16} /> Tenant Baru
+            <Plus size={16} /> Akun Brand Baru
           </button>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                 <p style={{ marginTop: '2px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tenant.eventName}</p>
               </div>
               <div className={`owner-status-badge ${tenant.isExpired ? 'expired' : (tenant.status === 'active' ? 'active' : 'inactive')}`}>
-                {tenant.isExpired ? '⚠ Expired' : (tenant.status === 'active' ? '✓ Aktif' : '○ Off')}
+                {tenant.isExpired ? '⚠ Kedaluwarsa' : (tenant.status === 'active' ? '✓ Aktif' : '○ Nonaktif')}
               </div>
             </div>
             
@@ -134,7 +134,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Pembayaran</span>
                   <span className={`badge ${tenant.contract?.payment_status === 'paid' ? 'badge-green' : 'badge-yellow'}`}>
-                    {tenant.contract?.payment_status?.toUpperCase() || 'UNPAID'}
+                    {tenant.contract?.payment_status === 'paid' ? 'LUNAS' : tenant.contract?.payment_status === 'overdue' ? 'TERLAMBAT' : 'BELUM LUNAS'}
                   </span>
                 </div>
               </div>
@@ -142,7 +142,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
               {tenant.expires_at && (
                 <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'var(--bg-elevated)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   {tenant.isExpired ? (
-                    <span style={{ color: 'var(--danger)' }}>Expired: {new Date(tenant.expires_at).toLocaleDateString('id-ID')}</span>
+                    <span style={{ color: 'var(--danger)' }}>Kedaluwarsa: {new Date(tenant.expires_at).toLocaleDateString('id-ID')}</span>
                   ) : (
                     <span>Aktif sampai: {new Date(tenant.expires_at).toLocaleDateString('id-ID')}</span>
                   )}
@@ -156,10 +156,10 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                   Pakai
                 </button>
               )}
-              <button className="owner-action-btn" title="Manage Users" onClick={() => onManageUsers(tenant)}>
+              <button className="owner-action-btn" title="Kelola Pengguna" onClick={() => onManageUsers(tenant)}>
                 <Users size={14} />
               </button>
-              <button className="owner-action-btn" title="Edit Contract" onClick={() => onEditContract(tenant)}>
+              <button className="owner-action-btn" title="Kelola Kontrak" onClick={() => onEditContract(tenant)}>
                 <FileEdit size={14} />
               </button>
               <button 
@@ -182,8 +182,8 @@ export default function TenantList({ onManageUsers, onEditContract }) {
       {visibleTenants.length === 0 && (
         <div className="owner-empty-state">
           <div className="owner-empty-icon">🔍</div>
-          <div className="owner-empty-title">Tidak ada tenant</div>
-          <div className="owner-empty-message">Coba cari dengan keyword lain atau buat tenant baru</div>
+          <div className="owner-empty-title">Tidak ada akun brand</div>
+          <div className="owner-empty-message">Coba cari dengan kata lain atau buat akun brand baru</div>
         </div>
       )}
 
@@ -192,7 +192,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
           <div className="owner-modal card">
             <div className="owner-modal-header">
               <div className="owner-modal-title">
-                <Plus size={20} /> Tambah Tenant Baru
+                <Plus size={20} /> Tambah Akun Brand Baru
               </div>
               <button 
                 className="modal-close" 
@@ -225,7 +225,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                   />
                 </div>
                 <div className="owner-form-group">
-                  <label className="owner-form-label">Tanggal Expired (Opsional)</label>
+                  <label className="owner-form-label">Tanggal Kedaluwarsa (Opsional)</label>
                   <input 
                     className="owner-form-input" 
                     type="date"
@@ -238,7 +238,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
             
             <div className="owner-modal-footer">
               <button type="button" className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Batal</button>
-              <button onClick={handleCreate} className="btn btn-primary">Simpan Tenant</button>
+              <button onClick={handleCreate} className="btn btn-primary">Simpan Akun Brand</button>
             </div>
           </div>
         </div>

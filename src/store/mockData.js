@@ -26,12 +26,17 @@ const STORE_BACKUP_PREFIX = 'ons_event_data_backup_'
 const MAX_STORE_BACKUPS = 3
 const WA_TEMPLATE_KEY = 'ons_wa_template'
 const LEGACY_WA_TEMPLATE_KEY = 'event_wa_template'
+const WA_SEND_MODE_KEY = 'ons_wa_send_mode'
+const LEGACY_WA_SEND_MODE_KEY = 'event_wa_send_mode'
 const SESSION_KEY = 'ons_session'
 const LEGACY_SESSION_KEY = 'event_session'
 const TENANT_REGISTRY_KEY = 'ons_tenant_registry'
 const LEGACY_TENANT_REGISTRY_KEY = 'event_tenant_registry'
 const OWNER_AUDIT_LOG_KEY = 'ons_owner_audit_log'
 const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
+const WA_SEND_MODE_MESSAGE_WITH_BARCODE = 'message_with_barcode'
+const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
+const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_ONLY
 
 const DEFAULT_TENANT_ID = 'tenant-default'
 const DEFAULT_TENANT = {
@@ -905,7 +910,8 @@ function createEmptyEventState(name = 'Event Platform') {
     pendingCheckIns: [],
     offlineQueueHistory: [],
     offlineConfig: { maxPendingAttempts: DEFAULT_MAX_PENDING_ATTEMPTS },
-    waTemplate: null
+    waTemplate: null,
+    waSendMode: DEFAULT_WA_SEND_MODE
   }
 }
 
@@ -942,6 +948,11 @@ function createTenantStoreBucket(eventName = 'Event 1', withMockParticipants = f
 }
 
 function normalizeSavedEvent(id, raw) {
+  const parsedSendMode = String(raw?.waSendMode || '').trim()
+  const waSendMode = parsedSendMode === WA_SEND_MODE_MESSAGE_ONLY
+    ? WA_SEND_MODE_MESSAGE_ONLY
+    : DEFAULT_WA_SEND_MODE
+
   return {
     id,
     name: raw?.name || 'Event Platform',
@@ -958,7 +969,8 @@ function normalizeSavedEvent(id, raw) {
         ? raw.offlineConfig.maxPendingAttempts
         : DEFAULT_MAX_PENDING_ATTEMPTS
     },
-    waTemplate: raw?.waTemplate || null
+    waTemplate: raw?.waTemplate || null,
+    waSendMode
   }
 }
 
@@ -1004,6 +1016,10 @@ function migrateLegacyStore(parsed) {
       : DEFAULT_MAX_PENDING_ATTEMPTS
   }
   event.waTemplate = safeStorageGet(WA_TEMPLATE_KEY) || safeStorageGet(LEGACY_WA_TEMPLATE_KEY) || null
+  const legacySendMode = safeStorageGet(WA_SEND_MODE_KEY) || safeStorageGet(LEGACY_WA_SEND_MODE_KEY)
+  event.waSendMode = legacySendMode === WA_SEND_MODE_MESSAGE_ONLY
+    ? WA_SEND_MODE_MESSAGE_ONLY
+    : DEFAULT_WA_SEND_MODE
 
   return {
     tenants: {
@@ -1456,6 +1472,14 @@ export function getWaTemplate() {
   return ev.waTemplate || safeStorageGet(WA_TEMPLATE_KEY) || safeStorageGet(LEGACY_WA_TEMPLATE_KEY) || defaultWaTemplate
 }
 
+export function getWaSendMode() {
+  const ev = getActiveEvent()
+  const mode = ev.waSendMode || safeStorageGet(WA_SEND_MODE_KEY) || safeStorageGet(LEGACY_WA_SEND_MODE_KEY)
+  return mode === WA_SEND_MODE_MESSAGE_ONLY
+    ? WA_SEND_MODE_MESSAGE_ONLY
+    : DEFAULT_WA_SEND_MODE
+}
+
 export function setWaTemplate(template, actor = 'system') {
   const ev = getActiveEvent()
   ev.waTemplate = template
@@ -1463,6 +1487,18 @@ export function setWaTemplate(template, actor = 'system') {
   safeStorageRemove(LEGACY_WA_TEMPLATE_KEY)
   saveStore()
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
+}
+
+export function setWaSendMode(mode, actor = 'system') {
+  const nextMode = mode === WA_SEND_MODE_MESSAGE_ONLY
+    ? WA_SEND_MODE_MESSAGE_ONLY
+    : DEFAULT_WA_SEND_MODE
+  const ev = getActiveEvent()
+  ev.waSendMode = nextMode
+  safeStorageSet(WA_SEND_MODE_KEY, nextMode)
+  safeStorageRemove(LEGACY_WA_SEND_MODE_KEY)
+  saveStore()
+  logAdminAction('wa_send_mode_update', `Mode kirim WhatsApp diubah ke ${nextMode}`, actor, { mode: nextMode })
 }
 
 export function getMaxPendingAttempts() {
@@ -1719,6 +1755,7 @@ export function addParticipant(data) {
 
   if (data.auto_send && (participant.phone || participant.email)) {
     const template = getWaTemplate()
+    const waSendMode = getWaSendMode()
     const wa_message = template
       .replace(/\{\{nama\}\}/g, participant.name || '')
       .replace(/\{\{tiket\}\}/g, participant.ticket_id || '')
@@ -1733,7 +1770,8 @@ export function addParticipant(data) {
         tenant_id: tenant.id,
         send_wa: !!participant.phone,
         send_email: !!participant.email,
-        wa_message
+        wa_message,
+        wa_send_mode: waSendMode
       })
     }).catch(e => console.error('Bot Server Offline:', e))
   }

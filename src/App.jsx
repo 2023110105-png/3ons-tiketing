@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
+import { useAuth } from './contexts/useAuth'
 import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/Layout/Layout'
 import OfflineIndicator from './components/OfflineIndicator'

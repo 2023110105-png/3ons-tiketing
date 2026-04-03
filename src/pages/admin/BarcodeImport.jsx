@@ -9,7 +9,7 @@ function mapImportError(message = '', reason = '') {
     return 'QR belum terbaca. Coba foto ulang dengan jarak lebih dekat dan cahaya cukup.';
   }
   if (raw.includes('tenant') || raw.includes('brand')) {
-    return 'Tiket ini bukan untuk event/brand ini. Arahkan ke meja bantuan.';
+    return 'Tiket ini bukan untuk acara ini. Silakan arahkan ke meja bantuan.';
   }
   if (raw.includes('tidak valid') || raw.includes('format')) {
     return 'Format QR tidak sesuai. Coba scan ulang atau gunakan tiket yang benar.';
@@ -18,10 +18,10 @@ function mapImportError(message = '', reason = '') {
     return 'Data keamanan tiket belum siap. Jalankan Upgrade QR Aman lebih dulu.';
   }
   if (raw.includes('not found') || raw.includes('tidak ditemukan')) {
-    return 'Data peserta tidak ditemukan. Periksa tiket atau arahkan ke helpdesk.';
+    return 'Data peserta tidak ditemukan. Periksa tiket atau arahkan ke meja bantuan.';
   }
   if (raw.includes('signature') || raw.includes('dimanipulasi')) {
-    return 'QR tidak cocok dengan data server. Tiket ditolak, arahkan ke helpdesk.';
+    return 'QR tidak cocok dengan data server. Tiket ditolak, arahkan ke meja bantuan.';
   }
   return 'Proses verifikasi belum berhasil. Coba ulang sekali lagi.';
 }
@@ -139,7 +139,7 @@ export default function BarcodeImport() {
       <div className="barcode-import">
         <h2>📱 Import Barcode Aman</h2>
         <p className="description">
-          Verifikasi barcode dengan ekstraksi QR dan server-side signature check
+          Verifikasi barcode dengan pembacaan QR dan pemeriksaan keamanan server
         </p>
 
         <div className="step-1">
@@ -157,13 +157,13 @@ export default function BarcodeImport() {
               onClick={() => setSourceType('upload')}
               disabled={loading}
             >
-              📤 Upload File
+              📤 Unggah File
             </button>
           </div>
 
           <div className="input-section">
             <label>
-              {sourceType === 'camera' ? 'Ambil foto QR Code' : 'Upload file gambar QR'}:
+              {sourceType === 'camera' ? 'Ambil foto QR' : 'Unggah gambar QR'}:
             </label>
             <input
               type="file"
@@ -180,12 +180,12 @@ export default function BarcodeImport() {
             onClick={() => setShowAdvanced(v => !v)}
             type="button"
           >
-            {showAdvanced ? 'Sembunyikan Mode Advanced' : 'Tampilkan Mode Advanced (Manual Paste)'}
+            {showAdvanced ? 'Sembunyikan Mode Lanjutan' : 'Tampilkan Mode Lanjutan (Tempel Manual)'}
           </button>
 
           {showAdvanced && (
             <div className="advanced-box">
-              <label>Mode advanced: paste QR string (khusus admin)</label>
+              <label>Mode lanjutan: tempel data QR (khusus admin)</label>
               <textarea
                 placeholder='Contoh: {"tid":"YMH-D1-001","t":"tenant-default","e":"event-1","d":1,"r":"A1B2C3","sig":"...","v":3}'
                 value={qrString}
@@ -198,7 +198,7 @@ export default function BarcodeImport() {
                 disabled={loading || !qrString.trim()}
                 className="btn-primary btn-large"
               >
-                {loading ? 'Memproses...' : 'Proses Manual'}
+                {loading ? 'Memproses...' : 'Proses Manual QR'}
               </button>
             </div>
           )}
@@ -229,11 +229,11 @@ export default function BarcodeImport() {
             <h3>Ringkasan tiket yang diproses</h3>
             <div className="import-data-preview">
               <div className="data-row">
-                <span className="label">Ticket ID:</span>
+                <span className="label">ID Tiket:</span>
                 <span className="value">{importData.ticket_id}</span>
               </div>
               <div className="data-row">
-                <span className="label">Event:</span>
+                <span className="label">Acara:</span>
                 <span className="value">{importData.event_id}</span>
               </div>
               <div className="data-row">
@@ -241,7 +241,7 @@ export default function BarcodeImport() {
                 <span className="value">Hari {importData.day_number}</span>
               </div>
               <div className="data-row">
-                <span className="label">Security Mode:</span>
+                <span className="label">Mode Keamanan:</span>
                 <span className="value">
                   <code>v{importData.version}</code>
                   {importData.version >= 3 && ' (Aman)'}

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { getTenants, updateTenantQuota, getTenantHealth } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function QuotaManager() {
   const toast = useToast()

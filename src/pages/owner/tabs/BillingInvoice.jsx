@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { getTenants, addTenantInvoice, updateInvoiceStatus } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 
@@ -46,7 +46,7 @@ export default function BillingInvoice() {
     
     const result = addTenantInvoice(selectedTenantId, newInvoice, currentUser)
     if (result.success) {
-      toast.success('Sukses', `Invoice ${result.invoice.id} berhasil dibuat`)
+      toast.success('Sukses', `Tagihan ${result.invoice.id} berhasil dibuat`)
       setTenants(getTenants())
       setShowAddModal(false)
       setNewInvoice({ period: '', amount: 0, status: 'unpaid', notes: '' })
@@ -58,7 +58,7 @@ export default function BillingInvoice() {
     const result = updateInvoiceStatus(tenantId, invoiceId, nextStatus, currentUser)
     if (result.success) {
       setTenants(getTenants())
-      toast.success('Update', 'Status invoice diperbarui')
+      toast.success('Update', 'Status tagihan diperbarui')
     }
   }
 
@@ -68,11 +68,11 @@ export default function BillingInvoice() {
     // Header
     doc.setFontSize(22)
     doc.setTextColor(14, 165, 233) // Primary color
-    doc.text('Owner Billing', 105, 20, null, 'center')
+    doc.text('Tagihan Pemilik Platform', 105, 20, null, 'center')
     
     doc.setFontSize(10)
     doc.setTextColor(100)
-    doc.text('Owner Console Billing System', 105, 28, null, 'center')
+    doc.text('Sistem Pengelolaan Tagihan', 105, 28, null, 'center')
     
     doc.setDrawColor(200)
     doc.line(20, 35, 190, 35)
@@ -80,7 +80,7 @@ export default function BillingInvoice() {
     // Invoice Info
     doc.setFontSize(16)
     doc.setTextColor(0)
-    doc.text(`INVOICE: #${invoice.id}`, 20, 50)
+    doc.text(`TAGIHAN: #${invoice.id}`, 20, 50)
     
     doc.setFontSize(10)
     doc.text(`Tanggal Terbit: ${new Date(invoice.issued_at).toLocaleDateString()}`, 20, 60)
@@ -94,12 +94,12 @@ export default function BillingInvoice() {
     doc.text(invoice.tenantName, 140, 60)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.text('Tenant Client ID:', 140, 66)
+    doc.text('ID Akun Brand:', 140, 66)
     doc.text(invoice.tenantId, 140, 72)
 
     doc.autoTable({
       startY: 85,
-      head: [['Deskripsi', 'Periode', 'Total']],
+      head: [['Keterangan', 'Periode', 'Total']],
       body: [[`Sewa Platform - ${invoice.tenantName}`, invoice.period, `Rp ${invoice.amount.toLocaleString()}`]],
       theme: 'striped',
       headStyles: { fillColor: [14, 165, 233] }
@@ -110,7 +110,7 @@ export default function BillingInvoice() {
     doc.text(invoice.notes || 'Terima kasih atas kerja samanya.', 20, finalY + 8)
 
     doc.text('Hormat kami,', 150, finalY + 40)
-    doc.text('Owner Platform', 150, finalY + 60)
+    doc.text('Tim Platform', 150, finalY + 60)
 
     doc.save(`invoice_${invoice.id}_${invoice.tenantName}.pdf`)
   }
@@ -184,7 +184,7 @@ export default function BillingInvoice() {
                         onClick={() => handleToggleStatus(invoice.tenantId, invoice.id, invoice.status)}
                       >
                         {invoice.status === 'paid' ? <CheckCircle size={12} className="inline mr-4" /> : <Clock size={12} className="inline mr-4" />}
-                        {invoice.status.toUpperCase()}
+                        {invoice.status === 'paid' ? 'LUNAS' : 'BELUM LUNAS'}
                       </button>
                     </td>
                     <td className="text-right">

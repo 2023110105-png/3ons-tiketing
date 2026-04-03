@@ -61,7 +61,10 @@ export default function FrontGate() {
       } else {
         setResult({ success: false, status: 'sync_partial', message: `Sync selesai: ${res.synced} berhasil, ${res.failed} gagal` })
       }
-      setTimeout(() => setResult(null), 3000)
+      setShowResultDetail(false)
+      setTimeout(() => setResult(null), getResultDismissMs(res.failed === 0
+        ? { success: true, status: 'synced' }
+        : { success: false, status: 'sync_partial' }))
     }
     setIsSyncing(false)
   }, [isSyncing, refreshPendingState, refreshStats])
@@ -119,8 +122,9 @@ export default function FrontGate() {
         status: 'queued_offline',
         message: `Offline: scan disimpan ke antrean (${getPendingCheckIns().length} pending)`
       })
+      setShowResultDetail(false)
       playWarning()
-      setTimeout(() => setResult(null), 3000)
+      setTimeout(() => setResult(null), getResultDismissMs({ success: true, status: 'queued_offline' }))
       return
     }
 
@@ -131,8 +135,9 @@ export default function FrontGate() {
         status: 'invalid_server',
         message: `Server verify gagal (${verify.reason})`
       })
+      setShowResultDetail(false)
       playError()
-      setTimeout(() => setResult(null), 3000)
+      setTimeout(() => setResult(null), getResultDismissMs({ success: false, status: 'invalid_server' }))
       return
     }
 
@@ -154,7 +159,7 @@ export default function FrontGate() {
     }
 
     refreshStats()
-    setTimeout(() => setResult(null), 3000)
+    setTimeout(() => setResult(null), getResultDismissMs(res))
   }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshPendingState, refreshStats, verifyScanWithServer])
 
   const handleManualSubmit = (e) => {
@@ -184,7 +189,7 @@ export default function FrontGate() {
     }
 
     refreshStats()
-    setTimeout(() => setResult(null), 3000)
+    setTimeout(() => setResult(null), getResultDismissMs(res))
   }
 
   // Search handler
@@ -311,6 +316,13 @@ export default function FrontGate() {
     return 'error'
   }
 
+  const getResultDismissMs = (res) => {
+    if (!res) return 2500
+    if (res.success) return 1500
+    if (res.status === 'duplicate' || res.status === 'wrong_day') return 3500
+    return 3000
+  }
+
   const getResultActionHint = () => {
     if (!result) return ''
     if (result.status === 'queued_offline') return 'Lanjut scan. Data disimpan dan akan sinkron otomatis.'
@@ -322,6 +334,8 @@ export default function FrontGate() {
     if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
     return 'Tiket ditolak. Arahkan ke helpdesk.'
   }
+
+  const canShowDetailToggle = !!result && !result.success
 
   const getCategoryAvatarClass = (category) => {
     if (category === 'VIP') return 'm-p-avatar-vip'
@@ -430,10 +444,12 @@ export default function FrontGate() {
                 {getResultTitle()}
               </div>
               <div className="scanner-result-action">{getResultActionHint()}</div>
-              <button className="btn btn-ghost btn-sm scanner-detail-toggle" onClick={() => setShowResultDetail(prev => !prev)}>
-                {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
-              </button>
-              {showResultDetail && (
+              {canShowDetailToggle && (
+                <button className="btn btn-ghost btn-sm scanner-detail-toggle" onClick={() => setShowResultDetail(prev => !prev)}>
+                  {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
+                </button>
+              )}
+              {canShowDetailToggle && showResultDetail && (
                 <>
                   {result.participant && (
                     <div className="scanner-result-detail">{result.participant.name}</div>
@@ -489,10 +505,12 @@ export default function FrontGate() {
                   {getResultTitle()}
                 </h2>
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
-                <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
-                  {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
-                </button>
-                {showResultDetail && result.participant && (
+                {canShowDetailToggle && (
+                  <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
+                    {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
+                  </button>
+                )}
+                {canShowDetailToggle && showResultDetail && result.participant && (
                   <div className="scanner-feedback-participant">
                     <div className="scanner-feedback-name scanner-feedback-name-lg">{result.participant.name}</div>
                     <div className="scanner-feedback-meta scanner-feedback-meta-lg">
@@ -500,12 +518,12 @@ export default function FrontGate() {
                     </div>
                   </div>
                 )}
-                {showResultDetail && result.security && (
+                {canShowDetailToggle && showResultDetail && result.security && (
                   <p className="scanner-feedback-meta scanner-feedback-message">
                     Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
                   </p>
                 )}
-                {showResultDetail && <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>}
+                {canShowDetailToggle && showResultDetail && <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>}
               </div>
             </div>
           )}
@@ -582,10 +600,12 @@ export default function FrontGate() {
                   {getResultTitle()}
                 </h2>
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
-                <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
-                  {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
-                </button>
-                {showResultDetail && result.participant && (
+                {canShowDetailToggle && (
+                  <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
+                    {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
+                  </button>
+                )}
+                {canShowDetailToggle && showResultDetail && result.participant && (
                   <div className="scanner-feedback-participant scanner-feedback-participant-tight">
                     <div className="scanner-feedback-name">{result.participant.name}</div>
                     <div className="scanner-feedback-meta">
@@ -593,7 +613,7 @@ export default function FrontGate() {
                     </div>
                   </div>
                 )}
-                {showResultDetail && <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>}
+                {canShowDetailToggle && showResultDetail && <p className="scanner-feedback-meta scanner-feedback-message">{result.message}</p>}
               </div>
             </div>
           )}

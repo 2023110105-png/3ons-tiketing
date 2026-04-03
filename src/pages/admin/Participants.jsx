@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getAvailableDays } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getWaSendMode, getAvailableDays } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
@@ -79,6 +79,7 @@ export default function Participants() {
     if (!participant.phone && !participant.email) return false;
     
     const template = getWaTemplate();
+    const waSendMode = getWaSendMode();
     const wa_message = template
       .replace(/\{\{nama\}\}/g, participant.name || '')
       .replace(/\{\{tiket\}\}/g, participant.ticket_id || '')
@@ -94,7 +95,8 @@ export default function Participants() {
           tenant_id: user?.tenant?.id || 'tenant-default',
           send_wa: !!participant.phone,
           send_email: !!participant.email,
-          wa_message
+          wa_message,
+          wa_send_mode: waSendMode
         })
       });
       return true;

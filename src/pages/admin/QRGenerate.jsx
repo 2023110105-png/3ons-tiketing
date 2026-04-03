@@ -34,7 +34,7 @@ export default function QRGenerate() {
   const [regeneratingSecure, setRegeneratingSecure] = useState(false)
   const [verifyTesting, setVerifyTesting] = useState(false)
   const [verifyReport, setVerifyReport] = useState(null)
-  const [activeTab, setActiveTab] = useState('generate') // 'generate' or 'import'
+  const [activeTab, setActiveTab] = useState('generate') // 'generate' atau 'import'
   const toast = useToast()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -110,14 +110,14 @@ export default function QRGenerate() {
       ctx.fillText(`${clipped}...`, x, y)
     }
 
-    // Background
+    // Latar belakang
     const bg = ctx.createLinearGradient(0, 0, width, height)
     bg.addColorStop(0, '#fffefb')
     bg.addColorStop(1, '#f8fbff')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, width, height)
 
-    // Outer border + safe print area
+    // Bingkai luar + area aman cetak
     ctx.strokeStyle = '#d8dce7'
     ctx.lineWidth = 3
     ctx.strokeRect(12, 12, width - 24, height - 24)
@@ -125,11 +125,11 @@ export default function QRGenerate() {
     ctx.lineWidth = 1
     ctx.strokeRect(24, 24, width - 48, height - 48)
 
-    // Accent top strip
+    // Garis aksen atas
     ctx.fillStyle = style.accent
     ctx.fillRect(12, 12, width - 24, 20)
 
-    // Decorative right ribbon
+    // Dekorasi pita kanan
     ctx.fillStyle = `${style.accent}20`
     ctx.beginPath()
     ctx.moveTo(width - 190, 32)
@@ -138,14 +138,14 @@ export default function QRGenerate() {
     ctx.closePath()
     ctx.fill()
 
-    // Left info panel
+    // Panel informasi kiri
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(42, 56, width - qrSize - 110, height - 96)
     ctx.strokeStyle = '#edf0f6'
     ctx.lineWidth = 2
     ctx.strokeRect(42, 56, width - qrSize - 110, height - 96)
 
-    // QR panel
+    // Panel QR
     const qrX = width - qrSize - 58
     const qrY = 100
     ctx.fillStyle = '#ffffff'
@@ -155,7 +155,7 @@ export default function QRGenerate() {
     ctx.strokeRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32)
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-    // Header texts
+    // Teks header
     ctx.fillStyle = '#0f172a'
     ctx.font = '800 44px "Arial"'
     ctx.fillText('E-TICKET', 64, 114)
@@ -164,12 +164,12 @@ export default function QRGenerate() {
     ctx.font = '600 21px "Arial"'
     drawClampText(eventLabel || 'Event Pass', 64, 146, width - qrSize - 170)
 
-    // Header identifier
+    // Identitas header
     ctx.fillStyle = '#64748b'
     ctx.font = '700 13px "Arial"'
     drawClampText((brandLabel || '3oNs Digital').toUpperCase(), 64, 166, width - qrSize - 170)
 
-    // Category badge
+    // Lencana kategori
     ctx.fillStyle = style.soft
     ctx.fillRect(64, 184, 198, 44)
     ctx.strokeStyle = style.accent
@@ -226,7 +226,7 @@ export default function QRGenerate() {
       const url = await buildTicketQrImage(participant, { width: 900, height: 540, qrSize: 280 })
       setQrUrl(url)
     } catch {
-      toast.error('Error', 'Gagal generate QR Code')
+      toast.error('Gagal', 'Tidak bisa membuat QR tiket')
     }
   }
 
@@ -238,7 +238,7 @@ export default function QRGenerate() {
       link.href = url
       link.click()
     } catch {
-      toast.error('Error', 'Gagal download tiket')
+      toast.error('Gagal', 'Tidak bisa mengunduh tiket')
     }
   }
 
@@ -251,10 +251,10 @@ export default function QRGenerate() {
     const message = `🎫 *E-Ticket*\n\n` +
       `Halo *${participant.name}*,\n` +
       `Berikut informasi tiket Anda:\n\n` +
-      `📋 Ticket ID: *${participant.ticket_id}*\n` +
+      `📋 ID Tiket: *${participant.ticket_id}*\n` +
       `📂 Kategori: *${participant.category}*\n` +
       `📅 Hari: *${participant.day_number}*\n\n` +
-      `Silakan tunjukkan QR Code ini saat registrasi di venue.\n` +
+      `Silakan tunjukkan QR ini saat registrasi di lokasi acara.\n` +
       `Terima kasih!\n\n` +
       `_${eventLabel || 'Event Platform'}_`
 
@@ -270,7 +270,7 @@ export default function QRGenerate() {
           text: message,
           files: [file]
         })
-        toast.success('Shared!', 'QR berhasil dibagikan')
+        toast.success('Berhasil', 'QR tiket berhasil dibagikan')
         return
       } catch (e) {
         // User cancelled or share failed, fallback to wa.me
@@ -281,12 +281,12 @@ export default function QRGenerate() {
     // Fallback: open WhatsApp with text message + public QR URL
     const waUrl = getWhatsAppShareLink(participant)
     window.open(waUrl, '_blank')
-    toast.success('WhatsApp', 'Membuka WhatsApp...')
+    toast.success('WhatsApp', 'Membuka WhatsApp')
   }
 
   const generateAllQR = async () => {
     if (participants.length === 0) {
-      toast.error('Tidak ada data', 'Tidak ada peserta untuk digenerate QR')
+      toast.error('Tidak ada data', 'Tidak ada peserta untuk dibuatkan QR')
       return
     }
 
@@ -324,9 +324,9 @@ export default function QRGenerate() {
         setGeneratedCount(i + 1)
       }
       doc.save(`QR_Tickets_Hari_${dayFilter}.pdf`)
-      toast.success('PDF Berhasil', `${participants.length} tiket desain diexport ke PDF`)
+      toast.success('PDF Berhasil', `${participants.length} desain tiket berhasil disimpan ke PDF`)
     } catch (err) {
-      toast.error('Error', 'Gagal generate PDF')
+      toast.error('Gagal', 'Tidak bisa membuat PDF')
       console.error(err)
     }
     setGenerating(false)
@@ -350,13 +350,13 @@ export default function QRGenerate() {
       }
 
       if (result.updated > 0) {
-        toast.success('QR Aman Diperbarui', `${result.updated} tiket hari ${dayFilter} sudah upgrade keamanan`) 
+        toast.success('QR Aman Diperbarui', `${result.updated} tiket hari ${dayFilter} sudah diperbarui ke keamanan terbaru`) 
       } else {
         toast.success('Sudah Aman', `Semua tiket hari ${dayFilter} sudah menggunakan mode keamanan terbaru`)
       }
     } catch (err) {
       console.error(err)
-      toast.error('Gagal', 'Tidak berhasil melakukan upgrade QR aman')
+      toast.error('Gagal', 'Tidak berhasil memperbarui keamanan QR')
     }
 
     setRegeneratingSecure(false)
@@ -442,13 +442,13 @@ export default function QRGenerate() {
       setVerifyReport({ checkedAt: new Date().toISOString(), passed, total: results.length, allPassed, results })
 
       if (allPassed) {
-        toast.success('Verify Server OK', 'Semua skenario keamanan lulus')
+        toast.success('Pemeriksaan Server Berhasil', 'Semua skenario keamanan lulus')
       } else {
-        toast.error('Verify Server Gagal', `${passed}/${results.length} skenario lulus`)
+        toast.error('Pemeriksaan Server Gagal', `${passed}/${results.length} skenario lulus`)
       }
     } catch (err) {
       console.error(err)
-      toast.error('Gagal Test Verify', 'Tidak bisa menjalankan uji endpoint verify')
+      toast.error('Gagal Uji Verifikasi', 'Tidak bisa menjalankan uji verifikasi tiket')
     }
 
     setVerifyTesting(false)

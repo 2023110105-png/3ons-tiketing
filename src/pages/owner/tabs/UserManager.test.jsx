@@ -21,7 +21,7 @@ vi.mock('../../../contexts/ToastContext', () => ({
   useToast: () => ({ success: toastSuccess, error: vi.fn(), warning: vi.fn(), info: vi.fn() })
 }))
 
-vi.mock('../../../contexts/AuthContext', () => ({
+vi.mock('../../../contexts/useAuth', () => ({
   useAuth: () => ({ user: { id: 'owner-1', name: 'Owner' } })
 }))
 

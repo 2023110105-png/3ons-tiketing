@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/useAuth'
 import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding } from '../../store/mockData'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
@@ -97,7 +97,7 @@ export default function Layout({ children }) {
       ]
     }
     if (user?.role === 'owner') {
-      return [{ path: '/owner', icon: <ShieldCheck size={18} />, label: 'Owner' }]
+      return [{ path: '/owner', icon: <ShieldCheck size={18} />, label: 'Pemilik' }]
     }
     if (user?.role === 'gate_front') {
       return [{ path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai QR' }]
@@ -123,16 +123,16 @@ export default function Layout({ children }) {
   ]
 
   const ownerNav = [
-    { path: '/owner/tenants', icon: <LayoutDashboard size={18} />, label: 'Tenant' },
+    { path: '/owner/tenants', icon: <LayoutDashboard size={18} />, label: 'Akun Brand' },
     { path: '/owner/contracts', icon: <FileText size={18} />, label: 'Kontrak Sewa' },
-    { path: '/owner/quotas', icon: <BarChart3 size={18} />, label: 'Kuota Tenant' },
+    { path: '/owner/quotas', icon: <BarChart3 size={18} />, label: 'Kuota Akun Brand' },
     { path: '/owner/users', icon: <Users size={18} />, label: 'Kelola Pengguna' },
-    { path: '/owner/impersonate', icon: <Eye size={18} />, label: 'Mode Penyamaran' },
-    { path: '/owner/billing', icon: <History size={18} />, label: 'Tagihan & Invoice' },
-    { path: '/owner/audit', icon: <ShieldCheck size={18} />, label: 'Log Audit' },
+    { path: '/owner/impersonate', icon: <Eye size={18} />, label: 'Masuk sebagai Pengguna' },
+    { path: '/owner/billing', icon: <History size={18} />, label: 'Tagihan' },
+    { path: '/owner/audit', icon: <ShieldCheck size={18} />, label: 'Riwayat Aktivitas' },
     { path: '/owner/health', icon: <Activity size={18} />, label: 'Kesehatan Sistem' },
-    { path: '/owner/backup', icon: <Database size={18} />, label: 'Cadangkan / Pulihkan' },
-    { path: '/owner/branding', icon: <Settings size={18} />, label: 'Brand Kustom' },
+    { path: '/owner/backup', icon: <Database size={18} />, label: 'Cadangan Data' },
+    { path: '/owner/branding', icon: <Settings size={18} />, label: 'Tampilan Brand' },
     { path: '/owner/notifications', icon: <Bell size={18} />, label: 'Pemberitahuan' },
   ]
 
@@ -200,7 +200,7 @@ export default function Layout({ children }) {
 
           {user?.role === 'owner' && (
             <div className="nav-section">
-              <div className="nav-section-title">Panel Owner</div>
+              <div className="nav-section-title">Panel Pemilik</div>
               {ownerNav.map(item => (
                 <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                   <span className="nav-icon">{item.icon}</span>

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { getTenants, getTenantUsers } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function ImpersonateView() {
   const toast = useToast()
@@ -23,11 +23,9 @@ export default function ImpersonateView() {
 
   const handleImpersonate = async (targetUser) => {
     if (window.confirm(`Masuk sebagai ${targetUser.username} (${targetUser.role})? Anda akan keluar dari panel pemilik.`)) {
-      // In our mock system, login() function handles the session update.
-      // We'll use the secret "owner-bypass" logic (since we know the passwords)
       const result = await login(targetUser.username, targetUser.password)
       if (result.success) {
-        toast.success('Sukses', `Sekarang masuk sebagai ${targetUser.username}`)
+        toast.success('Sukses', `Sekarang Anda masuk sebagai ${targetUser.username}`)
         setTimeout(() => window.location.href = '/admin', 1000)
       } else {
         toast.error('Gagal', result.error)
@@ -51,7 +49,7 @@ export default function ImpersonateView() {
           </div>
           <div>
             <h3 className="font-bold">Mode Masuk Sebagai Pengguna</h3>
-            <p className="text-sm text-muted">Fitur ini memungkinkan Anda masuk ke dashboard pengguna untuk keperluan bantuan teknis. Semua tindakan tetap tercatat di riwayat aktivitas pemilik.</p>
+            <p className="text-sm text-muted">Fitur ini memungkinkan Anda masuk ke halaman pengguna untuk membantu operasional. Semua tindakan tetap tercatat di riwayat aktivitas pemilik.</p>
           </div>
         </div>
       </div>
@@ -73,7 +71,7 @@ export default function ImpersonateView() {
             <Search size={16} />
             <input 
               className="owner-form-input" 
-              placeholder="Cari pengguna akun..." 
+              placeholder="Cari pengguna..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -116,7 +114,7 @@ export default function ImpersonateView() {
                   onClick={() => handleImpersonate(u)}
                   disabled={!u.is_active}
                 >
-                  Masuk Sebagai <ArrowRight size={14} className="ml-4" />
+                  Masuk sebagai pengguna ini <ArrowRight size={14} className="ml-4" />
                 </button>
               </div>
             </div>

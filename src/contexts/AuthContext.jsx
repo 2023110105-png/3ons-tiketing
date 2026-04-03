@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useEffect, useState, useCallback } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, isFirebaseEnabled } from '../lib/firebase'
 import {
@@ -10,7 +10,7 @@ import {
   resolveLoginEmail
 } from '../store/mockData'
 
-const AuthContext = createContext(null)
+export const AuthContext = createContext(null)
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'strict' ? 'strict' : 'hybrid'
 
 function mapFirebaseAuthError(errorCode) {
@@ -109,8 +109,3 @@ export function AuthProvider({ children }) {
   )
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
-  return ctx
-}

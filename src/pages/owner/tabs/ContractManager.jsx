@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { getTenants, updateTenantContract } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function ContractManager() {
   const toast = useToast()
@@ -83,13 +83,13 @@ export default function ContractManager() {
                       <Calendar size={14} className="text-muted" />
                       {tenant.contract?.start_at ? new Date(tenant.contract.start_at).toLocaleDateString() : '-'}
                       <span className="text-muted mx-4">→</span>
-                      {tenant.contract?.end_at ? new Date(tenant.contract.end_at).toLocaleDateString() : 'Auto-renew'}
+                      {tenant.contract?.end_at ? new Date(tenant.contract.end_at).toLocaleDateString() : 'Perpanjangan otomatis'}
                     </div>
                   </div>
                   <div className="stat-item">
                     <span className="text-xs text-muted font-bold block mb-4">STATUS PEMBAYARAN</span>
                     <div className={`badge ${tenant.contract?.payment_status === 'paid' ? 'badge-green' : 'badge-yellow'}`}>
-                      {tenant.contract?.payment_status?.toUpperCase() || 'BELUM BAYAR'}
+                      {tenant.contract?.payment_status === 'paid' ? 'LUNAS' : tenant.contract?.payment_status === 'overdue' ? 'TERLAMBAT' : 'BELUM LUNAS'}
                     </div>
                   </div>
                 </div>
@@ -114,8 +114,8 @@ export default function ContractManager() {
                         onChange={e => setEditData({...editData, package: e.target.value})}
                       >
                         <option value="starter">Starter (Event Kecil)</option>
-                        <option value="pro">Pro (Corporate/Large)</option>
-                        <option value="enterprise">Enterprise (Custom)</option>
+                        <option value="pro">Pro (Skala Menengah/Besar)</option>
+                        <option value="enterprise">Enterprise (Kustom)</option>
                       </select>
                     </div>
                     <div className="form-group">
@@ -135,9 +135,9 @@ export default function ContractManager() {
                         value={editData.payment_status}
                         onChange={e => setEditData({...editData, payment_status: e.target.value})}
                       >
-                        <option value="unpaid">Belum Bayar (Draft)</option>
-                        <option value="paid">Sudah Lunas (Paid)</option>
-                        <option value="overdue">Terlambat (Overdue)</option>
+                        <option value="unpaid">Belum Lunas</option>
+                        <option value="paid">Sudah Lunas</option>
+                        <option value="overdue">Terlambat</option>
                       </select>
                     </div>
                   </div>
@@ -166,7 +166,7 @@ export default function ContractManager() {
                       <textarea 
                         className="form-input"
                         rows="1"
-                        placeholder="Contoh: Termasuk support 24/7"
+                        placeholder="Contoh: Termasuk dukungan penuh selama acara"
                         value={editData.notes}
                         onChange={e => setEditData({...editData, notes: e.target.value})}
                       />

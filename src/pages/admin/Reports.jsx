@@ -87,7 +87,7 @@ export default function Reports() {
       
       const doc = new jsPDF()
       
-      // Header
+      // Judul dokumen
       doc.setFontSize(20)
       doc.setFont(undefined, 'bold')
       doc.text('Laporan Kehadiran', 105, 20, { align: 'center' })
@@ -97,7 +97,7 @@ export default function Reports() {
       doc.setFont(undefined, 'normal')
       doc.text(`Digenerate: ${new Date().toLocaleString('id-ID')}`, 105, 38, { align: 'center' })
 
-      // Stats
+      // Ringkasan statistik
       doc.setFontSize(12)
       doc.setFont(undefined, 'bold')
       doc.text('Ringkasan', 14, 52)
@@ -107,7 +107,7 @@ export default function Reports() {
       doc.text(`Sudah Check-in: ${stats.checkedIn} (${stats.percentage}%)`, 14, 67)
       doc.text(`Belum Hadir: ${stats.notCheckedIn}`, 14, 74)
 
-      // Category breakdown
+      // Rincian per kategori
       doc.setFont(undefined, 'bold')
       doc.text('Per Kategori:', 14, 84)
       doc.setFont(undefined, 'normal')
@@ -117,7 +117,7 @@ export default function Reports() {
         y += 7
       })
 
-      // Participants table
+      // Tabel peserta
       y += 5
       doc.setFont(undefined, 'bold')
       doc.setFontSize(12)
@@ -191,7 +191,7 @@ export default function Reports() {
     }
   }
 
-  // Bar chart - category comparison
+  // Grafik batang - perbandingan kategori
   const barData = {
     labels: Object.keys(stats.byCategory),
     datasets: [
@@ -242,7 +242,7 @@ export default function Reports() {
     }
   }
 
-  // Attendance doughnut
+  // Diagram donat kehadiran
   const attendanceData = {
     labels: ['Hadir', 'Belum'],
     datasets: [{
@@ -277,7 +277,7 @@ export default function Reports() {
     }
   }, [])
 
-  // ===== MOBILE REPORTS =====
+  // ===== LAPORAN MOBILE =====
   if (isMobile) {
     return (
       <div className="page-container">
@@ -291,7 +291,7 @@ export default function Reports() {
           </select>
         </div>
 
-        {/* Mobile Stats */}
+        {/* Statistik Mobile */}
         <div className="m-hero-card">
           <div className="m-hero-counter">
             <span className="m-hero-num">{stats.checkedIn}</span>
@@ -304,7 +304,7 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Mobile Category Breakdown */}
+        {/* Rincian Kategori Mobile */}
         <div className="m-chips-row mb-16">
           {Object.entries(stats.byCategory).map(([cat, data]) => (
             <div key={cat} className={`m-chip m-chip-${cat.toLowerCase()}`}>
@@ -314,7 +314,7 @@ export default function Reports() {
           ))}
         </div>
 
-        {/* Mobile Export Actions - BIG cards */}
+        {/* Aksi Unduh Mobile - kartu besar */}
         <div className="m-report-actions">
           <button className="m-report-btn" onClick={exportPDF}>
             <div className="m-report-icon red"><FileText size={22} /></div>
@@ -353,7 +353,7 @@ export default function Reports() {
           </button>
         </div>
 
-        {/* Mobile Analytics Chart */}
+        {/* Grafik Analitik Mobile */}
         <div className="m-section">
           <div className="m-section-header">
             <span className="m-section-title inline-title-icon"><Activity size={16} /> Grafik Kedatangan</span>
@@ -389,7 +389,7 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Mobile Activity Feed */}
+        {/* Umpan Aktivitas Mobile */}
         <div className="m-section">
           <div className="m-section-header">
             <span className="m-section-title">Riwayat Kehadiran</span>
@@ -463,7 +463,7 @@ export default function Reports() {
     )
   }
 
-  // ===== DESKTOP REPORTS =====
+  // ===== LAPORAN DESKTOP =====
   return (
     <div className="page-container">
       <div className="page-header admin-toolbar">
@@ -476,9 +476,9 @@ export default function Reports() {
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
           <button className="btn btn-primary" onClick={exportPDF}><FileText size={14} /> Unduh PDF</button>
-          <button className="btn btn-secondary" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Unduhan Berhasil', 'Data peserta berhasil diunduh (.xlsx)') }}><FileSpreadsheet size={14} /> Unduh Excel</button>
-          <button className="btn btn-secondary" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh (.xlsx)') }}><ClipboardList size={14} /> Unduh Riwayat</button>
-          <button className="btn btn-secondary" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Unduhan Berhasil', 'Audit admin berhasil diunduh (.xlsx)') }}><ShieldAlert size={14} /> Unduh Audit</button>
+          <button className="btn btn-secondary" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Unduhan Berhasil', 'Data peserta berhasil diunduh') }}><FileSpreadsheet size={14} /> Unduh Excel</button>
+          <button className="btn btn-secondary" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh') }}><ClipboardList size={14} /> Unduh Riwayat</button>
+          <button className="btn btn-secondary" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Unduhan Berhasil', 'Riwayat aktivitas admin berhasil diunduh') }}><ShieldAlert size={14} /> Unduh Audit</button>
           <button className="btn btn-secondary" onClick={exportAuditPDF}><FileText size={14} /> Unduh Audit PDF</button>
         </div>
       </div>

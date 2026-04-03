@@ -9,7 +9,7 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock
 }))
 
-vi.mock('../contexts/AuthContext', () => ({
+vi.mock('../contexts/useAuth', () => ({
   useAuth: () => ({ login: loginMock })
 }))
 

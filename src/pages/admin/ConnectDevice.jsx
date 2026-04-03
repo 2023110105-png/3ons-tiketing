@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/useAuth'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 
 function formatConnectionError(message) {
@@ -378,9 +378,9 @@ export default function ConnectDevice() {
                 className="input"
               >
                 <option value="all">Semua status</option>
-                <option value="ready">Ready</option>
+                <option value="ready">Siap</option>
                 <option value="qr">QR</option>
-                <option value="checking">Checking</option>
+                <option value="checking">Memproses</option>
                 <option value="offline">Tidak Terhubung</option>
               </select>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -420,7 +420,7 @@ export default function ConnectDevice() {
               {filteredSessions.map((session) => (
                 <div key={session.tenant_id} className="status-note" style={{ marginBottom: 10 }}>
                   <b>ID Akun:</b> {session.tenant_id} - {session.status} {session.isReady ? '(siap)' : ''} {session.hasQr ? '(kode QR)' : ''}
-                  {session.lastError ? ` - error: ${session.lastError}` : ''}
+                  {session.lastError ? ` - kendala: ${session.lastError}` : ''}
                   <div style={{ marginTop: 8 }}>
                     <button
                       className="btn btn-ghost btn-sm"

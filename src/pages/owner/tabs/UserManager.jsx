@@ -8,7 +8,7 @@ import {
   updateTenantUser, deleteTenantUser 
 } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function UserManager({ selectedTenant: initialTenant = null }) {
   const toast = useToast()

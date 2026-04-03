@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { resetCheckIns, deleteAllParticipants, getWaTemplate, setWaTemplate, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
+import { resetCheckIns, deleteAllParticipants, getWaTemplate, setWaTemplate, getWaSendMode, setWaSendMode, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/useAuth'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
@@ -46,6 +46,7 @@ export default function Settings() {
 
   // State for WA Template
   const [waTemplate, setWaTemplateState] = useState(getWaTemplate())
+  const [waSendMode, setWaSendModeState] = useState(getWaSendMode())
   const [maxRetryAttempts, setMaxRetryAttemptsState] = useState(getMaxPendingAttempts())
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
@@ -288,6 +289,7 @@ export default function Settings() {
   const handleSaveTemplate = (e) => {
     e.preventDefault()
     setWaTemplate(waTemplate, user)
+    setWaSendMode(waSendMode, user)
     toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
   }
 
@@ -295,19 +297,19 @@ export default function Settings() {
     e.preventDefault()
     const value = Number(maxRetryAttempts)
     if (!Number.isInteger(value) || value < 1 || value > 20) {
-      toast.error('Gagal', 'Batas retry harus angka 1 sampai 20')
+      toast.error('Gagal', 'Batas kirim ulang harus angka 1 sampai 20')
       return
     }
     const saved = setMaxPendingAttempts(value, user)
     setMaxRetryAttemptsState(saved)
-    toast.success('Disimpan', `Batas retry offline diset ke ${saved}x`) 
+    toast.success('Disimpan', `Batas kirim ulang antrean offline diatur ke ${saved}x`) 
   }
 
   const handleRenameEvent = (event) => {
     const nextName = window.prompt('Nama event baru:', event.name)
     if (nextName === null) return
     const res = renameEvent(event.id, nextName, user)
-    if (!res.success) return toast.error('Gagal', res.error || 'Gagal rename event')
+    if (!res.success) return toast.error('Gagal', res.error || 'Gagal mengubah nama acara')
     refreshEvents()
     toast.success('Sukses', 'Nama event berhasil diperbarui')
   }
@@ -319,7 +321,7 @@ export default function Settings() {
     const reason = window.prompt('Alasan arsip event (minimal 15 karakter):', '')
     if (reason === null) return
     const res = archiveEvent(event.id, user, reason)
-    if (!res.success) return toast.error('Gagal', res.error || 'Gagal arsip event')
+    if (!res.success) return toast.error('Gagal', res.error || 'Gagal mengarsipkan acara')
     refreshEvents()
     toast.success('Sukses', 'Event berhasil diarsipkan')
   }
@@ -331,33 +333,33 @@ export default function Settings() {
     const reason = window.prompt('Alasan hapus event (minimal 15 karakter):', '')
     if (reason === null) return
     const res = deleteEvent(event.id, user, reason)
-    if (!res.success) return toast.error('Gagal', res.error || 'Gagal hapus event')
+    if (!res.success) return toast.error('Gagal', res.error || 'Gagal menghapus acara')
     refreshEvents()
     toast.success('Sukses', 'Event berhasil dihapus')
   }
 
   const handleRestoreBackup = (backup) => {
     if (!backup?.isValid) {
-      toast.error('Gagal', 'Backup tidak valid dan tidak bisa direstore')
+      toast.error('Gagal', 'Cadangan data tidak valid dan tidak bisa dipulihkan')
       return
     }
-    const confirmWord = window.prompt('Restore backup akan menimpa data aktif. Ketik RESTORE untuk lanjut:', '')
+    const confirmWord = window.prompt('Pemulihan cadangan akan menimpa data aktif. Ketik RESTORE untuk lanjut:', '')
     if (confirmWord === null) return
     if (confirmWord !== 'RESTORE') return toast.error('Gagal', 'Konfirmasi harus RESTORE')
-    const reason = window.prompt('Alasan restore backup (minimal 15 karakter):', '')
+    const reason = window.prompt('Alasan pemulihan data (minimal 15 karakter):', '')
     if (reason === null) return
 
     const res = restoreStoreBackup(backup.key, user, reason)
-    if (!res.success) return toast.error('Gagal', res.error || 'Restore backup gagal')
+    if (!res.success) return toast.error('Gagal', res.error || 'Pemulihan data gagal')
 
     refreshEvents()
-    toast.success('Sukses', 'Backup berhasil direstore. Muat ulang halaman untuk sinkron penuh jika diperlukan.')
+    toast.success('Sukses', 'Cadangan data berhasil dipulihkan. Muat ulang halaman bila perlu sinkronisasi penuh.')
   }
 
   const handleDownloadBackup = (backup) => {
     const result = exportStoreBackup(backup.key)
     if (!result.success) {
-      toast.error('Gagal', result.error || 'Backup gagal diexport')
+      toast.error('Gagal', result.error || 'Cadangan data gagal diunduh')
       return
     }
 
@@ -371,21 +373,21 @@ export default function Settings() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    toast.success('Sukses', 'Backup JSON berhasil didownload')
+    toast.success('Sukses', 'Cadangan data berhasil diunduh')
   }
 
   const handleDeleteBackup = (backup) => {
-    const confirmWord = window.prompt('Hapus backup ini? Ketik HAPUS untuk lanjut:', '')
+    const confirmWord = window.prompt('Hapus cadangan data ini? Ketik HAPUS untuk lanjut:', '')
     if (confirmWord === null) return
     if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
-    const reason = window.prompt('Alasan hapus backup (minimal 15 karakter):', '')
+    const reason = window.prompt('Alasan hapus cadangan data (minimal 15 karakter):', '')
     if (reason === null) return
 
     const result = deleteStoreBackup(backup.key, user, reason)
-    if (!result.success) return toast.error('Gagal', result.error || 'Gagal hapus backup')
+    if (!result.success) return toast.error('Gagal', result.error || 'Gagal menghapus cadangan data')
 
     refreshEvents()
-    toast.success('Sukses', 'Backup berhasil dihapus')
+    toast.success('Sukses', 'Cadangan data berhasil dihapus')
   }
 
   const handleDeleteInvalidBackups = () => {
@@ -420,7 +422,7 @@ export default function Settings() {
             Teks Pesan WhatsApp Bot
           </h3>
           <p className="text-note">
-            Ubah teks yang akan dikirim secara otomatis ke peserta. Gunakan "Kata Sakti" di bawah ini agar sistem bisa mengubahnya menjadi data asli peserta:
+            Ubah teks yang akan dikirim otomatis ke peserta. Gunakan penanda di bawah agar sistem mengisi data peserta secara otomatis:
             <br />
             <code className="token-code">{'{{nama}}'}</code>
             <code className="token-code ml-8">{'{{tiket}}'}</code>
@@ -438,21 +440,49 @@ export default function Settings() {
                 required
               ></textarea>
             </div>
+            <div className="form-group">
+              <label className="form-label">Mode Kirim WhatsApp Bot</label>
+              <div className="d-flex gap-16 flex-wrap">
+                <label className="d-flex align-center gap-8">
+                  <input
+                    type="radio"
+                    name="wa-send-mode"
+                    value="message_with_barcode"
+                    checked={waSendMode === 'message_with_barcode'}
+                    onChange={e => setWaSendModeState(e.target.value)}
+                  />
+                  <span>Pesan + Barcode</span>
+                </label>
+                <label className="d-flex align-center gap-8">
+                  <input
+                    type="radio"
+                    name="wa-send-mode"
+                    value="message_only"
+                    checked={waSendMode === 'message_only'}
+                    onChange={e => setWaSendModeState(e.target.value)}
+                  />
+                  <span>Pesan Saja</span>
+                </label>
+              </div>
+              <p className="text-note mt-8">
+                Pilih <b>Pesan + Barcode</b> untuk kirim gambar barcode sebagai lampiran. Pilih <b>Pesan Saja</b> untuk kirim teks tanpa lampiran gambar.
+              </p>
+            </div>
             <div className="actions-right">
-              <button type="submit" className="btn btn-primary">Simpan Teks WhatsApp</button>
+              <button type="submit" className="btn btn-primary">Simpan Pengaturan WhatsApp</button>
             </div>
           </form>
         </div>
 
         <div className="card card-pad">
-          <h3 className="card-title mb-16">Pengaturan Offline Queue</h3>
+          <h3 className="card-title mb-16">Pengaturan Antrean Offline</h3>
           <p className="text-note">
-            Atur batas percobaan retry untuk antrean scan offline. Jika melebihi batas, item akan dipurge otomatis dan masuk history post-mortem.
+            Atur batas percobaan kirim ulang untuk antrean scan offline. Jika melewati batas, data akan dibersihkan otomatis dan masuk riwayat penanganan.
           </p>
 
           <form onSubmit={handleSaveOfflineConfig}>
             <div className="form-group">
-              <label className="form-label">Batas Retry Maksimum (1 - 20)</label>
+              <label className="form-label">Batas Kirim Ulang Maksimum (1 - 20)</label>
               <input
                 className="form-input"
                 type="number"
@@ -464,7 +494,7 @@ export default function Settings() {
               />
             </div>
             <div className="actions-right">
-              <button type="submit" className="btn btn-primary">Simpan Pengaturan Offline</button>
+              <button type="submit" className="btn btn-primary">Simpan Pengaturan Antrean Offline</button>
             </div>
           </form>
         </div>
@@ -482,16 +512,16 @@ export default function Settings() {
                   <div>
                     <div className="event-name">{event.name}</div>
                     <div className="event-meta">
-                      {event.id === activeEventId ? 'Event Aktif' : 'Nonaktif'} {event.isArchived ? '• Archived' : ''}
+                      {event.id === activeEventId ? 'Acara Aktif' : 'Tidak Aktif'} {event.isArchived ? '• Diarsipkan' : ''}
                     </div>
                   </div>
                   <div className="event-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleRenameEvent(event)}>Rename</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleRenameEvent(event)}>Ubah Nama</button>
                     {!event.isArchived && event.id !== activeEventId && (
-                      <button className="btn btn-ghost btn-warning btn-sm" onClick={() => handleArchiveEvent(event)}>Archive</button>
+                      <button className="btn btn-ghost btn-warning btn-sm" onClick={() => handleArchiveEvent(event)}>Arsipkan</button>
                     )}
                     {event.id !== activeEventId && (
-                      <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteEvent(event)}>Delete</button>
+                      <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteEvent(event)}>Hapus</button>
                     )}
                   </div>
                 </div>
@@ -502,10 +532,10 @@ export default function Settings() {
 
         <div className="card card-pad">
           <h3 className="card-title mb-16 card-title-inline">
-            <History size={18} /> Backup Data Store
+            <History size={18} /> Cadangan Data Sistem
           </h3>
           <p className="text-note">
-            Sistem menyimpan snapshot otomatis sebelum data store ditulis ulang. Backup ini bisa dipakai untuk pemulihan cepat jika data aktif bermasalah.
+            Sistem menyimpan salinan otomatis sebelum data diperbarui. Cadangan ini bisa dipakai untuk pemulihan cepat jika data aktif bermasalah.
           </p>
 
           <div className="backup-toolbar">
@@ -514,15 +544,15 @@ export default function Settings() {
               <input
                 className="form-input"
                 type="text"
-                placeholder="Cari key / tanggal backup..."
+                placeholder="Cari kode / tanggal cadangan..."
                 value={backupSearch}
                 onChange={e => setBackupSearch(e.target.value)}
               />
             </div>
             <select className="form-select backup-select" value={backupFilter} onChange={e => setBackupFilter(e.target.value)}>
-              <option value="all">Semua Backup</option>
-              <option value="valid">Valid Saja</option>
-              <option value="invalid">Invalid Saja</option>
+              <option value="all">Semua Cadangan</option>
+              <option value="valid">Siap Dipakai</option>
+              <option value="invalid">Data Rusak</option>
             </select>
             <select className="form-select backup-select" value={backupSort} onChange={e => setBackupSort(e.target.value)}>
               <option value="newest">Urut Terbaru</option>
@@ -530,61 +560,61 @@ export default function Settings() {
               <option value="largest">Ukuran Terbesar</option>
             </select>
             <button className="btn btn-ghost btn-danger btn-sm" onClick={handleDeleteInvalidBackups} disabled={invalidBackupCount === 0}>
-              <Trash2 size={14} className="mr-6" /> Hapus Invalid ({invalidBackupCount})
+              <Trash2 size={14} className="mr-6" /> Hapus Data Rusak ({invalidBackupCount})
             </button>
             <button
               className={`btn btn-ghost btn-sm ${backupAutoRefreshEnabled ? 'btn-green-soft' : 'btn-gray-soft'}`}
               onClick={handleToggleBackupAutoRefresh}
             >
-              Auto Refresh: {backupAutoRefreshEnabled ? 'ON' : 'OFF'}
+              Penyegaran Otomatis: {backupAutoRefreshEnabled ? 'Aktif' : 'Nonaktif'}
             </button>
             <select
               className="form-select backup-select"
               value={backupAutoRefreshInterval}
               onChange={handleChangeBackupRefreshInterval}
               disabled={!backupAutoRefreshEnabled}
-              title="Interval auto refresh"
+              title="Jeda penyegaran otomatis"
             >
-              <option value={5000}>Refresh 5 detik</option>
-              <option value={8000}>Refresh 8 detik</option>
-              <option value={15000}>Refresh 15 detik</option>
+              <option value={5000}>Segarkan tiap 5 detik</option>
+              <option value={8000}>Segarkan tiap 8 detik</option>
+              <option value={15000}>Segarkan tiap 15 detik</option>
             </select>
             <button
               className="btn btn-ghost btn-sm"
               onClick={resetBackupView}
               disabled={!backupSearch && backupFilter === 'all' && backupSort === 'newest'}
             >
-              Reset View
+              Atur Ulang Tampilan
             </button>
           </div>
 
           <div className="backup-presets">
-            <button className="btn btn-ghost btn-sm" onClick={applyTodayPreset}>Backup Hari Ini</button>
-            <button className="btn btn-ghost btn-sm" onClick={applyLargePreset}>Backup Terbesar</button>
-            <button className="btn btn-ghost btn-warning btn-sm" onClick={applyInvalidLatestPreset}>Invalid Terbaru</button>
+            <button className="btn btn-ghost btn-sm" onClick={applyTodayPreset}>Cadangan Hari Ini</button>
+            <button className="btn btn-ghost btn-sm" onClick={applyLargePreset}>Cadangan Terbesar</button>
+            <button className="btn btn-ghost btn-warning btn-sm" onClick={applyInvalidLatestPreset}>Data Rusak Terbaru</button>
           </div>
 
           <div className="backup-stats-row">
             <span className="badge badge-gray">Total: {storeBackups.length}</span>
-            <span className="badge badge-green">Valid: {validBackupCount}</span>
-            <span className="badge badge-red">Invalid: {invalidBackupCount}</span>
+            <span className="badge badge-green">Siap Dipakai: {validBackupCount}</span>
+            <span className="badge badge-red">Data Rusak: {invalidBackupCount}</span>
             <span className="badge badge-yellow">Ukuran: {formatBackupSize(totalBackupSize)}</span>
             <span className={`badge ${backupSessionDelta > 0 ? 'badge-green' : backupSessionDelta < 0 ? 'badge-red' : 'badge-gray'}`}>
               Sesi: {backupSessionDelta > 0 ? `+${backupSessionDelta}` : backupSessionDelta}
             </span>
             <span className={`badge badge-gray ${backupAutoRefreshEnabled && isBackupTabVisible && backupRefreshCountdown <= 1 ? 'countdown-pulse' : ''}`}>
-              Refresh: {backupRefreshLabel}
+              Segarkan: {backupRefreshLabel}
             </span>
-            <span className="badge badge-gray">Updated: {backupLastRefreshLabel}</span>
+            <span className="badge badge-gray">Pembaruan: {backupLastRefreshLabel}</span>
             <span className={`badge ${isBackupTabVisible ? 'badge-green' : 'badge-yellow'}`}>
               Tab: {isBackupTabVisible ? 'aktif' : 'nonaktif'}
             </span>
           </div>
 
-          <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} backup</div>
+          <div className="event-meta mb-16">Menampilkan {visibleBackups.length} dari {storeBackups.length} cadangan data</div>
 
           {visibleBackups.length === 0 ? (
-            <div className="event-meta">Belum ada backup tersedia.</div>
+            <div className="event-meta">Belum ada cadangan data tersedia.</div>
           ) : (
             <div className="event-list">
               {visibleBackups.map(backup => (
@@ -593,16 +623,16 @@ export default function Settings() {
                     <div>
                       <div className="event-name">{backup.timestamp ? new Date(backup.timestamp).toLocaleString('id-ID') : '-'}</div>
                       <div className="event-meta">
-                        {formatBackupSize(backup.size)} • {backup.eventCount} event • {backup.isValid ? 'Valid' : 'Invalid'}
+                        {formatBackupSize(backup.size)} • {backup.eventCount} acara • {backup.isValid ? 'Siap Dipakai' : 'Data Rusak'}
                       </div>
                     </div>
                     <div className="event-actions">
                       <button className="btn btn-ghost btn-sm" onClick={() => handleDownloadBackup(backup)}>
-                        <Download size={14} className="mr-6" /> Download
+                        <Download size={14} className="mr-6" /> Unduh
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleRestoreBackup(backup)} disabled={!backup.isValid}>Restore</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleRestoreBackup(backup)} disabled={!backup.isValid}>Pulihkan</button>
                       <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteBackup(backup)}>
-                        <Trash2 size={14} className="mr-6" /> Delete
+                        <Trash2 size={14} className="mr-6" /> Hapus
                       </button>
                     </div>
                   </div>
@@ -615,7 +645,7 @@ export default function Settings() {
         {/* DANGER ZONE */}
         <div className="card danger-card">
           <h3 className="card-title mb-16 card-title-inline danger-title">
-            <ShieldAlert size={20} /> Danger Zone (Zona Berbahaya)
+            <ShieldAlert size={20} /> Tindakan Berisiko Tinggi
           </h3>
           <p className="text-note mb-24">
             Aksi di bawah ini bersifat permanen dan tidak dapat dibatalkan. Pastikan Anda melakukan ini hanya untuk <strong>persiapan hari-H</strong> atau setelah event selesai.
@@ -625,11 +655,11 @@ export default function Settings() {
             {/* Reset Checkin Item */}
             <div className="danger-item split">
               <div>
-                <div className="danger-item-title">Reset Status Check-in</div>
+                <div className="danger-item-title">Set Ulang Status Kehadiran</div>
                 <div className="danger-item-desc">Mengembalikan semua status peserta menjadi "Belum Hadir". Nama peserta akan tetap ada.</div>
               </div>
               <button className="btn btn-secondary btn-warning btn-shrink" onClick={() => setShowResetModal(true)}>
-                <RotateCcw size={14} className="mr-6" /> Reset
+                <RotateCcw size={14} className="mr-6" /> Set Ulang
               </button>
             </div>
 
@@ -637,7 +667,7 @@ export default function Settings() {
             <div className="danger-item">
               <div>
                 <div className="danger-item-title">Hapus Semua Peserta</div>
-                <div className="danger-item-desc">Menghapus <strong>seluruh database peserta</strong> dan riwayat check-in. Sistem akan kosong.</div>
+                <div className="danger-item-desc">Menghapus <strong>seluruh data peserta</strong> dan riwayat kehadiran. Sistem akan kosong.</div>
               </div>
               <button className="btn btn-danger btn-shrink" onClick={() => setShowDeleteModal(true)}>
                 <Trash2 size={14} className="mr-6" /> Hapus Semua
@@ -698,7 +728,7 @@ export default function Settings() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowResetModal(false)}>Batal</button>
-                <button type="submit" className="btn btn-primary btn-warning">Reset Check-in</button>
+                <button type="submit" className="btn btn-primary btn-warning">Set Ulang Kehadiran</button>
               </div>
             </form>
           </div>

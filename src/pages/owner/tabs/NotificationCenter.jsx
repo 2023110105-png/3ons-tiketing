@@ -19,7 +19,7 @@ export default function NotificationCenter() {
   const handleMarkAllRead = () => {
     notifications.forEach(n => !n.read && markNotificationRead(n.id))
     setNotifications(getOwnerNotifications())
-    toast.success('Sukses', 'Semua notifikasi ditandai dibaca')
+    toast.success('Sukses', 'Semua notifikasi sudah ditandai dibaca')
   }
 
   const handleDelete = () => {
@@ -51,7 +51,7 @@ export default function NotificationCenter() {
          </div>
          <div className="owner-toolbar-right">
             <button className="btn btn-ghost text-primary" onClick={handleMarkAllRead}>
-               Tandai Semua Dibaca
+            Tandai Semua Sudah Dibaca
             </button>
          </div>
       </div>

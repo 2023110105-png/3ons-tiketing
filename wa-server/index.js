@@ -10,7 +10,7 @@ const nodemailer = require('nodemailer');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const tenantSessions = new Map();
 const importLogs = new Map(); // tenant_id -> [{ id, ticket_id, verified_at, ... }]
@@ -358,10 +358,11 @@ app.post('/api/wa/logout', async (req, res) => {
 // 2. Send Ticket (WA & Email)
 app.post('/api/send-ticket', async (req, res) => {
     const tenantId = resolveTenantId(req);
-    const { name, phone, email, ticket_id, category, day_number, qr_data, send_wa, send_email } = req.body;
+    const { name, phone, email, ticket_id, category, day_number, qr_data, send_wa, send_email, wa_send_mode } = req.body;
 
     const results = { wa: null, email: null };
     const qrPublicUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr_data)}`;
+    const waSendMode = wa_send_mode === 'message_with_barcode' ? 'message_with_barcode' : 'message_only';
 
     let session = getOrCreateTenantSession(tenantId);
     if (!session.client && !session.initPromise) {
@@ -386,18 +387,22 @@ app.post('/api/send-ticket', async (req, res) => {
         } else {
             try {
                 const waNumber = formatPhoneWA(phone);
-                
-                // Ambil gambar secara manual untuk menghindari error MIME
-                const response = await fetch(qrPublicUrl);
-                const arrayBuffer = await response.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-                const base64Str = buffer.toString('base64');
-                const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
 
                 const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
-                
-                // Kirim Gambar + Caption
-                await session.client.sendMessage(waNumber, media, { caption: waMessage });
+
+                if (waSendMode === 'message_only') {
+                    await session.client.sendMessage(waNumber, waMessage);
+                } else {
+                    // Ambil gambar secara manual untuk menghindari error MIME
+                    const response = await fetch(qrPublicUrl);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    const base64Str = buffer.toString('base64');
+                    const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
+
+                    // Kirim Gambar + Caption
+                    await session.client.sendMessage(waNumber, media, { caption: waMessage });
+                }
                 results.wa = 'Success';
             } catch (err) {
                 console.error('WA Send Error:', err.message);

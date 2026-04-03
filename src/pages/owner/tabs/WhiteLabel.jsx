@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { getTenants, updateTenantBranding } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function WhiteLabel() {
   const toast = useToast()

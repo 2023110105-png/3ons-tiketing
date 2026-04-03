@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { getStoreBackups, restoreStoreBackup, exportStoreBackup } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/AuthContext'
+import { useAuth } from '../../../contexts/useAuth'
 
 export default function BackupRestore() {
   const toast = useToast()
@@ -14,7 +14,7 @@ export default function BackupRestore() {
   const [isRestoring, setIsRestoring] = useState(false)
 
   const handleRestore = (backup) => {
-    const reason = window.prompt(`Konfirmasi pulihkan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')
+    const reason = window.prompt(`Konfirmasi pemulihan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')
     
     if (reason === null) return
     
@@ -22,7 +22,7 @@ export default function BackupRestore() {
     const result = restoreStoreBackup(backup.key, currentUser, reason)
     
     if (result.success) {
-      toast.success('Sukses', 'Data berhasil dipulihkan ke titik ini')
+      toast.success('Sukses', 'Data berhasil dipulihkan ke kondisi ini')
       setTimeout(() => window.location.reload(), 1500)
     } else {
       toast.error('Gagal', result.error)
@@ -61,7 +61,7 @@ export default function BackupRestore() {
           </div>
           <div>
             <h3 className="font-bold">Peringatan Keamanan</h3>
-            <p className="text-sm text-muted">Aksi pemulihan akan menimpa seluruh data aktif saat ini dengan data cadangan. Pastikan Anda membuat cadangan manual sebelum melanjutkan.</p>
+            <p className="text-sm text-muted">Aksi pemulihan akan mengganti seluruh data aktif saat ini dengan data cadangan. Pastikan Anda menyimpan cadangan terbaru sebelum melanjutkan.</p>
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function BackupRestore() {
 
                 <div className="bg-subtle p-12 rounded mb-16 text-xs text-muted">
                    <div className="flex justify-between mb-4">
-                      <span>Jumlah Event Terdeteksi:</span>
+                      <span>Jumlah Acara Terdeteksi:</span>
                       <span className="font-bold text-primary">{backup.eventCount}</span>
                    </div>
                    <div className="flex justify-between">
@@ -117,7 +117,7 @@ export default function BackupRestore() {
                   >
                     <RefreshCw size={14} className="mr-4" /> Pulihkan Data
                   </button>
-                  <button className="btn btn-ghost btn-sm" title="Download JSON" onClick={() => handleDownload(backup)}>
+                  <button className="btn btn-ghost btn-sm" title="Unduh Berkas Data" onClick={() => handleDownload(backup)}>
                     <Download size={14} />
                   </button>
                 </div>
@@ -131,7 +131,7 @@ export default function BackupRestore() {
          <h4 className="font-bold mb-8 flex items-center gap-8">
            <History size={18} className="text-muted" /> Riwayat Cadangan Terakhir
          </h4>
-         <p className="text-xs text-muted">Sistem membuat cadangan otomatis setiap kali ada perubahan data penting di panel pemilik. Maksimal 3 cadangan terakhir disimpan secara lokal.</p>
+        <p className="text-xs text-muted">Sistem membuat cadangan otomatis setiap ada perubahan data penting di panel pemilik. Maksimal 3 cadangan terakhir disimpan di perangkat ini.</p>
       </div>
     </div>
   )

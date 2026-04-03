@@ -1,19 +1,28 @@
 @echo off
+setlocal
+
 echo ===================================================
-echo         MEMULAI 3oNs DIGITAL PLATFORM
+echo         MENJALANKAN 3oNs DIGITAL PLATFORM
 echo ===================================================
 echo.
-echo Menjalankan Website Kiosk dan Server Bot WhatsApp...
-echo Mohon tunggu sebentar, browser akan terbuka otomatis.
+echo Menjalankan website kiosk dan server bot WhatsApp...
+echo Mohon tunggu, browser akan terbuka otomatis.
 echo.
-:: Pindah ke folder script berjalan
-cd /d '%~dp0'
-:: 1. Mulai Web Frontend di Background
-start /B cmd /c 'npm run dev'
-:: 2. Buka Browser (Tunggu 3 detik agar Frontend siap)
-timeout /t 3 /nobreak > NUL
-start http://localhost:5174/
-:: 3. Mulai Server WA Bot di jendela yang sama (biarkan tetap menyala untuk menampilkan QR / Log)
-cd wa-server
+
+REM Masuk ke folder tempat file BAT ini berada
+cd /d "%~dp0"
+
+REM 1) Jalankan website (Vite) di jendela latar belakang
+start "WEB-3ONS" /B cmd /c "npm run dev"
+
+REM 2) Tunggu sebentar lalu buka browser
+timeout /t 4 /nobreak > NUL
+start "" "http://localhost:5174/"
+
+REM 3) Jalankan server WhatsApp pada jendela ini (agar QR/log terlihat)
+cd /d "%~dp0wa-server"
 npm start
+
+echo.
+echo Layanan dihentikan.
 pause
