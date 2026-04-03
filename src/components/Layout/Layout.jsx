@@ -19,7 +19,6 @@ export default function Layout({ children }) {
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
-  const [syncRevision, setSyncRevision] = useState(0)
 
   const roleLabel = {
     super_admin: 'Admin Utama',
@@ -55,7 +54,6 @@ export default function Layout({ children }) {
 
         refreshEventState()
         setTenantBranding(getTenantBranding())
-        setSyncRevision(prev => prev + 1)
       } catch {
         // Keep UI running even if sync pull fails temporarily.
       }
@@ -306,7 +304,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <div className="page-wrapper" key={`${tenantBranding.tenantId}-${activeEventId}-${syncRevision}`}>
+        <div className="page-wrapper">
           {children}
         </div>
       </main>
