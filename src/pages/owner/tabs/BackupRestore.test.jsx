@@ -32,7 +32,7 @@ describe('BackupRestore', () => {
     global.URL.createObjectURL = vi.fn(() => 'blob:url')
     render(<BackupRestore />)
 
-    const downloadBtn = screen.getAllByRole('button', { name: /Download JSON/i })[0]
+    const downloadBtn = screen.getAllByRole('button', { name: /Unduh Berkas Data/i })[0]
     fireEvent.click(downloadBtn)
 
     expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)

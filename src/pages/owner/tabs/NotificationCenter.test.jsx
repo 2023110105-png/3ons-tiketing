@@ -27,7 +27,7 @@ describe('NotificationCenter', () => {
 
   it('marks all read on button click', () => {
     render(<NotificationCenter />)
-    fireEvent.click(screen.getByRole('button', { name: /Tandai Semua Dibaca/i }))
-    expect(screen.getByRole('button', { name: /Tandai Semua Dibaca/i })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Tandai Semua Sudah Dibaca/i }))
+    expect(screen.getByRole('button', { name: /Tandai Semua Sudah Dibaca/i })).toBeTruthy()
   })
 })

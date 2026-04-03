@@ -66,7 +66,7 @@ describe('BillingInvoice', () => {
   it('toggles invoice status and calls updateInvoiceStatus', () => {
     render(<BillingInvoice />)
 
-    const unpaidButton = screen.getByRole('button', { name: /UNPAID/i })
+    const unpaidButton = screen.getByRole('button', { name: /BELUM LUNAS/i })
     fireEvent.click(unpaidButton)
 
     expect(mockData.updateInvoiceStatus).toHaveBeenCalledWith('tenant-1', 'inv-01', 'paid', expect.any(Object))

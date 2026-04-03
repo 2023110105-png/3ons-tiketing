@@ -49,25 +49,25 @@ describe('TenantList', () => {
     expect(screen.getByText('Acme Test')).toBeTruthy()
     expect(screen.getByText('Bandung Expo')).toBeTruthy()
 
-    const searchInput = screen.getByPlaceholderText('Cari tenant...')
+    const searchInput = screen.getByPlaceholderText('Cari akun brand...')
     fireEvent.change(searchInput, { target: { value: 'Acme' } })
 
     expect(screen.getByText('Acme Test')).toBeTruthy()
     expect(screen.queryByText('Bandung Expo')).toBeNull()
   })
 
-  it('opens create modal when pressing Tambah Tenant', () => {
+  it('opens create modal when pressing Tambah Akun Brand', () => {
     render(<TenantList onManageUsers={() => {}} onEditContract={() => {}} />)
 
-    const [button] = screen.getAllByText(/Tenant Baru/i)
+    const [button] = screen.getAllByText(/Akun Brand Baru/i)
     fireEvent.click(button)
 
-    expect(screen.getByText('Tambah Tenant Baru')).toBeTruthy()
+    expect(screen.getByText('Tambah Akun Brand Baru')).toBeTruthy()
     expect(screen.getByPlaceholderText('Contoh: Acme Corp')).toBeTruthy()
 
     const cancelBtn = screen.getByText('Batal')
     fireEvent.click(cancelBtn)
 
-    expect(screen.queryByText('Tambah Tenant Baru')).toBeNull()
+    expect(screen.queryByText('Tambah Akun Brand Baru')).toBeNull()
   })
 })
