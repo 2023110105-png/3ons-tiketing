@@ -15,6 +15,7 @@ import {
   syncTenantUserUpsert,
   syncTenantUpsert
 } from '../lib/firebaseSync'
+import { isFirebaseEnabled } from '../lib/firebase'
 
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
@@ -37,6 +38,8 @@ const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
 const WA_SEND_MODE_MESSAGE_WITH_BARCODE = 'message_with_barcode'
 const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
 const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_ONLY
+const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' ? 'hybrid' : 'strict'
+const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 
 const DEFAULT_TENANT_ID = 'tenant-default'
 const DEFAULT_TENANT = {
@@ -68,6 +71,7 @@ const DEFAULT_TENANT = {
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
 function safeStorageGet(key) {
+  if (IS_FIREBASE_STRICT_DATA_MODE) return null
   try {
     return localStorage.getItem(key)
   } catch {
@@ -76,6 +80,7 @@ function safeStorageGet(key) {
 }
 
 function safeStorageSet(key, value) {
+  if (IS_FIREBASE_STRICT_DATA_MODE) return false
   try {
     localStorage.setItem(key, value)
     return true
@@ -85,6 +90,7 @@ function safeStorageSet(key, value) {
 }
 
 function safeStorageRemove(key) {
+  if (IS_FIREBASE_STRICT_DATA_MODE) return
   try {
     localStorage.removeItem(key)
   } catch {

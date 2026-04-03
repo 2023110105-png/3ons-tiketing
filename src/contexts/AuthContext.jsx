@@ -11,7 +11,9 @@ import {
 } from '../store/mockData'
 
 export const AuthContext = createContext(null)
-const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'strict' ? 'strict' : 'hybrid'
+const FIREBASE_AUTH_MODE = isFirebaseEnabled && import.meta.env.VITE_FIREBASE_AUTH_MODE !== 'hybrid'
+  ? 'strict'
+  : 'hybrid'
 
 function mapFirebaseAuthError(errorCode) {
   switch (errorCode) {
@@ -57,6 +59,34 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(async (username, password) => {
+    if (FIREBASE_AUTH_MODE === 'strict') {
+      if (!isFirebaseEnabled || !auth) {
+        return { success: false, error: 'Konfigurasi Firebase belum aktif untuk mode strict' }
+      }
+
+      const candidateEmail = resolveLoginEmail(username)
+      if (!candidateEmail) {
+        return { success: false, error: 'Akun ini belum memiliki email masuk' }
+      }
+
+      try {
+        await signInWithEmailAndPassword(auth, candidateEmail, password)
+        const identityResult = loginByIdentity(username)
+        if (identityResult.success) {
+          setUser(identityResult.user)
+          return identityResult
+        }
+
+        await signOut(auth)
+        return {
+          success: false,
+          error: 'Akun valid, tetapi belum terdaftar di sistem tenant'
+        }
+      } catch (error) {
+        return { success: false, error: mapFirebaseAuthError(error?.code) }
+      }
+    }
+
     if (isFirebaseEnabled && auth) {
       const candidateEmail = resolveLoginEmail(username)
       if (candidateEmail) {
@@ -67,19 +97,9 @@ export function AuthProvider({ children }) {
             setUser(identityResult.user)
             return identityResult
           }
-
-          await signOut(auth)
-          return {
-            success: false,
-            error: 'Akun valid, tetapi belum terdaftar di sistem'
-          }
-        } catch (error) {
-          if (FIREBASE_AUTH_MODE === 'strict') {
-            return { success: false, error: mapFirebaseAuthError(error?.code) }
-          }
+        } catch {
+          // Hybrid mode keeps local fallback.
         }
-      } else if (FIREBASE_AUTH_MODE === 'strict') {
-        return { success: false, error: 'Akun ini belum memiliki email masuk' }
       }
     }
 
