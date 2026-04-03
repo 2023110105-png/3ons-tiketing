@@ -59,7 +59,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // Never let SW registration failure block app boot.
 if ('serviceWorker' in navigator) {
   try {
-    registerSW({ immediate: true })
+    registerSW()
   } catch (error) {
     console.error('[PWA] Failed to register service worker:', error)
   }

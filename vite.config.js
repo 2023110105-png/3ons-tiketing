@@ -65,7 +65,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
         name: '3oNs Digital - Event Platform',

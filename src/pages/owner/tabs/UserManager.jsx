@@ -10,12 +10,23 @@ import {
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+const OWNER_USER_SELECTED_TENANT_KEY = 'ons_owner_users_selected_tenant'
+
+function loadSelectedTenantId(initialTenant) {
+  if (initialTenant?.id) return initialTenant.id
+  try {
+    return window.sessionStorage.getItem(OWNER_USER_SELECTED_TENANT_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
 export default function UserManager({ selectedTenant: initialTenant = null }) {
   const toast = useToast()
   const { user: currentUser } = useAuth()
   
   const [tenants, setTenants] = useState(getTenants())
-  const [selectedTenantId, setSelectedTenantId] = useState(initialTenant?.id || '')
+  const [selectedTenantId, setSelectedTenantId] = useState(() => loadSelectedTenantId(initialTenant))
   const [users, setUsers] = useState([])
   
   const [showAddModal, setShowAddModal] = useState(false)
@@ -53,6 +64,18 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
 
   useEffect(() => {
     void refreshTenantData(selectedTenantId, true)
+  }, [selectedTenantId])
+
+  useEffect(() => {
+    try {
+      if (selectedTenantId) {
+        window.sessionStorage.setItem(OWNER_USER_SELECTED_TENANT_KEY, selectedTenantId)
+      } else {
+        window.sessionStorage.removeItem(OWNER_USER_SELECTED_TENANT_KEY)
+      }
+    } catch {
+      // Ignore storage failures.
+    }
   }, [selectedTenantId])
 
   useEffect(() => {
