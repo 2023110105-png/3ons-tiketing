@@ -66,6 +66,11 @@ export function AuthProvider({ children }) {
 
       const candidateEmail = resolveLoginEmail(username)
       if (!candidateEmail) {
+        const localResult = doLogin(username, password)
+        if (localResult.success) {
+          setUser(localResult.user)
+          return localResult
+        }
         return { success: false, error: 'Akun ini belum memiliki email masuk' }
       }
 
@@ -83,6 +88,13 @@ export function AuthProvider({ children }) {
           error: 'Akun valid, tetapi belum terdaftar di sistem tenant'
         }
       } catch (error) {
+        // Some owner-created tenant users exist in tenant registry but are not yet provisioned in Firebase Auth.
+        // Fallback to tenant credential check so those accounts can still log in.
+        const localResult = doLogin(username, password)
+        if (localResult.success) {
+          setUser(localResult.user)
+          return localResult
+        }
         return { success: false, error: mapFirebaseAuthError(error?.code) }
       }
     }
