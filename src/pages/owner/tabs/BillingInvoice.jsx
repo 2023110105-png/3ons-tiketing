@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { 
-  FileText, History, DollarSign, Download, 
+  FileText, History, DollarSign,
   Search, CheckCircle, Clock, Plus, Filter 
 } from 'lucide-react'
 import { getTenants, addTenantInvoice, updateInvoiceStatus, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
 
 export default function BillingInvoice() {
   const toast = useToast()
@@ -89,59 +87,6 @@ export default function BillingInvoice() {
     }
   }
 
-  const handleExportPDF = (invoice) => {
-    const doc = new jsPDF()
-    
-    // Header
-    doc.setFontSize(22)
-    doc.setTextColor(14, 165, 233) // Primary color
-    doc.text('Tagihan Pemilik Platform', 105, 20, null, 'center')
-    
-    doc.setFontSize(10)
-    doc.setTextColor(100)
-    doc.text('Sistem Pengelolaan Tagihan', 105, 28, null, 'center')
-    
-    doc.setDrawColor(200)
-    doc.line(20, 35, 190, 35)
-
-    // Invoice Info
-    doc.setFontSize(16)
-    doc.setTextColor(0)
-    doc.text(`TAGIHAN: #${invoice.id}`, 20, 50)
-    
-    doc.setFontSize(10)
-    doc.text(`Tanggal Terbit: ${new Date(invoice.issued_at).toLocaleDateString()}`, 20, 60)
-    doc.text(`Status: ${invoice.status.toUpperCase()}`, 20, 66)
-
-    // Tenant Info
-    doc.setFontSize(12)
-    doc.text('DITAGIHKAN KEPADA:', 140, 50)
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text(invoice.tenantName, 140, 60)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.text('ID Akun Brand:', 140, 66)
-    doc.text(invoice.tenantId, 140, 72)
-
-    doc.autoTable({
-      startY: 85,
-      head: [['Keterangan', 'Periode', 'Total']],
-      body: [[`Sewa Platform - ${invoice.tenantName}`, invoice.period, `Rp ${invoice.amount.toLocaleString()}`]],
-      theme: 'striped',
-      headStyles: { fillColor: [14, 165, 233] }
-    })
-
-    const finalY = doc.lastAutoTable.finalY + 20
-    doc.text('Catatan:', 20, finalY)
-    doc.text(invoice.notes || 'Terima kasih atas kerja samanya.', 20, finalY + 8)
-
-    doc.text('Hormat kami,', 150, finalY + 40)
-    doc.text('Tim Platform', 150, finalY + 60)
-
-    doc.save(`invoice_${invoice.id}_${invoice.tenantName}.pdf`)
-  }
-
   return (
     <div className="billing-invoice-container owner-fade-in-up">
       <div className="owner-toolbar">
@@ -189,13 +134,12 @@ export default function BillingInvoice() {
                 <th>📤 Tgl Terbit</th>
                 <th>💵 Total</th>
                 <th>✓ Status</th>
-                <th style={{ textAlign: 'right' }}>⚙️ Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center p-32 text-muted">Belum ada data tagihan.</td>
+                  <td colSpan="6" className="text-center p-32 text-muted">Belum ada data tagihan.</td>
                 </tr>
               ) : (
                 filteredInvoices.map(invoice => (
@@ -212,11 +156,6 @@ export default function BillingInvoice() {
                       >
                         {invoice.status === 'paid' ? <CheckCircle size={12} className="inline mr-4" /> : <Clock size={12} className="inline mr-4" />}
                         {invoice.status === 'paid' ? 'LUNAS' : 'BELUM LUNAS'}
-                      </button>
-                    </td>
-                    <td className="text-right">
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleExportPDF(invoice)}>
-                        <Download size={14} /> PDF
                       </button>
                     </td>
                   </tr>
