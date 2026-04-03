@@ -134,6 +134,7 @@ export default function Layout({ children }) {
     { path: '/owner/backup', icon: <Database size={18} />, label: 'Cadangan Data' },
     { path: '/owner/branding', icon: <Settings size={18} />, label: 'Tampilan Brand' },
     { path: '/owner/notifications', icon: <Bell size={18} />, label: 'Pemberitahuan' },
+    { path: '/owner/tech-tools', icon: <ShieldCheck size={18} />, label: 'Alat IT' },
   ]
 
   const mobileNavItems = getNavItems()

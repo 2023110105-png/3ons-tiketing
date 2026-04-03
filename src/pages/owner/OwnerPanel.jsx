@@ -12,6 +12,7 @@ import BackupRestore from './tabs/BackupRestore'
 import WhiteLabel from './tabs/WhiteLabel'
 import NotificationCenter from './tabs/NotificationCenter'
 import ImpersonateView from './tabs/ImpersonateView'
+import ServerVerifyTools from './tabs/ServerVerifyTools'
 
 export default function OwnerPanel() {
   const { activeTab } = useParams()
@@ -44,6 +45,8 @@ export default function OwnerPanel() {
         return <WhiteLabel />
       case 'notifications':
         return <NotificationCenter />
+      case 'tech-tools':
+        return <ServerVerifyTools />
       default:
         return <TenantList />
     }
