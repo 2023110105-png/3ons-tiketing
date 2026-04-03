@@ -29,9 +29,11 @@ vi.mock('../../../contexts/useAuth', () => ({
 afterEach(() => cleanup())
 
 describe('UserManager', () => {
-  it('shows tenant selection when no tenant selected', () => {
+  it('shows tenant selection when no tenant selected', async () => {
     render(<UserManager />)
-    expect(screen.getByText(/Pilih Akun Brand untuk Mengelola Pengguna/i)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText(/Pilih Akun Brand untuk Mengelola Pengguna/i)).toBeTruthy()
+    })
   })
 
   it('loads users when tenant selected and allows adding user', async () => {

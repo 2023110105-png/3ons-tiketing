@@ -26,9 +26,11 @@ vi.mock('../../../contexts/useAuth', () => ({
 afterEach(() => cleanup())
 
 describe('ContractManager', () => {
-  it('renders tenant card and supports search filtering', () => {
+  it('renders tenant card and supports search filtering', async () => {
     render(<ContractManager />)
-    expect(screen.getByText('Acme Event')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText('Acme Event')).toBeTruthy()
+    })
     fireEvent.change(screen.getByPlaceholderText('Cari akun untuk kontrak...'), { target: { value: 'Nonexistent' } })
     expect(screen.queryByText('Acme Event')).toBeNull()
   })

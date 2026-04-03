@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import QuotaManager from './QuotaManager'
 
@@ -32,6 +32,7 @@ const healthData = [
 ]
 
 vi.mock('../../../store/mockData', () => ({
+  bootstrapStoreFromFirebase: vi.fn(async () => true),
   getTenants: () => [tenantData],
   getTenantHealth: () => healthData,
   updateTenantQuota: vi.fn((tenantId, newQuota) => ({ success: true, tenantId, newQuota }))
@@ -40,10 +41,12 @@ vi.mock('../../../store/mockData', () => ({
 afterEach(() => cleanup())
 
 describe('QuotaManager', () => {
-  it('renders quota cards and enters edit mode', () => {
+  it('renders quota cards and enters edit mode', async () => {
     render(<QuotaManager />)
 
-    expect(screen.getByText('Acme Test')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText('Acme Test')).toBeTruthy()
+    })
     expect(screen.getByText(/Peserta Terdaftar/i)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Ubah Batas/i }))
@@ -51,8 +54,11 @@ describe('QuotaManager', () => {
     expect(screen.getByRole('button', { name: /Simpan Perubahan Kuota/i })).toBeTruthy()
   })
 
-  it('updates quota values and saves', () => {
+  it('updates quota values and saves', async () => {
     render(<QuotaManager />)
+    await waitFor(() => {
+      expect(screen.getByText('Acme Test')).toBeTruthy()
+    })
     fireEvent.click(screen.getByRole('button', { name: /Ubah Batas/i }))
 
     const numberInputs = screen.getAllByRole('spinbutton')
@@ -61,7 +67,9 @@ describe('QuotaManager', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Simpan Perubahan Kuota/i }))
 
-    expect(screen.queryByText(/Simpan Perubahan Kuota/i)).toBeNull()
-    expect(screen.getByText('Acme Test')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.queryByText(/Simpan Perubahan Kuota/i)).toBeNull()
+      expect(screen.getByText('Acme Test')).toBeTruthy()
+    })
   })
 })

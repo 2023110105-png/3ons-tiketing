@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import * as mockData from '../../../store/mockData'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import BillingInvoice from './BillingInvoice'
@@ -43,8 +43,12 @@ vi.mock('../../../contexts/useAuth', () => ({
 afterEach(() => cleanup())
 
 describe('BillingInvoice', () => {
-  it('renders invoices and filters by search', () => {
+  it('renders invoices and filters by search', async () => {
     render(<BillingInvoice />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Acme Zone/i).length).toBeGreaterThanOrEqual(2)
+    })
 
     const acmeOptions = screen.getAllByText(/Acme Zone/i)
     const bandungOptions = screen.getAllByText(/Bandung Expo/i)
@@ -56,16 +60,22 @@ describe('BillingInvoice', () => {
     expect(screen.getByText('Bandung Expo', { selector: 'td' })).toBeTruthy()
   })
 
-  it('filters invoices by tenant select', () => {
+  it('filters invoices by tenant select', async () => {
     render(<BillingInvoice />)
+    await waitFor(() => {
+      expect(screen.getAllByText(/Acme Zone/i).length).toBeGreaterThanOrEqual(2)
+    })
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'tenant-1' }})
     expect(screen.getByRole('cell', { name: 'Acme Zone' })).toBeTruthy()
     expect(screen.queryByRole('cell', { name: 'Bandung Expo' })).toBeNull()
   })
 
-  it('toggles invoice status and calls updateInvoiceStatus', () => {
+  it('toggles invoice status and calls updateInvoiceStatus', async () => {
     render(<BillingInvoice />)
+    await waitFor(() => {
+      expect(screen.getAllByText(/Acme Zone/i).length).toBeGreaterThanOrEqual(2)
+    })
 
     const unpaidButton = screen.getByRole('button', { name: /BELUM LUNAS/i })
     fireEvent.click(unpaidButton)

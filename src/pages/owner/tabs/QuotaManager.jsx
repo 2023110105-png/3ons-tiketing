@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { 
   BarChart3, Users, Smartphone, LayoutGrid, 
   Search, AlertTriangle, AlertCircle, Save 
 } from 'lucide-react'
-import { getTenants, updateTenantQuota, getTenantHealth } from '../../../store/mockData'
+import { getTenants, updateTenantQuota, getTenantHealth, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -17,6 +17,34 @@ export default function QuotaManager() {
   const [isEditing, setIsEditing] = useState(null)
   const [editData, setEditData] = useState({})
 
+  const runFirebaseHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }, [])
+
+  const refreshQuotaData = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
+    setTenants(getTenants())
+    setHealthData(getTenantHealth())
+  }, [runFirebaseHydrate])
+
+  useEffect(() => {
+    void refreshQuotaData(true)
+  }, [refreshQuotaData])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshQuotaData(true)
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [refreshQuotaData])
+
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)
     setEditData({
@@ -26,12 +54,11 @@ export default function QuotaManager() {
     })
   }
 
-  const handleSave = (tenantId) => {
+  const handleSave = async (tenantId) => {
     const result = updateTenantQuota(tenantId, editData, currentUser)
     if (result.success) {
       toast.success('Sukses', 'Kuota akun berhasil diperbarui')
-      setTenants(getTenants())
-      setHealthData(getTenantHealth())
+      await refreshQuotaData(true)
       setIsEditing(null)
     } else {
       toast.error('Gagal', result.error)

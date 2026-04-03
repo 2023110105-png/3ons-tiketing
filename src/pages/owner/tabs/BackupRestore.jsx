@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { 
   Database, RefreshCw, Download, Trash2, 
   Search, ShieldAlert, History, Archive, Clock 
 } from 'lucide-react'
-import { getStoreBackups, restoreStoreBackup, exportStoreBackup } from '../../../store/mockData'
+import { getStoreBackups, restoreStoreBackup, exportStoreBackup, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -12,6 +12,33 @@ export default function BackupRestore() {
   const { user: currentUser } = useAuth()
   const [backups, setBackups] = useState(getStoreBackups())
   const [isRestoring, setIsRestoring] = useState(false)
+
+  const runFirebaseHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }, [])
+
+  const refreshBackups = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
+    setBackups(getStoreBackups())
+  }, [runFirebaseHydrate])
+
+  useEffect(() => {
+    void refreshBackups(true)
+  }, [refreshBackups])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshBackups(true)
+    }, 10000)
+    return () => window.clearInterval(id)
+  }, [refreshBackups])
 
   const handleRestore = (backup) => {
     const reason = window.prompt(`Konfirmasi pemulihan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')
@@ -68,7 +95,7 @@ export default function BackupRestore() {
 
       <div className="toolbar mb-16 flex justify-between items-center">
         <h3 className="card-title">Riwayat Cadangan Sistem</h3>
-        <button className="btn btn-ghost" onClick={() => setBackups(getStoreBackups())}>
+        <button className="btn btn-ghost" onClick={() => { void refreshBackups(true) }}>
           <RefreshCw size={18} /> Muat Ulang Daftar
         </button>
       </div>

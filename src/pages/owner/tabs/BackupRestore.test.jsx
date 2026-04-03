@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import BackupRestore from './BackupRestore'
 
 vi.mock('../../../store/mockData', () => ({
+  bootstrapStoreFromFirebase: vi.fn(async () => true),
   getStoreBackups: () => [
     { key: 'backup-1', timestamp: Date.now(), size: 1200, eventCount: 2, isValid: true },
     { key: 'backup-2', timestamp: Date.now() - 100000, size: 800, eventCount: 1, isValid: false }
@@ -22,15 +23,20 @@ vi.mock('../../../contexts/useAuth', () => ({
 afterEach(() => cleanup())
 
 describe('BackupRestore', () => {
-  it('renders backup entries excluding invalid', () => {
+  it('renders backup entries excluding invalid', async () => {
     render(<BackupRestore />)
-    expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
+    })
     expect(screen.queryByText(/Belum ada cadangan/i)).toBeNull()
   })
 
-  it('downloads backup when download button clicked', () => {
+  it('downloads backup when download button clicked', async () => {
     global.URL.createObjectURL = vi.fn(() => 'blob:url')
     render(<BackupRestore />)
+    await waitFor(() => {
+      expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
+    })
 
     const downloadBtn = screen.getAllByRole('button', { name: /Unduh Berkas Data/i })[0]
     fireEvent.click(downloadBtn)
@@ -38,9 +44,12 @@ describe('BackupRestore', () => {
     expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
   })
 
-  it('restore backup asks prompt and calls restore function', () => {
+  it('restore backup asks prompt and calls restore function', async () => {
     window.prompt = vi.fn(() => 'testing alasan restore')
     render(<BackupRestore />)
+    await waitFor(() => {
+      expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)
+    })
 
     const restoreBtn = screen.getAllByRole('button', { name: /Pulihkan Data/i })[0]
     fireEvent.click(restoreBtn)

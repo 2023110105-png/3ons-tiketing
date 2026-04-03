@@ -3,6 +3,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest'
 import TenantHealth from './TenantHealth'
 
 vi.mock('../../../store/mockData', () => ({
+  bootstrapStoreFromFirebase: vi.fn(async () => true),
   getTenantHealth: () => [
     { tenantId: 'tenant-1', brandName: 'Acme Event', status: 'active', isOnline: true, lastBackup: new Date().toISOString(), totalCheckins: 300, totalParticipants: 500, usageParticipants: 60 }
   ]

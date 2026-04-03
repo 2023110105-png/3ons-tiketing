@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { 
   Bell, BellOff, CheckCircle, Clock, 
   Trash2, AlertTriangle, Info, Search 
 } from 'lucide-react'
-import { getOwnerNotifications, markNotificationRead } from '../../../store/mockData'
+import { getOwnerNotifications, markNotificationRead, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 
 export default function NotificationCenter() {
@@ -11,14 +11,41 @@ export default function NotificationCenter() {
   const [notifications, setNotifications] = useState(getOwnerNotifications())
   const [searchQuery, setSearchQuery] = useState('')
 
+  const runFirebaseHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }, [])
+
+  const refreshNotifications = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await runFirebaseHydrate()
+    }
+    setNotifications(getOwnerNotifications())
+  }, [runFirebaseHydrate])
+
+  useEffect(() => {
+    void refreshNotifications(true)
+  }, [refreshNotifications])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshNotifications(true)
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [refreshNotifications])
+
   const handleMarkRead = (id) => {
     markNotificationRead(id)
-    setNotifications(getOwnerNotifications())
+    void refreshNotifications(false)
   }
 
   const handleMarkAllRead = () => {
     notifications.forEach(n => !n.read && markNotificationRead(n.id))
-    setNotifications(getOwnerNotifications())
+    void refreshNotifications(false)
     toast.success('Sukses', 'Semua notifikasi sudah ditandai dibaca')
   }
 

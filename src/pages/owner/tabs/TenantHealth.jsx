@@ -3,15 +3,25 @@ import {
   Activity, Users, CheckCircle, XCircle, 
   Clock, AlertTriangle, RefreshCw, BarChart 
 } from 'lucide-react'
-import { getTenantHealth } from '../../../store/mockData'
+import { getTenantHealth, bootstrapStoreFromFirebase } from '../../../store/mockData'
 
 export default function TenantHealth() {
   const [healthData, setHealthData] = useState(getTenantHealth())
   const [isRefreshing, setIsRefreshing] = useState(false)
 
+  const runFirebaseHydrate = async () => {
+    if (typeof bootstrapStoreFromFirebase !== 'function') return
+    try {
+      await bootstrapStoreFromFirebase(true)
+    } catch {
+      // Keep owner UI responsive when Firebase hydrate is unavailable.
+    }
+  }
+
   const handleRefresh = () => {
     setIsRefreshing(true)
-    setTimeout(() => {
+    setTimeout(async () => {
+      await runFirebaseHydrate()
       setHealthData(getTenantHealth())
       setIsRefreshing(false)
     }, 800)

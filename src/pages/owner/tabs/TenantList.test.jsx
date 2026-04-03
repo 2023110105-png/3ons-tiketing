@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import TenantList from './TenantList'
 
@@ -44,11 +44,13 @@ vi.mock('../../../store/mockData', () => ({
 }))
 
 describe('TenantList', () => {
-  it('renders tenant list and filters by search', () => {
+  it('renders tenant list and filters by search', async () => {
     render(<TenantList onManageUsers={() => {}} onEditContract={() => {}} />)
 
-    expect(screen.getByText('Acme Test')).toBeTruthy()
-    expect(screen.getByText('Bandung Expo')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText('Acme Test')).toBeTruthy()
+      expect(screen.getByText('Bandung Expo')).toBeTruthy()
+    })
 
     const searchInput = screen.getByPlaceholderText('Cari akun brand...')
     fireEvent.change(searchInput, { target: { value: 'Acme' } })
@@ -57,8 +59,11 @@ describe('TenantList', () => {
     expect(screen.queryByText('Bandung Expo')).toBeNull()
   })
 
-  it('opens create modal when pressing Tambah Akun Brand', () => {
+  it('opens create modal when pressing Tambah Akun Brand', async () => {
     render(<TenantList onManageUsers={() => {}} onEditContract={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('Acme Test')).toBeTruthy()
+    })
 
     const [button] = screen.getAllByText(/Akun Brand Baru/i)
     fireEvent.click(button)
