@@ -15,7 +15,7 @@ import {
   syncTenantUserUpsert,
   syncTenantUpsert
 } from '../lib/firebaseSync'
-import { isFirebaseEnabled } from '../lib/firebase'
+import { auth, isFirebaseEnabled } from '../lib/firebase'
 
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
@@ -253,6 +253,13 @@ export async function createTenant(data, actor = 'system') {
     return {
       success: false,
       error: 'Proteksi aktif: Firebase belum terhubung. Isi environment VITE_FIREBASE_* di deployment lalu redeploy.'
+    }
+  }
+
+  if (FIREBASE_DATA_MODE === 'strict' && isFirebaseEnabled && !auth?.currentUser) {
+    return {
+      success: false,
+      error: 'Sesi Firebase belum aktif. Login ulang dengan akun yang terdaftar di Firebase Authentication.'
     }
   }
 
@@ -545,6 +552,13 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
     return {
       success: false,
       error: 'Proteksi aktif: Firebase Authentication belum terhubung. Isi environment VITE_FIREBASE_* di deployment lalu redeploy.'
+    }
+  }
+
+  if (FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled && !auth?.currentUser) {
+    return {
+      success: false,
+      error: 'Sesi Firebase belum aktif. Login ulang dengan akun yang terdaftar di Firebase Authentication.'
     }
   }
 
