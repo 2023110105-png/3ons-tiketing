@@ -40,6 +40,7 @@ const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
 const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_ONLY
 const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' ? 'hybrid' : 'strict'
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
+const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
 
 const DEFAULT_TENANT_ID = 'tenant-default'
 const DEFAULT_TENANT = {
@@ -469,7 +470,45 @@ export function getTenantUsers(tenantId) {
   return tenant ? asArray(tenant.users) : []
 }
 
-export function createTenantUser(tenantId, userData, actor = 'system') {
+function mapFirebaseAuthProvisionError(rawCode = '') {
+  const code = String(rawCode || '').toUpperCase()
+  if (code.includes('EMAIL_EXISTS')) return 'Email sudah terdaftar di Firebase Authentication'
+  if (code.includes('INVALID_EMAIL')) return 'Format email tidak valid untuk Firebase Authentication'
+  if (code.includes('WEAK_PASSWORD')) return 'Password terlalu lemah (minimal 6 karakter)'
+  if (code.includes('API_KEY_INVALID')) return 'API key Firebase tidak valid'
+  return 'Gagal membuat akun di Firebase Authentication'
+}
+
+async function provisionFirebaseAuthUser(email, password) {
+  const apiKey = String(import.meta.env.VITE_FIREBASE_API_KEY || '').trim()
+  if (!apiKey) {
+    return { success: false, error: 'VITE_FIREBASE_API_KEY belum diisi' }
+  }
+
+  try {
+    const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: false
+      })
+    })
+
+    if (response.ok) {
+      return { success: true }
+    }
+
+    const data = await response.json().catch(() => ({}))
+    const code = data?.error?.message || `HTTP_${response.status}`
+    return { success: false, error: mapFirebaseAuthProvisionError(code) }
+  } catch {
+    return { success: false, error: 'Tidak bisa terhubung ke Firebase Authentication' }
+  }
+}
+
+export async function createTenantUser(tenantId, userData, actor = 'system') {
   const tenant = tenantRegistry.tenants[tenantId]
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   
@@ -490,11 +529,23 @@ export function createTenantUser(tenantId, userData, actor = 'system') {
     return { success: false, error: 'Email sudah digunakan' }
   }
 
+  const password = String(userData?.password || '123456')
+  if (isFirebaseEnabled && FIREBASE_AUTH_MODE === 'strict') {
+    if (!email) {
+      return { success: false, error: 'Email wajib diisi pada mode Firebase strict' }
+    }
+
+    const authProvision = await provisionFirebaseAuthUser(email, password)
+    if (!authProvision.success) {
+      return { success: false, error: authProvision.error }
+    }
+  }
+
   const newUser = {
     id: generateId(),
     username,
     email,
-    password: userData.password || '123456',
+    password,
     name: userData.name || username,
     role: userData.role || 'gate_front',
     tenantId: tenantId,

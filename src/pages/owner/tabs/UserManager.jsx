@@ -66,7 +66,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     e.preventDefault()
     if (!selectedTenantId) return
     
-    const result = createTenantUser(selectedTenantId, newUser, currentUser)
+    const result = await createTenantUser(selectedTenantId, newUser, currentUser)
     if (result.success) {
       toast.success('Sukses', `User ${newUser.username} berhasil dibuat`)
       await refreshTenantData(selectedTenantId, true)
