@@ -2,6 +2,7 @@
 // Replace with real Supabase client when ready
 
 import { apiFetch } from '../utils/api'
+import { onAuthStateChanged } from 'firebase/auth'
 import {
   syncAuditLog,
   fetchFirebaseWorkspaceSnapshot,
@@ -41,6 +42,47 @@ const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_ONLY
 const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' ? 'hybrid' : 'strict'
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
+
+async function ensureFirebaseAuthSessionReady() {
+  if (!isFirebaseEnabled || !auth) return null
+  if (auth.currentUser) return auth.currentUser
+
+  if (typeof auth.authStateReady === 'function') {
+    try {
+      await auth.authStateReady()
+    } catch {
+      // Continue with fallback subscriber below.
+    }
+    if (auth.currentUser) return auth.currentUser
+  }
+
+  await new Promise((resolve) => {
+    let settled = false
+    let unsubscribe = () => {}
+
+    const finish = () => {
+      if (settled) return
+      settled = true
+      unsubscribe()
+      resolve()
+    }
+
+    const timeoutId = setTimeout(finish, 1500)
+    unsubscribe = onAuthStateChanged(
+      auth,
+      () => {
+        clearTimeout(timeoutId)
+        finish()
+      },
+      () => {
+        clearTimeout(timeoutId)
+        finish()
+      }
+    )
+  })
+
+  return auth.currentUser || null
+}
 
 const DEFAULT_TENANT_ID = 'tenant-default'
 const DEFAULT_TENANT = {
@@ -256,7 +298,12 @@ export async function createTenant(data, actor = 'system') {
     }
   }
 
-  if (FIREBASE_DATA_MODE === 'strict' && isFirebaseEnabled && !auth?.currentUser) {
+  const activeFirebaseUser =
+    FIREBASE_DATA_MODE === 'strict' && isFirebaseEnabled
+      ? await ensureFirebaseAuthSessionReady()
+      : null
+
+  if (FIREBASE_DATA_MODE === 'strict' && isFirebaseEnabled && !activeFirebaseUser) {
     return {
       success: false,
       error: 'Sesi Firebase belum aktif. Login ulang dengan akun yang terdaftar di Firebase Authentication.'
@@ -555,7 +602,12 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
     }
   }
 
-  if (FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled && !auth?.currentUser) {
+  const activeFirebaseUser =
+    FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled
+      ? await ensureFirebaseAuthSessionReady()
+      : null
+
+  if (FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled && !activeFirebaseUser) {
     return {
       success: false,
       error: 'Sesi Firebase belum aktif. Login ulang dengan akun yang terdaftar di Firebase Authentication.'
