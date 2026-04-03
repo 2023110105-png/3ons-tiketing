@@ -58,10 +58,19 @@ export default function ConnectDevice() {
   }, { ready: 0, qr: 0, offline: 0, checking: 0, other: 0 })
 
   useEffect(() => {
-    let timer;
-    let stopped = false;
+    let timer
+    let stopped = false
+
+    const getNextIntervalMs = (status, isReady) => {
+      if (isReady || status === 'ready') return 2000
+      if (status === 'checking') return 700
+      return 1000
+    }
     
     const checkWaStatus = async () => {
+      let nextStatus = 'offline'
+      let nextIsReady = false
+
       try {
         const res = await apiFetch(`/api/wa/status?tenant_id=${encodeURIComponent(tenantId)}`)
         const data = await res.json().catch(() => ({}))
@@ -72,13 +81,17 @@ export default function ConnectDevice() {
 
         setWaState(data)
         setLastError('')
+        nextStatus = String(data?.status || '').toLowerCase()
+        nextIsReady = !!data?.isReady
       } catch (err) {
         setWaState({ status: 'offline', isReady: false, qrCode: null })
         setLastError(formatConnectionError(err?.message))
+        nextStatus = 'offline'
+        nextIsReady = false
       }
 
       if (stopped) return
-      const nextIntervalMs = waState?.isReady ? 3000 : 1200
+      const nextIntervalMs = getNextIntervalMs(nextStatus, nextIsReady)
       timer = setTimeout(checkWaStatus, nextIntervalMs)
     }
 
@@ -88,7 +101,7 @@ export default function ConnectDevice() {
       stopped = true
       if (timer) clearTimeout(timer)
     }
-  }, [waState?.isReady, tenantId])
+  }, [tenantId])
 
   useEffect(() => {
     if (!canMonitorAllSessions) return

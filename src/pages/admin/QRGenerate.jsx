@@ -370,6 +370,16 @@ export default function QRGenerate() {
     }
   }
 
+  const getVerifyScenarioLabel = (key) => {
+    const labels = {
+      legacy_valid: 'QR lama valid',
+      legacy_invalid: 'QR lama tidak valid',
+      v3_valid: 'QR aman valid',
+      v3_missing_token: 'QR aman tanpa kode keamanan'
+    }
+    return labels[key] || key
+  }
+
   const runServerVerifySelfTest = async () => {
     if (verifyTesting) return
     setVerifyTesting(true)
@@ -507,24 +517,24 @@ export default function QRGenerate() {
           title="Uji endpoint verifikasi keamanan server"
         >
           {verifyTesting
-            ? <><span className="spinner qr-spinner-sm"></span> Test verify...</>
-            : <><ShieldCheck size={16} /> Test Server Verify</>}
+            ? <><span className="spinner qr-spinner-sm"></span> Menguji server...</>
+            : <><ShieldCheck size={16} /> Uji Verifikasi Server</>}
         </button>
 
         {verifyReport && (
           <div className={`card ${verifyReport.allPassed ? 'border-success' : 'border-error'}`} style={{ marginTop: 12 }}>
             <div className="card-header">
-              <h3 className="card-title">Hasil Test Verify</h3>
+              <h3 className="card-title">Hasil Uji Verifikasi</h3>
               <span className={`badge ${verifyReport.allPassed ? 'badge-green' : 'badge-red'}`}>{verifyReport.passed}/{verifyReport.total}</span>
             </div>
             <div className="scanner-note scanner-note-tight">
-              {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
+              {verifyReport.results.map(item => `${item.ok ? 'Lolos' : 'Gagal'} ${getVerifyScenarioLabel(item.key)}`).join(' | ')}
             </div>
             <div style={{ marginTop: 10 }}>
               {verifyReport.results.map(item => (
                 <details key={item.key} style={{ marginBottom: 8 }}>
                   <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-                    {item.ok ? 'OK' : 'FAIL'} {item.key} (HTTP {item.status || '-'})
+                    {item.ok ? 'Lolos' : 'Gagal'} {getVerifyScenarioLabel(item.key)} (HTTP {item.status || '-'})
                   </summary>
                   <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
                     {prettyVerifyData(item.data)}
@@ -678,8 +688,8 @@ export default function QRGenerate() {
             </button>
             <button className="btn btn-secondary" onClick={runServerVerifySelfTest} disabled={verifyTesting} title="Uji endpoint verifikasi keamanan server">
               {verifyTesting
-                ? (<><span className="spinner qr-spinner-sm"></span> Test verify...</>)
-                : (<><ShieldCheck size={16} /> Test Server Verify</>)}
+                ? (<><span className="spinner qr-spinner-sm"></span> Menguji server...</>)
+                : (<><ShieldCheck size={16} /> Uji Verifikasi Server</>)}
             </button>
             {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
           </div>
@@ -687,17 +697,17 @@ export default function QRGenerate() {
           {verifyReport && (
             <div className={`card ${verifyReport.allPassed ? 'border-success' : 'border-error'}`} style={{ marginBottom: 16 }}>
               <div className="card-header">
-                <h3 className="card-title">Hasil Test Verify Server</h3>
+                <h3 className="card-title">Hasil Uji Verifikasi Server</h3>
                 <span className={`badge ${verifyReport.allPassed ? 'badge-green' : 'badge-red'}`}>{verifyReport.passed}/{verifyReport.total}</span>
               </div>
               <p className="scanner-note scanner-note-tight">
-                {verifyReport.results.map(item => `${item.ok ? 'OK' : 'FAIL'} ${item.key}`).join(' | ')}
+                {verifyReport.results.map(item => `${item.ok ? 'Lolos' : 'Gagal'} ${getVerifyScenarioLabel(item.key)}`).join(' | ')}
               </p>
               <div style={{ marginTop: 10 }}>
                 {verifyReport.results.map(item => (
                   <details key={item.key} style={{ marginBottom: 8 }}>
                     <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-                      {item.ok ? 'OK' : 'FAIL'} {item.key} (HTTP {item.status || '-'})
+                      {item.ok ? 'Lolos' : 'Gagal'} {getVerifyScenarioLabel(item.key)} (HTTP {item.status || '-'})
                     </summary>
                     <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
                       {prettyVerifyData(item.data)}
