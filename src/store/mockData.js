@@ -249,6 +249,13 @@ export function switchActiveTenant(tenantId, actor = 'system') {
 }
 
 export async function createTenant(data, actor = 'system') {
+  if (FIREBASE_DATA_MODE === 'strict' && !isFirebaseEnabled) {
+    return {
+      success: false,
+      error: 'Proteksi aktif: Firebase belum terhubung. Isi environment VITE_FIREBASE_* di deployment lalu redeploy.'
+    }
+  }
+
   const brandName = String(data?.brandName || '').trim()
   const eventName = String(data?.eventName || '').trim() || 'Event Platform'
   const expiresAt = data?.expiresAt ? new Date(data.expiresAt).toISOString() : null
@@ -534,6 +541,13 @@ async function provisionFirebaseAuthUser(email, password) {
 }
 
 export async function createTenantUser(tenantId, userData, actor = 'system') {
+  if (FIREBASE_AUTH_MODE === 'strict' && !isFirebaseEnabled) {
+    return {
+      success: false,
+      error: 'Proteksi aktif: Firebase Authentication belum terhubung. Isi environment VITE_FIREBASE_* di deployment lalu redeploy.'
+    }
+  }
+
   const tenant = tenantRegistry.tenants[tenantId]
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   
