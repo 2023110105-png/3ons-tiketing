@@ -475,8 +475,20 @@ function mapFirebaseAuthProvisionError(rawCode = '') {
   if (code.includes('EMAIL_EXISTS')) return 'Email sudah terdaftar di Firebase Authentication'
   if (code.includes('INVALID_EMAIL')) return 'Format email tidak valid untuk Firebase Authentication'
   if (code.includes('WEAK_PASSWORD')) return 'Password terlalu lemah (minimal 6 karakter)'
+  if (code.includes('CONFIGURATION_NOT_FOUND')) {
+    return 'Firebase Authentication belum dikonfigurasi. Aktifkan Authentication dan Email/Password di Firebase Console'
+  }
+  if (code.includes('OPERATION_NOT_ALLOWED')) {
+    return 'Metode login Email/Password belum diaktifkan di Firebase Authentication'
+  }
+  if (code.includes('PROJECT_NOT_FOUND')) {
+    return 'Project Firebase tidak ditemukan. Periksa PROJECT_ID dan API key di .env'
+  }
+  if (code.includes('API_KEY_HTTP_REFERRER_BLOCKED') || code.includes('API_KEY_SERVICE_BLOCKED')) {
+    return 'API key Firebase diblokir oleh pengaturan restriction. Izinkan Identity Toolkit API'
+  }
   if (code.includes('API_KEY_INVALID')) return 'API key Firebase tidak valid'
-  return 'Gagal membuat akun di Firebase Authentication'
+  return `Gagal membuat akun di Firebase Authentication (${code})`
 }
 
 async function provisionFirebaseAuthUser(email, password) {
