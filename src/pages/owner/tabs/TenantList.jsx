@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
 import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, deleteTenant, createTenant, bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
@@ -15,6 +15,8 @@ export default function TenantList({ onManageUsers, onEditContract }) {
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newTenant, setNewTenant] = useState({ brandName: '', eventName: '', expiresAt: '' })
+
+  const initialHydrationDoneRef = useRef(false)
 
   const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
@@ -33,9 +35,12 @@ export default function TenantList({ onManageUsers, onEditContract }) {
     setActiveTenantId(getActiveTenant().id)
   }, [runFirebaseHydrate])
 
+  // Only hydrate once on initial mount, not on every render
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return
+    initialHydrationDoneRef.current = true
     void refreshTenants(true)
-  }, [refreshTenants])
+  }, [])
 
   const handleCreate = async (e) => {
     e.preventDefault()

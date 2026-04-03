@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { 
   BarChart3, Users, Smartphone, LayoutGrid, 
   Search, AlertTriangle, AlertCircle, Save 
@@ -17,6 +17,8 @@ export default function QuotaManager() {
   const [isEditing, setIsEditing] = useState(null)
   const [editData, setEditData] = useState({})
 
+  const initialHydrationDoneRef = useRef(false)
+
   const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
     try {
@@ -34,9 +36,12 @@ export default function QuotaManager() {
     setHealthData(getTenantHealth())
   }, [runFirebaseHydrate])
 
+  // Only hydrate once on initial mount, not on every render
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return
+    initialHydrationDoneRef.current = true
     void refreshQuotaData(true)
-  }, [refreshQuotaData])
+  }, [])
 
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)

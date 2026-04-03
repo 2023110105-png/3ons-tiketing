@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { 
   Database, RefreshCw, Download, Trash2, 
   Search, ShieldAlert, History, Archive, Clock 
@@ -12,6 +12,8 @@ export default function BackupRestore() {
   const { user: currentUser } = useAuth()
   const [backups, setBackups] = useState(getStoreBackups())
   const [isRestoring, setIsRestoring] = useState(false)
+
+  const initialHydrationDoneRef = useRef(false)
 
   const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
@@ -29,9 +31,12 @@ export default function BackupRestore() {
     setBackups(getStoreBackups())
   }, [runFirebaseHydrate])
 
+  // Only hydrate once on initial mount, not on every render
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return
+    initialHydrationDoneRef.current = true
     void refreshBackups(true)
-  }, [refreshBackups])
+  }, [])
 
   const handleRestore = (backup) => {
     const reason = window.prompt(`Konfirmasi pemulihan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')

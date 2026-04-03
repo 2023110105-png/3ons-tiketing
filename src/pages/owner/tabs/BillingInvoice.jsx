@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { 
   FileText, History, DollarSign,
   Search, CheckCircle, Clock, Plus, Filter 
@@ -22,6 +22,8 @@ export default function BillingInvoice() {
     notes: '' 
   })
 
+  const initialHydrationDoneRef = useRef(false)
+
   const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
     try {
@@ -38,9 +40,12 @@ export default function BillingInvoice() {
     setTenants(getTenants())
   }, [runFirebaseHydrate])
 
+  // Only hydrate once on initial mount, not on every render
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return
+    initialHydrationDoneRef.current = true
     void refreshTenants(true)
-  }, [refreshTenants])
+  }, [])
 
   const allInvoices = useMemo(() => {
     return tenants.flatMap(t => (t.invoices || []).map(i => ({ ...i, tenantId: t.id, tenantName: t.brandName })))

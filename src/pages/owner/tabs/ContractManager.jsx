@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { 
   FileText, Calendar, DollarSign, Clock, 
   Search, CheckCircle, AlertCircle, Plus 
@@ -16,6 +16,8 @@ export default function ContractManager() {
   const [isEditing, setIsEditing] = useState(null)
   const [editData, setEditData] = useState({})
 
+  const initialHydrationDoneRef = useRef(false)
+
   const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
     try {
@@ -32,9 +34,12 @@ export default function ContractManager() {
     setTenants(getTenants())
   }, [runFirebaseHydrate])
 
+  // Only hydrate once on initial mount, not on every render
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return
+    initialHydrationDoneRef.current = true
     void refreshTenants(true)
-  }, [refreshTenants])
+  }, [])
 
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)

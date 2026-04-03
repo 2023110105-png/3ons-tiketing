@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { 
   Bell, BellOff, CheckCircle, Clock, 
   Trash2, AlertTriangle, Info, Search 
@@ -10,6 +10,8 @@ export default function NotificationCenter() {
   const toast = useToast()
   const [notifications, setNotifications] = useState(getOwnerNotifications())
   const [searchQuery, setSearchQuery] = useState('')
+
+  const initialHydrationDoneRef = useRef(false)
 
   const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
@@ -27,9 +29,12 @@ export default function NotificationCenter() {
     setNotifications(getOwnerNotifications())
   }, [runFirebaseHydrate])
 
+  // Only hydrate once on initial mount, not on every render
   useEffect(() => {
+    if (initialHydrationDoneRef.current) return
+    initialHydrationDoneRef.current = true
     void refreshNotifications(true)
-  }, [refreshNotifications])
+  }, [])
 
   const handleMarkRead = (id) => {
     markNotificationRead(id)
