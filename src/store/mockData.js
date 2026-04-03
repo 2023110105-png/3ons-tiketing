@@ -1831,20 +1831,39 @@ export function getSession() {
   const active = safeStorageGet(SESSION_KEY)
   const parsedActive = parseStoredJSON(active)
   if (parsedActive) {
+    const role = String(parsedActive.role || '').toLowerCase()
+    const isGlobalRole = role === 'owner' || role === 'super_admin'
     const activeTenant = getActiveTenantState()
-    if (!canUseTenant(activeTenant)) {
+
+    if (!isGlobalRole && !canUseTenant(activeTenant)) {
+      const fallbackTenant = Object.values(tenantRegistry.tenants).find(canUseTenant)
+      if (fallbackTenant) {
+        tenantRegistry.activeTenantId = fallbackTenant.id
+        saveTenantRegistry()
+      } else {
+        safeStorageRemove(SESSION_KEY)
+        return null
+      }
+    }
+
+    const resolvedTenant = getActiveTenantState()
+    if (!isGlobalRole && !canUseTenant(resolvedTenant)) {
       safeStorageRemove(SESSION_KEY)
       return null
     }
 
-    ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+    ensureTenantStore(
+      resolvedTenant.id,
+      resolvedTenant.eventName || 'Event 1',
+      resolvedTenant.id === DEFAULT_TENANT_ID
+    )
 
     return {
       ...parsedActive,
       tenant: {
-        id: activeTenant.id,
-        brandName: activeTenant.brandName,
-        eventName: activeTenant.eventName
+        id: resolvedTenant.id,
+        brandName: resolvedTenant.brandName,
+        eventName: resolvedTenant.eventName
       }
     }
   }
