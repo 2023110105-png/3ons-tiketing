@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState, useCallback } from 'react'
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, isFirebaseEnabled } from '../lib/firebase'
 import {
   bootstrapStoreFromFirebase,
@@ -95,12 +95,19 @@ export function AuthProvider({ children }) {
           error: 'Akun valid, tetapi belum terdaftar di sistem tenant'
         }
       } catch (error) {
-        // Some owner-created tenant users exist in tenant registry but are not yet provisioned in Firebase Auth.
-        // Fallback to tenant credential check so those accounts can still log in.
+        // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
         const localResult = doLogin(username, password)
         if (localResult.success) {
-          setUser(localResult.user)
-          return localResult
+          try {
+            await createUserWithEmailAndPassword(auth, candidateEmail, password)
+            setUser(localResult.user)
+            return localResult
+          } catch (createErr) {
+            return {
+              success: false,
+              error: 'Sistem mencoba mendaftarkan sesi Firebase namun gagal. Periksa aturan Firebase atau API Key.'
+            }
+          }
         }
         return { success: false, error: mapFirebaseAuthError(error?.code) }
       }
