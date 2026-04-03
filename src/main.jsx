@@ -37,7 +37,7 @@ function handleRuntimeLoadIssue(rawMessage) {
     return
   }
 
-  renderStartupError(`Terjadi kesalahan runtime: ${String(rawMessage || 'unknown_error')}`)
+  console.error(`[Aplikasi] Kesalahan runtime tertangkap: ${String(rawMessage || 'unknown_error')}`)
 }
 
 window.addEventListener('error', (event) => {
