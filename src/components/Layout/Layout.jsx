@@ -45,6 +45,8 @@ export default function Layout({ children }) {
   }, [])
 
   useEffect(() => {
+    if (user?.role === 'owner') return
+
     let stopped = false
 
     const pullLatestWorkspace = async () => {
@@ -67,7 +69,7 @@ export default function Layout({ children }) {
       stopped = true
       window.clearInterval(id)
     }
-  }, [])
+  }, [user?.role])
 
   const handleDayChange = (day) => {
     setCurrentDay(day, user)

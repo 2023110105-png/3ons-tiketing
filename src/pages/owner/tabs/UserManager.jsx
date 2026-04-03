@@ -79,11 +79,15 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   }, [selectedTenantId])
 
   useEffect(() => {
+    if (!selectedTenantId) return
+    if (showAddModal) return
+
     const id = window.setInterval(() => {
-      void refreshTenantData(selectedTenantId, true)
-    }, 8000)
+      if (document.hidden) return
+      void refreshTenantData(selectedTenantId, false)
+    }, 15000)
     return () => window.clearInterval(id)
-  }, [selectedTenantId])
+  }, [selectedTenantId, showAddModal])
 
   const handleCreateUser = async (e) => {
     e.preventDefault()
