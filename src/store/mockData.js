@@ -43,6 +43,10 @@ const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' 
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
 
+function isAllowedStrictStorageKey(key) {
+  return key === SESSION_KEY || key === LEGACY_SESSION_KEY
+}
+
 async function ensureFirebaseAuthSessionReady() {
   if (!isFirebaseEnabled || !auth) return null
   if (auth.currentUser) return auth.currentUser
@@ -114,7 +118,7 @@ const DEFAULT_TENANT = {
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
 function safeStorageGet(key) {
-  if (IS_FIREBASE_STRICT_DATA_MODE) return null
+  if (IS_FIREBASE_STRICT_DATA_MODE && !isAllowedStrictStorageKey(key)) return null
   try {
     return localStorage.getItem(key)
   } catch {
@@ -123,7 +127,7 @@ function safeStorageGet(key) {
 }
 
 function safeStorageSet(key, value) {
-  if (IS_FIREBASE_STRICT_DATA_MODE) return false
+  if (IS_FIREBASE_STRICT_DATA_MODE && !isAllowedStrictStorageKey(key)) return false
   try {
     localStorage.setItem(key, value)
     return true
@@ -133,7 +137,7 @@ function safeStorageSet(key, value) {
 }
 
 function safeStorageRemove(key) {
-  if (IS_FIREBASE_STRICT_DATA_MODE) return
+  if (IS_FIREBASE_STRICT_DATA_MODE && !isAllowedStrictStorageKey(key)) return
   try {
     localStorage.removeItem(key)
   } catch {

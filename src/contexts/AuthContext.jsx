@@ -32,6 +32,22 @@ function mapFirebaseAuthError(errorCode) {
   }
 }
 
+async function waitForFirebaseAuthReady() {
+  if (!isFirebaseEnabled || !auth) return
+  if (typeof auth.authStateReady === 'function') {
+    try {
+      await auth.authStateReady()
+      return
+    } catch {
+      // Fallback to timeout below.
+    }
+  }
+
+  await new Promise((resolve) => {
+    setTimeout(resolve, 500)
+  })
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -47,7 +63,20 @@ export function AuthProvider({ children }) {
       }
 
       if (cancelled) return
-      setUser(getSession())
+
+      let session = getSession()
+      if (!session && isFirebaseEnabled && auth) {
+        await waitForFirebaseAuthReady()
+        const firebaseEmail = auth.currentUser?.email
+        if (firebaseEmail) {
+          const recovered = loginByIdentity(firebaseEmail)
+          if (recovered.success) {
+            session = recovered.user
+          }
+        }
+      }
+
+      setUser(session)
       setLoading(false)
     }
 

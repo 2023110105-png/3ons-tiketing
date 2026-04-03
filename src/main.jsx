@@ -27,12 +27,7 @@ function isChunkLoadIssue(text) {
 
 function handleRuntimeLoadIssue(rawMessage) {
   if (isChunkLoadIssue(rawMessage)) {
-    const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1'
-    if (!alreadyReloaded) {
-      sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
-      window.location.reload()
-      return
-    }
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
     renderStartupError('Versi aplikasi baru terdeteksi tetapi file lama masih tercache. Coba hard refresh (Ctrl+Shift+R) atau buka mode incognito.')
     return
   }
@@ -59,8 +54,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>,
 )
-
-sessionStorage.removeItem(CHUNK_RELOAD_KEY)
 
 // Register Progressive Web App Service Worker after the app is rendered.
 // Never let SW registration failure block app boot.
