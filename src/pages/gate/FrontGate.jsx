@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts } from '../../store/mockData'
+import { checkIn, getStats, getCurrentDay, getParticipants, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
@@ -21,6 +21,7 @@ export default function FrontGate() {
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const lastScanRef = useRef({ data: null, time: 0 })
+  const lastFirebaseSyncRef = useRef(0)
   const scannerRef = useRef(null)
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
 
@@ -32,6 +33,13 @@ export default function FrontGate() {
     const items = getPendingCheckIns()
     setPendingItems(items)
     setPendingCount(items.length)
+  }, [])
+
+  const refreshFromFirebaseIfStale = useCallback(async () => {
+    const now = Date.now()
+    if (now - lastFirebaseSyncRef.current < 2000) return
+    lastFirebaseSyncRef.current = now
+    await bootstrapStoreFromFirebase(true)
   }, [])
 
   const getLimitBadgeClass = () => {
@@ -70,6 +78,8 @@ export default function FrontGate() {
   }, [isSyncing, refreshPendingState, refreshStats])
 
   const verifyScanWithServer = useCallback(async (qrData) => {
+    await refreshFromFirebaseIfStale()
+
     let parsed
     try {
       parsed = JSON.parse(String(qrData || ''))
@@ -105,7 +115,7 @@ export default function FrontGate() {
     } catch {
       return { valid: false, reason: 'verify_unreachable', enforced: false }
     }
-  }, [])
+  }, [refreshFromFirebaseIfStale])
 
   const handleScan = useCallback(async (qrData) => {
     const now = Date.now()
@@ -113,6 +123,8 @@ export default function FrontGate() {
       return // Abaikan jika QR yang sama discan dalam waktu < 3 detik
     }
     lastScanRef.current = { data: qrData, time: now }
+
+    await refreshFromFirebaseIfStale()
 
     if (!navigator.onLine) {
       enqueuePendingCheckIn(qrData, 'gate_front', scanMode)
@@ -160,7 +172,7 @@ export default function FrontGate() {
 
     refreshStats()
     setTimeout(() => setResult(null), getResultDismissMs(res))
-  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshPendingState, refreshStats, verifyScanWithServer])
+  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshFromFirebaseIfStale, refreshPendingState, refreshStats, verifyScanWithServer])
 
   const handleManualSubmit = (e) => {
     e.preventDefault()

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getWaSendMode, getAvailableDays } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getWaSendMode, getAvailableDays, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
@@ -35,7 +35,10 @@ export default function Participants() {
     return () => window.removeEventListener('resize', h)
   }, [])
 
-  const refreshData = useCallback(() => {
+  const refreshData = useCallback(async (forceFirebase = true) => {
+    if (forceFirebase) {
+      await bootstrapStoreFromFirebase(true)
+    }
     setAvailableDays(getAvailableDays())
     let data = getParticipants(dayFilter)
     if (search) {
@@ -52,9 +55,18 @@ export default function Participants() {
     setParticipants(data)
   }, [search, dayFilter, categoryFilter, statusFilter])
 
-  useEffect(() => { refreshData() }, [refreshData])
+  useEffect(() => {
+    void refreshData(true)
+  }, [refreshData])
 
-  const handleAdd = (e) => {
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshData(true)
+    }, 5000)
+    return () => window.clearInterval(id)
+  }, [refreshData])
+
+  const handleAdd = async (e) => {
     e.preventDefault()
     if (!newParticipant.name.trim()) return
     const safeDay = Number(newParticipant.day_number)
@@ -71,7 +83,7 @@ export default function Participants() {
     }
     setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false })
     setShowModal(false)
-    refreshData()
+    await refreshData(true)
   }
 
   // --- BOT BROADCAST FEATURES ---
@@ -168,7 +180,7 @@ export default function Participants() {
         return
       }
       toast.error('Peserta dihapus', p.name)
-      refreshData()
+      void refreshData(true)
     }
   }
 
@@ -241,7 +253,7 @@ export default function Participants() {
     if (importPreview.invalidDayRows?.length > 0) {
       toast.info('Hari default digunakan', `${importPreview.invalidDayRows.length} baris memakai hari default (${dayFilter}) karena nilai hari tidak valid`)
     }
-    refreshData()
+    void refreshData(true)
   }
 
   const downloadTemplate = async () => {
