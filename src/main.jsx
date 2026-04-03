@@ -2,7 +2,6 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
-import { registerSW } from 'virtual:pwa-register'
 
 const CHUNK_RELOAD_KEY = 'ons_chunk_reload_once'
 
@@ -55,12 +54,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )
 
-// Register Progressive Web App Service Worker after the app is rendered.
-// Never let SW registration failure block app boot.
+// Disable service worker runtime to prevent unexpected auto-refresh loops in production.
+// Also unregister previously installed workers from older deployments.
 if ('serviceWorker' in navigator) {
-  try {
-    registerSW()
-  } catch (error) {
-    console.error('[PWA] Failed to register service worker:', error)
-  }
+  navigator.serviceWorker.getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .catch(() => {
+      // Ignore cleanup errors.
+    })
 }

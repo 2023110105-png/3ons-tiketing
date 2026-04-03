@@ -64,7 +64,9 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    VitePWA({
+    // PWA disabled temporarily to prioritize runtime stability on production devices.
+    // Re-enable after refresh-loop issue is fully resolved.
+    false && VitePWA({
       registerType: 'prompt',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
@@ -84,6 +86,6 @@ export default defineConfig({
           }
         ]
       }
-    })
+    }),
   ]
 })
