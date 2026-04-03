@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
   Activity, Users, CheckCircle, XCircle, 
   Clock, AlertTriangle, RefreshCw, BarChart 
@@ -26,11 +26,6 @@ export default function TenantHealth() {
       setIsRefreshing(false)
     }, 800)
   }
-
-  useEffect(() => {
-    const interval = setInterval(handleRefresh, 30000) // Auto refresh every 30s
-    return () => clearInterval(interval)
-  }, [])
 
   return (
     <div className="tenant-health-container owner-fade-in-up">

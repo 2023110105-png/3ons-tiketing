@@ -78,17 +78,6 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     }
   }, [selectedTenantId])
 
-  useEffect(() => {
-    if (!selectedTenantId) return
-    if (showAddModal) return
-
-    const id = window.setInterval(() => {
-      if (document.hidden) return
-      void refreshTenantData(selectedTenantId, false)
-    }, 15000)
-    return () => window.clearInterval(id)
-  }, [selectedTenantId, showAddModal])
-
   const handleCreateUser = async (e) => {
     e.preventDefault()
     if (!selectedTenantId) return
@@ -151,6 +140,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
           <div className="form-group mb-0">
             <select 
               className="form-select" 
+              name="selectedTenant"
               value={selectedTenantId} 
               onChange={e => setSelectedTenantId(e.target.value)}
             >
@@ -187,6 +177,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                 <Search size={14} className="admin-search-icon" />
                 <input 
                   className="form-input" 
+                  name="searchUser"
                   placeholder="Cari pengguna..." 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -266,6 +257,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   <label htmlFor="new-user-username" className="form-label">Username</label>
                   <input 
                     id="new-user-username"
+                    name="username"
                     className="form-input" 
                     required 
                     value={newUser.username}
@@ -277,6 +269,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   <label htmlFor="new-user-email" className="form-label">Email Login (opsional)</label>
                   <input
                     id="new-user-email"
+                    name="email"
                     className="form-input"
                     type="email"
                     value={newUser.email}
@@ -288,6 +281,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   <label htmlFor="new-user-password" className="form-label">Password Awal</label>
                   <input 
                     id="new-user-password"
+                    name="password"
                     className="form-input" 
                     type="password"
                     required 
@@ -300,6 +294,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   <label htmlFor="new-user-name" className="form-label">Nama Lengkap</label>
                   <input 
                     id="new-user-name"
+                    name="fullName"
                     className="form-input" 
                     required 
                     value={newUser.name}
@@ -311,6 +306,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
                   <label htmlFor="new-user-role" className="form-label">Peran</label>
                   <select 
                     id="new-user-role"
+                    name="role"
                     className="form-select"
                     value={newUser.role}
                     onChange={e => setNewUser({...newUser, role: e.target.value})}

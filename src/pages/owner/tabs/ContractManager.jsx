@@ -36,13 +36,6 @@ export default function ContractManager() {
     void refreshTenants(true)
   }, [refreshTenants])
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshTenants(true)
-    }, 8000)
-    return () => window.clearInterval(id)
-  }, [refreshTenants])
-
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)
     setEditData({

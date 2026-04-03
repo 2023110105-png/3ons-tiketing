@@ -42,13 +42,6 @@ export default function BillingInvoice() {
     void refreshTenants(true)
   }, [refreshTenants])
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshTenants(true)
-    }, 8000)
-    return () => window.clearInterval(id)
-  }, [refreshTenants])
-
   const allInvoices = useMemo(() => {
     return tenants.flatMap(t => (t.invoices || []).map(i => ({ ...i, tenantId: t.id, tenantName: t.brandName })))
       .sort((a, b) => new Date(b.issued_at) - new Date(a.issued_at))

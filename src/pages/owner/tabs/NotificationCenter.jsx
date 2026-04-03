@@ -31,13 +31,6 @@ export default function NotificationCenter() {
     void refreshNotifications(true)
   }, [refreshNotifications])
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshNotifications(true)
-    }, 8000)
-    return () => window.clearInterval(id)
-  }, [refreshNotifications])
-
   const handleMarkRead = (id) => {
     markNotificationRead(id)
     void refreshNotifications(false)

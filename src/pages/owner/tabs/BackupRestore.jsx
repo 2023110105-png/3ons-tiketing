@@ -33,13 +33,6 @@ export default function BackupRestore() {
     void refreshBackups(true)
   }, [refreshBackups])
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshBackups(true)
-    }, 10000)
-    return () => window.clearInterval(id)
-  }, [refreshBackups])
-
   const handleRestore = (backup) => {
     const reason = window.prompt(`Konfirmasi pemulihan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')
     

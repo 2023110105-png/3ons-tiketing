@@ -38,13 +38,6 @@ export default function QuotaManager() {
     void refreshQuotaData(true)
   }, [refreshQuotaData])
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshQuotaData(true)
-    }, 8000)
-    return () => window.clearInterval(id)
-  }, [refreshQuotaData])
-
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)
     setEditData({

@@ -37,13 +37,6 @@ export default function TenantList({ onManageUsers, onEditContract }) {
     void refreshTenants(true)
   }, [refreshTenants])
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshTenants(true)
-    }, 8000)
-    return () => window.clearInterval(id)
-  }, [refreshTenants])
-
   const handleCreate = async (e) => {
     e.preventDefault()
     const result = await createTenant(newTenant, user)
@@ -108,6 +101,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
             <Search size={16} />
             <input 
               className="owner-form-input" 
+              name="searchTenant"
               placeholder="Cari akun brand..." 
               value={tenantSearch} 
               onChange={e => setTenantSearch(e.target.value)} 
@@ -115,6 +109,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
           </div>
           <select 
             className="owner-form-select" 
+            name="tenantFilter"
             style={{ width: '180px' }} 
             value={tenantFilter} 
             onChange={e => setTenantFilter(e.target.value)}
@@ -232,6 +227,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                   <label className="owner-form-label">Nama Brand</label>
                   <input 
                     className="owner-form-input" 
+                    name="brandName"
                     required 
                     value={newTenant.brandName}
                     onChange={e => setNewTenant({...newTenant, brandName: e.target.value})}
@@ -242,6 +238,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                   <label className="owner-form-label">Nama Event</label>
                   <input 
                     className="owner-form-input" 
+                    name="eventName"
                     value={newTenant.eventName}
                     onChange={e => setNewTenant({...newTenant, eventName: e.target.value})}
                     placeholder="Contoh: Tech Expo 2026" 
@@ -251,6 +248,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
                   <label className="owner-form-label">Tanggal Kedaluwarsa (Opsional)</label>
                   <input 
                     className="owner-form-input" 
+                    name="expiresAt"
                     type="date"
                     value={newTenant.expiresAt}
                     onChange={e => setNewTenant({...newTenant, expiresAt: e.target.value})}
