@@ -789,6 +789,20 @@ export default function ServerVerifyTools() {
     })
     .slice(0, 30)
 
+  const diagnosticSummary = diagnosticLogs.reduce((acc, item) => {
+    acc.total += 1
+    if (item.status === 'pass') acc.pass += 1
+    else if (item.status === 'warn') acc.warn += 1
+    else if (item.status === 'fail') acc.fail += 1
+    return acc
+  }, { total: 0, pass: 0, warn: 0, fail: 0 })
+
+  const incidentSummary = incidentTimeline.reduce((acc, item) => {
+    if (item.status === 'warn') acc.warn += 1
+    if (item.status === 'fail') acc.fail += 1
+    return acc
+  }, { warn: 0, fail: 0 })
+
   const exportDiagnosticLogsJson = () => {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     downloadTextFile(
@@ -819,6 +833,39 @@ export default function ServerVerifyTools() {
       csvLines.join('\n'),
       'text/csv;charset=utf-8'
     )
+  }
+
+  const exportIncidentTimelineCsv = () => {
+    const headers = ['checked_at', 'type', 'status', 'tenant_id', 'summary']
+    const rows = incidentTimeline.map((item) => [
+      item.checkedAt,
+      item.type,
+      item.status,
+      item.tenantId,
+      item.summary
+    ])
+
+    const csvLines = [
+      headers.map(toCsvValue).join(','),
+      ...rows.map((row) => row.map(toCsvValue).join(','))
+    ]
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    downloadTextFile(
+      `incident-timeline-${stamp}.csv`,
+      csvLines.join('\n'),
+      'text/csv;charset=utf-8'
+    )
+  }
+
+  const clearDiagnosticLogs = () => {
+    if (diagnosticLogs.length === 0) return
+    const confirmed = window.confirm('Hapus semua log diagnostik saat ini? Tindakan ini tidak bisa dibatalkan.')
+    if (!confirmed) return
+
+    setDiagnosticLogs([])
+    setAlertEvents([])
+    toast.info('Log diagnostik dibersihkan', 'Semua riwayat log lokal sudah dihapus.')
   }
 
   const resetTenantSession = async (tenantId) => {
@@ -1108,6 +1155,31 @@ export default function ServerVerifyTools() {
 
   return (
     <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Ringkasan Real-time IT Tools</h3>
+          <span className="badge badge-yellow">Snapshot lokal</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+            <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Total log</p>
+            <div style={{ fontWeight: 800, fontSize: 22 }}>{diagnosticSummary.total}</div>
+          </div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+            <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Warn log</p>
+            <div style={{ fontWeight: 800, fontSize: 22, color: '#b45309' }}>{diagnosticSummary.warn}</div>
+          </div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+            <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Fail log</p>
+            <div style={{ fontWeight: 800, fontSize: 22, color: '#b91c1c' }}>{diagnosticSummary.fail}</div>
+          </div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+            <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Incident (warn/fail)</p>
+            <div style={{ fontWeight: 800, fontSize: 22 }}>{incidentSummary.warn + incidentSummary.fail}</div>
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <h3 className="card-title">Alat Uji Verifikasi Server</h3>
@@ -1525,6 +1597,12 @@ export default function ServerVerifyTools() {
           </select>
         </div>
 
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button className="btn btn-outline" onClick={exportIncidentTimelineCsv} disabled={incidentTimeline.length === 0}>
+            <FileDown size={16} /> Export Incident CSV
+          </button>
+        </div>
+
         {incidentTimeline.length === 0 ? (
           <div className="empty-state" style={{ minHeight: 120 }}>
             <h3>Tidak ada insiden aktif</h3>
@@ -1591,6 +1669,9 @@ export default function ServerVerifyTools() {
           </button>
           <button className="btn btn-outline" onClick={exportDiagnosticLogsCsv} disabled={filteredDiagnosticLogs.length === 0}>
             <FileDown size={16} /> Export CSV
+          </button>
+          <button className="btn btn-danger" onClick={clearDiagnosticLogs} disabled={diagnosticLogs.length === 0}>
+            Hapus Semua Log
           </button>
         </div>
 
