@@ -401,6 +401,7 @@ app.get('/api/wa/sessions', (req, res) => {
 
 // 1.5. Logout/Disconnect Bot
 app.post('/api/wa/logout', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const tenantId = resolveTenantId(req);
 
     try {
