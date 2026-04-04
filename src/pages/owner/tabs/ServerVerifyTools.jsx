@@ -32,6 +32,9 @@ export default function ServerVerifyTools() {
   const [alertSummary, setAlertSummary] = useState(null)
   const [alertEvents, setAlertEvents] = useState([])
   const [alertRunning, setAlertRunning] = useState(false)
+  const [autoFixRunning, setAutoFixRunning] = useState(false)
+  const [autoFixResult, setAutoFixResult] = useState(null)
+  const [quickTenantId, setQuickTenantId] = useState('')
   const alertTrackerRef = useRef({ offlineSince: {}, lastAlertAt: {} })
   const runAlertEvaluationRef = useRef(null)
 
@@ -580,6 +583,199 @@ export default function ServerVerifyTools() {
     )
   }
 
+  const resetTenantSession = async (tenantId) => {
+    const res = await apiFetch(`/api/wa/logout?tenant_id=${encodeURIComponent(tenantId)}`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || data?.success === false) {
+      throw new Error(data?.error || `HTTP ${res.status}`)
+    }
+    return data
+  }
+
+  const runAutoFix = async (mode, source = 'manual') => {
+    if (autoFixRunning) return
+    setAutoFixRunning(true)
+
+    try {
+      const snapshot = await getSessionSnapshot()
+      let targets = []
+      let modeLabel = ''
+
+      if (mode === 'offline') {
+        modeLabel = 'Reset tenant offline'
+        targets = snapshot.sessions.filter((item) => item.key === 'offline').map((item) => item.tenantId)
+      } else if (mode === 'qr') {
+        modeLabel = 'Regenerate QR tenant stuck'
+        targets = snapshot.sessions.filter((item) => item.key === 'qr').map((item) => item.tenantId)
+      } else {
+        modeLabel = 'Reset tenant non-ready'
+        targets = snapshot.sessions.filter((item) => !item.valid).map((item) => item.tenantId)
+      }
+
+      if (targets.length === 0) {
+        const msg = `Tidak ada target untuk mode ${modeLabel.toLowerCase()}.`
+        setAutoFixResult({
+          checkedAt: new Date().toISOString(),
+          mode,
+          modeLabel,
+          total: 0,
+          success: 0,
+          failed: 0,
+          details: [],
+          message: msg
+        })
+        toast.info('Auto Fix', msg)
+        appendDiagnosticLog({
+          type: 'auto-fix',
+          status: 'pass',
+          tenantId: '*',
+          summary: `${modeLabel}: tidak ada target`,
+          payload: { mode, targets }
+        })
+        return
+      }
+
+      const confirmed = window.confirm(
+        `Konfirmasi Auto Fix\n\nMode: ${modeLabel}\nTarget tenant: ${targets.length}\n\nLanjutkan tindakan?`
+      )
+      if (!confirmed) return
+
+      let success = 0
+      let failed = 0
+      const details = []
+
+      for (const tenantId of targets) {
+        try {
+          await resetTenantSession(tenantId)
+          success += 1
+          details.push({ tenantId, ok: true, message: 'reset berhasil' })
+        } catch (err) {
+          failed += 1
+          details.push({ tenantId, ok: false, message: err?.message || 'reset gagal' })
+        }
+      }
+
+      const nextResult = {
+        checkedAt: new Date().toISOString(),
+        mode,
+        modeLabel,
+        total: targets.length,
+        success,
+        failed,
+        details,
+        message: failed === 0
+          ? `${modeLabel} selesai: ${success}/${targets.length} tenant berhasil.`
+          : `${modeLabel} selesai sebagian: berhasil ${success}, gagal ${failed}.`
+      }
+      setAutoFixResult(nextResult)
+
+      appendDiagnosticLog({
+        type: 'auto-fix',
+        status: failed === 0 ? 'pass' : success > 0 ? 'warn' : 'fail',
+        tenantId: '*',
+        summary: `${modeLabel}: success=${success}, failed=${failed}`,
+        payload: nextResult
+      })
+
+      if (failed === 0) {
+        toast.success('Auto Fix selesai', nextResult.message)
+      } else {
+        toast.warning('Auto Fix selesai sebagian', nextResult.message)
+      }
+
+      const refreshed = await getSessionSnapshot()
+      const allGood = refreshed.sessions.length > 0 && refreshed.sessions.every((item) => item.valid)
+      setConnectionReport({
+        checkedAt: refreshed.checkedAt,
+        total: refreshed.sessions.length,
+        allGood,
+        summary: refreshed.summary,
+        sessions: refreshed.sessions,
+        error: ''
+      })
+      evaluateAlertRules(refreshed, source)
+    } catch (err) {
+      const msg = err?.message || 'Auto Fix gagal dijalankan.'
+      setAutoFixResult({
+        checkedAt: new Date().toISOString(),
+        mode,
+        modeLabel: mode,
+        total: 0,
+        success: 0,
+        failed: 0,
+        details: [],
+        message: msg
+      })
+
+      appendDiagnosticLog({
+        type: 'auto-fix',
+        status: 'fail',
+        tenantId: '*',
+        summary: msg,
+        payload: { mode, error: msg }
+      })
+      toast.error('Auto Fix gagal', msg)
+    } finally {
+      setAutoFixRunning(false)
+    }
+  }
+
+  const runQuickTenantReset = async () => {
+    const tenantId = String(quickTenantId || '').trim()
+    if (!tenantId || autoFixRunning) return
+
+    const confirmed = window.confirm(`Reset sesi untuk tenant ${tenantId}?`) 
+    if (!confirmed) return
+
+    setAutoFixRunning(true)
+    try {
+      await resetTenantSession(tenantId)
+      const result = {
+        checkedAt: new Date().toISOString(),
+        mode: 'single-reset',
+        modeLabel: 'Reset tenant spesifik',
+        total: 1,
+        success: 1,
+        failed: 0,
+        details: [{ tenantId, ok: true, message: 'reset berhasil' }],
+        message: `Tenant ${tenantId} berhasil direset.`
+      }
+      setAutoFixResult(result)
+      appendDiagnosticLog({
+        type: 'auto-fix',
+        status: 'pass',
+        tenantId,
+        summary: result.message,
+        payload: result
+      })
+      toast.success('Reset tenant berhasil', tenantId)
+
+      const refreshed = await getSessionSnapshot()
+      const allGood = refreshed.sessions.length > 0 && refreshed.sessions.every((item) => item.valid)
+      setConnectionReport({
+        checkedAt: refreshed.checkedAt,
+        total: refreshed.sessions.length,
+        allGood,
+        summary: refreshed.summary,
+        sessions: refreshed.sessions,
+        error: ''
+      })
+      evaluateAlertRules(refreshed, 'single-reset')
+    } catch (err) {
+      const msg = err?.message || 'Gagal reset tenant spesifik.'
+      appendDiagnosticLog({
+        type: 'auto-fix',
+        status: 'fail',
+        tenantId,
+        summary: msg,
+        payload: { mode: 'single-reset', tenantId, error: msg }
+      })
+      toast.error('Reset tenant gagal', msg)
+    } finally {
+      setAutoFixRunning(false)
+    }
+  }
+
   useEffect(() => {
     if (!alertRules.autoMonitor) return
 
@@ -758,6 +954,60 @@ export default function ServerVerifyTools() {
         )}
       </div>
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Auto Fix Ringan</h3>
+          <span className="badge badge-yellow">Aman dengan konfirmasi</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Jalankan perbaikan cepat untuk tenant bermasalah tanpa perlu akses manual ke menu admin satu per satu.
+        </p>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          <button className="btn btn-outline" onClick={() => runAutoFix('offline', 'auto-fix')} disabled={autoFixRunning}>
+            {autoFixRunning ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan auto fix...</>) : 'Reset Semua Offline'}
+          </button>
+          <button className="btn btn-outline" onClick={() => runAutoFix('qr', 'auto-fix')} disabled={autoFixRunning}>
+            {autoFixRunning ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan auto fix...</>) : 'Regenerate Semua QR Stuck'}
+          </button>
+          <button className="btn btn-outline" onClick={() => runAutoFix('non-ready', 'auto-fix')} disabled={autoFixRunning}>
+            {autoFixRunning ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan auto fix...</>) : 'Reset Semua Non-Ready'}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+          <input
+            className="form-input"
+            style={{ maxWidth: 280 }}
+            value={quickTenantId}
+            onChange={(e) => setQuickTenantId(e.target.value)}
+            placeholder="tenant id untuk reset cepat"
+          />
+          <button className="btn btn-outline" onClick={runQuickTenantReset} disabled={autoFixRunning || !quickTenantId.trim()}>
+            Reset Tenant Spesifik
+          </button>
+        </div>
+
+        {autoFixResult && (
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+            <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 6 }}>
+              {autoFixResult.modeLabel} | Berhasil: {autoFixResult.success} | Gagal: {autoFixResult.failed} | Target: {autoFixResult.total}
+            </p>
+            <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 8 }}>
+              {autoFixResult.message}
+            </p>
+            {autoFixResult.details.length > 0 && (
+              <details>
+                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Detail Auto Fix</summary>
+                <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
+                  {prettyJson(autoFixResult.details)}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
+
       {report && (
         <div className={`card ${report.allPassed ? 'border-success' : 'border-error'}`}>
           <div className="card-header">
@@ -871,6 +1121,7 @@ export default function ServerVerifyTools() {
             <option value="device-connection-check">Device connection</option>
             <option value="alert-evaluation">Alert evaluation</option>
             <option value="alert-rule">Alert trigger</option>
+            <option value="auto-fix">Auto fix</option>
             <option value="tenant-probe">Tenant probe</option>
             <option value="verify-self-test">Verify self test</option>
           </select>
