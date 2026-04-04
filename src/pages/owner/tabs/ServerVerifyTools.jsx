@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
 import { bootstrapStoreFromFirebase } from '../../../store/mockData'
+
+const MAX_DIAGNOSTIC_LOGS = 100
 
 export default function ServerVerifyTools() {
   const [running, setRunning] = useState(false)
@@ -13,6 +15,11 @@ export default function ServerVerifyTools() {
   const [tenantProbeResult, setTenantProbeResult] = useState(null)
   const [healthRunning, setHealthRunning] = useState(false)
   const [healthReport, setHealthReport] = useState(null)
+  const [diagnosticLogs, setDiagnosticLogs] = useState([])
+  const [logTenantQuery, setLogTenantQuery] = useState('')
+  const [logStatusFilter, setLogStatusFilter] = useState('all')
+  const [logTypeFilter, setLogTypeFilter] = useState('all')
+  const [logTimeFilter, setLogTimeFilter] = useState('24h')
 
   const prettyJson = (data) => {
     try {
@@ -20,6 +27,38 @@ export default function ServerVerifyTools() {
     } catch {
       return String(data)
     }
+  }
+
+  const appendDiagnosticLog = ({ type, status, tenantId = '-', summary, payload = {} }) => {
+    const nextItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      checkedAt: new Date().toISOString(),
+      type,
+      status,
+      tenantId,
+      summary,
+      payload
+    }
+
+    setDiagnosticLogs((prev) => [nextItem, ...prev].slice(0, MAX_DIAGNOSTIC_LOGS))
+  }
+
+  const toCsvValue = (value) => {
+    const text = String(value ?? '')
+    const escaped = text.replace(/"/g, '""')
+    return `"${escaped}"`
+  }
+
+  const downloadTextFile = (filename, content, mimeType) => {
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const runVerifySelfTest = async () => {
@@ -90,12 +129,21 @@ export default function ServerVerifyTools() {
       }
 
       const passed = results.filter((item) => item.ok).length
-      setReport({
+      const nextReport = {
         checkedAt: new Date().toISOString(),
         passed,
         total: results.length,
         allPassed: passed === results.length,
         results
+      }
+      setReport(nextReport)
+
+      appendDiagnosticLog({
+        type: 'verify-self-test',
+        status: nextReport.allPassed ? 'pass' : passed > 0 ? 'warn' : 'fail',
+        tenantId: 'tenant-default',
+        summary: `Self test ${nextReport.passed}/${nextReport.total}`,
+        payload: nextReport
       })
     } finally {
       setRunning(false)
@@ -143,22 +191,40 @@ export default function ServerVerifyTools() {
       }, { ready: 0, qr: 0, checking: 0, offline: 0, other: 0 })
 
       const allGood = normalized.length > 0 && normalized.every((item) => item.valid)
-      setConnectionReport({
+      const nextConnectionReport = {
         checkedAt: new Date().toISOString(),
         total: normalized.length,
         allGood,
         summary,
         sessions: normalized,
         error: ''
+      }
+      setConnectionReport(nextConnectionReport)
+
+      appendDiagnosticLog({
+        type: 'device-connection-check',
+        status: allGood ? 'pass' : summary.offline > 0 ? 'fail' : 'warn',
+        tenantId: '*',
+        summary: `ready=${summary.ready}, qr=${summary.qr}, checking=${summary.checking}, offline=${summary.offline}`,
+        payload: nextConnectionReport
       })
     } catch (err) {
-      setConnectionReport({
+      const failedReport = {
         checkedAt: new Date().toISOString(),
         total: 0,
         allGood: false,
         summary: { ready: 0, qr: 0, checking: 0, offline: 0, other: 0 },
         sessions: [],
         error: err?.message || 'Gagal memeriksa koneksi device.'
+      }
+      setConnectionReport(failedReport)
+
+      appendDiagnosticLog({
+        type: 'device-connection-check',
+        status: 'fail',
+        tenantId: '*',
+        summary: failedReport.error,
+        payload: failedReport
       })
     } finally {
       setConnectionRunning(false)
@@ -176,7 +242,7 @@ export default function ServerVerifyTools() {
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
 
       const mapped = normalizeSessionStatus(data?.status)
-      setTenantProbeResult({
+      const nextProbeResult = {
         tenantId,
         isReady: !!data?.isReady,
         statusLabel: mapped.label,
@@ -184,9 +250,18 @@ export default function ServerVerifyTools() {
         raw: data,
         checkedAt: new Date().toISOString(),
         error: ''
+      }
+      setTenantProbeResult(nextProbeResult)
+
+      appendDiagnosticLog({
+        type: 'tenant-probe',
+        status: nextProbeResult.tone === 'ok' ? 'pass' : nextProbeResult.tone === 'warn' ? 'warn' : 'fail',
+        tenantId,
+        summary: `status=${nextProbeResult.statusLabel}, ready=${nextProbeResult.isReady ? 'true' : 'false'}`,
+        payload: nextProbeResult
       })
     } catch (err) {
-      setTenantProbeResult({
+      const failedProbeResult = {
         tenantId,
         isReady: false,
         statusLabel: 'Gagal probe',
@@ -194,6 +269,15 @@ export default function ServerVerifyTools() {
         raw: null,
         checkedAt: new Date().toISOString(),
         error: err?.message || 'Gagal memeriksa tenant.'
+      }
+      setTenantProbeResult(failedProbeResult)
+
+      appendDiagnosticLog({
+        type: 'tenant-probe',
+        status: 'fail',
+        tenantId,
+        summary: failedProbeResult.error,
+        payload: failedProbeResult
       })
     } finally {
       setTenantProbeRunning(false)
@@ -278,16 +362,74 @@ export default function ServerVerifyTools() {
       })
 
       const passed = checks.filter((item) => item.ok).length
-      setHealthReport({
+      const nextHealthReport = {
         checkedAt: new Date().toISOString(),
         passed,
         total: checks.length,
         allPassed: passed === checks.length,
         checks
+      }
+      setHealthReport(nextHealthReport)
+
+      appendDiagnosticLog({
+        type: 'platform-health-check',
+        status: nextHealthReport.allPassed ? 'pass' : passed > 0 ? 'warn' : 'fail',
+        tenantId: '*',
+        summary: `Health check ${nextHealthReport.passed}/${nextHealthReport.total}`,
+        payload: nextHealthReport
       })
     } finally {
       setHealthRunning(false)
     }
+  }
+
+  const filteredDiagnosticLogs = diagnosticLogs.filter((item) => {
+    const query = logTenantQuery.trim().toLowerCase()
+    const tenantMatch = !query || String(item.tenantId || '').toLowerCase().includes(query)
+    const statusMatch = logStatusFilter === 'all' || item.status === logStatusFilter
+    const typeMatch = logTypeFilter === 'all' || item.type === logTypeFilter
+
+    let timeMatch = true
+    if (logTimeFilter !== 'all') {
+      const now = Date.now()
+      const checkedAtMs = new Date(item.checkedAt).getTime()
+      const limitMs = logTimeFilter === '1h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+      timeMatch = Number.isFinite(checkedAtMs) && now - checkedAtMs <= limitMs
+    }
+
+    return tenantMatch && statusMatch && typeMatch && timeMatch
+  })
+
+  const exportDiagnosticLogsJson = () => {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    downloadTextFile(
+      `diagnostic-logs-${stamp}.json`,
+      JSON.stringify(filteredDiagnosticLogs, null, 2),
+      'application/json;charset=utf-8'
+    )
+  }
+
+  const exportDiagnosticLogsCsv = () => {
+    const headers = ['checked_at', 'type', 'status', 'tenant_id', 'summary']
+    const rows = filteredDiagnosticLogs.map((item) => [
+      item.checkedAt,
+      item.type,
+      item.status,
+      item.tenantId,
+      item.summary
+    ])
+
+    const csvLines = [
+      headers.map(toCsvValue).join(','),
+      ...rows.map((row) => row.map(toCsvValue).join(','))
+    ]
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    downloadTextFile(
+      `diagnostic-logs-${stamp}.csv`,
+      csvLines.join('\n'),
+      'text/csv;charset=utf-8'
+    )
   }
 
   return (
@@ -453,6 +595,78 @@ export default function ServerVerifyTools() {
           </div>
         </div>
       )}
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Log Diagnostik Terpusat</h3>
+          <span className="badge badge-yellow">Maks {MAX_DIAGNOSTIC_LOGS} entri</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
+          <input
+            className="form-input"
+            value={logTenantQuery}
+            onChange={(e) => setLogTenantQuery(e.target.value)}
+            placeholder="Filter tenant id"
+          />
+          <select className="form-select" value={logStatusFilter} onChange={(e) => setLogStatusFilter(e.target.value)}>
+            <option value="all">Semua status</option>
+            <option value="pass">Pass</option>
+            <option value="warn">Warn</option>
+            <option value="fail">Fail</option>
+          </select>
+          <select className="form-select" value={logTypeFilter} onChange={(e) => setLogTypeFilter(e.target.value)}>
+            <option value="all">Semua jenis</option>
+            <option value="platform-health-check">Platform health</option>
+            <option value="device-connection-check">Device connection</option>
+            <option value="tenant-probe">Tenant probe</option>
+            <option value="verify-self-test">Verify self test</option>
+          </select>
+          <select className="form-select" value={logTimeFilter} onChange={(e) => setLogTimeFilter(e.target.value)}>
+            <option value="1h">1 jam terakhir</option>
+            <option value="24h">24 jam terakhir</option>
+            <option value="all">Semua waktu</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <button className="btn btn-outline" onClick={exportDiagnosticLogsJson} disabled={filteredDiagnosticLogs.length === 0}>
+            <FileDown size={16} /> Export JSON
+          </button>
+          <button className="btn btn-outline" onClick={exportDiagnosticLogsCsv} disabled={filteredDiagnosticLogs.length === 0}>
+            <FileDown size={16} /> Export CSV
+          </button>
+        </div>
+
+        <p className="scanner-note scanner-note-tight" style={{ marginBottom: 10 }}>
+          Menampilkan {filteredDiagnosticLogs.length} dari {diagnosticLogs.length} entri.
+        </p>
+
+        {filteredDiagnosticLogs.length === 0 ? (
+          <div className="empty-state" style={{ minHeight: 120 }}>
+            <h3>Belum ada log</h3>
+            <p>Jalankan salah satu pemeriksaan teknis untuk mengisi log diagnostik.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {filteredDiagnosticLogs.map((item) => (
+              <details key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+                <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontWeight: 700 }}>{item.type} | {item.tenantId}</span>
+                  <span style={{ fontWeight: 700, color: item.status === 'pass' ? '#166534' : item.status === 'warn' ? '#b45309' : '#b91c1c' }}>
+                    {item.status.toUpperCase()}
+                  </span>
+                </summary>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 8, marginBottom: 6 }}>{item.summary}</p>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 8 }}>{new Date(item.checkedAt).toLocaleString('id-ID')}</p>
+                <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
+                  {prettyJson(item.payload)}
+                </pre>
+              </details>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
