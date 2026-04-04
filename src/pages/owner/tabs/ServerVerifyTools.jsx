@@ -15,6 +15,12 @@ const DEFAULT_ALERT_RULES = {
   cooldownMinutes: 5
 }
 
+const ALERT_RULE_PRESETS = {
+  conservative: { enabled: true, autoMonitor: true, offlineMinutes: 15, nonReadyTenantThreshold: 5, cooldownMinutes: 10 },
+  normal: { ...DEFAULT_ALERT_RULES },
+  aggressive: { enabled: true, autoMonitor: true, offlineMinutes: 5, nonReadyTenantThreshold: 2, cooldownMinutes: 3 }
+}
+
 const DEFAULT_SAFE_MODE = {
   enabled: false,
   note: ''
@@ -1153,6 +1159,13 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const applyAlertPreset = (presetKey) => {
+    const preset = ALERT_RULE_PRESETS[presetKey]
+    if (!preset) return
+    setAlertRules(normalizeAlertRules(preset))
+    toast.info('Preset Alert diterapkan', presetKey)
+  }
+
   return (
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1178,6 +1191,25 @@ export default function ServerVerifyTools() {
             <div style={{ fontWeight: 800, fontSize: 22 }}>{incidentSummary.warn + incidentSummary.fail}</div>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16, position: 'sticky', top: 8, zIndex: 5 }}>
+        <div className="card-header">
+          <h3 className="card-title">Quick Action Bar</h3>
+          <span className="badge badge-yellow">Aksi cepat</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-outline" onClick={runPlatformHealthCheck} disabled={healthRunning}>Health Check</button>
+          <button className="btn btn-outline" onClick={runEndpointMatrixTest} disabled={matrixRunning}>Endpoint Matrix</button>
+          <button className="btn btn-outline" onClick={runDeviceConnectionCheck} disabled={connectionRunning}>Cek Device</button>
+          <button className="btn btn-outline" onClick={runRuntimeInfoCheck} disabled={runtimeRunning}>Runtime Info</button>
+          <button className="btn btn-outline" onClick={() => runAlertEvaluation('manual')} disabled={alertRunning}>Evaluasi Alert</button>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Diagnostik</h3>
+        <p className="scanner-note" style={{ margin: '4px 0 0 0' }}>Pemeriksaan teknis, observability, dan audit endpoint.</p>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1325,6 +1357,11 @@ export default function ServerVerifyTools() {
         )}
       </div>
 
+      <div style={{ marginBottom: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Operasional</h3>
+        <p className="scanner-note" style={{ margin: '4px 0 0 0' }}>Kontrol live event, alert rule, safe mode, dan aksi perbaikan.</p>
+      </div>
+
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <h3 className="card-title">Alert Rules</h3>
@@ -1375,6 +1412,12 @@ export default function ServerVerifyTools() {
             onChange={(e) => setAlertRules((prev) => ({ ...prev, cooldownMinutes: Number(e.target.value) || 1 }))}
             placeholder="Cooldown alert (menit)"
           />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button className="btn btn-outline" onClick={() => applyAlertPreset('conservative')}>Preset Conservative</button>
+          <button className="btn btn-outline" onClick={() => applyAlertPreset('normal')}>Preset Normal</button>
+          <button className="btn btn-outline" onClick={() => applyAlertPreset('aggressive')}>Preset Aggressive</button>
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
