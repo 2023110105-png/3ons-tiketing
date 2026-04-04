@@ -32,6 +32,12 @@ function mapFirebaseAuthError(errorCode) {
   }
 }
 
+function isValidEmail(value) {
+  const text = String(value || '').trim().toLowerCase()
+  if (!text) return false
+  return /^[^@]+@[^@]+\.[^@]+$/.test(text)
+}
+
 async function waitForFirebaseAuthReady() {
   if (!isFirebaseEnabled || !auth) return
   if (typeof auth.authStateReady === 'function') {
@@ -100,7 +106,8 @@ export function AuthProvider({ children }) {
         // Continue with current snapshot if refresh fails.
       }
 
-      const candidateEmail = resolveLoginEmail(username)
+      const normalizedIdentity = String(username || '').trim().toLowerCase()
+      const candidateEmail = resolveLoginEmail(username) || (isValidEmail(normalizedIdentity) ? normalizedIdentity : null)
       if (!candidateEmail) {
         // Akun tidak punya email, gunakan fallback local authentication
         const localResult = doLogin(username, password)
@@ -114,10 +121,22 @@ export function AuthProvider({ children }) {
 
       try {
         await signInWithEmailAndPassword(auth, candidateEmail, password)
+        try {
+          await bootstrapStoreFromFirebase(true)
+        } catch {
+          // Continue with last known snapshot.
+        }
+
         const identityResult = loginByIdentity(username)
         if (identityResult.success) {
           setUser(identityResult.user)
           return identityResult
+        }
+
+        const emailIdentityResult = loginByIdentity(candidateEmail)
+        if (emailIdentityResult.success) {
+          setUser(emailIdentityResult.user)
+          return emailIdentityResult
         }
 
         await signOut(auth)

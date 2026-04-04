@@ -44,7 +44,12 @@ const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE ===
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
 
 function isAllowedStrictStorageKey(key) {
-  return key === SESSION_KEY || key === LEGACY_SESSION_KEY
+  return key === SESSION_KEY
+    || key === LEGACY_SESSION_KEY
+    || key === TENANT_REGISTRY_KEY
+    || key === LEGACY_TENANT_REGISTRY_KEY
+    || key === STORE_KEY
+    || key === LEGACY_STORE_KEY
 }
 
 async function ensureFirebaseAuthSessionReady() {
