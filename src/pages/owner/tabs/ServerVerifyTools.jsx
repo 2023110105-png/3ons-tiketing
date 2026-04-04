@@ -5,6 +5,51 @@ import { bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 
 const MAX_DIAGNOSTIC_LOGS = 100
+const IT_TOOLS_SETTINGS_KEY = 'ons_owner_it_tools_settings_v1'
+
+const DEFAULT_ALERT_RULES = {
+  enabled: true,
+  autoMonitor: true,
+  offlineMinutes: 10,
+  nonReadyTenantThreshold: 3,
+  cooldownMinutes: 5
+}
+
+const DEFAULT_SAFE_MODE = {
+  enabled: false,
+  note: ''
+}
+
+function readItToolsSettings() {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(IT_TOOLS_SETTINGS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function normalizeAlertRules(value) {
+  const merged = { ...DEFAULT_ALERT_RULES, ...(value || {}) }
+  return {
+    enabled: Boolean(merged.enabled),
+    autoMonitor: Boolean(merged.autoMonitor),
+    offlineMinutes: Math.max(1, Number(merged.offlineMinutes) || DEFAULT_ALERT_RULES.offlineMinutes),
+    nonReadyTenantThreshold: Math.max(1, Number(merged.nonReadyTenantThreshold) || DEFAULT_ALERT_RULES.nonReadyTenantThreshold),
+    cooldownMinutes: Math.max(1, Number(merged.cooldownMinutes) || DEFAULT_ALERT_RULES.cooldownMinutes)
+  }
+}
+
+function normalizeSafeMode(value) {
+  const merged = { ...DEFAULT_SAFE_MODE, ...(value || {}) }
+  return {
+    enabled: Boolean(merged.enabled),
+    note: String(merged.note || '')
+  }
+}
 
 export default function ServerVerifyTools() {
   const toast = useToast()
@@ -21,18 +66,18 @@ export default function ServerVerifyTools() {
   const [matrixReport, setMatrixReport] = useState(null)
   const [runtimeRunning, setRuntimeRunning] = useState(false)
   const [runtimeInfo, setRuntimeInfo] = useState(null)
-  const [safeMode, setSafeMode] = useState({ enabled: false, note: '' })
+  const [safeMode, setSafeMode] = useState(() => {
+    const stored = readItToolsSettings()
+    return normalizeSafeMode(stored?.safeMode)
+  })
   const [diagnosticLogs, setDiagnosticLogs] = useState([])
   const [logTenantQuery, setLogTenantQuery] = useState('')
   const [logStatusFilter, setLogStatusFilter] = useState('all')
   const [logTypeFilter, setLogTypeFilter] = useState('all')
   const [logTimeFilter, setLogTimeFilter] = useState('24h')
-  const [alertRules, setAlertRules] = useState({
-    enabled: true,
-    autoMonitor: true,
-    offlineMinutes: 10,
-    nonReadyTenantThreshold: 3,
-    cooldownMinutes: 5
+  const [alertRules, setAlertRules] = useState(() => {
+    const stored = readItToolsSettings()
+    return normalizeAlertRules(stored?.alertRules)
   })
   const [alertSummary, setAlertSummary] = useState(null)
   const [alertEvents, setAlertEvents] = useState([])
@@ -1012,6 +1057,21 @@ export default function ServerVerifyTools() {
       window.clearInterval(id)
     }
   }, [alertRules.autoMonitor])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(
+        IT_TOOLS_SETTINGS_KEY,
+        JSON.stringify({
+          alertRules: normalizeAlertRules(alertRules),
+          safeMode: normalizeSafeMode(safeMode)
+        })
+      )
+    } catch {
+      // Ignore persistence failures to keep IT tools usable.
+    }
+  }, [alertRules, safeMode])
 
   const toggleSafeMode = () => {
     const nextEnabled = !safeMode.enabled
