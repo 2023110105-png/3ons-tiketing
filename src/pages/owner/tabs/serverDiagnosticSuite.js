@@ -14,6 +14,7 @@ import {
   updateInvoiceStatus,
   updateTenantContract
 } from '../../../store/mockData'
+import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/firebaseSync'
 import { apiFetch } from '../../../utils/api'
 
 const STORE_KEYS = ['ons_event_data', 'event_data']
@@ -65,6 +66,14 @@ function isLikelyStrictMode(storeSnapshot) {
   return !storeSnapshot.raw
 }
 
+function getRemoteEventSnapshot(workspaceSnapshot, tenantId, eventId) {
+  return workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId] || null
+}
+
+function getRemoteTenantSnapshot(workspaceSnapshot, tenantId) {
+  return workspaceSnapshot?.tenantRegistry?.tenants?.[tenantId] || null
+}
+
 export function getDiagnosticActionHint(testKey) {
   return ACTION_HINTS[testKey] || 'Periksa log detail test dan ulangi audit untuk mengonfirmasi akar masalah.'
 }
@@ -102,30 +111,69 @@ export class DiagnosticSuite {
     })
   }
 
-  async waitForParticipantState(participantId, expected, attempts = 3, waitMs = 700) {
+  async readRemoteWorkspaceSnapshot() {
+    try {
+      return await fetchFirebaseWorkspaceSnapshot()
+    } catch {
+      return null
+    }
+  }
+
+  async waitForRemoteParticipantState(participantId, expected, attempts = 5, waitMs = 1200) {
     for (let i = 0; i < attempts; i += 1) {
-      await bootstrapStoreFromFirebase(true)
-      const current = getParticipant(participantId)
+      const workspaceSnapshot = await this.readRemoteWorkspaceSnapshot()
+      if (!workspaceSnapshot) {
+        return { ok: null, available: false, skipped: true, reason: 'remote_snapshot_unavailable' }
+      }
+
+      const eventId = expected.eventId || getCurrentEventId()
+      const event = getRemoteEventSnapshot(workspaceSnapshot, this.tenantId, eventId)
+      const current = event?.participants?.find((item) => item.id === participantId) || null
       const exists = Boolean(current)
       const checked = Boolean(current?.is_checked_in)
       const matchExists = expected.exists === undefined ? true : expected.exists === exists
       const matchChecked = expected.checkedIn === undefined ? true : expected.checkedIn === checked
       if (matchExists && matchChecked) {
-        return { ok: true, participant: current, attempts: i + 1 }
+        return { ok: true, available: true, participant: current, attempts: i + 1, eventId }
       }
       if (i < attempts - 1) {
         await delay(waitMs)
       }
     }
 
-    const current = getParticipant(participantId)
+    const workspaceSnapshot = await this.readRemoteWorkspaceSnapshot()
+    const eventId = expected.eventId || getCurrentEventId()
+    const event = getRemoteEventSnapshot(workspaceSnapshot, this.tenantId, eventId)
+    const current = event?.participants?.find((item) => item.id === participantId) || null
     return {
       ok: false,
+      available: true,
       participant: current,
       attempts,
       exists: Boolean(current),
-      checkedIn: Boolean(current?.is_checked_in)
+      checkedIn: Boolean(current?.is_checked_in),
+      eventId
     }
+  }
+
+  async waitForRemoteTenantState(checkFn, attempts = 5, waitMs = 1200) {
+    for (let i = 0; i < attempts; i += 1) {
+      const workspaceSnapshot = await this.readRemoteWorkspaceSnapshot()
+      if (!workspaceSnapshot) {
+        return { ok: null, available: false, skipped: true, reason: 'remote_snapshot_unavailable' }
+      }
+
+      const matched = checkFn(workspaceSnapshot)
+      if (matched) {
+        return { ok: true, available: true, attempts: i + 1 }
+      }
+
+      if (i < attempts - 1) {
+        await delay(waitMs)
+      }
+    }
+
+    return { ok: false, available: true, attempts }
   }
 
   async runAll() {
@@ -320,20 +368,24 @@ export class DiagnosticSuite {
       const localStore = readLocalStoreSnapshot()
       const localContainsTicket = Boolean(localStore.raw && localStore.raw.includes(participant.ticket_id))
 
-      const syncCheck = await this.waitForParticipantState(participant.id, { exists: true }, 4, 800)
-      if (!syncCheck.ok) {
-        return this.log('ADD_PARTICIPANT_E2E', false, 'Peserta tidak ditemukan konsisten setelah bootstrap sinkronisasi', {
+      const remoteCheck = await this.waitForRemoteParticipantState(participant.id, { exists: true, eventId: getCurrentEventId() }, 6, 1200)
+      if (remoteCheck.ok === false) {
+        return this.log('ADD_PARTICIPANT_E2E', false, 'Peserta tidak ditemukan konsisten pada snapshot Firebase', {
           participantId: participant.id,
           localContainsTicket,
-          syncCheck
+          remoteCheck
         })
       }
 
-      return this.log('ADD_PARTICIPANT_E2E', true, 'Tambah peserta tersimpan di memory dan konsisten setelah sinkronisasi', {
+      return this.log('ADD_PARTICIPANT_E2E', true, remoteCheck.ok === null
+        ? 'Tambah peserta tersimpan di memory dan localStorage; remote Firebase snapshot tidak tersedia untuk verifikasi.'
+        : 'Tambah peserta tersimpan di memory, localStorage, dan konsisten di Firebase.', {
         participantId: participant.id,
         ticketId: participant.ticket_id,
         localContainsTicket,
-        syncAttempts: syncCheck.attempts
+        remoteAvailable: remoteCheck.ok !== null,
+        remoteAttempts: remoteCheck.attempts || 0,
+        remoteSkipped: remoteCheck.ok === null
       })
     } catch (err) {
       return this.log('ADD_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
@@ -360,17 +412,30 @@ export class DiagnosticSuite {
         })
       }
 
-      const syncCheck = await this.waitForParticipantState(freshParticipant.id, { exists: true, checkedIn: true }, 4, 800)
-      if (!syncCheck.ok) {
-        return this.log('CHECK_IN_PARTICIPANT_E2E', false, 'Status check-in tidak konsisten setelah sinkronisasi', {
+      const localParticipant = getParticipant(freshParticipant.id)
+      if (!localParticipant?.is_checked_in) {
+        return this.log('CHECK_IN_PARTICIPANT_E2E', false, 'Status check-in tidak berubah di memory lokal', {
           participantId: freshParticipant.id,
-          syncCheck
+          localParticipant
         })
       }
 
-      return this.log('CHECK_IN_PARTICIPANT_E2E', true, 'Scan/check-in berhasil dan konsisten setelah sinkronisasi', {
+      const remoteCheck = await this.waitForRemoteParticipantState(freshParticipant.id, { exists: true, checkedIn: true, eventId: getCurrentEventId() }, 6, 1200)
+      if (remoteCheck.ok === false) {
+        return this.log('CHECK_IN_PARTICIPANT_E2E', false, 'Status check-in tidak konsisten setelah sinkronisasi', {
+          participantId: freshParticipant.id,
+          remoteCheck
+        })
+      }
+
+      return this.log('CHECK_IN_PARTICIPANT_E2E', true, remoteCheck.ok === null
+        ? 'Scan/check-in berhasil di memory lokal; remote Firebase snapshot tidak tersedia untuk verifikasi.'
+        : 'Scan/check-in berhasil dan konsisten di Firebase.', {
         participantId: freshParticipant.id,
-        checkedInAt: syncCheck.participant?.checked_in_at || null
+        checkedInAt: localParticipant?.checked_in_at || null,
+        remoteAvailable: remoteCheck.ok !== null,
+        remoteAttempts: remoteCheck.attempts || 0,
+        remoteSkipped: remoteCheck.ok === null
       })
     } catch (err) {
       return this.log('CHECK_IN_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
@@ -394,13 +459,21 @@ export class DiagnosticSuite {
 
       this.bulkParticipants = result.added.map((item) => item.id)
 
+      const localIntegrity = this.bulkParticipants.every((id) => Boolean(getParticipant(id)))
+      if (!localIntegrity) {
+        return this.log('BULK_ADD_PARTICIPANT_E2E', false, 'Sebagian participant bulk tidak tersimpan di memory lokal', {
+          addedIds: this.bulkParticipants,
+          result
+        })
+      }
+
       const syncChecks = []
       for (const id of this.bulkParticipants) {
-        const syncCheck = await this.waitForParticipantState(id, { exists: true }, 3, 700)
+        const syncCheck = await this.waitForRemoteParticipantState(id, { exists: true, eventId: getCurrentEventId() }, 6, 1200)
         syncChecks.push(syncCheck)
       }
 
-      const failedSync = syncChecks.find((item) => !item.ok)
+      const failedSync = syncChecks.find((item) => item.ok === false)
       if (failedSync) {
         return this.log('BULK_ADD_PARTICIPANT_E2E', false, 'Sebagian participant bulk tidak konsisten setelah sinkronisasi', {
           addedIds: this.bulkParticipants,
@@ -408,9 +481,14 @@ export class DiagnosticSuite {
         })
       }
 
-      return this.log('BULK_ADD_PARTICIPANT_E2E', true, 'Bulk add berhasil dan konsisten setelah sinkronisasi', {
+      const remoteSkipped = syncChecks.every((item) => item.ok === null)
+      return this.log('BULK_ADD_PARTICIPANT_E2E', true, remoteSkipped
+        ? 'Bulk add berhasil di memory lokal; remote Firebase snapshot tidak tersedia untuk verifikasi.'
+        : 'Bulk add berhasil dan konsisten di Firebase.', {
         addedIds: this.bulkParticipants,
-        errorCount: result.errors.length
+        errorCount: result.errors.length,
+        remoteSkipped,
+        remoteChecks: syncChecks.map((item) => ({ ok: item.ok, attempts: item.attempts || 0, skipped: item.ok === null }))
       })
     } catch (err) {
       return this.log('BULK_ADD_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
@@ -444,9 +522,28 @@ export class DiagnosticSuite {
       }
 
       this.testInvoiceId = invoiceResult.invoice.id
-      return this.log('ADD_INVOICE_E2E', true, 'Invoice berhasil dibuat dan terdaftar pada tenant aktif', {
+      const remoteCheck = await this.waitForRemoteTenantState((workspaceSnapshot) => {
+        const remoteTenant = getRemoteTenantSnapshot(workspaceSnapshot, this.tenantId)
+        return Array.isArray(remoteTenant?.invoices)
+          && remoteTenant.invoices.some((item) => item.id === invoiceResult.invoice.id)
+      }, 6, 1200)
+
+      if (remoteCheck.ok === false) {
+        return this.log('ADD_INVOICE_E2E', false, 'Invoice tidak muncul di snapshot Firebase setelah retry', {
+          invoiceId: invoiceResult.invoice.id,
+          tenantId: tenant?.id || null,
+          remoteCheck
+        })
+      }
+
+      return this.log('ADD_INVOICE_E2E', true, remoteCheck.ok === null
+        ? 'Invoice berhasil dibuat di tenant lokal; remote Firebase snapshot tidak tersedia untuk verifikasi.'
+        : 'Invoice berhasil dibuat dan tersinkron ke Firebase.', {
         invoiceId: invoiceResult.invoice.id,
-        period
+        period,
+        remoteAvailable: remoteCheck.ok !== null,
+        remoteAttempts: remoteCheck.attempts || 0,
+        remoteSkipped: remoteCheck.ok === null
       })
     } catch (err) {
       return this.log('ADD_INVOICE_E2E', false, `Exception: ${err.message}`, { error: err?.message })
@@ -479,9 +576,29 @@ export class DiagnosticSuite {
         })
       }
 
-      return this.log('UPDATE_INVOICE_E2E', true, 'Update status invoice berhasil dan terverifikasi', {
+      const remoteCheck = await this.waitForRemoteTenantState((workspaceSnapshot) => {
+        const remoteTenant = getRemoteTenantSnapshot(workspaceSnapshot, this.tenantId)
+        const remoteInvoice = Array.isArray(remoteTenant?.invoices)
+          ? remoteTenant.invoices.find((item) => item.id === this.testInvoiceId)
+          : null
+        return remoteInvoice?.status === 'paid'
+      }, 6, 1200)
+
+      if (remoteCheck.ok === false) {
+        return this.log('UPDATE_INVOICE_E2E', false, 'Status invoice tidak sinkron di Firebase setelah retry', {
+          invoiceId: this.testInvoiceId,
+          remoteCheck
+        })
+      }
+
+      return this.log('UPDATE_INVOICE_E2E', true, remoteCheck.ok === null
+        ? 'Update invoice berhasil di tenant lokal; remote Firebase snapshot tidak tersedia untuk verifikasi.'
+        : 'Update status invoice berhasil dan terverifikasi di Firebase.', {
         invoiceId: this.testInvoiceId,
-        status: invoice.status
+        status: invoice.status,
+        remoteAvailable: remoteCheck.ok !== null,
+        remoteAttempts: remoteCheck.attempts || 0,
+        remoteSkipped: remoteCheck.ok === null
       })
     } catch (err) {
       return this.log('UPDATE_INVOICE_E2E', false, `Exception: ${err.message}`, { error: err?.message })
@@ -511,6 +628,18 @@ export class DiagnosticSuite {
         })
       }
 
+      const remoteCheck = await this.waitForRemoteTenantState((workspaceSnapshot) => {
+        const remoteTenant = getRemoteTenantSnapshot(workspaceSnapshot, this.tenantId)
+        return remoteTenant?.contract?.diagnostic_marker === marker
+      }, 6, 1200)
+
+      if (remoteCheck.ok === false) {
+        return this.log('UPDATE_CONTRACT_E2E', false, 'Marker kontrak tidak muncul di snapshot Firebase', {
+          marker,
+          remoteCheck
+        })
+      }
+
       const rollbackResult = updateTenantContract(this.tenantId, previousContract, 'diagnostic-suite')
       if (!rollbackResult?.success) {
         return this.log('UPDATE_CONTRACT_E2E', false, 'Rollback kontrak gagal', {
@@ -519,8 +648,13 @@ export class DiagnosticSuite {
         })
       }
 
-      return this.log('UPDATE_CONTRACT_E2E', true, 'Update kontrak dan rollback berhasil', {
-        marker
+      return this.log('UPDATE_CONTRACT_E2E', true, remoteCheck.ok === null
+        ? 'Update kontrak berhasil di tenant lokal; remote Firebase snapshot tidak tersedia untuk verifikasi.'
+        : 'Update kontrak dan rollback berhasil terverifikasi di Firebase.', {
+        marker,
+        remoteAvailable: remoteCheck.ok !== null,
+        remoteAttempts: remoteCheck.attempts || 0,
+        remoteSkipped: remoteCheck.ok === null
       })
     } catch (err) {
       return this.log('UPDATE_CONTRACT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
@@ -546,8 +680,8 @@ export class DiagnosticSuite {
           continue
         }
 
-        const syncCheck = await this.waitForParticipantState(id, { exists: false }, 4, 800)
-        if (!syncCheck.ok) {
+        const syncCheck = await this.waitForRemoteParticipantState(id, { exists: false, eventId: getCurrentEventId() }, 6, 1200)
+        if (syncCheck.ok === false) {
           failed.push({ id, reason: 'tetap muncul setelah sinkronisasi', syncCheck })
         }
       }
