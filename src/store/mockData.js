@@ -735,6 +735,7 @@ export function addTenantInvoice(tenantId, invoiceData, actor = 'system') {
   tenant.invoices = asArray(tenant.invoices)
   tenant.invoices.unshift(invoice)
   saveTenantRegistry()
+  void syncTenantUpsert(tenant)
   
   logOwnerAction('tenant_invoice_create', `Buat invoice untuk tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
@@ -753,6 +754,7 @@ export function updateInvoiceStatus(tenantId, invoiceId, status, actor = 'system
   invoice.status = status
   invoice.paid_at = status === 'paid' ? new Date().toISOString() : null
   saveTenantRegistry()
+  void syncTenantUpsert(tenant)
   
   logOwnerAction('tenant_invoice_update', `Update status invoice ${invoiceId} menjadi ${status}`, actor, {
     tenant_id: tenantId,
@@ -1930,6 +1932,7 @@ export function addParticipant(data) {
   }
   ev.participants.push(participant)
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
 
   logAdminAction('participant_add', `Tambah peserta ${participant.name} (${participant.ticket_id})`, data.actor, {
@@ -2042,6 +2045,7 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
   const participant = ev.participants.find(p => p.id === id)
   ev.participants = ev.participants.filter(p => p.id !== id)
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
 
   if (participant) {
     void syncParticipantDelete({ tenantId: tenant.id, eventId: ev.id, participantId: participant.id })
@@ -2108,6 +2112,7 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   }
   ev.checkInLogs.push(log)
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
   void syncCheckInLog({ tenantId: tenant.id, eventId: ev.id, log })
 
