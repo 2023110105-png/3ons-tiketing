@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
+import { runDiagnosticSuite } from './serverDiagnosticSuite'
 import {
   bootstrapStoreFromFirebase,
   getCheckInLogs,
@@ -92,6 +93,8 @@ export default function ServerVerifyTools() {
   const [quickTenantId, setQuickTenantId] = useState('')
   const [incidentTenantFilter, setIncidentTenantFilter] = useState('')
   const [incidentTypeFilter, setIncidentTypeFilter] = useState('all')
+  const [comprehensiveDiagnosticRunning, setComprehensiveDiagnosticRunning] = useState(false)
+  const [comprehensiveDiagnosticReport, setComprehensiveDiagnosticReport] = useState(null)
   const alertTrackerRef = useRef({ offlineSince: {}, lastAlertAt: {} })
   const runAlertEvaluationRef = useRef(null)
 
@@ -1574,6 +1577,65 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const runComprehensiveDiagnostic = async () => {
+    if (comprehensiveDiagnosticRunning) return
+    setComprehensiveDiagnosticRunning(true)
+
+    try {
+      toast.info('Memulai', 'Menjalankan diagnostic komprehensif semua operasi...')
+      const report = await runDiagnosticSuite()
+
+      setComprehensiveDiagnosticReport(report)
+
+      appendDiagnosticLog({
+        type: 'comprehensive-diagnostic',
+        status: report.summary.failed === 0 ? 'pass' : report.summary.passRate >= 80 ? 'warn' : 'fail',
+        tenantId: '*',
+        summary: `Diagnostic: ${report.summary.passed}/${report.summary.total} passed (${report.summary.passRate}%)`,
+        payload: report
+      })
+
+      if (report.summary.failed === 0) {
+        toast.success(
+          'Diagnostic Komprehensif Selesai',
+          `Semua ${report.summary.total} tests PASSED! ✅`
+        )
+      } else {
+        toast.warning(
+          'Diagnostic Menemukan Issues',
+          `${report.summary.passed}/${report.summary.total} passed. ${report.summary.failed} failed.`
+        )
+      }
+    } catch (err) {
+      const msg = err?.message || 'Comprehensive diagnostic gagal'
+      setComprehensiveDiagnosticReport({
+        summary: {
+          total: 0,
+          passed: 0,
+          failed: 1,
+          passRate: 0,
+          duration: 0,
+          startTime: new Date().toISOString(),
+          endTime: new Date().toISOString()
+        },
+        results: [],
+        failedTests: [{ test: 'DIAGNOSTIC_RUNNER', passed: false, message: msg, timestamp: new Date().toISOString() }]
+      })
+
+      appendDiagnosticLog({
+        type: 'comprehensive-diagnostic',
+        status: 'fail',
+        tenantId: '*',
+        summary: msg,
+        payload: { error: msg }
+      })
+
+      toast.error('Diagnostic Gagal', msg)
+    } finally {
+      setComprehensiveDiagnosticRunning(false)
+    }
+  }
+
   useEffect(() => {
     if (!alertRules.autoMonitor) return
 
@@ -1736,6 +1798,9 @@ export default function ServerVerifyTools() {
           <button className="btn btn-outline" onClick={runDeviceConnectionCheck} disabled={connectionRunning}>Cek Device</button>
           <button className="btn btn-outline" onClick={runRuntimeInfoCheck} disabled={runtimeRunning}>Runtime Info</button>
           <button className="btn btn-outline" onClick={() => runAlertEvaluation('manual')} disabled={alertRunning}>Evaluasi Alert</button>
+          <button className="btn btn-success" onClick={runComprehensiveDiagnostic} disabled={comprehensiveDiagnosticRunning}>
+            {comprehensiveDiagnosticRunning ? '⏳ Diagnostic Komprehensif...' : '🔬 Semua Operasi Diagnostic'}
+          </button>
         </div>
       </div>
 
@@ -2365,6 +2430,82 @@ export default function ServerVerifyTools() {
           </div>
         )}
       </div>
+
+      {comprehensiveDiagnosticReport && (
+        <div className={`card ${comprehensiveDiagnosticReport.summary.failed === 0 ?'border-success' : 'border-error'}`} style={{ marginBottom: 16 }}>
+          <div className="card-header">
+            <h3 className="card-title">📋 Hasil Diagnostic Komprehensif Semua Operasi</h3>
+            <span className={`badge ${comprehensiveDiagnosticReport.summary.failed === 0 ? 'badge-green' : comprehensiveDiagnosticReport.summary.passRate >= 80 ? 'badge-yellow' : 'badge-red'}`}>
+              {comprehensiveDiagnosticReport.summary.passed}/{comprehensiveDiagnosticReport.summary.total} ({comprehensiveDiagnosticReport.summary.passRate}%)
+            </span>
+          </div>
+
+          <p className="scanner-note" style={{ marginBottom: 12 }}>
+            Diagnostic komprehensif mentest semua operasi sistem: add peserta, delete, invoice, kontrak, sync data, backup, WA server, endpoints, dan lainnya untuk memastikan data tersimpan dengan benar.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 12 }}>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Total Tests</p>
+              <div style={{ fontWeight: 800, fontSize: 22 }}>{comprehensiveDiagnosticReport.summary.total}</div>
+            </div>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Passed ✅</p>
+              <div style={{ fontWeight: 800, fontSize: 22, color: '#166534' }}>{comprehensiveDiagnosticReport.summary.passed}</div>
+            </div>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Failed ❌</p>
+              <div style={{ fontWeight: 800, fontSize: 22, color: comprehensiveDiagnosticReport.summary.failed > 0 ? '#b91c1c' : '#166534' }}>
+                {comprehensiveDiagnosticReport.summary.failed}
+              </div>
+            </div>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Pass Rate</p>
+              <div style={{ fontWeight: 800, fontSize: 22 }}>{comprehensiveDiagnosticReport.summary.passRate}%</div>
+            </div>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>Duration</p>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{comprehensiveDiagnosticReport.summary.duration}ms</div>
+            </div>
+          </div>
+
+          {comprehensiveDiagnosticReport.summary.failed > 0 && (
+            <div style={{ border: '1px solid #dc2626', borderRadius: 10, padding: 10, background: '#fee2e2', marginBottom: 12 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: '#991b1b' }}>⚠️ {comprehensiveDiagnosticReport.summary.failed} Test Gagal - Perlu Perhatian</p>
+              <p className="scanner-note scanner-note-tight" style={{ margin: '6px 0 0 0' }}>
+                Beberapa operasi sistem tidak berfungsi normal. Lihat detail di bawah untuk tindakan perbaikan.
+              </p>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gap: 8 }}>
+            {comprehensiveDiagnosticReport.results.map((result) => (
+              <details key={result.test} style={{ border: `1px solid ${result.passed ? '#d1fae5' : '#fee2e2'}`, borderRadius: 10, padding: 10, background: '#fff' }}>
+                <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontWeight: 700 }}>{result.test}</span>
+                  <span style={{ fontWeight: 700, color: result.passed ? '#166534' : '#b91c1c' }}>
+                    {result.passed ? '✅ PASS' : '❌ FAIL'}
+                  </span>
+                </summary>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 8, marginBottom: 6 }}>{result.message}</p>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 8, color: '#666' }}>
+                  {new Date(result.timestamp).toLocaleString('id-ID')}
+                </p>
+                {result.details && (
+                  <pre style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#0f172a', color: '#e2e8f0', overflowX: 'auto', fontSize: 12 }}>
+                    {prettyJson(result.details)}
+                  </pre>
+                )}
+              </details>
+            ))}
+          </div>
+
+          <p className="scanner-note scanner-note-tiny" style={{ marginTop: 12, marginBottom: 0 }}>
+            <strong>Interpretasi Hasil:</strong> Jika ada yang FAIL, itu berarti ada bug dalam sistem (misal: data add tapi tidak tersimpan, endpoint error, sync gagal, dll). 
+            Hubungi tim teknis dengan error details untuk investigasi lebih lanjut. Jika semua PASS ✅, sistem sudah ready untuk production!
+          </p>
+        </div>
+      )}
     </div>
   )
 }
