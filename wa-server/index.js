@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const qrcode = require('qrcode');
 const crypto = require('crypto');
+const fs = require('fs/promises');
 const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -155,6 +156,11 @@ function createWaClient(tenantId, session) {
     return client;
 }
 
+async function clearTenantAuthData(tenantId) {
+    const authPath = `auth_data/${tenantId}`;
+    await fs.rm(authPath, { recursive: true, force: true });
+}
+
 async function ensureTenantClient(tenantId) {
     const session = getOrCreateTenantSession(tenantId);
 
@@ -208,6 +214,12 @@ async function resetTenantClient(tenantId) {
         } catch {
             // ignore
         }
+    }
+
+    try {
+        await clearTenantAuthData(tenantId);
+    } catch (err) {
+        warning = warning || `Gagal membersihkan auth session: ${err.message}`;
     }
 
     session.client = null;
