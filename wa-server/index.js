@@ -32,6 +32,18 @@ function resolveTenantId(req) {
     return normalizeTenantId(req?.query?.tenant_id || req?.body?.tenant_id);
 }
 
+function resolveTenantIds(req) {
+    const fromBody = Array.isArray(req?.body?.tenant_ids) ? req.body.tenant_ids : [];
+    const fromQuery = String(req?.query?.tenant_ids || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    const source = fromBody.length > 0 ? fromBody : fromQuery;
+    const normalized = source.map(normalizeTenantId).filter(Boolean);
+    return Array.from(new Set(normalized));
+}
+
 function getOrCreateTenantSession(tenantId) {
     if (!tenantSessions.has(tenantId)) {
         tenantSessions.set(tenantId, {
@@ -371,6 +383,7 @@ app.get('/', (_req, res) => {
         status: 'running',
         docs: {
             waStatus: '/api/wa/status?tenant_id=tenant-default',
+            waBatchQr: '/api/wa/batch-status?tenant_ids=tenant-a,tenant-b',
             sessions: '/api/wa/sessions',
             health: '/health'
         }
@@ -415,6 +428,56 @@ app.get('/api/wa/sessions', (req, res) => {
     res.json({
         total: list.length,
         sessions: list
+    });
+});
+
+// 1.3. Batch status + QR bootstrap for multiple tenants in one request
+app.post('/api/wa/batch-status', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+
+    const tenantIds = resolveTenantIds(req);
+    if (tenantIds.length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'tenant_ids wajib diisi (array body atau query tenant_ids=a,b,c)'
+        });
+    }
+
+    const waitMsRaw = Number(req?.body?.wait_ms ?? req?.query?.wait_ms ?? 1200);
+    const waitMs = Number.isFinite(waitMsRaw) ? Math.max(0, Math.min(waitMsRaw, 10000)) : 1200;
+
+    // Kick off initialization for each tenant without blocking response too long.
+    await Promise.allSettled(tenantIds.map((tenantId) =>
+        ensureTenantClient(tenantId).catch((err) => {
+            const session = getOrCreateTenantSession(tenantId);
+            session.status = 'offline';
+            session.isReady = false;
+            session.currentQR = null;
+            session.lastError = err?.message || 'Failed to initialize tenant client';
+        })
+    ));
+
+    if (waitMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+
+    const items = tenantIds.map((tenantId) => {
+        const session = getOrCreateTenantSession(tenantId);
+        return {
+            tenant_id: tenantId,
+            status: session.status,
+            isReady: session.isReady,
+            qrCode: session.currentQR,
+            hasQr: !!session.currentQR,
+            lastError: session.lastError || null
+        };
+    });
+
+    res.json({
+        success: true,
+        total: items.length,
+        wait_ms: waitMs,
+        items
     });
 });
 
