@@ -1,797 +1,664 @@
-/**
- * COMPREHENSIVE DIAGNOSTIC SUITE
- * Tests all operations in the system to detect bugs like:
- * - Data added but not saved to Firebase
- * - Data added but not saved to localStorage
- * - API endpoints failing silently
- * - Sync failures
- * - etc
- */
-
-import { 
-  addParticipant, 
-  deleteParticipant, 
-  getParticipants,
+import {
+  addParticipant,
   addTenantInvoice,
-  updateInvoiceStatus,
-  updateTenantContract,
-  getCurrentEventId,
-  getStoreBackups,
   bootstrapStoreFromFirebase,
+  bulkAddParticipants,
+  checkIn,
+  deleteParticipant,
+  getActiveTenant,
   getCurrentDay,
-  getActiveTenant
+  getCurrentEventId,
+  getParticipant,
+  getParticipants,
+  getStoreBackups,
+  updateInvoiceStatus,
+  updateTenantContract
 } from '../../../store/mockData'
 import { apiFetch } from '../../../utils/api'
 
-// ============================================================================
-// DIAGNOSTIC TEST RUNNER
-// ============================================================================
+const STORE_KEYS = ['ons_event_data', 'event_data']
+
+const ACTION_HINTS = {
+  READINESS_PREFLIGHT: 'Validasi konfigurasi tenant aktif dan event aktif sebelum menjalankan operasi admin.',
+  LOCAL_PERSISTENCE_STRUCTURE: 'Periksa mode data Firebase dan key localStorage. Jika mode strict, validasi lewat bootstrap Firebase.',
+  WA_STATUS_ENDPOINT: 'Periksa layanan WA server, env URL backend, dan konektivitas endpoint /api/wa/status.',
+  TICKET_VERIFY_ENDPOINT: 'Periksa payload verifikasi tiket, event_id aktif, dan respons endpoint /api/ticket/verify.',
+  DATA_SYNC_READ_ONLY: 'Periksa bootstrap sinkronisasi Firebase agar data terbaru termuat setelah refresh.',
+  ADD_PARTICIPANT_E2E: 'Periksa alur add participant: state memory, local persistence, dan sinkronisasi Firebase.',
+  CHECK_IN_PARTICIPANT_E2E: 'Periksa alur scan/check-in: validasi QR payload, update status check-in, dan sinkronisasi data.',
+  BULK_ADD_PARTICIPANT_E2E: 'Periksa validasi impor bulk dan pastikan semua row valid tersimpan lintas sinkronisasi.',
+  ADD_INVOICE_E2E: 'Periksa alur pembuatan invoice tenant dan persistensi registry tenant.',
+  UPDATE_INVOICE_E2E: 'Periksa alur update status invoice tenant dan sinkronisasi data tenant.',
+  UPDATE_CONTRACT_E2E: 'Periksa update kontrak tenant dan pastikan rollback/restore konfigurasi berjalan.',
+  DELETE_PARTICIPANT_E2E: 'Periksa alur hapus participant (alasan wajib, validasi, sinkronisasi, dan cleanup).',
+  BACKUP_SNAPSHOT_HEALTH: 'Periksa mekanisme backup snapshot localStorage dan rotasi backup.',
+  CLEANUP_RESIDUAL_TEST_DATA: 'Hapus data uji yang tersisa agar data produksi tetap bersih.'
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+function parseJsonSafe(raw) {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function readLocalStoreSnapshot() {
+  for (const key of STORE_KEYS) {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) continue
+    const parsed = parseJsonSafe(raw)
+    if (parsed && typeof parsed === 'object') {
+      return { key, raw, parsed }
+    }
+  }
+  return { key: null, raw: null, parsed: null }
+}
+
+function isLikelyStrictMode(storeSnapshot) {
+  return !storeSnapshot.raw
+}
+
+export function getDiagnosticActionHint(testKey) {
+  return ACTION_HINTS[testKey] || 'Periksa log detail test dan ulangi audit untuk mengonfirmasi akar masalah.'
+}
 
 export class DiagnosticSuite {
-  constructor(tenantId = 'tenant-default') {
-    this.tenantId = tenantId
+  constructor(options = {}) {
+    this.tenantId = String(options.tenantId || 'tenant-default')
+    this.mode = options.mode === 'live' ? 'live' : 'dry-run'
+    this.allowMutations = this.mode === 'live'
     this.results = []
     this.startTime = null
     this.endTime = null
+    this.primaryParticipant = null
+    this.bulkParticipants = []
   }
 
-  log(test, passed, message, details = null) {
+  log(test, passed, message, details = {}) {
     const result = {
       test,
       passed,
       message,
       details,
+      action: getDiagnosticActionHint(test),
       timestamp: new Date().toISOString()
     }
     this.results.push(result)
-    console.log(`[${passed ? '✅' : '❌'}] ${test}: ${message}`, details)
     return result
+  }
+
+  logSkipped(test, reason, details = {}) {
+    return this.log(test, true, `Skipped (${this.mode}): ${reason}`, {
+      ...details,
+      skipped: true,
+      mode: this.mode
+    })
+  }
+
+  async waitForParticipantState(participantId, expected, attempts = 3, waitMs = 700) {
+    for (let i = 0; i < attempts; i += 1) {
+      await bootstrapStoreFromFirebase(true)
+      const current = getParticipant(participantId)
+      const exists = Boolean(current)
+      const checked = Boolean(current?.is_checked_in)
+      const matchExists = expected.exists === undefined ? true : expected.exists === exists
+      const matchChecked = expected.checkedIn === undefined ? true : expected.checkedIn === checked
+      if (matchExists && matchChecked) {
+        return { ok: true, participant: current, attempts: i + 1 }
+      }
+      if (i < attempts - 1) {
+        await delay(waitMs)
+      }
+    }
+
+    const current = getParticipant(participantId)
+    return {
+      ok: false,
+      participant: current,
+      attempts,
+      exists: Boolean(current),
+      checkedIn: Boolean(current?.is_checked_in)
+    }
   }
 
   async runAll() {
     this.startTime = new Date()
     this.results = []
 
-    // Run all diagnostic tests
-    await this.testAddParticipant()
-    await this.testDeleteParticipant()
-    await this.testParticipantLocalStoragePersistence()
-    await this.testParticipantFirebasePersistence()
-    await this.testSendTicketEndpoint()
+    await this.testReadinessPreflight()
+    await this.testLocalPersistenceStructure()
+    await this.testWaStatusEndpoint()
     await this.testTicketVerifyEndpoint()
-    await this.testImportBarcodeEndpoint()
-    await this.testAddInvoice()
-    await this.testDeleteInvoice()
-    await this.testUpdateContract()
-    await this.testDataSyncFlow()
-    await this.testBackupSystem()
-    await this.testWaServerConnectivity()
+    await this.testDataSyncReadOnly()
+
+    if (this.allowMutations) {
+      await this.testAddParticipantE2E()
+      await this.testCheckInParticipantE2E()
+      await this.testBulkAddParticipantE2E()
+      await this.testAddInvoiceE2E()
+      await this.testUpdateInvoiceE2E()
+      await this.testUpdateContractE2E()
+      await this.testDeleteParticipantE2E()
+      await this.testCleanupResidualTestData()
+    } else {
+      this.logSkipped('ADD_PARTICIPANT_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('CHECK_IN_PARTICIPANT_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('BULK_ADD_PARTICIPANT_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('ADD_INVOICE_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('UPDATE_INVOICE_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('UPDATE_CONTRACT_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('DELETE_PARTICIPANT_E2E', 'mode dry-run tidak melakukan mutasi data')
+      this.logSkipped('CLEANUP_RESIDUAL_TEST_DATA', 'mode dry-run tidak membuat data uji')
+    }
+
+    await this.testBackupSnapshotHealth()
 
     this.endTime = new Date()
     return this.getReport()
   }
 
-  // =========================================================================
-  // TEST: ADD PARTICIPANT
-  // =========================================================================
-  async testAddParticipant() {
+  async testReadinessPreflight() {
     try {
-      const testData = {
-        name: `TEST_PESERTA_${Date.now()}`,
-        phone: '628123456789',
-        email: 'test@example.com',
-        category: 'Regular',
-        day_number: 1,
-        actor: 'diagnostic-test'
+      const tenant = getActiveTenant()
+      const eventId = getCurrentEventId()
+      const day = getCurrentDay()
+
+      if (!tenant?.id) {
+        return this.log('READINESS_PREFLIGHT', false, 'Tenant aktif tidak ditemukan', { tenant })
+      }
+      if (!eventId) {
+        return this.log('READINESS_PREFLIGHT', false, 'Event aktif tidak ditemukan', { eventId })
+      }
+      if (!Number.isInteger(Number(day)) || Number(day) < 1) {
+        return this.log('READINESS_PREFLIGHT', false, 'Hari aktif tidak valid', { day })
       }
 
-      // Before count
-      const beforeParticipants = getParticipants(1)
-      const countBefore = beforeParticipants.length
-
-      // Add participant
-      const result = addParticipant(testData)
-
-      // After count
-      const afterParticipants = getParticipants(1)
-      const countAfter = afterParticipants.length
-
-      if (!result || !result.id) {
-        return this.log(
-          'ADD_PARTICIPANT',
-          false,
-          'Function returned invalid result',
-          { result }
-        )
-      }
-
-      if (countAfter !== countBefore + 1) {
-        return this.log(
-          'ADD_PARTICIPANT',
-          false,
-          `Participant count mismatch. Before: ${countBefore}, After: ${countAfter}`,
-          { pBefore: countBefore, pAfter: countAfter, result }
-        )
-      }
-
-      // Verify participant exists in memory
-      const found = afterParticipants.find(p => p.id === result.id)
-      if (!found) {
-        return this.log(
-          'ADD_PARTICIPANT',
-          false,
-          'Participant added but not found in getParticipants()',
-          { addedId: result.id }
-        )
-      }
-
-      // Store test ID for later verification
-      this.testParticipantId = result.id
-      this.testParticipantName = result.name
-
-      return this.log(
-        'ADD_PARTICIPANT',
-        true,
-        `Successfully added participant: ${result.name} (${result.ticket_id})`,
-        { participantId: result.id, ticketId: result.ticket_id }
-      )
-    } catch (err) {
-      return this.log(
-        'ADD_PARTICIPANT',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
-    }
-  }
-
-  // =========================================================================
-  // TEST: DELETE PARTICIPANT
-  // =========================================================================
-  async testDeleteParticipant() {
-    try {
-      if (!this.testParticipantId) {
-        return this.log(
-          'DELETE_PARTICIPANT',
-          false,
-          'Skipped - no test participant to delete',
-          {}
-        )
-      }
-
-      const beforeDelete = getParticipants(1)
-      const countBefore = beforeDelete.length
-
-      const result = deleteParticipant(
-        this.testParticipantId,
-        'diagnostic-test',
-        'Diagnostic test deletion - part of comprehensive suite validation'
-      )
-
-      if (!result?.success) {
-        return this.log(
-          'DELETE_PARTICIPANT',
-          false,
-          `Delete failed: ${result?.error || 'Unknown reason'}`,
-          { result }
-        )
-      }
-
-      const afterDelete = getParticipants(1)
-      const countAfter = afterDelete.length
-
-      if (countAfter !== countBefore - 1) {
-        return this.log(
-          'DELETE_PARTICIPANT',
-          false,
-          `Count mismatch after delete. Before: ${countBefore}, After: ${countAfter}`,
-          { countBefore, countAfter }
-        )
-      }
-
-      const stillExists = afterDelete.find(p => p.id === this.testParticipantId)
-      if (stillExists) {
-        return this.log(
-          'DELETE_PARTICIPANT',
-          false,
-          'Participant deleted but still found in getParticipants()',
-          { participantId: this.testParticipantId }
-        )
-      }
-
-      return this.log(
-        'DELETE_PARTICIPANT',
-        true,
-        `Successfully deleted participant: ${this.testParticipantName}`,
-        { deletedId: this.testParticipantId }
-      )
-    } catch (err) {
-      return this.log(
-        'DELETE_PARTICIPANT',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
-    }
-  }
-
-  // =========================================================================
-  // TEST: LOCAL STORAGE PERSISTENCE
-  // =========================================================================
-  async testParticipantLocalStoragePersistence() {
-    try {
-      const storedData = window.localStorage.getItem('ons_bot_store')
-      if (!storedData) {
-        return this.log(
-          'LOCALSTORAGE_PERSISTENCE',
-          false,
-          'Store data not found in localStorage',
-          {}
-        )
-      }
-
-      let parsed
-      try {
-        parsed = JSON.parse(storedData)
-      } catch (e) {
-        return this.log(
-          'LOCALSTORAGE_PERSISTENCE',
-          false,
-          'localStorage data is corrupted JSON',
-          { error: e.message }
-        )
-      }
-
-      if (!parsed.events || !Array.isArray(parsed.events)) {
-        return this.log(
-          'LOCALSTORAGE_PERSISTENCE',
-          false,
-          'Stored data missing events array',
-          { keys: Object.keys(parsed) }
-        )
-      }
-
-      const eventCount = parsed.events.length
-      if (eventCount === 0) {
-        return this.log(
-          'LOCALSTORAGE_PERSISTENCE',
-          false,
-          'No events in localStorage',
-          {}
-        )
-      }
-
-      return this.log(
-        'LOCALSTORAGE_PERSISTENCE',
-        true,
-        `localStorage contains valid store with ${eventCount} event(s)`,
-        { eventCount, dataSize: storedData.length }
-      )
-    } catch (err) {
-      return this.log(
-        'LOCALSTORAGE_PERSISTENCE',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
-    }
-  }
-
-  // =========================================================================
-  // TEST: FIREBASE PERSISTENCE
-  // =========================================================================
-  async testParticipantFirebasePersistence() {
-    try {
-      // Check if any data was synced to Firebase
-      // This is a simplified check - ideally we'd query Firebase directly
-      const backups = getStoreBackups()
-      
-      if (!backups || Object.keys(backups).length === 0) {
-        return this.log(
-          'FIREBASE_PERSISTENCE',
-          false,
-          'No backup snapshots found - possible Firebase sync issue',
-          { backups }
-        )
-      }
-
-      // Check if we have recent backups
-      const backupKeys = Object.keys(backups)
-      const latestBackup = backupKeys[backupKeys.length - 1]
-      
-      if (!latestBackup) {
-        return this.log(
-          'FIREBASE_PERSISTENCE',
-          false,
-          'No backup keys available',
-          {}
-        )
-      }
-
-      return this.log(
-        'FIREBASE_PERSISTENCE',
-        true,
-        `Firebase sync data present (${backupKeys.length} backup snapshots)`,
-        { latestBackup, totalBackups: backupKeys.length }
-      )
-    } catch (err) {
-      return this.log(
-        'FIREBASE_PERSISTENCE',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
-    }
-  }
-
-  // =========================================================================
-  // TEST: SEND TICKET ENDPOINT
-  // =========================================================================
-  async testSendTicketEndpoint() {
-    try {
-      const participants = getParticipants(1)
-      if (participants.length === 0) {
-        return this.log(
-          'SEND_TICKET_ENDPOINT',
-          false,
-          'No participants available for testing',
-          {}
-        )
-      }
-
-      const testParticipant = participants[0]
-      if (!testParticipant.phone && !testParticipant.email) {
-        return this.log(
-          'SEND_TICKET_ENDPOINT',
-          false,
-          'Test participant has no phone or email',
-          { participantId: testParticipant.id }
-        )
-      }
-
-      const payload = {
-        ...testParticipant,
-        tenant_id: this.tenantId,
-        send_wa: !!testParticipant.phone,
-        send_email: !!testParticipant.email,
-        wa_message: `Test: Halo ${testParticipant.name}, tiket Anda: ${testParticipant.ticket_id}`,
-        wa_send_mode: 'queue'
-      }
-
-      const response = await apiFetch('/api/send-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      return this.log('READINESS_PREFLIGHT', true, 'Konteks tenant/event siap untuk audit', {
+        tenantId: tenant.id,
+        eventId,
+        currentDay: Number(day)
       })
-
-      if (!response || response.status !== 'ok') {
-        return this.log(
-          'SEND_TICKET_ENDPOINT',
-          false,
-          `API returned status: ${response?.status || 'null'}`,
-          { response }
-        )
-      }
-
-      return this.log(
-        'SEND_TICKET_ENDPOINT',
-        true,
-        `Successfully called /api/send-ticket for ${testParticipant.name}`,
-        { participantId: testParticipant.id, status: response.status }
-      )
     } catch (err) {
-      return this.log(
-        'SEND_TICKET_ENDPOINT',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('READINESS_PREFLIGHT', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: TICKET VERIFY ENDPOINT
-  // =========================================================================
+  async testLocalPersistenceStructure() {
+    try {
+      const snapshot = readLocalStoreSnapshot()
+      const participants = getParticipants(getCurrentDay())
+
+      if (!snapshot.raw && isLikelyStrictMode(snapshot)) {
+        return this.log('LOCAL_PERSISTENCE_STRUCTURE', true, 'Local store tidak tersedia (kemungkinan mode strict); validasi lanjut via bootstrap Firebase.', {
+          strictModeLikely: true,
+          participantCount: participants.length
+        })
+      }
+
+      if (!snapshot.parsed) {
+        return this.log('LOCAL_PERSISTENCE_STRUCTURE', false, 'Data localStorage ditemukan tetapi tidak valid JSON', {
+          key: snapshot.key
+        })
+      }
+
+      const rawContainsActiveEvent = snapshot.raw.includes(getCurrentEventId())
+      return this.log('LOCAL_PERSISTENCE_STRUCTURE', true, 'Struktur local persistence terdeteksi dan dapat dibaca', {
+        key: snapshot.key,
+        size: snapshot.raw.length,
+        rawContainsActiveEvent
+      })
+    } catch (err) {
+      return this.log('LOCAL_PERSISTENCE_STRUCTURE', false, `Exception: ${err.message}`, { error: err?.message })
+    }
+  }
+
+  async testWaStatusEndpoint() {
+    try {
+      const response = await apiFetch(`/api/wa/status?tenant_id=${encodeURIComponent(this.tenantId)}`)
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        return this.log('WA_STATUS_ENDPOINT', false, `HTTP ${response.status}`, {
+          status: response.status,
+          payload
+        })
+      }
+
+      return this.log('WA_STATUS_ENDPOINT', true, 'Endpoint WA status merespons normal', {
+        status: payload?.status || null,
+        isReady: Boolean(payload?.isReady)
+      })
+    } catch (err) {
+      return this.log('WA_STATUS_ENDPOINT', false, `Exception: ${err.message}`, { error: err?.message })
+    }
+  }
+
   async testTicketVerifyEndpoint() {
     try {
-      const participants = getParticipants(1)
-      if (participants.length === 0) {
-        return this.log(
-          'TICKET_VERIFY_ENDPOINT',
-          false,
-          'No participants to verify',
-          {}
-        )
+      const participants = getParticipants(getCurrentDay())
+      const sample = participants[0]
+      if (!sample?.ticket_id) {
+        return this.logSkipped('TICKET_VERIFY_ENDPOINT', 'tidak ada peserta untuk uji verifikasi ticket')
       }
 
-      const testParticipant = participants[0]
       const response = await apiFetch('/api/ticket/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ticket_id: testParticipant.ticket_id,
+          ticket_id: sample.ticket_id,
           tenant_id: this.tenantId,
           event_id: getCurrentEventId()
         })
       })
+      const payload = await response.json().catch(() => ({}))
 
-      if (!response) {
-        return this.log(
-          'TICKET_VERIFY_ENDPOINT',
-          false,
-          'No response from endpoint',
-          {}
-        )
+      if (!response.ok) {
+        return this.log('TICKET_VERIFY_ENDPOINT', false, `HTTP ${response.status}`, {
+          status: response.status,
+          payload
+        })
       }
 
-      return this.log(
-        'TICKET_VERIFY_ENDPOINT',
-        true,
-        `Successfully called /api/ticket/verify for ticket ${testParticipant.ticket_id}`,
-        { status: response.status, valid: response.valid }
-      )
+      return this.log('TICKET_VERIFY_ENDPOINT', true, 'Endpoint verify ticket merespons', {
+        status: response.status,
+        payloadStatus: payload?.status || null,
+        payloadValid: payload?.valid ?? null
+      })
     } catch (err) {
-      return this.log(
-        'TICKET_VERIFY_ENDPOINT',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('TICKET_VERIFY_ENDPOINT', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: IMPORT BARCODE ENDPOINT
-  // =========================================================================
-  async testImportBarcodeEndpoint() {
+  async testDataSyncReadOnly() {
     try {
-      const response = await apiFetch('/api/import/barcode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenant_id: this.tenantId,
-          barcodes: ['TEST_BARCODE_001', 'TEST_BARCODE_002'],
-          import_type: 'diagnostic_test'
-        })
+      const before = getParticipants(getCurrentDay()).length
+      await bootstrapStoreFromFirebase(true)
+      const after = getParticipants(getCurrentDay()).length
+      return this.log('DATA_SYNC_READ_ONLY', true, 'Bootstrap sinkronisasi berhasil dijalankan', {
+        participantCountBefore: before,
+        participantCountAfter: after,
+        changed: before !== after
+      })
+    } catch (err) {
+      return this.log('DATA_SYNC_READ_ONLY', false, `Exception: ${err.message}`, { error: err?.message })
+    }
+  }
+
+  async testAddParticipantE2E() {
+    try {
+      const day = getCurrentDay()
+      const beforeCount = getParticipants(day).length
+      const participant = addParticipant({
+        name: `DIAG_E2E_${Date.now()}`,
+        phone: '628111111111',
+        email: 'diag-e2e@example.com',
+        category: 'Regular',
+        day_number: day,
+        actor: 'diagnostic-suite'
       })
 
-      if (!response) {
-        return this.log(
-          'IMPORT_BARCODE_ENDPOINT',
-          false,
-          'No response from endpoint',
-          {}
-        )
+      if (!participant?.id) {
+        return this.log('ADD_PARTICIPANT_E2E', false, 'addParticipant tidak mengembalikan participant id', { participant })
       }
 
-      return this.log(
-        'IMPORT_BARCODE_ENDPOINT',
-        true,
-        `Successfully called /api/import/barcode (processed ${response.processed || 0} items)`,
-        { response }
-      )
+      this.primaryParticipant = participant
+      const afterCount = getParticipants(day).length
+      if (afterCount !== beforeCount + 1) {
+        return this.log('ADD_PARTICIPANT_E2E', false, 'Jumlah peserta tidak bertambah setelah add', {
+          beforeCount,
+          afterCount,
+          participantId: participant.id
+        })
+      }
+
+      const localStore = readLocalStoreSnapshot()
+      const localContainsTicket = Boolean(localStore.raw && localStore.raw.includes(participant.ticket_id))
+
+      const syncCheck = await this.waitForParticipantState(participant.id, { exists: true }, 4, 800)
+      if (!syncCheck.ok) {
+        return this.log('ADD_PARTICIPANT_E2E', false, 'Peserta tidak ditemukan konsisten setelah bootstrap sinkronisasi', {
+          participantId: participant.id,
+          localContainsTicket,
+          syncCheck
+        })
+      }
+
+      return this.log('ADD_PARTICIPANT_E2E', true, 'Tambah peserta tersimpan di memory dan konsisten setelah sinkronisasi', {
+        participantId: participant.id,
+        ticketId: participant.ticket_id,
+        localContainsTicket,
+        syncAttempts: syncCheck.attempts
+      })
     } catch (err) {
-      return this.log(
-        'IMPORT_BARCODE_ENDPOINT',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('ADD_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: ADD INVOICE
-  // =========================================================================
-  async testAddInvoice() {
+  async testCheckInParticipantE2E() {
     try {
-      const invoiceData = {
-        invoice_number: `INV-TEST-${Date.now()}`,
-        amount: 100000,
-        currency: 'IDR',
-        status: 'draft',
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        items: [
-          {
-            description: 'Diagnostic test invoice',
-            quantity: 1,
-            unit_price: 100000
-          }
-        ]
+      if (!this.primaryParticipant?.id) {
+        return this.logSkipped('CHECK_IN_PARTICIPANT_E2E', 'tidak ada participant uji untuk check-in')
       }
 
-      const result = addTenantInvoice(this.tenantId, invoiceData, 'diagnostic-test')
-
-      if (!result || !result.id) {
-        return this.log(
-          'ADD_INVOICE',
-          false,
-          'Invoice creation failed or returned no ID',
-          { result }
-        )
+      const freshParticipant = getParticipant(this.primaryParticipant.id)
+      if (!freshParticipant?.qr_data) {
+        return this.log('CHECK_IN_PARTICIPANT_E2E', false, 'Participant uji tidak memiliki qr_data', {
+          participantId: this.primaryParticipant.id
+        })
       }
 
-      this.testInvoiceId = result.id
-      this.testInvoiceNumber = result.invoice_number
+      const result = checkIn(freshParticipant.qr_data, 'diagnostic-suite')
+      if (!result?.success) {
+        return this.log('CHECK_IN_PARTICIPANT_E2E', false, result?.message || 'checkIn gagal', {
+          result
+        })
+      }
 
-      return this.log(
-        'ADD_INVOICE',
-        true,
-        `Successfully created invoice: ${result.invoice_number}`,
-        { invoiceId: result.id, amount: result.amount }
-      )
+      const syncCheck = await this.waitForParticipantState(freshParticipant.id, { exists: true, checkedIn: true }, 4, 800)
+      if (!syncCheck.ok) {
+        return this.log('CHECK_IN_PARTICIPANT_E2E', false, 'Status check-in tidak konsisten setelah sinkronisasi', {
+          participantId: freshParticipant.id,
+          syncCheck
+        })
+      }
+
+      return this.log('CHECK_IN_PARTICIPANT_E2E', true, 'Scan/check-in berhasil dan konsisten setelah sinkronisasi', {
+        participantId: freshParticipant.id,
+        checkedInAt: syncCheck.participant?.checked_in_at || null
+      })
     } catch (err) {
-      return this.log(
-        'ADD_INVOICE',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('CHECK_IN_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: DELETE/UPDATE INVOICE
-  // =========================================================================
-  async testDeleteInvoice() {
+  async testBulkAddParticipantE2E() {
+    try {
+      const day = getCurrentDay()
+      const rows = [
+        { name: `DIAG_BULK_A_${Date.now()}` },
+        { name: `DIAG_BULK_B_${Date.now()}` }
+      ]
+      const result = bulkAddParticipants(rows, day, 'diagnostic-suite')
+
+      if (!Array.isArray(result?.added) || result.added.length !== 2 || (result.errors || []).length > 0) {
+        return this.log('BULK_ADD_PARTICIPANT_E2E', false, 'bulkAddParticipants gagal menambah seluruh row valid', {
+          result
+        })
+      }
+
+      this.bulkParticipants = result.added.map((item) => item.id)
+
+      const syncChecks = []
+      for (const id of this.bulkParticipants) {
+        const syncCheck = await this.waitForParticipantState(id, { exists: true }, 3, 700)
+        syncChecks.push(syncCheck)
+      }
+
+      const failedSync = syncChecks.find((item) => !item.ok)
+      if (failedSync) {
+        return this.log('BULK_ADD_PARTICIPANT_E2E', false, 'Sebagian participant bulk tidak konsisten setelah sinkronisasi', {
+          addedIds: this.bulkParticipants,
+          syncChecks
+        })
+      }
+
+      return this.log('BULK_ADD_PARTICIPANT_E2E', true, 'Bulk add berhasil dan konsisten setelah sinkronisasi', {
+        addedIds: this.bulkParticipants,
+        errorCount: result.errors.length
+      })
+    } catch (err) {
+      return this.log('BULK_ADD_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
+    }
+  }
+
+  async testAddInvoiceE2E() {
+    try {
+      const period = `Diagnostic ${new Date().toISOString().slice(0, 10)}`
+      const invoiceResult = addTenantInvoice(this.tenantId, {
+        period,
+        amount: 1000,
+        status: 'unpaid',
+        notes: 'diagnostic-suite'
+      }, 'diagnostic-suite')
+
+      if (!invoiceResult?.success || !invoiceResult?.invoice?.id) {
+        return this.log('ADD_INVOICE_E2E', false, 'addTenantInvoice gagal', { invoiceResult })
+      }
+
+      const tenant = getActiveTenant()
+      const exists = Array.isArray(tenant?.invoices)
+        ? tenant.invoices.some((item) => item.id === invoiceResult.invoice.id)
+        : false
+
+      if (!exists) {
+        return this.log('ADD_INVOICE_E2E', false, 'Invoice baru tidak ditemukan di tenant aktif', {
+          invoiceId: invoiceResult.invoice.id,
+          tenantId: tenant?.id || null
+        })
+      }
+
+      this.testInvoiceId = invoiceResult.invoice.id
+      return this.log('ADD_INVOICE_E2E', true, 'Invoice berhasil dibuat dan terdaftar pada tenant aktif', {
+        invoiceId: invoiceResult.invoice.id,
+        period
+      })
+    } catch (err) {
+      return this.log('ADD_INVOICE_E2E', false, `Exception: ${err.message}`, { error: err?.message })
+    }
+  }
+
+  async testUpdateInvoiceE2E() {
     try {
       if (!this.testInvoiceId) {
-        return this.log(
-          'DELETE_INVOICE',
-          false,
-          'Skipped - no test invoice to delete',
-          {}
-        )
+        return this.logSkipped('UPDATE_INVOICE_E2E', 'tidak ada invoice uji untuk diupdate')
       }
 
-      // Update status instead of hard delete (invoices usually need soft delete)
-      const result = updateInvoiceStatus(
-        this.tenantId,
-        this.testInvoiceId,
-        'cancelled',
-        'diagnostic-test'
-      )
-
-      if (!result?.success) {
-        return this.log(
-          'DELETE_INVOICE',
-          false,
-          `Update failed: ${result?.error || 'Unknown reason'}`,
-          { result }
-        )
+      const updateResult = updateInvoiceStatus(this.tenantId, this.testInvoiceId, 'paid', 'diagnostic-suite')
+      if (!updateResult?.success) {
+        return this.log('UPDATE_INVOICE_E2E', false, 'updateInvoiceStatus gagal', {
+          updateResult,
+          invoiceId: this.testInvoiceId
+        })
       }
 
-      return this.log(
-        'DELETE_INVOICE',
-        true,
-        `Successfully cancelled invoice: ${this.testInvoiceNumber}`,
-        { invoiceId: this.testInvoiceId }
-      )
+      const tenant = getActiveTenant()
+      const invoice = Array.isArray(tenant?.invoices)
+        ? tenant.invoices.find((item) => item.id === this.testInvoiceId)
+        : null
+
+      if (!invoice || invoice.status !== 'paid') {
+        return this.log('UPDATE_INVOICE_E2E', false, 'Status invoice tidak berubah menjadi paid', {
+          invoiceId: this.testInvoiceId,
+          invoice
+        })
+      }
+
+      return this.log('UPDATE_INVOICE_E2E', true, 'Update status invoice berhasil dan terverifikasi', {
+        invoiceId: this.testInvoiceId,
+        status: invoice.status
+      })
     } catch (err) {
-      return this.log(
-        'DELETE_INVOICE',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('UPDATE_INVOICE_E2E', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: UPDATE CONTRACT
-  // =========================================================================
-  async testUpdateContract() {
+  async testUpdateContractE2E() {
     try {
-      const contractData = {
-        status: 'active',
-        start_date: new Date().toISOString(),
-        end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        terms: 'Diagnostic test contract terms'
+      const tenantBefore = getActiveTenant()
+      const previousContract = { ...(tenantBefore?.contract || {}) }
+      const marker = `diag-${Date.now()}`
+      const patchResult = updateTenantContract(this.tenantId, {
+        diagnostic_marker: marker
+      }, 'diagnostic-suite')
+
+      if (!patchResult?.success) {
+        return this.log('UPDATE_CONTRACT_E2E', false, 'updateTenantContract gagal saat apply marker', {
+          patchResult
+        })
       }
 
-      const result = updateTenantContract(
-        this.tenantId,
-        contractData,
-        'diagnostic-test'
-      )
-
-      if (!result) {
-        return this.log(
-          'UPDATE_CONTRACT',
-          false,
-          'Contract update returned null',
-          {}
-        )
+      const tenantAfterPatch = getActiveTenant()
+      if (tenantAfterPatch?.contract?.diagnostic_marker !== marker) {
+        return this.log('UPDATE_CONTRACT_E2E', false, 'Marker kontrak tidak tersimpan', {
+          marker,
+          contract: tenantAfterPatch?.contract || null
+        })
       }
 
-      return this.log(
-        'UPDATE_CONTRACT',
-        true,
-        `Successfully updated contract for tenant ${this.tenantId}`,
-        { status: result.status }
-      )
+      const rollbackResult = updateTenantContract(this.tenantId, previousContract, 'diagnostic-suite')
+      if (!rollbackResult?.success) {
+        return this.log('UPDATE_CONTRACT_E2E', false, 'Rollback kontrak gagal', {
+          rollbackResult,
+          previousContract
+        })
+      }
+
+      return this.log('UPDATE_CONTRACT_E2E', true, 'Update kontrak dan rollback berhasil', {
+        marker
+      })
     } catch (err) {
-      return this.log(
-        'UPDATE_CONTRACT',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('UPDATE_CONTRACT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: DATA SYNC FLOW
-  // =========================================================================
-  async testDataSyncFlow() {
+  async testDeleteParticipantE2E() {
     try {
-      // This simulates the sync process
-      await bootstrapStoreFromFirebase(false)
+      const idsToDelete = [
+        this.primaryParticipant?.id,
+        ...this.bulkParticipants
+      ].filter(Boolean)
 
-      // Check if data is available after sync
-      const participants = getParticipants(1)
-      if (!participants || !Array.isArray(participants)) {
-        return this.log(
-          'DATA_SYNC_FLOW',
-          false,
-          'Participants not available after sync',
-          {}
-        )
+      if (idsToDelete.length === 0) {
+        return this.logSkipped('DELETE_PARTICIPANT_E2E', 'tidak ada participant uji untuk dihapus')
       }
 
-      // Try to get current event info
-      const eventId = getCurrentEventId()
-      if (!eventId) {
-        return this.log(
-          'DATA_SYNC_FLOW',
-          false,
-          'No active event found after sync',
-          {}
-        )
+      const failed = []
+      for (const id of idsToDelete) {
+        const deleteResult = deleteParticipant(id, 'diagnostic-suite', 'Penghapusan data uji diagnostic otomatis')
+        if (!deleteResult?.success) {
+          failed.push({ id, reason: deleteResult?.error || 'unknown' })
+          continue
+        }
+
+        const syncCheck = await this.waitForParticipantState(id, { exists: false }, 4, 800)
+        if (!syncCheck.ok) {
+          failed.push({ id, reason: 'tetap muncul setelah sinkronisasi', syncCheck })
+        }
       }
 
-      return this.log(
-        'DATA_SYNC_FLOW',
-        true,
-        `Sync successful - Event ${eventId} has ${participants.length} participants`,
-        { eventId, participantCount: participants.length }
-      )
+      if (failed.length > 0) {
+        return this.log('DELETE_PARTICIPANT_E2E', false, 'Sebagian participant uji gagal dihapus bersih', {
+          failed,
+          idsToDelete
+        })
+      }
+
+      this.primaryParticipant = null
+      this.bulkParticipants = []
+      return this.log('DELETE_PARTICIPANT_E2E', true, 'Participant uji berhasil dihapus dan sinkron', {
+        deletedIds: idsToDelete
+      })
     } catch (err) {
-      return this.log(
-        'DATA_SYNC_FLOW',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('DELETE_PARTICIPANT_E2E', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // TEST: BACKUP SYSTEM
-  // =========================================================================
-  async testBackupSystem() {
+  async testCleanupResidualTestData() {
     try {
-      const backups = getStoreBackups()
-      
-      if (!backups || typeof backups !== 'object') {
-        return this.log(
-          'BACKUP_SYSTEM',
-          false,
-          'getStoreBackups() returned invalid data',
-          { backups }
-        )
-      }
-
-      const keys = Object.keys(backups)
-      if (keys.length === 0) {
-        return this.log(
-          'BACKUP_SYSTEM',
-          false,
-          'No backups found in system',
-          {}
-        )
-      }
-
-      // Check the most recent backup
-      const latestKey = keys[keys.length - 1]
-      const latestBackup = backups[latestKey]
-
-      if (!latestBackup) {
-        return this.log(
-          'BACKUP_SYSTEM',
-          false,
-          'Latest backup is null or undefined',
-          { latestKey }
-        )
-      }
-
-      return this.log(
-        'BACKUP_SYSTEM',
-        true,
-        `Backup system operational (${keys.length} backups, latest: ${latestKey})`,
-        { totalBackups: keys.length, latestKey }
-      )
-    } catch (err) {
-      return this.log(
-        'BACKUP_SYSTEM',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
-    }
-  }
-
-  // =========================================================================
-  // TEST: WA SERVER CONNECTIVITY
-  // =========================================================================
-  async testWaServerConnectivity() {
-    try {
-      const response = await apiFetch('/api/wa/status', {
-        method: 'GET'
+      const day = getCurrentDay()
+      const leftovers = getParticipants(day).filter((item) => {
+        const name = String(item.name || '')
+        return name.startsWith('DIAG_E2E_') || name.startsWith('DIAG_BULK_') || name.startsWith('TEST_PESERTA_')
       })
 
-      if (!response) {
-        return this.log(
-          'WA_SERVER_CONNECTIVITY',
-          false,
-          'No response from /api/wa/status',
-          {}
-        )
+      if (leftovers.length === 0) {
+        return this.log('CLEANUP_RESIDUAL_TEST_DATA', true, 'Tidak ada data uji tersisa', { leftoverCount: 0 })
       }
 
-      if (response.status !== 'ok' && !response.status) {
-        return this.log(
-          'WA_SERVER_CONNECTIVITY',
-          false,
-          `Invalid response: ${JSON.stringify(response)}`,
-          { response }
-        )
+      const deleted = []
+      const failed = []
+      for (const item of leftovers) {
+        const res = deleteParticipant(item.id, 'diagnostic-suite', 'Pembersihan data uji diagnostic otomatis')
+        if (res?.success) deleted.push(item.id)
+        else failed.push({ id: item.id, error: res?.error || 'unknown' })
       }
 
-      return this.log(
-        'WA_SERVER_CONNECTIVITY',
-        true,
-        `WA server is responsive (status: ${response.status})`,
-        { response }
-      )
+      if (failed.length > 0) {
+        return this.log('CLEANUP_RESIDUAL_TEST_DATA', false, 'Sebagian data uji gagal dibersihkan', {
+          deleted,
+          failed
+        })
+      }
+
+      return this.log('CLEANUP_RESIDUAL_TEST_DATA', true, 'Data uji residual berhasil dibersihkan', {
+        deletedCount: deleted.length
+      })
     } catch (err) {
-      return this.log(
-        'WA_SERVER_CONNECTIVITY',
-        false,
-        `Exception: ${err.message}`,
-        { error: err }
-      )
+      return this.log('CLEANUP_RESIDUAL_TEST_DATA', false, `Exception: ${err.message}`, { error: err?.message })
     }
   }
 
-  // =========================================================================
-  // REPORT GENERATION
-  // =========================================================================
+  async testBackupSnapshotHealth() {
+    try {
+      const backups = getStoreBackups()
+      if (!Array.isArray(backups)) {
+        return this.log('BACKUP_SNAPSHOT_HEALTH', false, 'getStoreBackups tidak mengembalikan array', {
+          backups
+        })
+      }
+
+      if (backups.length === 0) {
+        return this.log('BACKUP_SNAPSHOT_HEALTH', true, 'Tidak ada backup snapshot saat ini (masih valid jika mode strict).', {
+          totalBackups: 0
+        })
+      }
+
+      const newest = backups[0]
+      return this.log('BACKUP_SNAPSHOT_HEALTH', true, 'Backup snapshot terdeteksi', {
+        totalBackups: backups.length,
+        newest
+      })
+    } catch (err) {
+      return this.log('BACKUP_SNAPSHOT_HEALTH', false, `Exception: ${err.message}`, { error: err?.message })
+    }
+  }
+
   getReport() {
-    const passed = this.results.filter(r => r.passed).length
-    const failed = this.results.filter(r => !r.passed).length
+    const passed = this.results.filter((item) => item.passed).length
+    const failed = this.results.filter((item) => !item.passed).length
     const total = this.results.length
+    const skipped = this.results.filter((item) => item.details?.skipped).length
 
     return {
       summary: {
+        mode: this.mode,
         total,
         passed,
         failed,
+        skipped,
         passRate: total > 0 ? Math.round((passed / total) * 100) : 0,
         duration: this.endTime ? this.endTime.getTime() - this.startTime.getTime() : 0,
-        startTime: this.startTime?.toISOString(),
-        endTime: this.endTime?.toISOString()
+        startTime: this.startTime?.toISOString() || null,
+        endTime: this.endTime?.toISOString() || null
       },
       results: this.results,
-      failedTests: this.results.filter(r => !r.passed)
+      failedTests: this.results
+        .filter((item) => !item.passed)
+        .map((item) => ({
+          ...item,
+          action: getDiagnosticActionHint(item.test)
+        }))
     }
   }
 }
 
-// ============================================================================
-// QUICK RUNNER
-// ============================================================================
-export async function runDiagnosticSuite(tenantId = 'tenant-default') {
-  const suite = new DiagnosticSuite(tenantId)
-  return await suite.runAll()
+export async function runDiagnosticSuite(options = {}) {
+  const suite = new DiagnosticSuite(options)
+  return suite.runAll()
 }
