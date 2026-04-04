@@ -13,6 +13,8 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const serverStartedAt = Date.now();
+const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
+const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
 
 const tenantSessions = new Map();
 const importLogs = new Map(); // tenant_id -> [{ id, ticket_id, verified_at, ... }]
@@ -88,6 +90,21 @@ function buildRuntimeInfo() {
             summary
         }
     };
+}
+
+function hasValidWaAdminSecret(req) {
+    // Backward compatible: if secret not configured, keep endpoint accessible.
+    if (!WA_ADMIN_SECRET) return true;
+
+    const provided = String(req.get(WA_ADMIN_SECRET_HEADER) || '').trim();
+    if (!provided) return false;
+    return provided === WA_ADMIN_SECRET;
+}
+
+function requireWaAdminSecret(req, res) {
+    if (hasValidWaAdminSecret(req)) return true;
+    res.status(403).json({ success: false, error: 'Forbidden: invalid admin secret' });
+    return false;
 }
 
 function createWaClient(tenantId, session) {
@@ -346,6 +363,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/api/wa/runtime', (_req, res) => {
+    if (!requireWaAdminSecret(_req, res)) return;
     res.json(buildRuntimeInfo());
 });
 
@@ -373,6 +391,7 @@ app.get('/api/wa/status', (req, res) => {
 
 // 1.2. Session monitor for owner/super admin dashboard
 app.get('/api/wa/sessions', (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const list = Array.from(tenantSessions.values()).map(serializeSession);
     res.json({
         total: list.length,

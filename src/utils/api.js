@@ -1,4 +1,14 @@
 const DEFAULT_PROD_API_BASE_URL = 'https://yamaha-scan-tiketing-production.up.railway.app'
+const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret'
+
+function getWaAdminSecret() {
+  return String(import.meta.env.VITE_WA_ADMIN_SECRET || '').trim()
+}
+
+function needsWaAdminSecret(path) {
+  const cleanPath = String(path || '')
+  return cleanPath.startsWith('/api/wa/sessions') || cleanPath.startsWith('/api/wa/runtime')
+}
 
 function normalizeBaseUrl(rawUrl) {
   const value = String(rawUrl || '').trim()
@@ -51,5 +61,15 @@ export function buildApiUrl(path) {
 }
 
 export function apiFetch(path, options) {
-  return fetch(buildApiUrl(path), options)
+  const requestOptions = { ...(options || {}) }
+  if (needsWaAdminSecret(path)) {
+    const secret = getWaAdminSecret()
+    if (secret) {
+      const headers = new Headers(requestOptions.headers || {})
+      headers.set(WA_ADMIN_SECRET_HEADER, secret)
+      requestOptions.headers = headers
+    }
+  }
+
+  return fetch(buildApiUrl(path), requestOptions)
 }
