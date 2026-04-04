@@ -21,6 +21,7 @@ export default function ServerVerifyTools() {
   const [matrixReport, setMatrixReport] = useState(null)
   const [runtimeRunning, setRuntimeRunning] = useState(false)
   const [runtimeInfo, setRuntimeInfo] = useState(null)
+  const [safeMode, setSafeMode] = useState({ enabled: false, note: '' })
   const [diagnosticLogs, setDiagnosticLogs] = useState([])
   const [logTenantQuery, setLogTenantQuery] = useState('')
   const [logStatusFilter, setLogStatusFilter] = useState('all')
@@ -786,6 +787,18 @@ export default function ServerVerifyTools() {
 
   const runAutoFix = async (mode, source = 'manual') => {
     if (autoFixRunning) return
+    if (safeMode.enabled) {
+      const msg = 'Safe Mode aktif. Auto Fix diblok untuk mencegah perubahan massal saat kondisi darurat.'
+      toast.warning('Aksi diblok oleh Safe Mode', msg)
+      appendDiagnosticLog({
+        type: 'safe-mode',
+        status: 'warn',
+        tenantId: '*',
+        summary: `Auto Fix mode=${mode} diblok`,
+        payload: { mode, reason: msg }
+      })
+      return
+    }
     setAutoFixRunning(true)
 
     try {
@@ -915,6 +928,18 @@ export default function ServerVerifyTools() {
   const runQuickTenantReset = async () => {
     const tenantId = String(quickTenantId || '').trim()
     if (!tenantId || autoFixRunning) return
+    if (safeMode.enabled) {
+      const msg = `Safe Mode aktif. Reset tenant ${tenantId} diblok sementara.`
+      toast.warning('Aksi diblok oleh Safe Mode', msg)
+      appendDiagnosticLog({
+        type: 'safe-mode',
+        status: 'warn',
+        tenantId,
+        summary: 'Reset tenant spesifik diblok',
+        payload: { tenantId, reason: msg }
+      })
+      return
+    }
 
     const confirmed = window.confirm(`Reset sesi untuk tenant ${tenantId}?`) 
     if (!confirmed) return
@@ -987,6 +1012,39 @@ export default function ServerVerifyTools() {
       window.clearInterval(id)
     }
   }, [alertRules.autoMonitor])
+
+  const toggleSafeMode = () => {
+    const nextEnabled = !safeMode.enabled
+    const confirmed = window.confirm(
+      nextEnabled
+        ? 'Aktifkan Safe Mode? Aksi berisiko seperti Auto Fix akan diblok.'
+        : 'Nonaktifkan Safe Mode? Aksi berisiko akan diizinkan kembali.'
+    )
+    if (!confirmed) return
+
+    const nextState = {
+      ...safeMode,
+      enabled: nextEnabled
+    }
+    setSafeMode(nextState)
+
+    appendDiagnosticLog({
+      type: 'safe-mode',
+      status: nextEnabled ? 'warn' : 'pass',
+      tenantId: '*',
+      summary: nextEnabled ? 'Safe Mode diaktifkan' : 'Safe Mode dinonaktifkan',
+      payload: {
+        enabled: nextEnabled,
+        note: nextState.note || ''
+      }
+    })
+
+    if (nextEnabled) {
+      toast.warning('Safe Mode aktif', 'Aksi berisiko diblok sementara.')
+    } else {
+      toast.success('Safe Mode nonaktif', 'Aksi berisiko diizinkan kembali.')
+    }
+  }
 
   return (
     <div>
@@ -1219,6 +1277,31 @@ export default function ServerVerifyTools() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
+          <h3 className="card-title">Safe Mode Switch</h3>
+          <span className={`badge ${safeMode.enabled ? 'badge-red' : 'badge-green'}`}>
+            {safeMode.enabled ? 'AKTIF' : 'NONAKTIF'}
+          </span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Mode darurat untuk mencegah perubahan massal saat event live. Ketika aktif, tindakan Auto Fix dan reset tenant akan diblok.
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <button className={`btn ${safeMode.enabled ? 'btn-danger' : 'btn-secondary'}`} onClick={toggleSafeMode}>
+            {safeMode.enabled ? 'Nonaktifkan Safe Mode' : 'Aktifkan Safe Mode'}
+          </button>
+        </div>
+
+        <input
+          className="form-input"
+          value={safeMode.note}
+          onChange={(e) => setSafeMode((prev) => ({ ...prev, note: e.target.value }))}
+          placeholder="Catatan mode darurat (opsional)"
+        />
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
           <h3 className="card-title">Auto Fix Ringan</h3>
           <span className="badge badge-yellow">Aman dengan konfirmasi</span>
         </div>
@@ -1431,6 +1514,7 @@ export default function ServerVerifyTools() {
             <option value="auto-fix">Auto fix</option>
             <option value="endpoint-matrix">Endpoint matrix</option>
             <option value="runtime-info">Runtime info</option>
+            <option value="safe-mode">Safe mode</option>
             <option value="tenant-probe">Tenant probe</option>
             <option value="verify-self-test">Verify self test</option>
           </select>
