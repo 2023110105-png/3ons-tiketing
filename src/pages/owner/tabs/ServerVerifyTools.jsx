@@ -560,7 +560,8 @@ export default function ServerVerifyTools() {
       await pushCheck('WA Server Health', async () => {
         const res = await apiFetch('/health')
         const data = await res.json().catch(() => ({}))
-        if (!res.ok || data?.status !== 'ok') {
+        const healthy = res.ok && (data?.ok === true || data?.status === 'ok')
+        if (!healthy) {
           throw new Error(data?.error || `HTTP ${res.status}`)
         }
         return 'Endpoint /health responsif'
@@ -691,8 +692,12 @@ export default function ServerVerifyTools() {
         run: async () => {
           const res = await apiFetch('/health')
           const data = await res.json().catch(() => ({}))
-          const ok = res.ok && data?.ok === true
-          return { ok, status: res.status, detail: ok ? 'Server health OK' : String(data?.error || 'health response invalid') }
+          const ok = res.ok && (data?.ok === true || data?.status === 'ok')
+          return {
+            ok,
+            status: res.status,
+            detail: ok ? 'Server health OK' : String(data?.error || 'health response invalid')
+          }
         }
       },
       {
