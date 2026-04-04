@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
 import { bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
@@ -17,6 +17,8 @@ export default function ServerVerifyTools() {
   const [tenantProbeResult, setTenantProbeResult] = useState(null)
   const [healthRunning, setHealthRunning] = useState(false)
   const [healthReport, setHealthReport] = useState(null)
+  const [runtimeRunning, setRuntimeRunning] = useState(false)
+  const [runtimeInfo, setRuntimeInfo] = useState(null)
   const [diagnosticLogs, setDiagnosticLogs] = useState([])
   const [logTenantQuery, setLogTenantQuery] = useState('')
   const [logStatusFilter, setLogStatusFilter] = useState('all')
@@ -35,6 +37,8 @@ export default function ServerVerifyTools() {
   const [autoFixRunning, setAutoFixRunning] = useState(false)
   const [autoFixResult, setAutoFixResult] = useState(null)
   const [quickTenantId, setQuickTenantId] = useState('')
+  const [incidentTenantFilter, setIncidentTenantFilter] = useState('')
+  const [incidentTypeFilter, setIncidentTypeFilter] = useState('all')
   const alertTrackerRef = useRef({ offlineSince: {}, lastAlertAt: {} })
   const runAlertEvaluationRef = useRef(null)
 
@@ -488,6 +492,13 @@ export default function ServerVerifyTools() {
         return `jumlah tenant session=${total}`
       })
 
+      await pushCheck('WA Runtime Endpoint', async () => {
+        const res = await apiFetch('/api/wa/runtime')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+        return `version=${String(data?.version || '-')}, uptime=${String(data?.uptimeSeconds || 0)}s`
+      })
+
       await pushCheck('Ticket Verify Endpoint', async () => {
         const res = await apiFetch('/api/ticket/verify', {
           method: 'POST',
@@ -534,6 +545,43 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const runRuntimeInfoCheck = async () => {
+    if (runtimeRunning) return
+    setRuntimeRunning(true)
+
+    try {
+      const res = await apiFetch('/api/wa/runtime')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+
+      const nextInfo = {
+        checkedAt: new Date().toISOString(),
+        ...data
+      }
+      setRuntimeInfo(nextInfo)
+
+      appendDiagnosticLog({
+        type: 'runtime-info',
+        status: 'pass',
+        tenantId: '*',
+        summary: `runtime version=${String(nextInfo?.version || '-')}, uptime=${String(nextInfo?.uptimeSeconds || 0)}s`,
+        payload: nextInfo
+      })
+    } catch (err) {
+      const msg = err?.message || 'Gagal memuat runtime info'
+      appendDiagnosticLog({
+        type: 'runtime-info',
+        status: 'fail',
+        tenantId: '*',
+        summary: msg,
+        payload: { error: msg }
+      })
+      toast.error('Runtime info gagal', msg)
+    } finally {
+      setRuntimeRunning(false)
+    }
+  }
+
   const filteredDiagnosticLogs = diagnosticLogs.filter((item) => {
     const query = logTenantQuery.trim().toLowerCase()
     const tenantMatch = !query || String(item.tenantId || '').toLowerCase().includes(query)
@@ -550,6 +598,17 @@ export default function ServerVerifyTools() {
 
     return tenantMatch && statusMatch && typeMatch && timeMatch
   })
+
+  const incidentTypeSet = new Set(['alert-rule', 'alert-evaluation', 'device-connection-check', 'auto-fix', 'runtime-info'])
+  const incidentTimeline = diagnosticLogs
+    .filter((item) => incidentTypeSet.has(item.type) && (item.status === 'warn' || item.status === 'fail'))
+    .filter((item) => {
+      const tenantQuery = incidentTenantFilter.trim().toLowerCase()
+      const tenantMatch = !tenantQuery || String(item.tenantId || '').toLowerCase().includes(tenantQuery)
+      const typeMatch = incidentTypeFilter === 'all' || item.type === incidentTypeFilter
+      return tenantMatch && typeMatch
+    })
+    .slice(0, 30)
 
   const exportDiagnosticLogsJson = () => {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -830,6 +889,43 @@ export default function ServerVerifyTools() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
+          <h3 className="card-title">Device Version & Runtime Info</h3>
+          <span className="badge badge-yellow">WA service observability</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Tampilkan informasi versi service, uptime proses, pemakaian memori, dan ringkasan sesi tenant.
+        </p>
+        <button className="btn btn-secondary" onClick={runRuntimeInfoCheck} disabled={runtimeRunning}>
+          {runtimeRunning
+            ? (<><span className="spinner qr-spinner-sm"></span> Mengambil runtime info...</>)
+            : (<><Server size={16} /> Muat Runtime Info</>)}
+        </button>
+
+        {runtimeInfo && (
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>
+                Service v{runtimeInfo.version || '-'} | Node {runtimeInfo.nodeVersion || '-'} | PID {runtimeInfo.pid || '-'}
+              </p>
+              <p className="scanner-note scanner-note-tight" style={{ marginTop: 6, marginBottom: 0 }}>
+                Uptime: {runtimeInfo.uptimeSeconds || 0}s | Platform: {runtimeInfo.platform || '-'} | Start: {runtimeInfo.startedAt ? new Date(runtimeInfo.startedAt).toLocaleString('id-ID') : '-'}
+              </p>
+            </div>
+
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+              <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>
+                Memory (MB) | rss: {runtimeInfo.memoryMb?.rss ?? '-'} | heapUsed: {runtimeInfo.memoryMb?.heapUsed ?? '-'} | heapTotal: {runtimeInfo.memoryMb?.heapTotal ?? '-'} | external: {runtimeInfo.memoryMb?.external ?? '-'}
+              </p>
+              <p className="scanner-note scanner-note-tight" style={{ marginTop: 6, marginBottom: 0 }}>
+                Sessions total: {runtimeInfo.sessions?.total ?? 0} | ready: {runtimeInfo.sessions?.summary?.ready ?? 0} | qr: {runtimeInfo.sessions?.summary?.qr ?? 0} | checking: {runtimeInfo.sessions?.summary?.checking ?? 0} | offline: {runtimeInfo.sessions?.summary?.offline ?? 0}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
           <h3 className="card-title">Cek Koneksi Device (Owner)</h3>
           <span className="badge badge-yellow">Diagnostik WA Session</span>
         </div>
@@ -1098,6 +1194,50 @@ export default function ServerVerifyTools() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-header">
+          <h3 className="card-title">Incident Timeline</h3>
+          <span className="badge badge-yellow">Gangguan & tindakan terbaru</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 12 }}>
+          <input
+            className="form-input"
+            value={incidentTenantFilter}
+            onChange={(e) => setIncidentTenantFilter(e.target.value)}
+            placeholder="Filter tenant incident"
+          />
+          <select className="form-select" value={incidentTypeFilter} onChange={(e) => setIncidentTypeFilter(e.target.value)}>
+            <option value="all">Semua kategori</option>
+            <option value="alert-rule">Alert trigger</option>
+            <option value="alert-evaluation">Alert evaluation</option>
+            <option value="device-connection-check">Device connection</option>
+            <option value="auto-fix">Auto fix</option>
+            <option value="runtime-info">Runtime info</option>
+          </select>
+        </div>
+
+        {incidentTimeline.length === 0 ? (
+          <div className="empty-state" style={{ minHeight: 120 }}>
+            <h3>Tidak ada insiden aktif</h3>
+            <p>Timeline akan tampil saat ada event status warn/fail dari modul IT tools.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {incidentTimeline.map((item) => (
+              <div key={`incident-${item.id}`} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700 }}>{item.type} | {item.tenantId}</div>
+                  <span style={{ fontWeight: 700, color: item.status === 'fail' ? '#b91c1c' : '#b45309' }}>{item.status.toUpperCase()}</span>
+                </div>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 6, marginBottom: 4 }}>{item.summary}</p>
+                <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>{new Date(item.checkedAt).toLocaleString('id-ID')}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
           <h3 className="card-title">Log Diagnostik Terpusat</h3>
           <span className="badge badge-yellow">Maks {MAX_DIAGNOSTIC_LOGS} entri</span>
         </div>
@@ -1122,6 +1262,7 @@ export default function ServerVerifyTools() {
             <option value="alert-evaluation">Alert evaluation</option>
             <option value="alert-rule">Alert trigger</option>
             <option value="auto-fix">Auto fix</option>
+            <option value="runtime-info">Runtime info</option>
             <option value="tenant-probe">Tenant probe</option>
             <option value="verify-self-test">Verify self test</option>
           </select>

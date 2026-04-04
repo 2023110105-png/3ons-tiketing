@@ -6,11 +6,13 @@ const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const nodemailer = require('nodemailer');
+const waServerPackage = require('./package.json');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+const serverStartedAt = Date.now();
 
 const tenantSessions = new Map();
 const importLogs = new Map(); // tenant_id -> [{ id, ticket_id, verified_at, ... }]
@@ -48,6 +50,43 @@ function serializeSession(session) {
         hasQr: !!session.currentQR,
         hasClient: !!session.client,
         lastError: session.lastError || null
+    };
+}
+
+function buildRuntimeInfo() {
+    const sessions = Array.from(tenantSessions.values()).map(serializeSession);
+    const summary = sessions.reduce((acc, item) => {
+        const key = String(item?.status || 'unknown').toLowerCase();
+        if (key === 'ready') acc.ready += 1;
+        else if (key === 'qr') acc.qr += 1;
+        else if (key === 'checking') acc.checking += 1;
+        else if (key === 'offline' || key === 'disconnected') acc.offline += 1;
+        else acc.other += 1;
+        return acc;
+    }, { ready: 0, qr: 0, checking: 0, offline: 0, other: 0 });
+
+    const memory = process.memoryUsage();
+    const bytesToMb = (value) => Math.round((Number(value || 0) / 1024 / 1024) * 100) / 100;
+
+    return {
+        service: '3oNs Digital WA/Email Bot API Server',
+        status: 'running',
+        version: waServerPackage.version || 'unknown',
+        nodeVersion: process.version,
+        platform: process.platform,
+        pid: process.pid,
+        startedAt: new Date(serverStartedAt).toISOString(),
+        uptimeSeconds: Math.round(process.uptime()),
+        memoryMb: {
+            rss: bytesToMb(memory.rss),
+            heapTotal: bytesToMb(memory.heapTotal),
+            heapUsed: bytesToMb(memory.heapUsed),
+            external: bytesToMb(memory.external)
+        },
+        sessions: {
+            total: sessions.length,
+            summary
+        }
     };
 }
 
@@ -310,6 +349,10 @@ app.get('/', (_req, res) => {
 
 app.get('/health', (_req, res) => {
     res.json({ ok: true, uptime: process.uptime() });
+});
+
+app.get('/api/wa/runtime', (_req, res) => {
+    res.json(buildRuntimeInfo());
 });
 
 // 1. Status Check & QR Retreival
