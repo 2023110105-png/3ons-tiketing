@@ -191,6 +191,14 @@ export default function ServerVerifyTools() {
         summary: `Self test ${nextReport.passed}/${nextReport.total}`,
         payload: nextReport
       })
+
+      if (nextReport.allPassed) {
+        toast.success('Uji verifikasi selesai', `${nextReport.passed}/${nextReport.total} skenario PASS.`)
+      } else if (passed > 0) {
+        toast.warning('Uji verifikasi selesai sebagian', `${nextReport.passed}/${nextReport.total} skenario PASS.`)
+      } else {
+        toast.error('Uji verifikasi gagal', 'Tidak ada skenario yang berhasil.')
+      }
     } finally {
       setRunning(false)
     }
@@ -334,6 +342,14 @@ export default function ServerVerifyTools() {
         summary: `Alert eval total=${snapshot.sessions.length}, offline=${snapshot.summary.offline}, non-ready=${snapshot.sessions.length - snapshot.summary.ready}`,
         payload: snapshot
       })
+
+      if (source === 'manual') {
+        if (snapshot.summary.offline > 0) {
+          toast.warning('Evaluasi alert selesai', `Offline terdeteksi: ${snapshot.summary.offline} tenant.`)
+        } else {
+          toast.success('Evaluasi alert selesai', 'Tidak ada tenant offline pada pemeriksaan ini.')
+        }
+      }
     } catch (err) {
       const msg = err?.message || 'Gagal evaluasi alert rules'
       pushAlertEvent({
@@ -387,6 +403,14 @@ export default function ServerVerifyTools() {
         payload: nextConnectionReport
       })
 
+      if (allGood) {
+        toast.success('Cek koneksi selesai', `Semua tenant siap (${summary.ready}/${normalized.length}).`)
+      } else if (summary.offline > 0) {
+        toast.error('Cek koneksi menemukan masalah', `Tenant offline: ${summary.offline}.`)
+      } else {
+        toast.warning('Cek koneksi selesai sebagian', `Tenant belum siap: ${normalized.length - summary.ready}.`)
+      }
+
       evaluateAlertRules(snapshot, 'device-check')
     } catch (err) {
       const failedReport = {
@@ -406,6 +430,7 @@ export default function ServerVerifyTools() {
         summary: failedReport.error,
         payload: failedReport
       })
+      toast.error('Cek koneksi gagal', failedReport.error)
     } finally {
       setConnectionRunning(false)
     }
@@ -440,6 +465,12 @@ export default function ServerVerifyTools() {
         summary: `status=${nextProbeResult.statusLabel}, ready=${nextProbeResult.isReady ? 'true' : 'false'}`,
         payload: nextProbeResult
       })
+
+      if (nextProbeResult.tone === 'ok') {
+        toast.success('Probe tenant selesai', `${tenantId} siap digunakan.`)
+      } else {
+        toast.warning('Probe tenant perlu tindakan', `${tenantId}: ${nextProbeResult.statusLabel}.`)
+      }
     } catch (err) {
       const failedProbeResult = {
         tenantId,
@@ -459,6 +490,7 @@ export default function ServerVerifyTools() {
         summary: failedProbeResult.error,
         payload: failedProbeResult
       })
+      toast.error('Probe tenant gagal', failedProbeResult.error)
     } finally {
       setTenantProbeRunning(false)
     }
@@ -565,6 +597,14 @@ export default function ServerVerifyTools() {
         summary: `Health check ${nextHealthReport.passed}/${nextHealthReport.total}`,
         payload: nextHealthReport
       })
+
+      if (nextHealthReport.allPassed) {
+        toast.success('Health check selesai', `${nextHealthReport.passed}/${nextHealthReport.total} pemeriksaan PASS.`)
+      } else if (passed > 0) {
+        toast.warning('Health check selesai sebagian', `${nextHealthReport.passed}/${nextHealthReport.total} pemeriksaan PASS.`)
+      } else {
+        toast.error('Health check gagal', 'Tidak ada pemeriksaan yang berhasil.')
+      }
     } finally {
       setHealthRunning(false)
     }
@@ -592,6 +632,7 @@ export default function ServerVerifyTools() {
         summary: `runtime version=${String(nextInfo?.version || '-')}, uptime=${String(nextInfo?.uptimeSeconds || 0)}s`,
         payload: nextInfo
       })
+      toast.success('Runtime info berhasil dimuat', `Versi ${String(nextInfo?.version || '-')} | uptime ${String(nextInfo?.uptimeSeconds || 0)}s`)
     } catch (err) {
       const msg = err?.message || 'Gagal memuat runtime info'
       appendDiagnosticLog({
@@ -733,6 +774,14 @@ export default function ServerVerifyTools() {
         summary: `Endpoint matrix ${nextReport.passed}/${nextReport.total}`,
         payload: nextReport
       })
+
+      if (nextReport.allPassed) {
+        toast.success('Endpoint matrix selesai', `${nextReport.passed}/${nextReport.total} endpoint PASS.`)
+      } else if (passed > 0) {
+        toast.warning('Endpoint matrix selesai sebagian', `${nextReport.passed}/${nextReport.total} endpoint PASS.`)
+      } else {
+        toast.error('Endpoint matrix gagal', 'Semua endpoint test gagal.')
+      }
     } finally {
       setMatrixRunning(false)
     }
@@ -761,6 +810,7 @@ export default function ServerVerifyTools() {
       JSON.stringify(filteredDiagnosticLogs, null, 2),
       'application/json;charset=utf-8'
     )
+    toast.success('Export JSON berhasil', `${filteredDiagnosticLogs.length} log diekspor.`)
   }
 
   const exportDiagnosticLogsCsv = () => {
@@ -784,6 +834,7 @@ export default function ServerVerifyTools() {
       csvLines.join('\n'),
       'text/csv;charset=utf-8'
     )
+    toast.success('Export CSV berhasil', `${filteredDiagnosticLogs.length} log diekspor.`)
   }
 
   const exportIncidentTimelineCsv = () => {
@@ -807,6 +858,7 @@ export default function ServerVerifyTools() {
       csvLines.join('\n'),
       'text/csv;charset=utf-8'
     )
+    toast.success('Export incident berhasil', `${incidentTimeline.length} insiden diekspor.`)
   }
 
   const clearDiagnosticLogs = () => {
