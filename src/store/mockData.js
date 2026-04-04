@@ -1723,8 +1723,27 @@ function persistSession(session) {
   safeStorageRemove(LEGACY_SESSION_KEY)
 }
 
+function setActiveTenantContext(tenantId) {
+  const tenant = tenantRegistry.tenants[tenantId]
+  if (!tenant) return null
+
+  tenantRegistry.activeTenantId = tenant.id
+  saveTenantRegistry()
+  dispatchTenantChangeEvent()
+  return tenant
+}
+
 function buildSessionForGlobalUser(globalUser) {
-  const activeTenant = getActiveTenantState()
+  const fallbackTenant = tenantRegistry.tenants[DEFAULT_TENANT_ID] || getActiveTenantState()
+  const activeTenant = setActiveTenantContext(fallbackTenant.id) || fallbackTenant
+
+  ensureTenantStore(
+    activeTenant.id,
+    activeTenant.eventName || 'Event 1',
+    activeTenant.id === DEFAULT_TENANT_ID
+  )
+  saveStore()
+
   return {
     ...globalUser,
     tenant: {
@@ -1736,9 +1755,7 @@ function buildSessionForGlobalUser(globalUser) {
 }
 
 function buildSessionForTenantUser(foundUser, foundTenant) {
-  tenantRegistry.activeTenantId = foundTenant.id
-  saveTenantRegistry()
-  dispatchTenantChangeEvent()
+  setActiveTenantContext(foundTenant.id)
 
   ensureTenantStore(foundTenant.id, foundTenant.eventName || 'Event 1', false)
   saveStore()
@@ -1838,24 +1855,52 @@ export function getSession() {
   if (parsedActive) {
     const role = String(parsedActive.role || '').toLowerCase()
     const isGlobalRole = role === 'owner' || role === 'super_admin'
-    const activeTenant = getActiveTenantState()
+    const preferredTenantId = String(parsedActive?.tenant?.id || '').trim()
 
-    if (!isGlobalRole && !canUseTenant(activeTenant)) {
+    if (isGlobalRole) {
+      const fallbackGlobalTenantId = tenantRegistry.tenants[DEFAULT_TENANT_ID]
+        ? DEFAULT_TENANT_ID
+        : Object.keys(tenantRegistry.tenants)[0]
+
+      if (!fallbackGlobalTenantId) {
+        safeStorageRemove(SESSION_KEY)
+        return null
+      }
+
+      const resolvedGlobalTenant = setActiveTenantContext(fallbackGlobalTenantId) || tenantRegistry.tenants[fallbackGlobalTenantId]
+      ensureTenantStore(
+        resolvedGlobalTenant.id,
+        resolvedGlobalTenant.eventName || 'Event 1',
+        resolvedGlobalTenant.id === DEFAULT_TENANT_ID
+      )
+
+      return {
+        ...parsedActive,
+        tenant: {
+          id: resolvedGlobalTenant.id,
+          brandName: resolvedGlobalTenant.brandName,
+          eventName: resolvedGlobalTenant.eventName
+        }
+      }
+    }
+
+    let resolvedTenant = preferredTenantId ? tenantRegistry.tenants[preferredTenantId] : null
+    if (!resolvedTenant) {
+      resolvedTenant = getActiveTenantState()
+    }
+
+    if (!canUseTenant(resolvedTenant)) {
       const fallbackTenant = Object.values(tenantRegistry.tenants).find(canUseTenant)
       if (fallbackTenant) {
-        tenantRegistry.activeTenantId = fallbackTenant.id
-        saveTenantRegistry()
+        resolvedTenant = fallbackTenant
+        setActiveTenantContext(fallbackTenant.id)
       } else {
         safeStorageRemove(SESSION_KEY)
         return null
       }
     }
 
-    const resolvedTenant = getActiveTenantState()
-    if (!isGlobalRole && !canUseTenant(resolvedTenant)) {
-      safeStorageRemove(SESSION_KEY)
-      return null
-    }
+    setActiveTenantContext(resolvedTenant.id)
 
     ensureTenantStore(
       resolvedTenant.id,
