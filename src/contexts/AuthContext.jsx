@@ -102,12 +102,14 @@ export function AuthProvider({ children }) {
 
       const candidateEmail = resolveLoginEmail(username)
       if (!candidateEmail) {
+        // Akun tidak punya email, gunakan fallback local authentication
         const localResult = doLogin(username, password)
         if (localResult.success) {
           setUser(localResult.user)
           return localResult
         }
-        return { success: false, error: 'Akun ini belum memiliki email masuk' }
+        // Return local auth error jika username/password salah
+        return localResult
       }
 
       try {

@@ -144,12 +144,12 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/admin/qr-generate" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <QRGenerate />
         </ProtectedRoute>
       } />
       <Route path="/admin/connect" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <ConnectDevice />
         </ProtectedRoute>
       } />
@@ -159,7 +159,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/admin/settings" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <Settings />
         </ProtectedRoute>
       } />
