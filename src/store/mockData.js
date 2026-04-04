@@ -232,7 +232,43 @@ function ensureActiveTenant() {
   }
 }
 
+function readSessionSnapshot() {
+  const active = safeStorageGet(SESSION_KEY)
+  const parsedActive = parseStoredJSON(active)
+  if (parsedActive) return parsedActive
+
+  const legacy = safeStorageGet(LEGACY_SESSION_KEY)
+  const parsedLegacy = parseStoredJSON(legacy)
+  return parsedLegacy || null
+}
+
+function syncActiveTenantWithSession() {
+  const session = readSessionSnapshot()
+  if (!session) return
+
+  const role = String(session.role || '').toLowerCase()
+  const isGlobalRole = role === 'owner' || role === 'super_admin'
+
+  if (isGlobalRole) {
+    if (tenantRegistry.tenants[DEFAULT_TENANT_ID] && tenantRegistry.activeTenantId !== DEFAULT_TENANT_ID) {
+      tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+      saveTenantRegistry()
+    }
+    return
+  }
+
+  const sessionTenantId = String(session?.tenant?.id || '').trim()
+  if (!sessionTenantId) return
+  if (!tenantRegistry.tenants[sessionTenantId]) return
+
+  if (tenantRegistry.activeTenantId !== sessionTenantId) {
+    tenantRegistry.activeTenantId = sessionTenantId
+    saveTenantRegistry()
+  }
+}
+
 function getActiveTenantState() {
+  syncActiveTenantWithSession()
   ensureActiveTenant()
   return tenantRegistry.tenants[tenantRegistry.activeTenantId]
 }
