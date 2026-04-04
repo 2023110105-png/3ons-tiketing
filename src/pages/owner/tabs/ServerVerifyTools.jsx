@@ -3,28 +3,18 @@ import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, 
 import { apiFetch } from '../../../utils/api'
 import { bootstrapStoreFromFirebase } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
+import {
+  ALERT_RULE_PRESETS,
+  normalizeAlertRules,
+  normalizeSafeMode,
+  filterDiagnosticLogs,
+  buildIncidentTimeline,
+  summarizeDiagnosticLogs,
+  summarizeIncidentTimeline
+} from './serverVerifyTools.helpers'
 
 const MAX_DIAGNOSTIC_LOGS = 100
 const IT_TOOLS_SETTINGS_KEY = 'ons_owner_it_tools_settings_v1'
-
-const DEFAULT_ALERT_RULES = {
-  enabled: true,
-  autoMonitor: true,
-  offlineMinutes: 10,
-  nonReadyTenantThreshold: 3,
-  cooldownMinutes: 5
-}
-
-const ALERT_RULE_PRESETS = {
-  conservative: { enabled: true, autoMonitor: true, offlineMinutes: 15, nonReadyTenantThreshold: 5, cooldownMinutes: 10 },
-  normal: { ...DEFAULT_ALERT_RULES },
-  aggressive: { enabled: true, autoMonitor: true, offlineMinutes: 5, nonReadyTenantThreshold: 2, cooldownMinutes: 3 }
-}
-
-const DEFAULT_SAFE_MODE = {
-  enabled: false,
-  note: ''
-}
 
 function readItToolsSettings() {
   if (typeof window === 'undefined') return null
@@ -35,25 +25,6 @@ function readItToolsSettings() {
     return parsed && typeof parsed === 'object' ? parsed : null
   } catch {
     return null
-  }
-}
-
-function normalizeAlertRules(value) {
-  const merged = { ...DEFAULT_ALERT_RULES, ...(value || {}) }
-  return {
-    enabled: Boolean(merged.enabled),
-    autoMonitor: Boolean(merged.autoMonitor),
-    offlineMinutes: Math.max(1, Number(merged.offlineMinutes) || DEFAULT_ALERT_RULES.offlineMinutes),
-    nonReadyTenantThreshold: Math.max(1, Number(merged.nonReadyTenantThreshold) || DEFAULT_ALERT_RULES.nonReadyTenantThreshold),
-    cooldownMinutes: Math.max(1, Number(merged.cooldownMinutes) || DEFAULT_ALERT_RULES.cooldownMinutes)
-  }
-}
-
-function normalizeSafeMode(value) {
-  const merged = { ...DEFAULT_SAFE_MODE, ...(value || {}) }
-  return {
-    enabled: Boolean(merged.enabled),
-    note: String(merged.note || '')
   }
 }
 
@@ -767,47 +738,21 @@ export default function ServerVerifyTools() {
     }
   }
 
-  const filteredDiagnosticLogs = diagnosticLogs.filter((item) => {
-    const query = logTenantQuery.trim().toLowerCase()
-    const tenantMatch = !query || String(item.tenantId || '').toLowerCase().includes(query)
-    const statusMatch = logStatusFilter === 'all' || item.status === logStatusFilter
-    const typeMatch = logTypeFilter === 'all' || item.type === logTypeFilter
-
-    let timeMatch = true
-    if (logTimeFilter !== 'all') {
-      const now = Date.now()
-      const checkedAtMs = new Date(item.checkedAt).getTime()
-      const limitMs = logTimeFilter === '1h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000
-      timeMatch = Number.isFinite(checkedAtMs) && now - checkedAtMs <= limitMs
-    }
-
-    return tenantMatch && statusMatch && typeMatch && timeMatch
+  const filteredDiagnosticLogs = filterDiagnosticLogs(diagnosticLogs, {
+    tenantQuery: logTenantQuery,
+    statusFilter: logStatusFilter,
+    typeFilter: logTypeFilter,
+    timeFilter: logTimeFilter
   })
 
-  const incidentTypeSet = new Set(['alert-rule', 'alert-evaluation', 'device-connection-check', 'auto-fix', 'runtime-info'])
-  const incidentTimeline = diagnosticLogs
-    .filter((item) => incidentTypeSet.has(item.type) && (item.status === 'warn' || item.status === 'fail'))
-    .filter((item) => {
-      const tenantQuery = incidentTenantFilter.trim().toLowerCase()
-      const tenantMatch = !tenantQuery || String(item.tenantId || '').toLowerCase().includes(tenantQuery)
-      const typeMatch = incidentTypeFilter === 'all' || item.type === incidentTypeFilter
-      return tenantMatch && typeMatch
-    })
-    .slice(0, 30)
+  const incidentTimeline = buildIncidentTimeline(diagnosticLogs, {
+    tenantFilter: incidentTenantFilter,
+    typeFilter: incidentTypeFilter,
+    limit: 30
+  })
 
-  const diagnosticSummary = diagnosticLogs.reduce((acc, item) => {
-    acc.total += 1
-    if (item.status === 'pass') acc.pass += 1
-    else if (item.status === 'warn') acc.warn += 1
-    else if (item.status === 'fail') acc.fail += 1
-    return acc
-  }, { total: 0, pass: 0, warn: 0, fail: 0 })
-
-  const incidentSummary = incidentTimeline.reduce((acc, item) => {
-    if (item.status === 'warn') acc.warn += 1
-    if (item.status === 'fail') acc.fail += 1
-    return acc
-  }, { warn: 0, fail: 0 })
+  const diagnosticSummary = summarizeDiagnosticLogs(diagnosticLogs)
+  const incidentSummary = summarizeIncidentTimeline(incidentTimeline)
 
   const exportDiagnosticLogsJson = () => {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
