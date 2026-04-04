@@ -120,6 +120,33 @@ const DEFAULT_TENANT = {
   invoices: []
 }
 
+const DEFAULT_TENANT_ADMIN_USER = {
+  id: 'user-event-platform-admin',
+  username: 'admin_eventplatform',
+  email: 'admin.eventplatform@3ons.digital',
+  password: '123456',
+  name: 'Admin Event Platform',
+  role: 'admin_client',
+  tenantId: DEFAULT_TENANT_ID,
+  created_at: new Date().toISOString(),
+  is_active: true
+}
+
+function seedDefaultTenantUsers(tenant) {
+  if (!tenant || tenant.id !== DEFAULT_TENANT_ID) return tenant
+
+  const users = asArray(tenant.users)
+  const hasDefaultAdmin = users.some((user) => user?.id === DEFAULT_TENANT_ADMIN_USER.id || user?.username === DEFAULT_TENANT_ADMIN_USER.username)
+  if (hasDefaultAdmin) {
+    return { ...tenant, users }
+  }
+
+  return {
+    ...tenant,
+    users: [DEFAULT_TENANT_ADMIN_USER, ...users]
+  }
+}
+
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
 
 function safeStorageGet(key) {
@@ -171,7 +198,7 @@ function isTenantExpired(tenant) {
 }
 
 function normalizeSavedTenant(id, raw) {
-  return {
+  return seedDefaultTenantUsers({
     id,
     brandName: String(raw?.brandName || raw?.name || 'Tenant').trim() || 'Tenant',
     eventName: String(raw?.eventName || 'Event Platform').trim() || 'Event Platform',
@@ -184,14 +211,14 @@ function normalizeSavedTenant(id, raw) {
     users: asArray(raw?.users),
     branding: raw?.branding || { primaryColor: '#0ea5e9' },
     invoices: asArray(raw?.invoices)
-  }
+  })
 }
 
 function createDefaultTenantRegistry() {
   return {
     activeTenantId: DEFAULT_TENANT_ID,
     tenants: {
-      [DEFAULT_TENANT_ID]: { ...DEFAULT_TENANT }
+      [DEFAULT_TENANT_ID]: seedDefaultTenantUsers({ ...DEFAULT_TENANT })
     }
   }
 }
@@ -207,7 +234,9 @@ function getTenantRegistry() {
     })
 
     if (!normalizedTenants[DEFAULT_TENANT_ID]) {
-      normalizedTenants[DEFAULT_TENANT_ID] = { ...DEFAULT_TENANT }
+      normalizedTenants[DEFAULT_TENANT_ID] = seedDefaultTenantUsers({ ...DEFAULT_TENANT })
+    } else {
+      normalizedTenants[DEFAULT_TENANT_ID] = seedDefaultTenantUsers(normalizedTenants[DEFAULT_TENANT_ID])
     }
 
     const activeTenantId = normalizedTenants[parsed.activeTenantId] ? parsed.activeTenantId : DEFAULT_TENANT_ID
@@ -231,7 +260,9 @@ function ensureActiveTenant() {
   if (!tenantRegistry.tenants[tenantRegistry.activeTenantId]) {
     tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
     if (!tenantRegistry.tenants[DEFAULT_TENANT_ID]) {
-      tenantRegistry.tenants[DEFAULT_TENANT_ID] = { ...DEFAULT_TENANT }
+      tenantRegistry.tenants[DEFAULT_TENANT_ID] = seedDefaultTenantUsers({ ...DEFAULT_TENANT })
+    } else {
+      tenantRegistry.tenants[DEFAULT_TENANT_ID] = seedDefaultTenantUsers(tenantRegistry.tenants[DEFAULT_TENANT_ID])
     }
     saveTenantRegistry()
   }

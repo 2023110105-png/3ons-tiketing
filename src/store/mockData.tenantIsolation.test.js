@@ -253,4 +253,17 @@ describe('mockData tenant isolation', () => {
     expect(pesertaB).toContain('Peserta Tenant B')
     expect(pesertaB).not.toContain('Peserta Tenant A')
   })
+
+  it('menyediakan admin bawaan pada tenant default Event Platform', async () => {
+    const mod = await import('./mockData.js')
+
+    const tenants = mod.getTenants()
+    const defaultTenant = tenants.find((tenant) => tenant.id === 'tenant-default')
+
+    expect(defaultTenant).toBeTruthy()
+
+    const users = mod.getTenantUsers('tenant-default')
+    expect(users.some((user) => user.username === 'admin_eventplatform')).toBe(true)
+    expect(users.some((user) => user.role === 'admin_client')).toBe(true)
+  })
 })
