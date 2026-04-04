@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
+import { bootstrapStoreFromFirebase } from '../../../store/mockData'
 
 export default function ServerVerifyTools() {
   const [running, setRunning] = useState(false)
@@ -10,6 +11,8 @@ export default function ServerVerifyTools() {
   const [tenantProbeId, setTenantProbeId] = useState('tenant-default')
   const [tenantProbeRunning, setTenantProbeRunning] = useState(false)
   const [tenantProbeResult, setTenantProbeResult] = useState(null)
+  const [healthRunning, setHealthRunning] = useState(false)
+  const [healthReport, setHealthReport] = useState(null)
 
   const prettyJson = (data) => {
     try {
@@ -197,6 +200,96 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const runPlatformHealthCheck = async () => {
+    if (healthRunning) return
+    setHealthRunning(true)
+
+    const checks = []
+
+    const pushCheck = async (name, runner) => {
+      const startedAt = performance.now()
+      try {
+        const message = await runner()
+        const latencyMs = Math.max(1, Math.round(performance.now() - startedAt))
+        checks.push({ name, ok: true, latencyMs, message })
+      } catch (err) {
+        const latencyMs = Math.max(1, Math.round(performance.now() - startedAt))
+        checks.push({
+          name,
+          ok: false,
+          latencyMs,
+          message: err?.message || 'Pemeriksaan gagal'
+        })
+      }
+    }
+
+    try {
+      await pushCheck('Frontend Runtime', async () => {
+        if (!navigator.onLine) throw new Error('Browser offline')
+        return 'Browser online dan runtime aktif'
+      })
+
+      await pushCheck('WA Server Health', async () => {
+        const res = await apiFetch('/health')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || data?.status !== 'ok') {
+          throw new Error(data?.error || `HTTP ${res.status}`)
+        }
+        return 'Endpoint /health responsif'
+      })
+
+      await pushCheck('WA Status Endpoint', async () => {
+        const res = await apiFetch('/api/wa/status?tenant_id=tenant-default')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+        return `status=${String(data?.status || '-')}, ready=${data?.isReady ? 'true' : 'false'}`
+      })
+
+      await pushCheck('WA Sessions Endpoint', async () => {
+        const res = await apiFetch('/api/wa/sessions')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+        const total = Array.isArray(data?.sessions) ? data.sessions.length : 0
+        return `jumlah tenant session=${total}`
+      })
+
+      await pushCheck('Ticket Verify Endpoint', async () => {
+        const res = await apiFetch('/api/ticket/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            qr_data: JSON.stringify({ tid: 'HEALTH-CHECK', t: 'tenant-default', e: 'event-1', d: 1, sig: 'INVALID', v: 2 }),
+            tenant_id: 'tenant-default'
+          })
+        })
+
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+        if (data?.valid !== false) throw new Error('Respons endpoint verify tidak sesuai ekspektasi')
+        return `respons valid=${String(data?.valid)}, reason=${String(data?.reason || '-')}`
+      })
+
+      await pushCheck('Firebase Sync Probe', async () => {
+        if (typeof bootstrapStoreFromFirebase !== 'function') {
+          throw new Error('bootstrapStoreFromFirebase tidak tersedia')
+        }
+        await bootstrapStoreFromFirebase(true)
+        return 'Sinkronisasi Firebase berhasil dipanggil'
+      })
+
+      const passed = checks.filter((item) => item.ok).length
+      setHealthReport({
+        checkedAt: new Date().toISOString(),
+        passed,
+        total: checks.length,
+        allPassed: passed === checks.length,
+        checks
+      })
+    } finally {
+      setHealthRunning(false)
+    }
+  }
+
   return (
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -211,6 +304,21 @@ export default function ServerVerifyTools() {
           {running
             ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan pengujian...</>)
             : (<><ShieldCheck size={16} /> Jalankan Uji Verifikasi</>)}
+        </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Health Check 1 Klik</h3>
+          <span className="badge badge-yellow">Frontend + API + WA + Firebase</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Jalankan pemeriksaan cepat seluruh komponen utama untuk memastikan sistem siap operasional.
+        </p>
+        <button className="btn btn-secondary" onClick={runPlatformHealthCheck} disabled={healthRunning}>
+          {healthRunning
+            ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan health check...</>)
+            : (<><RefreshCw size={16} /> Jalankan Health Check</>)}
         </button>
       </div>
 
@@ -314,6 +422,35 @@ export default function ServerVerifyTools() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {healthReport && (
+        <div className={`card ${healthReport.allPassed ? 'border-success' : 'border-error'}`}>
+          <div className="card-header">
+            <h3 className="card-title">Hasil Health Check Platform</h3>
+            <span className={`badge ${healthReport.allPassed ? 'badge-green' : 'badge-red'}`}>
+              {healthReport.passed}/{healthReport.total}
+            </span>
+          </div>
+          <p className="scanner-note scanner-note-tight" style={{ marginBottom: 10 }}>
+            {healthReport.allPassed ? 'Semua komponen sehat.' : 'Ada komponen yang perlu tindakan teknis.'}
+          </p>
+
+          <div style={{ display: 'grid', gap: 8 }}>
+            {healthReport.checks.map((item) => (
+              <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 10, borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700 }}>{item.name}</div>
+                  <div className="scanner-note scanner-note-tight" style={{ margin: 0 }}>{item.message}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: item.ok ? '#166534' : '#b91c1c' }}>
+                  {item.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  <span>{item.ok ? 'PASS' : 'FAIL'} · {item.latencyMs}ms</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
