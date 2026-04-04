@@ -113,11 +113,14 @@ function requireWaAdminSecret(req, res) {
 function createWaClient(tenantId, session) {
     const client = new Client({
         authStrategy: new LocalAuth({ dataPath: `auth_data/${tenantId}` }),
+        authTimeoutMs: 120000,
+        takeoverOnConflict: true,
+        takeoverTimeoutMs: 0,
         puppeteer: {
             headless: true,
             protocolTimeout: Number.isFinite(WA_PROTOCOL_TIMEOUT_MS) ? WA_PROTOCOL_TIMEOUT_MS : 180000,
             timeout: Number.isFinite(WA_LAUNCH_TIMEOUT_MS) ? WA_LAUNCH_TIMEOUT_MS : 180000,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
         }
     });
 
