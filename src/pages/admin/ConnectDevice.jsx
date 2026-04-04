@@ -33,6 +33,7 @@ export default function ConnectDevice() {
   const { user } = useAuth()
   const tenantId = user?.tenant?.id || 'tenant-default'
   const canMonitorAllSessions = user?.role === 'owner'
+  const canAccessConnectDevice = user?.role === 'owner' || user?.role === 'super_admin' || user?.role === 'admin_client'
   const normalizedWaStatus = String(waState?.status || '').toLowerCase()
   const isOfflineState = normalizedWaStatus === 'offline' || normalizedWaStatus === 'disconnected'
   const statusTone = isOfflineState ? 'offline' : waState.isReady ? 'ready' : 'pending'
@@ -280,6 +281,18 @@ export default function ConnectDevice() {
     setIsBulkResetting(false)
   }
 
+  if (!canAccessConnectDevice) {
+    return (
+      <div className="page-container animate-fade-in-up">
+        <div className="card" style={{ margin: '20px auto', maxWidth: '500px', textAlign: 'center' }}>
+          <h2>Akses Ditolak</h2>
+          <p>Anda tidak memiliki izin untuk mengakses halaman Sambungkan WhatsApp. Hubungi admin untuk mendapatkan akses.</p>
+          <p><small>Role Anda: {user?.role || 'unknown'}</small></p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
@@ -289,7 +302,7 @@ export default function ConnectDevice() {
         </div>
       </div>
 
-      <div className="admin-grid-2">
+          <div className="admin-grid-2">
         {/* Kolom Informasi & Status */}
         <div className="card admin-panel">
           <div className="status-head">
