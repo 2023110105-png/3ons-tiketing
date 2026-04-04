@@ -9,6 +9,7 @@ import {
   normalizeSafeMode,
   filterDiagnosticLogs,
   buildIncidentTimeline,
+  buildErrorRecap,
   summarizeDiagnosticLogs,
   summarizeIncidentTimeline
 } from './serverVerifyTools.helpers'
@@ -799,6 +800,7 @@ export default function ServerVerifyTools() {
     typeFilter: incidentTypeFilter,
     limit: 30
   })
+  const errorRecap = buildErrorRecap(diagnosticLogs, 12)
 
   const diagnosticSummary = summarizeDiagnosticLogs(diagnosticLogs)
   const incidentSummary = summarizeIncidentTimeline(incidentTimeline)
@@ -869,6 +871,33 @@ export default function ServerVerifyTools() {
     setDiagnosticLogs([])
     setAlertEvents([])
     toast.info('Log diagnostik dibersihkan', 'Semua riwayat log lokal sudah dihapus.')
+  }
+
+  const exportErrorRecapCsv = () => {
+    const headers = ['type', 'total', 'fail', 'warn', 'last_seen', 'tenants', 'latest_summary', 'recommended_action']
+    const rows = errorRecap.map((item) => [
+      item.type,
+      item.total,
+      item.fail,
+      item.warn,
+      item.lastSeen,
+      (item.tenants || []).join('; '),
+      item.latestSummary,
+      item.action
+    ])
+
+    const csvLines = [
+      headers.map(toCsvValue).join(','),
+      ...rows.map((row) => row.map(toCsvValue).join(','))
+    ]
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    downloadTextFile(
+      `error-recap-${stamp}.csv`,
+      csvLines.join('\n'),
+      'text/csv;charset=utf-8'
+    )
+    toast.success('Export rekap error berhasil', `${errorRecap.length} item prioritas diekspor.`)
   }
 
   const resetTenantSession = async (tenantId) => {
@@ -1188,6 +1217,54 @@ export default function ServerVerifyTools() {
             <div style={{ fontWeight: 800, fontSize: 22 }}>{incidentSummary.warn + incidentSummary.fail}</div>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Rekap Error untuk Tim</h3>
+          <span className="badge badge-red">Prioritas Perbaikan</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Ringkasan output error/warning terbaru agar tim teknis bisa langsung fokus ke area bermasalah dan tindakan perbaikannya.
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button className="btn btn-outline" onClick={exportErrorRecapCsv} disabled={errorRecap.length === 0}>
+            <FileDown size={16} /> Export Rekap Error (CSV)
+          </button>
+        </div>
+
+        {errorRecap.length === 0 ? (
+          <div className="empty-state" style={{ minHeight: 120 }}>
+            <h3>Belum ada error prioritas</h3>
+            <p>Saat ini belum ada output warn/fail yang perlu tindakan khusus.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {errorRecap.map((item) => (
+              <div key={`error-recap-${item.type}`} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700 }}>{item.type}</div>
+                  <span style={{ fontWeight: 700, color: item.fail > 0 ? '#b91c1c' : '#b45309' }}>
+                    fail: {item.fail} | warn: {item.warn}
+                  </span>
+                </div>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 6, marginBottom: 4 }}>
+                  Last seen: {new Date(item.lastSeen).toLocaleString('id-ID')} | Total kejadian: {item.total}
+                </p>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 4 }}>
+                  Output terbaru: {item.latestSummary}
+                </p>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 4 }}>
+                  Tenant terkait: {(item.tenants || []).join(', ') || '-'}
+                </p>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 0, marginBottom: 0, color: '#0f766e', fontWeight: 600 }}>
+                  Langkah cepat: {item.action}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 16, position: 'sticky', top: 8, zIndex: 5 }}>

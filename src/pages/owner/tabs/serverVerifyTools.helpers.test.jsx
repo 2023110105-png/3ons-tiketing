@@ -4,6 +4,7 @@ import {
   normalizeSafeMode,
   filterDiagnosticLogs,
   buildIncidentTimeline,
+  buildErrorRecap,
   summarizeDiagnosticLogs,
   summarizeIncidentTimeline
 } from './serverVerifyTools.helpers'
@@ -77,5 +78,21 @@ describe('serverVerifyTools.helpers', () => {
 
     const incidents = summarizeIncidentTimeline([{ status: 'warn' }, { status: 'fail' }, { status: 'pass' }])
     expect(incidents).toEqual({ warn: 1, fail: 1 })
+  })
+
+  it('builds grouped error recap with recommended action', () => {
+    const now = new Date().toISOString()
+    const logs = [
+      { checkedAt: now, tenantId: 'tenant-a', status: 'fail', type: 'endpoint-matrix', summary: 'endpoint A fail' },
+      { checkedAt: now, tenantId: 'tenant-b', status: 'warn', type: 'endpoint-matrix', summary: 'endpoint B warn' },
+      { checkedAt: now, tenantId: 'tenant-c', status: 'pass', type: 'runtime-info', summary: 'runtime ok' }
+    ]
+
+    const recap = buildErrorRecap(logs, 12)
+    expect(recap.length).toBe(1)
+    expect(recap[0].type).toBe('endpoint-matrix')
+    expect(recap[0].fail).toBe(1)
+    expect(recap[0].warn).toBe(1)
+    expect(recap[0].action).toMatch(/endpoint/i)
   })
 })

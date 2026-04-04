@@ -87,3 +87,56 @@ export function summarizeIncidentTimeline(incidentTimeline) {
     return acc
   }, { warn: 0, fail: 0 })
 }
+
+const ERROR_ACTIONS = {
+  'platform-health-check': 'Jalankan Health Check ulang lalu cek endpoint yang FAIL terlebih dahulu.',
+  'endpoint-matrix': 'Periksa endpoint yang FAIL, cocokkan HTTP status, dan lihat log backend server WA.',
+  'device-connection-check': 'Buka sesi WA tenant bermasalah lalu lakukan reset tenant yang offline/disconnected.',
+  'tenant-probe': 'Pastikan tenant_id benar, cek status /api/wa/status, lalu reset tenant jika perlu.',
+  'alert-evaluation': 'Tinjau threshold alert rules dan cek tenant non-ready yang dominan.',
+  'alert-rule': 'Ikuti detail alert lalu lakukan auto-fix atau reset tenant sesuai kategori alert.',
+  'runtime-info': 'Cek uptime, memory usage, dan restart service jika memory terus naik/tidak stabil.',
+  'auto-fix': 'Tinjau tenant yang gagal di detail hasil auto-fix lalu ulangi per tenant.',
+  'safe-mode': 'Nonaktifkan safe mode hanya bila tindakan massal memang diperlukan saat darurat.'
+}
+
+export function buildErrorRecap(logs, limit = 12) {
+  const grouped = new Map()
+
+  for (const item of Array.isArray(logs) ? logs : []) {
+    if (!item || (item.status !== 'warn' && item.status !== 'fail')) continue
+    const key = String(item.type || 'unknown')
+    const current = grouped.get(key) || {
+      type: key,
+      total: 0,
+      fail: 0,
+      warn: 0,
+      lastSeen: item.checkedAt,
+      latestSummary: item.summary || '-',
+      tenants: new Set(),
+      action: ERROR_ACTIONS[key] || 'Periksa detail payload log terbaru lalu tindak lanjuti sesuai error message.'
+    }
+
+    current.total += 1
+    if (item.status === 'fail') current.fail += 1
+    if (item.status === 'warn') current.warn += 1
+    if (new Date(item.checkedAt).getTime() >= new Date(current.lastSeen).getTime()) {
+      current.lastSeen = item.checkedAt
+      current.latestSummary = item.summary || current.latestSummary
+    }
+    if (item.tenantId) current.tenants.add(String(item.tenantId))
+
+    grouped.set(key, current)
+  }
+
+  return Array.from(grouped.values())
+    .map((item) => ({
+      ...item,
+      tenants: Array.from(item.tenants).slice(0, 6)
+    }))
+    .sort((a, b) => {
+      if (b.fail !== a.fail) return b.fail - a.fail
+      return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()
+    })
+    .slice(0, Math.max(1, Number(limit) || 12))
+}
