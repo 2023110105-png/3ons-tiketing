@@ -127,7 +127,7 @@ export class DiagnosticSuite {
     }
   }
 
-  async waitForRemoteParticipantState(participantId, expected, attempts = 5, waitMs = 1200) {
+  async waitForRemoteParticipantState(participantId, expected, attempts = 10, waitMs = 1200) {
     for (let i = 0; i < attempts; i += 1) {
       const workspaceSnapshot = await this.readRemoteWorkspaceSnapshot()
       if (!workspaceSnapshot) {
@@ -164,7 +164,7 @@ export class DiagnosticSuite {
     }
   }
 
-  async waitForRemoteTenantState(checkFn, attempts = 5, waitMs = 1200) {
+  async waitForRemoteTenantState(checkFn, attempts = 10, waitMs = 1200) {
     for (let i = 0; i < attempts; i += 1) {
       const workspaceSnapshot = await this.readRemoteWorkspaceSnapshot()
       if (!workspaceSnapshot) {

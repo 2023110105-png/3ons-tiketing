@@ -33,7 +33,9 @@ export default function ConnectDevice() {
   const { user } = useAuth()
   const tenantId = user?.tenant?.id || 'tenant-default'
   const canMonitorAllSessions = user?.role === 'owner'
-  const statusTone = waState.status === 'offline' ? 'offline' : waState.isReady ? 'ready' : 'pending'
+  const normalizedWaStatus = String(waState?.status || '').toLowerCase()
+  const isOfflineState = normalizedWaStatus === 'offline' || normalizedWaStatus === 'disconnected'
+  const statusTone = isOfflineState ? 'offline' : waState.isReady ? 'ready' : 'pending'
   const apiSource = getApiBaseUrl() ? 'Server online' : 'Sambungan lokal'
   const filteredSessions = tenantSessions.filter((session) => {
     const q = sessionQuery.trim().toLowerCase()
@@ -79,10 +81,16 @@ export default function ConnectDevice() {
           throw new Error(data?.error || `HTTP ${res.status}`)
         }
 
-        setWaState(data)
+        const nextState = {
+          status: String(data?.status || 'checking').toLowerCase(),
+          isReady: !!data?.isReady,
+          qrCode: data?.qrCode || data?.qr_code || null,
+          lastError: data?.lastError || null
+        }
+        setWaState(nextState)
         setLastError('')
-        nextStatus = String(data?.status || '').toLowerCase()
-        nextIsReady = !!data?.isReady
+        nextStatus = nextState.status
+        nextIsReady = nextState.isReady
       } catch (err) {
         setWaState({ status: 'offline', isReady: false, qrCode: null })
         setLastError(formatConnectionError(err?.message))
@@ -291,7 +299,7 @@ export default function ConnectDevice() {
             <div>
               <h3 className="status-title">Status Sambungan</h3>
               <div className="status-subtitle">
-                {waState.status === 'offline' ? 'Tidak Terhubung' : waState.isReady ? 'Siap Digunakan' : 'Menunggu Sambungan'}
+                {isOfflineState ? 'Tidak Terhubung' : waState.isReady ? 'Siap Digunakan' : 'Menunggu Sambungan'}
               </div>
             </div>
           </div>
@@ -316,12 +324,12 @@ export default function ConnectDevice() {
 
         {/* Kolom Scanner layaknya Web WhatsApp */}
         <div className="card admin-qr-shell">
-          {!['offline', 'ready', 'qr'].includes(waState.status) && (
+          {!['offline', 'disconnected', 'ready', 'qr'].includes(normalizedWaStatus) && (
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} className="animate-spin" /></div>
               <h2>Menunggu Kode QR</h2>
               <p className="status-note">Kode QR sedang disiapkan. Jika terlalu lama, tekan tombol di bawah untuk mencoba lagi.</p>
-              <p className="status-note"><b>Status:</b> {waState.status}</p>
+              <p className="status-note"><b>Status:</b> {normalizedWaStatus || '-'}</p>
               <p className="status-note"><b>Sumber sambungan:</b> {apiSource}</p>
               <button onClick={handleRegenerateQr} className="btn btn-primary admin-full-btn" disabled={isRegeneratingQr || isDisconnecting}>
                 {isRegeneratingQr ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />} {isRegeneratingQr ? 'Memproses...' : 'Buat QR Baru'}
@@ -329,7 +337,7 @@ export default function ConnectDevice() {
             </div>
           )}
 
-          {waState.status === 'offline' && (
+          {isOfflineState && (
             <div className="admin-center">
               <div className="status-icon-danger"><RefreshCw size={64} /></div>
               <h2>WhatsApp Belum Tersambung</h2>
@@ -342,7 +350,7 @@ export default function ConnectDevice() {
             </div>
           )}
 
-          {waState.status === 'ready' && (
+          {normalizedWaStatus === 'ready' && (
             <div className="admin-center">
               <div className="status-icon-success"><CheckCircle size={80} /></div>
               <h2>WhatsApp Sudah Siap Digunakan!</h2>
@@ -350,7 +358,7 @@ export default function ConnectDevice() {
             </div>
           )}
 
-          {waState.status === 'qr' && (
+          {normalizedWaStatus === 'qr' && (
             <div className="wa-qr-box">
               {waState.qrCode ? (
                 <>
