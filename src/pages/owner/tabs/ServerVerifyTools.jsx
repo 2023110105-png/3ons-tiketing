@@ -17,6 +17,8 @@ export default function ServerVerifyTools() {
   const [tenantProbeResult, setTenantProbeResult] = useState(null)
   const [healthRunning, setHealthRunning] = useState(false)
   const [healthReport, setHealthReport] = useState(null)
+  const [matrixRunning, setMatrixRunning] = useState(false)
+  const [matrixReport, setMatrixReport] = useState(null)
   const [runtimeRunning, setRuntimeRunning] = useState(false)
   const [runtimeInfo, setRuntimeInfo] = useState(null)
   const [diagnosticLogs, setDiagnosticLogs] = useState([])
@@ -582,6 +584,137 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const runEndpointMatrixTest = async () => {
+    if (matrixRunning) return
+    setMatrixRunning(true)
+
+    const tests = [
+      {
+        key: 'health',
+        label: 'GET /health',
+        run: async () => {
+          const res = await apiFetch('/health')
+          const data = await res.json().catch(() => ({}))
+          const ok = res.ok && data?.ok === true
+          return { ok, status: res.status, detail: ok ? 'Server health OK' : String(data?.error || 'health response invalid') }
+        }
+      },
+      {
+        key: 'runtime',
+        label: 'GET /api/wa/runtime',
+        run: async () => {
+          const res = await apiFetch('/api/wa/runtime')
+          const data = await res.json().catch(() => ({}))
+          const ok = res.ok && !!data?.version
+          return {
+            ok,
+            status: res.status,
+            detail: ok ? `version=${String(data?.version || '-')}, uptime=${String(data?.uptimeSeconds || 0)}s` : String(data?.error || 'runtime response invalid')
+          }
+        }
+      },
+      {
+        key: 'wa-status-default',
+        label: 'GET /api/wa/status (tenant-default)',
+        run: async () => {
+          const res = await apiFetch('/api/wa/status?tenant_id=tenant-default')
+          const data = await res.json().catch(() => ({}))
+          const ok = res.ok && typeof data?.status === 'string'
+          return {
+            ok,
+            status: res.status,
+            detail: ok ? `status=${String(data?.status || '-')}, ready=${data?.isReady ? 'true' : 'false'}` : String(data?.error || 'status response invalid')
+          }
+        }
+      },
+      {
+        key: 'wa-sessions',
+        label: 'GET /api/wa/sessions',
+        run: async () => {
+          const res = await apiFetch('/api/wa/sessions')
+          const data = await res.json().catch(() => ({}))
+          const ok = res.ok && Array.isArray(data?.sessions)
+          return { ok, status: res.status, detail: ok ? `total=${data.sessions.length}` : String(data?.error || 'sessions response invalid') }
+        }
+      },
+      {
+        key: 'ticket-verify-invalid-signature',
+        label: 'POST /api/ticket/verify (invalid signature expected)',
+        run: async () => {
+          const res = await apiFetch('/api/ticket/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              qr_data: JSON.stringify({ tid: 'MATRIX-TEST', t: 'tenant-default', e: 'event-1', d: 1, sig: 'INVALID_SIGNATURE', v: 2 }),
+              tenant_id: 'tenant-default'
+            })
+          })
+          const data = await res.json().catch(() => ({}))
+          const ok = res.ok && data?.valid === false
+          return { ok, status: res.status, detail: ok ? `reason=${String(data?.reason || '-')}` : String(data?.error || 'verify response invalid') }
+        }
+      },
+      {
+        key: 'firebase-sync-probe',
+        label: 'CLIENT bootstrapStoreFromFirebase(true)',
+        run: async () => {
+          if (typeof bootstrapStoreFromFirebase !== 'function') {
+            return { ok: false, status: 0, detail: 'bootstrapStoreFromFirebase tidak tersedia' }
+          }
+          await bootstrapStoreFromFirebase(true)
+          return { ok: true, status: 200, detail: 'Firebase sync call berhasil' }
+        }
+      }
+    ]
+
+    try {
+      const results = []
+      for (const test of tests) {
+        const startedAt = performance.now()
+        try {
+          const outcome = await test.run()
+          results.push({
+            key: test.key,
+            label: test.label,
+            ok: !!outcome.ok,
+            status: outcome.status || 0,
+            latencyMs: Math.max(1, Math.round(performance.now() - startedAt)),
+            detail: String(outcome.detail || '')
+          })
+        } catch (err) {
+          results.push({
+            key: test.key,
+            label: test.label,
+            ok: false,
+            status: 0,
+            latencyMs: Math.max(1, Math.round(performance.now() - startedAt)),
+            detail: err?.message || 'test error'
+          })
+        }
+      }
+
+      const passed = results.filter((item) => item.ok).length
+      const nextReport = {
+        checkedAt: new Date().toISOString(),
+        passed,
+        total: results.length,
+        allPassed: passed === results.length,
+        results
+      }
+      setMatrixReport(nextReport)
+
+      appendDiagnosticLog({
+        type: 'endpoint-matrix',
+        status: nextReport.allPassed ? 'pass' : passed > 0 ? 'warn' : 'fail',
+        tenantId: '*',
+        summary: `Endpoint matrix ${nextReport.passed}/${nextReport.total}`,
+        payload: nextReport
+      })
+    } finally {
+      setMatrixRunning(false)
+    }
+  }
+
   const filteredDiagnosticLogs = diagnosticLogs.filter((item) => {
     const query = logTenantQuery.trim().toLowerCase()
     const tenantMatch = !query || String(item.tenantId || '').toLowerCase().includes(query)
@@ -885,6 +1018,40 @@ export default function ServerVerifyTools() {
             ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan health check...</>)
             : (<><RefreshCw size={16} /> Jalankan Health Check</>)}
         </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Endpoint Test Matrix</h3>
+          <span className="badge badge-yellow">PASS/FAIL terstruktur</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Jalankan batch pengujian endpoint inti untuk verifikasi cepat kondisi API dan integrasi client.
+        </p>
+        <button className="btn btn-secondary" onClick={runEndpointMatrixTest} disabled={matrixRunning}>
+          {matrixRunning
+            ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan endpoint matrix...</>)
+            : (<><RefreshCw size={16} /> Jalankan Endpoint Matrix</>)}
+        </button>
+
+        {matrixReport && (
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+            <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>
+              Hasil: {matrixReport.passed}/{matrixReport.total} {matrixReport.allPassed ? 'PASS' : 'perlu tindakan'}
+            </p>
+            {matrixReport.results.map((item) => (
+              <div key={item.key} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700 }}>{item.label}</div>
+                  <span style={{ fontWeight: 700, color: item.ok ? '#166534' : '#b91c1c' }}>
+                    {item.ok ? 'PASS' : 'FAIL'} | HTTP {item.status || '-'} | {item.latencyMs}ms
+                  </span>
+                </div>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 6, marginBottom: 0 }}>{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -1262,6 +1429,7 @@ export default function ServerVerifyTools() {
             <option value="alert-evaluation">Alert evaluation</option>
             <option value="alert-rule">Alert trigger</option>
             <option value="auto-fix">Auto fix</option>
+            <option value="endpoint-matrix">Endpoint matrix</option>
             <option value="runtime-info">Runtime info</option>
             <option value="tenant-probe">Tenant probe</option>
             <option value="verify-self-test">Verify self test</option>
