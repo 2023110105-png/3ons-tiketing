@@ -16,6 +16,8 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const serverStartedAt = Date.now();
 const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
 const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
+const WA_PROTOCOL_TIMEOUT_MS = Number(process.env.WA_PROTOCOL_TIMEOUT_MS || 180000);
+const WA_LAUNCH_TIMEOUT_MS = Number(process.env.WA_LAUNCH_TIMEOUT_MS || 180000);
 
 const tenantSessions = new Map();
 const importLogs = new Map(); // tenant_id -> [{ id, ticket_id, verified_at, ... }]
@@ -113,6 +115,8 @@ function createWaClient(tenantId, session) {
         authStrategy: new LocalAuth({ dataPath: `auth_data/${tenantId}` }),
         puppeteer: {
             headless: true,
+            protocolTimeout: Number.isFinite(WA_PROTOCOL_TIMEOUT_MS) ? WA_PROTOCOL_TIMEOUT_MS : 180000,
+            timeout: Number.isFinite(WA_LAUNCH_TIMEOUT_MS) ? WA_LAUNCH_TIMEOUT_MS : 180000,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         }
     });
