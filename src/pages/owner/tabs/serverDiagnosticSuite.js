@@ -10,7 +10,10 @@ import {
   getCurrentEventId,
   getParticipant,
   getParticipants,
+  getTenants,
   getStoreBackups,
+  setCurrentEvent,
+  switchActiveTenant,
   updateInvoiceStatus,
   updateTenantContract
 } from '../../../store/mockData'
@@ -88,6 +91,11 @@ export class DiagnosticSuite {
     this.endTime = null
     this.primaryParticipant = null
     this.bulkParticipants = []
+    this.eventId = null
+  }
+
+  getTenantById(tenantId) {
+    return getTenants().find((item) => item.id === tenantId) || null
   }
 
   log(test, passed, message, details = {}) {
@@ -218,6 +226,9 @@ export class DiagnosticSuite {
       const eventId = getCurrentEventId()
       const day = getCurrentDay()
 
+      this.tenantId = tenant?.id || this.tenantId
+      this.eventId = eventId || this.eventId
+
       if (!tenant?.id) {
         return this.log('READINESS_PREFLIGHT', false, 'Tenant aktif tidak ditemukan', { tenant })
       }
@@ -325,13 +336,42 @@ export class DiagnosticSuite {
 
   async testDataSyncReadOnly() {
     try {
+      const contextBefore = {
+        tenantId: getActiveTenant()?.id || this.tenantId,
+        eventId: getCurrentEventId() || this.eventId
+      }
       const before = getParticipants(getCurrentDay()).length
       await bootstrapStoreFromFirebase(true)
       const after = getParticipants(getCurrentDay()).length
+
+      const contextAfter = {
+        tenantId: getActiveTenant()?.id || null,
+        eventId: getCurrentEventId() || null
+      }
+
+      let tenantRestored = null
+      let eventRestored = null
+
+      if (contextBefore.tenantId && contextAfter.tenantId !== contextBefore.tenantId) {
+        const restoreTenant = switchActiveTenant(contextBefore.tenantId, 'diagnostic-suite')
+        tenantRestored = Boolean(restoreTenant?.success)
+      }
+
+      if (contextBefore.eventId && getCurrentEventId() !== contextBefore.eventId) {
+        eventRestored = setCurrentEvent(contextBefore.eventId, 'diagnostic-suite')
+      }
+
+      this.tenantId = contextBefore.tenantId || this.tenantId
+      this.eventId = contextBefore.eventId || this.eventId
+
       return this.log('DATA_SYNC_READ_ONLY', true, 'Bootstrap sinkronisasi berhasil dijalankan', {
         participantCountBefore: before,
         participantCountAfter: after,
-        changed: before !== after
+        changed: before !== after,
+        contextBefore,
+        contextAfter,
+        tenantRestored,
+        eventRestored
       })
     } catch (err) {
       return this.log('DATA_SYNC_READ_ONLY', false, `Exception: ${err.message}`, { error: err?.message })
@@ -356,6 +396,9 @@ export class DiagnosticSuite {
       }
 
       this.primaryParticipant = participant
+      const participantEvent = parseJsonSafe(participant.qr_data)?.e || getCurrentEventId()
+      this.eventId = participantEvent || this.eventId
+
       const afterCount = getParticipants(day).length
       if (afterCount !== beforeCount + 1) {
         return this.log('ADD_PARTICIPANT_E2E', false, 'Jumlah peserta tidak bertambah setelah add', {
@@ -368,7 +411,7 @@ export class DiagnosticSuite {
       const localStore = readLocalStoreSnapshot()
       const localContainsTicket = Boolean(localStore.raw && localStore.raw.includes(participant.ticket_id))
 
-      const remoteCheck = await this.waitForRemoteParticipantState(participant.id, { exists: true, eventId: getCurrentEventId() }, 6, 1200)
+      const remoteCheck = await this.waitForRemoteParticipantState(participant.id, { exists: true, eventId: this.eventId }, 6, 1200)
       if (remoteCheck.ok === false) {
         return this.log('ADD_PARTICIPANT_E2E', false, 'Peserta tidak ditemukan konsisten pada snapshot Firebase', {
           participantId: participant.id,
@@ -420,7 +463,9 @@ export class DiagnosticSuite {
         })
       }
 
-      const remoteCheck = await this.waitForRemoteParticipantState(freshParticipant.id, { exists: true, checkedIn: true, eventId: getCurrentEventId() }, 6, 1200)
+      const eventId = parseJsonSafe(freshParticipant.qr_data)?.e || this.eventId || getCurrentEventId()
+      this.eventId = eventId
+      const remoteCheck = await this.waitForRemoteParticipantState(freshParticipant.id, { exists: true, checkedIn: true, eventId }, 6, 1200)
       if (remoteCheck.ok === false) {
         return this.log('CHECK_IN_PARTICIPANT_E2E', false, 'Status check-in tidak konsisten setelah sinkronisasi', {
           participantId: freshParticipant.id,
@@ -469,7 +514,7 @@ export class DiagnosticSuite {
 
       const syncChecks = []
       for (const id of this.bulkParticipants) {
-        const syncCheck = await this.waitForRemoteParticipantState(id, { exists: true, eventId: getCurrentEventId() }, 6, 1200)
+        const syncCheck = await this.waitForRemoteParticipantState(id, { exists: true, eventId: this.eventId || getCurrentEventId() }, 6, 1200)
         syncChecks.push(syncCheck)
       }
 
@@ -509,7 +554,7 @@ export class DiagnosticSuite {
         return this.log('ADD_INVOICE_E2E', false, 'addTenantInvoice gagal', { invoiceResult })
       }
 
-      const tenant = getActiveTenant()
+      const tenant = this.getTenantById(this.tenantId)
       const exists = Array.isArray(tenant?.invoices)
         ? tenant.invoices.some((item) => item.id === invoiceResult.invoice.id)
         : false
@@ -564,7 +609,7 @@ export class DiagnosticSuite {
         })
       }
 
-      const tenant = getActiveTenant()
+      const tenant = this.getTenantById(this.tenantId)
       const invoice = Array.isArray(tenant?.invoices)
         ? tenant.invoices.find((item) => item.id === this.testInvoiceId)
         : null
@@ -607,7 +652,7 @@ export class DiagnosticSuite {
 
   async testUpdateContractE2E() {
     try {
-      const tenantBefore = getActiveTenant()
+      const tenantBefore = this.getTenantById(this.tenantId)
       const previousContract = { ...(tenantBefore?.contract || {}) }
       const marker = `diag-${Date.now()}`
       const patchResult = updateTenantContract(this.tenantId, {
@@ -620,7 +665,7 @@ export class DiagnosticSuite {
         })
       }
 
-      const tenantAfterPatch = getActiveTenant()
+      const tenantAfterPatch = this.getTenantById(this.tenantId)
       if (tenantAfterPatch?.contract?.diagnostic_marker !== marker) {
         return this.log('UPDATE_CONTRACT_E2E', false, 'Marker kontrak tidak tersimpan', {
           marker,
@@ -680,7 +725,7 @@ export class DiagnosticSuite {
           continue
         }
 
-        const syncCheck = await this.waitForRemoteParticipantState(id, { exists: false, eventId: getCurrentEventId() }, 6, 1200)
+        const syncCheck = await this.waitForRemoteParticipantState(id, { exists: false, eventId: this.eventId || getCurrentEventId() }, 6, 1200)
         if (syncCheck.ok === false) {
           failed.push({ id, reason: 'tetap muncul setelah sinkronisasi', syncCheck })
         }

@@ -4,6 +4,7 @@ import { apiFetch } from '../../../utils/api'
 import { getDiagnosticActionHint, runDiagnosticSuite } from './serverDiagnosticSuite'
 import {
   bootstrapStoreFromFirebase,
+  getActiveTenant,
   getCheckInLogs,
   getCurrentDay,
   getCurrentEventId,
@@ -1609,8 +1610,9 @@ export default function ServerVerifyTools() {
 
     try {
       toast.info('Memulai', `Menjalankan diagnostic komprehensif mode ${comprehensiveDiagnosticMode}...`)
+      const activeTenant = getActiveTenant()
       const report = await runDiagnosticSuite({
-        tenantId: 'tenant-default',
+        tenantId: activeTenant?.id,
         mode: comprehensiveDiagnosticMode
       })
 
