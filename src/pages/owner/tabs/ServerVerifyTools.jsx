@@ -7,6 +7,15 @@ import {
   getCurrentDay,
   getCurrentEventId,
   getEvents,
+  getEventsWithOptions,
+  getAvailableDays,
+  getAdminLogs,
+  getStats,
+  getPeakHours,
+  getWaTemplate,
+  getWaSendMode,
+  getMaxPendingAttempts,
+  getStoreBackups,
   getOwnerAuditLog,
   getOwnerNotifications,
   getParticipants,
@@ -853,6 +862,19 @@ export default function ServerVerifyTools() {
       },
       {
         category: 'admin',
+        key: 'admin-dashboard-stats',
+        label: 'Admin dashboard stats data',
+        run: async () => {
+          const stats = getStats(getCurrentDay())
+          if (!stats || typeof stats !== 'object') return { status: 'fail', detail: 'Stats dashboard tidak valid' }
+          const requiredKeys = ['total', 'checkedIn', 'notCheckedIn', 'percentage', 'byCategory']
+          const missing = requiredKeys.filter((key) => !(key in stats))
+          if (missing.length > 0) return { status: 'fail', detail: `Stats missing keys: ${missing.join(', ')}` }
+          return { status: 'pass', detail: `Stats total=${stats.total}, checkedIn=${stats.checkedIn}` }
+        }
+      },
+      {
+        category: 'admin',
         key: 'admin-events',
         label: 'Admin events integrity',
         run: async () => {
@@ -862,6 +884,16 @@ export default function ServerVerifyTools() {
           const found = events.some((event) => String(event?.id || '') === String(activeId || ''))
           if (!found) return { status: 'warn', detail: `Active event id tidak ditemukan: ${String(activeId || '-')}` }
           return { status: 'pass', detail: `Events=${events.length}, active=${String(activeId)}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-events-options',
+        label: 'Admin settings events options',
+        run: async () => {
+          const list = getEventsWithOptions({ includeArchived: true })
+          if (!Array.isArray(list)) return { status: 'fail', detail: 'Events options bukan array' }
+          return { status: list.length === 0 ? 'warn' : 'pass', detail: `Events options=${list.length}` }
         }
       },
       {
@@ -878,12 +910,127 @@ export default function ServerVerifyTools() {
       },
       {
         category: 'admin',
+        key: 'admin-qr-generate-data',
+        label: 'Admin QR generate payload readiness',
+        run: async () => {
+          const list = getParticipants(getCurrentDay())
+          if (!Array.isArray(list)) return { status: 'fail', detail: 'Participants untuk QR bukan array' }
+          if (list.length === 0) return { status: 'warn', detail: 'Belum ada peserta untuk generate QR' }
+          const missingQr = list.filter((item) => !item?.qr_data)
+          if (missingQr.length > 0) {
+            return { status: 'warn', detail: `${missingQr.length}/${list.length} peserta belum punya qr_data` }
+          }
+          return { status: 'pass', detail: `Semua peserta (${list.length}) siap generate QR` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-barcode-import-extract-api',
+        label: 'Admin barcode import extract API behavior',
+        run: async () => {
+          const res = await apiFetch('/api/import/barcode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenant_id: 'tenant-default', source_type: 'manual_paste', qr_string: '' })
+          })
+          const data = await res.json().catch(() => ({}))
+          const expected = res.status === 400 || data?.success === false
+          if (!expected) return { status: 'warn', detail: `Respons tak terduga HTTP ${res.status}` }
+          return { status: 'pass', detail: 'Endpoint import/barcode merespons validasi input' }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-barcode-import-verify-api',
+        label: 'Admin barcode import verify API behavior',
+        run: async () => {
+          const res = await apiFetch('/api/import/verify-and-register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenant_id: 'tenant-default' })
+          })
+          const data = await res.json().catch(() => ({}))
+          const expected = res.status === 400 && data?.valid === false
+          if (!expected) return { status: 'warn', detail: `Respons tak terduga HTTP ${res.status}` }
+          return { status: 'pass', detail: 'Endpoint verify-and-register memvalidasi field wajib' }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-connect-device-status-api',
+        label: 'Admin connect-device status API',
+        run: async () => {
+          const res = await apiFetch('/api/wa/status?tenant_id=tenant-default')
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) return { status: 'fail', detail: data?.error || `HTTP ${res.status}` }
+          if (typeof data?.status !== 'string') return { status: 'warn', detail: 'status WA tidak terbaca' }
+          return { status: 'pass', detail: `WA status=${String(data.status)} ready=${data?.isReady ? 'true' : 'false'}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-reports-dataset',
+        label: 'Admin reports dataset readiness',
+        run: async () => {
+          const logs = getCheckInLogs(getCurrentDay())
+          const peaks = getPeakHours(getCurrentDay())
+          const days = getAvailableDays()
+          const adminLogs = getAdminLogs(300)
+          if (!Array.isArray(logs) || !Array.isArray(peaks) || !Array.isArray(days) || !Array.isArray(adminLogs)) {
+            return { status: 'fail', detail: 'Salah satu dataset laporan tidak valid' }
+          }
+          return { status: 'pass', detail: `logs=${logs.length}, peaks=${peaks.length}, days=${days.length}, audit=${adminLogs.length}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-settings-integrity',
+        label: 'Admin settings data integrity',
+        run: async () => {
+          const template = String(getWaTemplate() || '').trim()
+          const mode = String(getWaSendMode() || '')
+          const retry = Number(getMaxPendingAttempts())
+          const backups = getStoreBackups()
+
+          if (!template) return { status: 'warn', detail: 'Template WA kosong' }
+          if (!['message_only', 'message_with_barcode'].includes(mode)) {
+            return { status: 'fail', detail: `Mode WA tidak valid: ${mode}` }
+          }
+          if (!Number.isInteger(retry) || retry < 1) {
+            return { status: 'fail', detail: `Max pending attempts tidak valid: ${String(retry)}` }
+          }
+          if (!Array.isArray(backups)) {
+            return { status: 'fail', detail: 'Store backups bukan array' }
+          }
+
+          return { status: 'pass', detail: `WA mode=${mode}, retry=${retry}, backups=${backups.length}` }
+        }
+      },
+      {
+        category: 'admin',
         key: 'admin-checkin-logs',
         label: 'Admin check-in logs integrity',
         run: async () => {
           const logs = getCheckInLogs(getCurrentDay())
           if (!Array.isArray(logs)) return { status: 'fail', detail: 'Check-in logs bukan array' }
           return { status: logs.length === 0 ? 'warn' : 'pass', detail: `Check-in logs hari aktif=${logs.length}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'gate-scan-server-verify-path',
+        label: 'Gate scan server verify path behavior',
+        run: async () => {
+          const res = await apiFetch('/api/ticket/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ qr_data: 'NOT_JSON', tenant_id: 'tenant-default' })
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.status === 400 && data?.valid === false) {
+            return { status: 'pass', detail: `verify invalid payload ditolak (${String(data?.reason || '-')})` }
+          }
+          return { status: 'warn', detail: `verify invalid payload respons tak terduga HTTP ${res.status}` }
         }
       },
       {
