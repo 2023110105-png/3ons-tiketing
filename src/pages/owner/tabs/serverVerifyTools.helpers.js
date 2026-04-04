@@ -96,6 +96,7 @@ const ERROR_ACTIONS = {
   'alert-evaluation': 'Tinjau threshold alert rules dan cek tenant non-ready yang dominan.',
   'alert-rule': 'Ikuti detail alert lalu lakukan auto-fix atau reset tenant sesuai kategori alert.',
   'runtime-info': 'Cek uptime, memory usage, dan restart service jika memory terus naik/tidak stabil.',
+  'full-system-audit': 'Buka bagian kategori yang FAIL/WARN lalu perbaiki bertahap dari backend, admin, kemudian owner.',
   'auto-fix': 'Tinjau tenant yang gagal di detail hasil auto-fix lalu ulangi per tenant.',
   'safe-mode': 'Nonaktifkan safe mode hanya bila tindakan massal memang diperlukan saat darurat.'
 }

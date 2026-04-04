@@ -11,7 +11,16 @@ vi.mock('../../../utils/api', () => ({
 }))
 
 vi.mock('../../../store/mockData', () => ({
-  bootstrapStoreFromFirebase: vi.fn(async () => true)
+  bootstrapStoreFromFirebase: vi.fn(async () => true),
+  getCheckInLogs: vi.fn(() => []),
+  getCurrentDay: vi.fn(() => 1),
+  getCurrentEventId: vi.fn(() => 'event-1'),
+  getEvents: vi.fn(() => [{ id: 'event-1', name: 'Event 1' }]),
+  getOwnerAuditLog: vi.fn(() => []),
+  getOwnerNotifications: vi.fn(() => []),
+  getParticipants: vi.fn(() => []),
+  getTenantHealth: vi.fn(() => []),
+  getTenants: vi.fn(() => [{ id: 'tenant-default', brandName: 'Default' }])
 }))
 
 vi.mock('../../../contexts/ToastContext', () => ({

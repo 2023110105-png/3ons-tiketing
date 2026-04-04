@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
-import { bootstrapStoreFromFirebase } from '../../../store/mockData'
+import {
+  bootstrapStoreFromFirebase,
+  getCheckInLogs,
+  getCurrentDay,
+  getCurrentEventId,
+  getEvents,
+  getOwnerAuditLog,
+  getOwnerNotifications,
+  getParticipants,
+  getTenantHealth,
+  getTenants
+} from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import {
   ALERT_RULE_PRESETS,
@@ -42,6 +53,9 @@ export default function ServerVerifyTools() {
   const [healthReport, setHealthReport] = useState(null)
   const [matrixRunning, setMatrixRunning] = useState(false)
   const [matrixReport, setMatrixReport] = useState(null)
+  const [fullAuditRunning, setFullAuditRunning] = useState(false)
+  const [fullAuditReport, setFullAuditReport] = useState(null)
+  const [fullAuditOnlyIssues, setFullAuditOnlyIssues] = useState(true)
   const [runtimeRunning, setRuntimeRunning] = useState(false)
   const [runtimeInfo, setRuntimeInfo] = useState(null)
   const [safeMode, setSafeMode] = useState(() => {
@@ -788,6 +802,224 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const runFullSystemAudit = async () => {
+    if (fullAuditRunning) return
+    setFullAuditRunning(true)
+
+    const checks = [
+      {
+        category: 'backend',
+        key: 'backend-health',
+        label: 'Backend health endpoint',
+        run: async () => {
+          const res = await apiFetch('/health')
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok || data?.ok !== true) return { status: 'fail', detail: data?.error || `HTTP ${res.status}` }
+          return { status: 'pass', detail: 'Backend health OK' }
+        }
+      },
+      {
+        category: 'backend',
+        key: 'backend-runtime',
+        label: 'Backend runtime endpoint',
+        run: async () => {
+          const res = await apiFetch('/api/wa/runtime')
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) return { status: 'fail', detail: data?.error || `HTTP ${res.status}` }
+          if (!data?.version) return { status: 'warn', detail: 'Runtime tersedia tapi versi tidak terbaca' }
+          return { status: 'pass', detail: `version=${String(data.version)} uptime=${String(data?.uptimeSeconds || 0)}s` }
+        }
+      },
+      {
+        category: 'backend',
+        key: 'backend-wa-sessions',
+        label: 'WA sessions endpoint',
+        run: async () => {
+          const res = await apiFetch('/api/wa/sessions')
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok || !Array.isArray(data?.sessions)) return { status: 'fail', detail: data?.error || `HTTP ${res.status}` }
+          return { status: 'pass', detail: `total sessions=${data.sessions.length}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-current-day',
+        label: 'Admin current day data',
+        run: async () => {
+          const day = Number(getCurrentDay())
+          if (!Number.isInteger(day) || day < 1) return { status: 'fail', detail: `Current day invalid: ${String(day)}` }
+          return { status: 'pass', detail: `Current day=${day}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-events',
+        label: 'Admin events integrity',
+        run: async () => {
+          const events = getEvents()
+          const activeId = getCurrentEventId()
+          if (!Array.isArray(events) || events.length === 0) return { status: 'fail', detail: 'Event list kosong' }
+          const found = events.some((event) => String(event?.id || '') === String(activeId || ''))
+          if (!found) return { status: 'warn', detail: `Active event id tidak ditemukan: ${String(activeId || '-')}` }
+          return { status: 'pass', detail: `Events=${events.length}, active=${String(activeId)}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-participants',
+        label: 'Admin participants integrity',
+        run: async () => {
+          const list = getParticipants(getCurrentDay())
+          if (!Array.isArray(list)) return { status: 'fail', detail: 'Participants bukan array' }
+          const broken = list.find((item) => !item?.name || !item?.ticket_id)
+          if (broken) return { status: 'warn', detail: 'Ada peserta tanpa nama/ticket_id lengkap' }
+          return { status: 'pass', detail: `Participants hari aktif=${list.length}` }
+        }
+      },
+      {
+        category: 'admin',
+        key: 'admin-checkin-logs',
+        label: 'Admin check-in logs integrity',
+        run: async () => {
+          const logs = getCheckInLogs(getCurrentDay())
+          if (!Array.isArray(logs)) return { status: 'fail', detail: 'Check-in logs bukan array' }
+          return { status: logs.length === 0 ? 'warn' : 'pass', detail: `Check-in logs hari aktif=${logs.length}` }
+        }
+      },
+      {
+        category: 'owner',
+        key: 'owner-tenants',
+        label: 'Owner tenants integrity',
+        run: async () => {
+          const tenants = getTenants()
+          if (!Array.isArray(tenants) || tenants.length === 0) return { status: 'fail', detail: 'Tenant list kosong' }
+          const missing = tenants.find((item) => !item?.id || !item?.brandName)
+          if (missing) return { status: 'warn', detail: 'Ada tenant tanpa id/brandName lengkap' }
+          return { status: 'pass', detail: `Total tenant=${tenants.length}` }
+        }
+      },
+      {
+        category: 'owner',
+        key: 'owner-health-data',
+        label: 'Owner tenant health data',
+        run: async () => {
+          const health = getTenantHealth()
+          if (!Array.isArray(health)) return { status: 'fail', detail: 'Tenant health bukan array' }
+          return { status: 'pass', detail: `Tenant health records=${health.length}` }
+        }
+      },
+      {
+        category: 'owner',
+        key: 'owner-audit-log',
+        label: 'Owner audit log data',
+        run: async () => {
+          const logs = getOwnerAuditLog()
+          if (!Array.isArray(logs)) return { status: 'fail', detail: 'Audit log owner tidak valid' }
+          return { status: 'pass', detail: `Audit log entries=${logs.length}` }
+        }
+      },
+      {
+        category: 'owner',
+        key: 'owner-notification-log',
+        label: 'Owner notification data',
+        run: async () => {
+          const logs = getOwnerNotifications()
+          if (!Array.isArray(logs)) return { status: 'fail', detail: 'Owner notifications tidak valid' }
+          return { status: 'pass', detail: `Notification entries=${logs.length}` }
+        }
+      },
+      {
+        category: 'operational',
+        key: 'it-safe-mode-state',
+        label: 'IT safe mode state',
+        run: async () => ({ status: 'pass', detail: safeMode.enabled ? 'Safe mode aktif (aksi berisiko diblok)' : 'Safe mode nonaktif' })
+      },
+      {
+        category: 'operational',
+        key: 'it-alert-rules-config',
+        label: 'IT alert rules config',
+        run: async () => {
+          const isValid = alertRules.offlineMinutes >= 1 && alertRules.nonReadyTenantThreshold >= 1 && alertRules.cooldownMinutes >= 1
+          return isValid
+            ? { status: 'pass', detail: 'Threshold alert valid' }
+            : { status: 'fail', detail: 'Threshold alert tidak valid (harus >= 1)' }
+        }
+      }
+    ]
+
+    try {
+      const results = []
+      for (const check of checks) {
+        const startedAt = performance.now()
+        try {
+          const outcome = await check.run()
+          results.push({
+            category: check.category,
+            key: check.key,
+            label: check.label,
+            status: outcome?.status || 'fail',
+            detail: String(outcome?.detail || '-'),
+            latencyMs: Math.max(1, Math.round(performance.now() - startedAt))
+          })
+        } catch (err) {
+          results.push({
+            category: check.category,
+            key: check.key,
+            label: check.label,
+            status: 'fail',
+            detail: err?.message || 'audit check error',
+            latencyMs: Math.max(1, Math.round(performance.now() - startedAt))
+          })
+        }
+      }
+
+      const summary = results.reduce((acc, item) => {
+        acc.total += 1
+        if (item.status === 'pass') acc.pass += 1
+        else if (item.status === 'warn') acc.warn += 1
+        else acc.fail += 1
+        return acc
+      }, { total: 0, pass: 0, warn: 0, fail: 0 })
+
+      const grouped = results.reduce((acc, item) => {
+        const bucket = acc[item.category] || { category: item.category, total: 0, pass: 0, warn: 0, fail: 0, items: [] }
+        bucket.total += 1
+        if (item.status === 'pass') bucket.pass += 1
+        else if (item.status === 'warn') bucket.warn += 1
+        else bucket.fail += 1
+        bucket.items.push(item)
+        acc[item.category] = bucket
+        return acc
+      }, {})
+
+      const report = {
+        checkedAt: new Date().toISOString(),
+        summary,
+        groups: Object.values(grouped),
+        results
+      }
+      setFullAuditReport(report)
+
+      appendDiagnosticLog({
+        type: 'full-system-audit',
+        status: summary.fail > 0 ? 'fail' : summary.warn > 0 ? 'warn' : 'pass',
+        tenantId: '*',
+        summary: `Full audit pass=${summary.pass}, warn=${summary.warn}, fail=${summary.fail}`,
+        payload: report
+      })
+
+      if (summary.fail > 0) {
+        toast.error('Audit sistem selesai', `Ditemukan ${summary.fail} FAIL dari ${summary.total} pemeriksaan.`)
+      } else if (summary.warn > 0) {
+        toast.warning('Audit sistem selesai sebagian', `WARN ${summary.warn}, PASS ${summary.pass}.`)
+      } else {
+        toast.success('Audit sistem sehat', `${summary.pass}/${summary.total} pemeriksaan PASS.`)
+      }
+    } finally {
+      setFullAuditRunning(false)
+    }
+  }
+
   const filteredDiagnosticLogs = filterDiagnosticLogs(diagnosticLogs, {
     tenantQuery: logTenantQuery,
     statusFilter: logStatusFilter,
@@ -1352,6 +1584,72 @@ export default function ServerVerifyTools() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
+          <h3 className="card-title">Audit Lengkap Admin + Owner + Backend</h3>
+          <span className="badge badge-yellow">Cakupan fitur krusial</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Jalankan audit terpadu untuk memeriksa data backend, fitur krusial admin, dan fitur owner apakah berjalan lancar.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button className="btn btn-secondary" onClick={runFullSystemAudit} disabled={fullAuditRunning}>
+            {fullAuditRunning
+              ? (<><span className="spinner qr-spinner-sm"></span> Menjalankan audit lengkap...</>)
+              : (<><RefreshCw size={16} /> Jalankan Audit Lengkap</>)}
+          </button>
+          <label className="scanner-note scanner-note-tight" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={fullAuditOnlyIssues}
+              onChange={(e) => setFullAuditOnlyIssues(e.target.checked)}
+            />
+            Tampilkan hanya warn/fail
+          </label>
+        </div>
+
+        {fullAuditReport && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>
+              Ringkasan audit: PASS {fullAuditReport.summary.pass} | WARN {fullAuditReport.summary.warn} | FAIL {fullAuditReport.summary.fail} | TOTAL {fullAuditReport.summary.total}
+            </p>
+
+            {fullAuditReport.groups.map((group) => {
+              const visibleItems = fullAuditOnlyIssues
+                ? group.items.filter((item) => item.status !== 'pass')
+                : group.items
+
+              if (visibleItems.length === 0) return null
+
+              return (
+                <div key={`audit-group-${group.category}`} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                    <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{group.category}</div>
+                    <span className="scanner-note scanner-note-tight" style={{ margin: 0 }}>
+                      pass {group.pass} | warn {group.warn} | fail {group.fail}
+                    </span>
+                  </div>
+
+                  <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                    {visibleItems.map((item) => (
+                      <div key={item.key} style={{ border: '1px solid #edf2f7', borderRadius: 8, padding: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                          <div style={{ fontWeight: 600 }}>{item.label}</div>
+                          <span style={{ fontWeight: 700, color: item.status === 'pass' ? '#166534' : item.status === 'warn' ? '#b45309' : '#b91c1c' }}>
+                            {item.status.toUpperCase()} | {item.latencyMs}ms
+                          </span>
+                        </div>
+                        <p className="scanner-note scanner-note-tight" style={{ marginTop: 4, marginBottom: 0 }}>{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
           <h3 className="card-title">Device Version & Runtime Info</h3>
           <span className="badge badge-yellow">WA service observability</span>
         </div>
@@ -1768,6 +2066,7 @@ export default function ServerVerifyTools() {
             <option value="alert-rule">Alert trigger</option>
             <option value="auto-fix">Auto fix</option>
             <option value="endpoint-matrix">Endpoint matrix</option>
+            <option value="full-system-audit">Full system audit</option>
             <option value="runtime-info">Runtime info</option>
             <option value="safe-mode">Safe mode</option>
             <option value="tenant-probe">Tenant probe</option>
