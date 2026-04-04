@@ -1712,7 +1712,10 @@ function normalizeLoginIdentifier(value) {
 }
 
 function isEmailLike(value) {
-  return String(value || '').includes('@')
+  const str = String(value || '').trim()
+  // Valid email harus: ada@domain.xxx format
+  // Harus ada minimal 1 karakter sebelum @, dan domain dengan dot
+  return /^[^@]+@[^@]+\.[^@]+$/.test(str)
 }
 
 function persistSession(session) {
