@@ -32,7 +32,7 @@ describe('BackupRestore', () => {
   })
 
   it('downloads backup when download button clicked', async () => {
-    global.URL.createObjectURL = vi.fn(() => 'blob:url')
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:url')
     render(<BackupRestore />)
     await waitFor(() => {
       expect(screen.getAllByText(/Cadangan/i).length).toBeGreaterThan(0)

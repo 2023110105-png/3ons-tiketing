@@ -40,8 +40,11 @@ export default function QuotaManager() {
   useEffect(() => {
     if (initialHydrationDoneRef.current) return
     initialHydrationDoneRef.current = true
-    void refreshQuotaData(true)
-  }, [])
+    const timerId = window.setTimeout(() => {
+      void refreshQuotaData(true)
+    }, 0)
+    return () => window.clearTimeout(timerId)
+  }, [refreshQuotaData])
 
   const handleEdit = (tenant) => {
     setIsEditing(tenant.id)

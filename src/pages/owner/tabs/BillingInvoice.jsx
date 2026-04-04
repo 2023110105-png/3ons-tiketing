@@ -44,8 +44,11 @@ export default function BillingInvoice() {
   useEffect(() => {
     if (initialHydrationDoneRef.current) return
     initialHydrationDoneRef.current = true
-    void refreshTenants(true)
-  }, [])
+    const timerId = window.setTimeout(() => {
+      void refreshTenants(true)
+    }, 0)
+    return () => window.clearTimeout(timerId)
+  }, [refreshTenants])
 
   const allInvoices = useMemo(() => {
     return tenants.flatMap(t => (t.invoices || []).map(i => ({ ...i, tenantId: t.id, tenantName: t.brandName })))

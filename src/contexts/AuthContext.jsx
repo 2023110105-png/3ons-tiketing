@@ -131,7 +131,7 @@ export function AuthProvider({ children }) {
             await createUserWithEmailAndPassword(auth, candidateEmail, password)
             setUser(localResult.user)
             return localResult
-          } catch (createErr) {
+          } catch {
             return {
               success: false,
               error: 'Sistem mencoba mendaftarkan sesi Firebase namun gagal. Periksa aturan Firebase atau API Key.'

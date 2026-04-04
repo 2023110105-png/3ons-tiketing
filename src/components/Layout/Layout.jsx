@@ -18,7 +18,7 @@ export default function Layout({ children }) {
   const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
-  const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
+  const [, setTenantBranding] = useState(getTenantBranding())
 
   const roleLabel = {
     super_admin: 'Admin Utama',
@@ -43,6 +43,14 @@ export default function Layout({ children }) {
       window.removeEventListener('focus', refreshTenantBranding)
     }
   }, [])
+
+  const refreshEventState = () => {
+    setEvents(getEvents())
+    setActiveEventId(getCurrentEventId())
+    const d = getCurrentDay()
+    setDay(d)
+    setDayInput(String(d))
+  }
 
   useEffect(() => {
     if (user?.role === 'owner') return
@@ -75,14 +83,6 @@ export default function Layout({ children }) {
     setCurrentDay(day, user)
     setDay(day)
     setDayInput(String(day))
-  }
-
-  const refreshEventState = () => {
-    setEvents(getEvents())
-    setActiveEventId(getCurrentEventId())
-    const d = getCurrentDay()
-    setDay(d)
-    setDayInput(String(d))
   }
 
   const handleEventChange = (eventId) => {

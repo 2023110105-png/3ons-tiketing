@@ -51,22 +51,24 @@ beforeEach(() => {
 })
 
 describe('ServerVerifyTools Alert Preset', () => {
-  it('applies aggressive and conservative presets to alert inputs', () => {
+  it('applies aggressive and conservative presets to alert inputs', async () => {
     render(<ServerVerifyTools />)
 
     const offlineInput = screen.getByPlaceholderText(/Batas offline \(menit\)/i)
     const thresholdInput = screen.getByPlaceholderText(/Ambang tenant non-ready/i)
     const cooldownInput = screen.getByPlaceholderText(/Cooldown alert \(menit\)/i)
 
-    act(() => {
+    await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Preset Aggressive/i }))
+      await Promise.resolve()
     })
     expect(offlineInput.value).toBe('5')
     expect(thresholdInput.value).toBe('2')
     expect(cooldownInput.value).toBe('3')
 
-    act(() => {
+    await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Preset Conservative/i }))
+      await Promise.resolve()
     })
     expect(offlineInput.value).toBe('15')
     expect(thresholdInput.value).toBe('5')

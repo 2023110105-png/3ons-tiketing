@@ -598,7 +598,7 @@ app.post('/api/import/barcode', async (req, res) => {
     }
 
     // 2. Validate barcode format
-    const { isValid, data } = validateBarcodeFormat(qrData);
+    const { isValid } = validateBarcodeFormat(qrData);
     if (!isValid) {
         return res.json({
             success: false,

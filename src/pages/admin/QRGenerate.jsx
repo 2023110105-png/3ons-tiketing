@@ -292,7 +292,6 @@ export default function QRGenerate() {
     try {
       const { jsPDF } = await import('jspdf')
       const doc = new jsPDF('p', 'mm', 'a4')
-      const pageWidth = doc.internal.pageSize.getWidth()
       const margin = 15
       const cardWidth = 86
       const cardHeight = 52

@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const ENABLE_PWA = false
+
 export default defineConfig({
   test: {
     environment: 'jsdom',
@@ -66,7 +68,7 @@ export default defineConfig({
     react(),
     // PWA disabled temporarily to prioritize runtime stability on production devices.
     // Re-enable after refresh-loop issue is fully resolved.
-    false && VitePWA({
+    ...(ENABLE_PWA ? [VitePWA({
       registerType: 'prompt',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
@@ -86,6 +88,6 @@ export default defineConfig({
           }
         ]
       }
-    }),
+    })] : []),
   ]
 })

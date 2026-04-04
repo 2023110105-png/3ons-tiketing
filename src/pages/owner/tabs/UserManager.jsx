@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { 
   Users, UserPlus, Key, Trash2, ShieldCheck, 
   Search, ShieldAlert, ArrowLeft, Check, X 
@@ -40,16 +40,16 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
 
   const [searchQuery, setSearchQuery] = useState('')
 
-  const runFirebaseHydrate = async () => {
+  const runFirebaseHydrate = useCallback(async () => {
     if (typeof bootstrapStoreFromFirebase !== 'function') return
     try {
       await bootstrapStoreFromFirebase(true)
     } catch {
       // Keep owner UI responsive when Firebase hydrate is unavailable.
     }
-  }
+  }, [])
 
-  const refreshTenantData = async (tenantId = selectedTenantId, forceFirebase = true) => {
+  const refreshTenantData = useCallback(async (tenantId = selectedTenantId, forceFirebase = true) => {
     if (forceFirebase) {
       await runFirebaseHydrate()
     }
@@ -60,11 +60,14 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     } else {
       setUsers([])
     }
-  }
+  }, [runFirebaseHydrate, selectedTenantId])
 
   useEffect(() => {
-    void refreshTenantData(selectedTenantId, true)
-  }, [selectedTenantId])
+    const timerId = window.setTimeout(() => {
+      void refreshTenantData(selectedTenantId, true)
+    }, 0)
+    return () => window.clearTimeout(timerId)
+  }, [selectedTenantId, refreshTenantData])
 
   useEffect(() => {
     try {

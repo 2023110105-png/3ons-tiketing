@@ -35,8 +35,11 @@ export default function BackupRestore() {
   useEffect(() => {
     if (initialHydrationDoneRef.current) return
     initialHydrationDoneRef.current = true
-    void refreshBackups(true)
-  }, [])
+    const timerId = window.setTimeout(() => {
+      void refreshBackups(true)
+    }, 0)
+    return () => window.clearTimeout(timerId)
+  }, [refreshBackups])
 
   const handleRestore = (backup) => {
     const reason = window.prompt(`Konfirmasi pemulihan data dari ${new Date(backup.timestamp).toLocaleString()}? Masukkan alasan (min 15 karakter):`, 'Permintaan klien untuk pemulihan data')

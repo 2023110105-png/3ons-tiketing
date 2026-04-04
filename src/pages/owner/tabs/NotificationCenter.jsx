@@ -33,8 +33,11 @@ export default function NotificationCenter() {
   useEffect(() => {
     if (initialHydrationDoneRef.current) return
     initialHydrationDoneRef.current = true
-    void refreshNotifications(true)
-  }, [])
+    const timerId = window.setTimeout(() => {
+      void refreshNotifications(true)
+    }, 0)
+    return () => window.clearTimeout(timerId)
+  }, [refreshNotifications])
 
   const handleMarkRead = (id) => {
     markNotificationRead(id)
