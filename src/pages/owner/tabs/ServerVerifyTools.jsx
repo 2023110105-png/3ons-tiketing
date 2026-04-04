@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
 import { bootstrapStoreFromFirebase } from '../../../store/mockData'
+import { useToast } from '../../../contexts/ToastContext'
 
 const MAX_DIAGNOSTIC_LOGS = 100
 
 export default function ServerVerifyTools() {
+  const toast = useToast()
   const [running, setRunning] = useState(false)
   const [report, setReport] = useState(null)
   const [connectionRunning, setConnectionRunning] = useState(false)
@@ -20,6 +22,18 @@ export default function ServerVerifyTools() {
   const [logStatusFilter, setLogStatusFilter] = useState('all')
   const [logTypeFilter, setLogTypeFilter] = useState('all')
   const [logTimeFilter, setLogTimeFilter] = useState('24h')
+  const [alertRules, setAlertRules] = useState({
+    enabled: true,
+    autoMonitor: true,
+    offlineMinutes: 10,
+    nonReadyTenantThreshold: 3,
+    cooldownMinutes: 5
+  })
+  const [alertSummary, setAlertSummary] = useState(null)
+  const [alertEvents, setAlertEvents] = useState([])
+  const [alertRunning, setAlertRunning] = useState(false)
+  const alertTrackerRef = useRef({ offlineSince: {}, lastAlertAt: {} })
+  const runAlertEvaluationRef = useRef(null)
 
   const prettyJson = (data) => {
     try {
@@ -150,6 +164,160 @@ export default function ServerVerifyTools() {
     }
   }
 
+  const getSessionSnapshot = async () => {
+    const res = await apiFetch('/api/wa/sessions')
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      throw new Error(data?.error || `HTTP ${res.status}`)
+    }
+
+    const sessions = Array.isArray(data?.sessions) ? data.sessions : []
+    const normalized = sessions.map((item) => {
+      const mapped = normalizeSessionStatus(item?.status)
+      return {
+        tenantId: item?.tenant_id || '-',
+        rawStatus: item?.status || '-',
+        ...mapped
+      }
+    })
+
+    const summary = normalized.reduce((acc, item) => {
+      if (item.key === 'ready') acc.ready += 1
+      else if (item.key === 'qr') acc.qr += 1
+      else if (item.key === 'checking') acc.checking += 1
+      else if (item.key === 'offline') acc.offline += 1
+      else acc.other += 1
+      return acc
+    }, { ready: 0, qr: 0, checking: 0, offline: 0, other: 0 })
+
+    return {
+      checkedAt: new Date().toISOString(),
+      sessions: normalized,
+      summary
+    }
+  }
+
+  const pushAlertEvent = ({ ruleKey, title, message, severity = 'warn', source = 'manual' }) => {
+    const event = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      checkedAt: new Date().toISOString(),
+      ruleKey,
+      title,
+      message,
+      severity,
+      source
+    }
+
+    setAlertEvents((prev) => [event, ...prev].slice(0, 50))
+    appendDiagnosticLog({
+      type: 'alert-rule',
+      status: severity === 'fail' ? 'fail' : 'warn',
+      tenantId: '*',
+      summary: `${title} | ${message}`,
+      payload: event
+    })
+
+    if (severity === 'fail') {
+      toast.error(title, message)
+    } else {
+      toast.warning(title, message)
+    }
+  }
+
+  const evaluateAlertRules = (snapshot, source = 'manual') => {
+    if (!snapshot || !Array.isArray(snapshot.sessions)) return
+
+    const tracker = alertTrackerRef.current
+    const now = Date.now()
+    const cooldownMs = Math.max(1, Number(alertRules.cooldownMinutes || 0)) * 60 * 1000
+    const offlineMsThreshold = Math.max(1, Number(alertRules.offlineMinutes || 0)) * 60 * 1000
+
+    snapshot.sessions.forEach((item) => {
+      if (item.key === 'offline') {
+        if (!tracker.offlineSince[item.tenantId]) {
+          tracker.offlineSince[item.tenantId] = now
+        }
+      } else {
+        delete tracker.offlineSince[item.tenantId]
+      }
+    })
+
+    const offlineTenants = snapshot.sessions.filter((item) => item.key === 'offline')
+    const nonReadyCount = snapshot.sessions.filter((item) => !item.valid).length
+
+    const maybeEmit = (ruleKey, title, message, severity = 'warn') => {
+      if (!alertRules.enabled) return
+      const lastMs = tracker.lastAlertAt[ruleKey] || 0
+      if (now - lastMs < cooldownMs) return
+      tracker.lastAlertAt[ruleKey] = now
+      pushAlertEvent({ ruleKey, title, message, severity, source })
+    }
+
+    offlineTenants.forEach((item) => {
+      const firstSeenMs = tracker.offlineSince[item.tenantId] || now
+      const offlineDurationMs = now - firstSeenMs
+      if (offlineDurationMs >= offlineMsThreshold) {
+        const mins = Math.floor(offlineDurationMs / 60000)
+        maybeEmit(
+          `offline-${item.tenantId}`,
+          'Tenant offline terlalu lama',
+          `${item.tenantId} offline sekitar ${mins} menit`,
+          'fail'
+        )
+      }
+    })
+
+    if (nonReadyCount >= Number(alertRules.nonReadyTenantThreshold || 0)) {
+      maybeEmit(
+        'bulk-nonready',
+        'Banyak tenant belum siap',
+        `${nonReadyCount} tenant berstatus non-ready (QR/checking/offline)`,
+        nonReadyCount >= Math.max(5, Number(alertRules.nonReadyTenantThreshold || 0) + 2) ? 'fail' : 'warn'
+      )
+    }
+
+    setAlertSummary({
+      checkedAt: snapshot.checkedAt,
+      offlineCount: offlineTenants.length,
+      nonReadyCount,
+      readyCount: snapshot.summary.ready,
+      total: snapshot.sessions.length,
+      rulesEnabled: alertRules.enabled
+    })
+  }
+
+  const runAlertEvaluation = async (source = 'manual') => {
+    if (alertRunning) return
+    setAlertRunning(true)
+
+    try {
+      const snapshot = await getSessionSnapshot()
+      evaluateAlertRules(snapshot, source)
+
+      appendDiagnosticLog({
+        type: 'alert-evaluation',
+        status: snapshot.summary.offline > 0 ? 'warn' : 'pass',
+        tenantId: '*',
+        summary: `Alert eval total=${snapshot.sessions.length}, offline=${snapshot.summary.offline}, non-ready=${snapshot.sessions.length - snapshot.summary.ready}`,
+        payload: snapshot
+      })
+    } catch (err) {
+      const msg = err?.message || 'Gagal evaluasi alert rules'
+      pushAlertEvent({
+        ruleKey: 'alert-eval-error',
+        title: 'Evaluasi alert gagal',
+        message: msg,
+        severity: 'fail',
+        source
+      })
+    } finally {
+      setAlertRunning(false)
+    }
+  }
+
+  runAlertEvaluationRef.current = runAlertEvaluation
+
   const normalizeSessionStatus = (status) => {
     const key = String(status || '').toLowerCase()
     if (key === 'ready') return { key: 'ready', label: 'Siap', tone: 'ok', valid: true }
@@ -164,35 +332,13 @@ export default function ServerVerifyTools() {
     setConnectionRunning(true)
 
     try {
-      const res = await apiFetch('/api/wa/sessions')
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}`)
-      }
-
-      const sessions = Array.isArray(data?.sessions) ? data.sessions : []
-      const normalized = sessions.map((item) => {
-        const mapped = normalizeSessionStatus(item?.status)
-        return {
-          tenantId: item?.tenant_id || '-',
-          rawStatus: item?.status || '-',
-          ...mapped
-        }
-      })
-
-      const summary = normalized.reduce((acc, item) => {
-        if (item.key === 'ready') acc.ready += 1
-        else if (item.key === 'qr') acc.qr += 1
-        else if (item.key === 'checking') acc.checking += 1
-        else if (item.key === 'offline') acc.offline += 1
-        else acc.other += 1
-        return acc
-      }, { ready: 0, qr: 0, checking: 0, offline: 0, other: 0 })
+      const snapshot = await getSessionSnapshot()
+      const normalized = snapshot.sessions
+      const summary = snapshot.summary
 
       const allGood = normalized.length > 0 && normalized.every((item) => item.valid)
       const nextConnectionReport = {
-        checkedAt: new Date().toISOString(),
+        checkedAt: snapshot.checkedAt,
         total: normalized.length,
         allGood,
         summary,
@@ -208,6 +354,8 @@ export default function ServerVerifyTools() {
         summary: `ready=${summary.ready}, qr=${summary.qr}, checking=${summary.checking}, offline=${summary.offline}`,
         payload: nextConnectionReport
       })
+
+      evaluateAlertRules(snapshot, 'device-check')
     } catch (err) {
       const failedReport = {
         checkedAt: new Date().toISOString(),
@@ -432,6 +580,26 @@ export default function ServerVerifyTools() {
     )
   }
 
+  useEffect(() => {
+    if (!alertRules.autoMonitor) return
+
+    let stopped = false
+    const runTick = async () => {
+      if (stopped) return
+      if (typeof runAlertEvaluationRef.current === 'function') {
+        await runAlertEvaluationRef.current('auto')
+      }
+    }
+
+    runTick()
+    const id = window.setInterval(runTick, 60 * 1000)
+
+    return () => {
+      stopped = true
+      window.clearInterval(id)
+    }
+  }, [alertRules.autoMonitor])
+
   return (
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
@@ -504,6 +672,88 @@ export default function ServerVerifyTools() {
                 {tenantProbeResult.error}
               </p>
             )}
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <h3 className="card-title">Alert Rules</h3>
+          <span className="badge badge-yellow">Monitoring otomatis</span>
+        </div>
+        <p className="scanner-note" style={{ marginBottom: 12 }}>
+          Atur aturan notifikasi agar tim teknis mendapat peringatan saat koneksi device bermasalah.
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 12 }}>
+          <label className="scanner-note scanner-note-tight" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={alertRules.enabled}
+              onChange={(e) => setAlertRules((prev) => ({ ...prev, enabled: e.target.checked }))}
+            />
+            Aktifkan alert rules
+          </label>
+          <label className="scanner-note scanner-note-tight" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={alertRules.autoMonitor}
+              onChange={(e) => setAlertRules((prev) => ({ ...prev, autoMonitor: e.target.checked }))}
+            />
+            Auto monitor tiap 1 menit
+          </label>
+          <input
+            className="form-input"
+            type="number"
+            min={1}
+            value={alertRules.offlineMinutes}
+            onChange={(e) => setAlertRules((prev) => ({ ...prev, offlineMinutes: Number(e.target.value) || 1 }))}
+            placeholder="Batas offline (menit)"
+          />
+          <input
+            className="form-input"
+            type="number"
+            min={1}
+            value={alertRules.nonReadyTenantThreshold}
+            onChange={(e) => setAlertRules((prev) => ({ ...prev, nonReadyTenantThreshold: Number(e.target.value) || 1 }))}
+            placeholder="Ambang tenant non-ready"
+          />
+          <input
+            className="form-input"
+            type="number"
+            min={1}
+            value={alertRules.cooldownMinutes}
+            onChange={(e) => setAlertRules((prev) => ({ ...prev, cooldownMinutes: Number(e.target.value) || 1 }))}
+            placeholder="Cooldown alert (menit)"
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <button className="btn btn-outline" onClick={() => runAlertEvaluation('manual')} disabled={alertRunning}>
+            {alertRunning ? (<><span className="spinner qr-spinner-sm"></span> Evaluasi alert...</>) : (<><RefreshCw size={16} /> Jalankan Evaluasi Alert</>)}
+          </button>
+        </div>
+
+        {alertSummary && (
+          <p className="scanner-note scanner-note-tight" style={{ marginBottom: 10 }}>
+            Ringkasan: total {alertSummary.total} | ready {alertSummary.readyCount} | non-ready {alertSummary.nonReadyCount} | offline {alertSummary.offlineCount}
+          </p>
+        )}
+
+        {alertEvents.length > 0 && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {alertEvents.map((event) => (
+              <div key={event.id} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700 }}>{event.title}</div>
+                  <span style={{ fontWeight: 700, color: event.severity === 'fail' ? '#b91c1c' : '#b45309' }}>
+                    {event.severity.toUpperCase()}
+                  </span>
+                </div>
+                <p className="scanner-note scanner-note-tight" style={{ marginTop: 6, marginBottom: 4 }}>{event.message}</p>
+                <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>{new Date(event.checkedAt).toLocaleString('id-ID')} | source: {event.source}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -619,6 +869,8 @@ export default function ServerVerifyTools() {
             <option value="all">Semua jenis</option>
             <option value="platform-health-check">Platform health</option>
             <option value="device-connection-check">Device connection</option>
+            <option value="alert-evaluation">Alert evaluation</option>
+            <option value="alert-rule">Alert trigger</option>
             <option value="tenant-probe">Tenant probe</option>
             <option value="verify-self-test">Verify self test</option>
           </select>
