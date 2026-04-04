@@ -65,6 +65,10 @@ export default function ServerVerifyTools() {
   const [fullAuditRunning, setFullAuditRunning] = useState(false)
   const [fullAuditReport, setFullAuditReport] = useState(null)
   const [fullAuditOnlyIssues, setFullAuditOnlyIssues] = useState(true)
+  const [strictAuditMode, setStrictAuditMode] = useState(() => {
+    const stored = readItToolsSettings()
+    return Boolean(stored?.strictAuditMode)
+  })
   const [runtimeRunning, setRuntimeRunning] = useState(false)
   const [runtimeInfo, setRuntimeInfo] = useState(null)
   const [safeMode, setSafeMode] = useState(() => {
@@ -1139,9 +1143,17 @@ export default function ServerVerifyTools() {
         return acc
       }, {})
 
+      const effectiveFail = strictAuditMode ? summary.fail + summary.warn : summary.fail
+      const strictLabel = strictAuditMode ? 'STRICT' : 'NORMAL'
+
       const report = {
         checkedAt: new Date().toISOString(),
-        summary,
+        summary: {
+          ...summary,
+          effectiveFail,
+          strictAuditMode,
+          strictLabel
+        },
         groups: Object.values(grouped),
         results
       }
@@ -1149,18 +1161,18 @@ export default function ServerVerifyTools() {
 
       appendDiagnosticLog({
         type: 'full-system-audit',
-        status: summary.fail > 0 ? 'fail' : summary.warn > 0 ? 'warn' : 'pass',
+        status: effectiveFail > 0 ? 'fail' : 'pass',
         tenantId: '*',
-        summary: `Full audit pass=${summary.pass}, warn=${summary.warn}, fail=${summary.fail}`,
+        summary: `Full audit(${strictLabel}) pass=${summary.pass}, warn=${summary.warn}, fail=${summary.fail}, effective_fail=${effectiveFail}`,
         payload: report
       })
 
-      if (summary.fail > 0) {
-        toast.error('Audit sistem selesai', `Ditemukan ${summary.fail} FAIL dari ${summary.total} pemeriksaan.`)
+      if (effectiveFail > 0) {
+        toast.error('Audit sistem selesai', `Mode ${strictLabel}: effective FAIL ${effectiveFail} dari ${summary.total} pemeriksaan.`)
       } else if (summary.warn > 0) {
-        toast.warning('Audit sistem selesai sebagian', `WARN ${summary.warn}, PASS ${summary.pass}.`)
+        toast.warning('Audit sistem selesai sebagian', `Mode ${strictLabel}: WARN ${summary.warn}, PASS ${summary.pass}.`)
       } else {
-        toast.success('Audit sistem sehat', `${summary.pass}/${summary.total} pemeriksaan PASS.`)
+        toast.success('Audit sistem sehat', `Mode ${strictLabel}: ${summary.pass}/${summary.total} pemeriksaan PASS.`)
       }
     } finally {
       setFullAuditRunning(false)
@@ -1277,6 +1289,72 @@ export default function ServerVerifyTools() {
       'text/csv;charset=utf-8'
     )
     toast.success('Export rekap error berhasil', `${errorRecap.length} item prioritas diekspor.`)
+  }
+
+  const exportFullAuditCsv = () => {
+    if (!fullAuditReport) return
+    const headers = ['category', 'key', 'label', 'status', 'latency_ms', 'detail']
+    const rows = fullAuditReport.results.map((item) => [
+      item.category,
+      item.key,
+      item.label,
+      item.status,
+      item.latencyMs,
+      item.detail
+    ])
+
+    const csvLines = [
+      headers.map(toCsvValue).join(','),
+      ...rows.map((row) => row.map(toCsvValue).join(','))
+    ]
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    downloadTextFile(
+      `full-audit-${stamp}.csv`,
+      csvLines.join('\n'),
+      'text/csv;charset=utf-8'
+    )
+    toast.success('Export audit CSV berhasil', `${fullAuditReport.results.length} item audit diekspor.`)
+  }
+
+  const exportFullAuditPdf = async () => {
+    if (!fullAuditReport) return
+
+    try {
+      const { jsPDF } = await import('jspdf')
+      const { default: autoTable } = await import('jspdf-autotable')
+      const doc = new jsPDF('p', 'mm', 'a4')
+
+      doc.setFontSize(16)
+      doc.setFont(undefined, 'bold')
+      doc.text('FULL SYSTEM AUDIT REPORT', 105, 16, { align: 'center' })
+      doc.setFontSize(10)
+      doc.setFont(undefined, 'normal')
+      doc.text(`Generated: ${new Date().toLocaleString('id-ID')}`, 105, 23, { align: 'center' })
+      doc.text(`Mode: ${fullAuditReport.summary.strictLabel || (strictAuditMode ? 'STRICT' : 'NORMAL')}`, 14, 32)
+      doc.text(`PASS ${fullAuditReport.summary.pass} | WARN ${fullAuditReport.summary.warn} | FAIL ${fullAuditReport.summary.fail} | Effective FAIL ${fullAuditReport.summary.effectiveFail ?? fullAuditReport.summary.fail}`, 14, 38)
+
+      autoTable(doc, {
+        startY: 44,
+        head: [['Kategori', 'Key', 'Status', 'Latency', 'Detail']],
+        body: fullAuditReport.results.map((item) => [
+          item.category,
+          item.key,
+          item.status.toUpperCase(),
+          `${item.latencyMs}ms`,
+          item.detail
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2.5 }
+      })
+
+      const stamp = new Date().toISOString().slice(0, 10)
+      doc.save(`Full_Audit_${stamp}.pdf`)
+      toast.success('Export audit PDF berhasil', `${fullAuditReport.results.length} item audit diekspor.`)
+    } catch (err) {
+      toast.error('Export audit PDF gagal', err?.message || 'Tidak dapat membuat file PDF.')
+    }
   }
 
   const resetTenantSession = async (tenantId) => {
@@ -1523,13 +1601,14 @@ export default function ServerVerifyTools() {
         IT_TOOLS_SETTINGS_KEY,
         JSON.stringify({
           alertRules: normalizeAlertRules(alertRules),
-          safeMode: normalizeSafeMode(safeMode)
+          safeMode: normalizeSafeMode(safeMode),
+          strictAuditMode: Boolean(strictAuditMode)
         })
       )
     } catch {
       // Ignore persistence failures to keep IT tools usable.
     }
-  }, [alertRules, safeMode])
+  }, [alertRules, safeMode, strictAuditMode])
 
   const toggleSafeMode = () => {
     const nextEnabled = !safeMode.enabled
@@ -1746,6 +1825,14 @@ export default function ServerVerifyTools() {
           <label className="scanner-note scanner-note-tight" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
               type="checkbox"
+              checked={strictAuditMode}
+              onChange={(e) => setStrictAuditMode(e.target.checked)}
+            />
+            Strict audit mode (WARN dianggap FAIL)
+          </label>
+          <label className="scanner-note scanner-note-tight" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
               checked={fullAuditOnlyIssues}
               onChange={(e) => setFullAuditOnlyIssues(e.target.checked)}
             />
@@ -1754,9 +1841,20 @@ export default function ServerVerifyTools() {
         </div>
 
         {fullAuditReport && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            <button className="btn btn-outline" onClick={exportFullAuditCsv}>
+              <FileDown size={16} /> Export Full Audit CSV
+            </button>
+            <button className="btn btn-outline" onClick={exportFullAuditPdf}>
+              <FileDown size={16} /> Export Full Audit PDF
+            </button>
+          </div>
+        )}
+
+        {fullAuditReport && (
           <div style={{ display: 'grid', gap: 8 }}>
             <p className="scanner-note scanner-note-tight" style={{ margin: 0 }}>
-              Ringkasan audit: PASS {fullAuditReport.summary.pass} | WARN {fullAuditReport.summary.warn} | FAIL {fullAuditReport.summary.fail} | TOTAL {fullAuditReport.summary.total}
+              Ringkasan audit ({fullAuditReport.summary.strictLabel || (strictAuditMode ? 'STRICT' : 'NORMAL')}): PASS {fullAuditReport.summary.pass} | WARN {fullAuditReport.summary.warn} | FAIL {fullAuditReport.summary.fail} | Effective FAIL {fullAuditReport.summary.effectiveFail ?? fullAuditReport.summary.fail} | TOTAL {fullAuditReport.summary.total}
             </p>
 
             {fullAuditReport.groups.map((group) => {
