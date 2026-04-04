@@ -175,20 +175,8 @@ async function resetTenantClient(tenantId) {
     const session = getOrCreateTenantSession(tenantId);
     let warning = null;
 
-    try {
-        if (!session.client && !session.initPromise) {
-            await ensureTenantClient(tenantId);
-        }
-    } catch (err) {
-        warning = err.message;
-    }
-
     if (session.initPromise) {
-        try {
-            await session.initPromise;
-        } catch (err) {
-            warning = warning || err.message;
-        }
+        warning = warning || 'Client sedang inisialisasi; reset dilanjutkan tanpa menunggu init selesai.';
     }
 
     if (session.client) {
@@ -212,7 +200,13 @@ async function resetTenantClient(tenantId) {
     session.initPromise = null;
     session.lastError = null;
 
-    await ensureTenantClient(tenantId);
+    ensureTenantClient(tenantId).catch((err) => {
+        session.status = 'offline';
+        session.isReady = false;
+        session.currentQR = null;
+        session.lastError = err.message;
+    });
+
     return warning;
 }
 
