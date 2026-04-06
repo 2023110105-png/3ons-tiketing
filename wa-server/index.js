@@ -460,24 +460,36 @@ app.get('/api/wa/runtime', (_req, res) => {
 });
 
 // 1. Status Check & QR Retreival
-app.get('/api/wa/status', (req, res) => {
+app.get('/api/wa/status', async (req, res) => {
     const tenantId = resolveTenantId(req);
     const session = getOrCreateTenantSession(tenantId);
 
-    if (!session.client && !session.initPromise) {
-        ensureTenantClient(tenantId).catch((err) => {
-            const current = getOrCreateTenantSession(tenantId);
-            current.status = 'offline';
-            current.lastError = err.message;
-        });
+    // Jika client offline/disconnected, trigger recovery
+    let recoveryInProgress = false;
+    if (!session.client || session.status === 'disconnected' || session.status === 'offline') {
+        recoveryInProgress = true;
+        try {
+            ensureTenantClient(tenantId).catch((err) => {
+                const current = getOrCreateTenantSession(tenantId);
+                current.status = 'recovering';
+                current.lastError = err.message;
+            });
+        } catch (err) {
+            session.status = 'recovering';
+            session.lastError = err.message;
+        }
     }
 
     res.json({
         tenant_id: tenantId,
-        status: session.status,
+        status: recoveryInProgress ? 'recovering' : session.status,
         qrCode: session.currentQR,
         isReady: session.isReady,
-        lastError: session.lastError
+        lastError: session.lastError,
+        recoveryInProgress,
+        instruction: recoveryInProgress
+          ? 'WA client sedang recovery. Jika QR muncul, scan ulang. Jika tetap gagal, reset tenant.'
+          : undefined
     });
 });
 
