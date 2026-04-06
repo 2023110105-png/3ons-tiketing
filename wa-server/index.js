@@ -500,9 +500,11 @@ app.post('/api/wa/logout', async (req, res) => {
 // 2. Send Ticket (WA & Email)
 app.post('/api/send-ticket', async (req, res) => {
     const tenantId = resolveTenantId(req);
-    const { name, phone, email, ticket_id, category, day_number, qr_data, send_wa, send_email, wa_send_mode } = req.body;
+    const { name, phone, phones, email, ticket_id, category, day_number, qr_data, send_wa, send_email, wa_send_mode } = req.body;
 
-    const results = { wa: null, email: null };
+    // phones: array nomor WA, phone: satu nomor WA (backward compatible)
+    const phoneList = Array.isArray(phones) && phones.length > 0 ? phones : (phone ? [phone] : []);
+    const results = { wa: [], email: null };
     const qrPublicUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr_data)}`;
     const waSendMode = wa_send_mode === 'message_with_barcode' ? 'message_with_barcode' : 'message_only';
 
@@ -522,38 +524,42 @@ app.post('/api/send-ticket', async (req, res) => {
     }
     session = getOrCreateTenantSession(tenantId);
 
-    // A. PROSES SEND WHATSAPP
-    if (send_wa && phone) {
+    // A. PROSES SEND WHATSAPP (Batch/Paralel)
+    if (send_wa && phoneList.length > 0) {
         if (!session.isReady || !session.client) {
-            results.wa = 'Failed - WA Client Not Ready';
+            results.wa = phoneList.map(p => ({ phone: p, status: 'Failed', error: 'WA Client Not Ready' }));
         } else {
-            try {
-                const waNumber = formatPhoneWA(phone);
-
-                const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
-
-                if (waSendMode === 'message_only') {
-                    await session.client.sendMessage(waNumber, waMessage);
-                } else {
-                    // Ambil gambar secara manual untuk menghindari error MIME
-                    const response = await fetch(qrPublicUrl);
-                    const arrayBuffer = await response.arrayBuffer();
-                    const buffer = Buffer.from(arrayBuffer);
-                    const base64Str = buffer.toString('base64');
-                    const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
-
-                    // Kirim Gambar + Caption
-                    await session.client.sendMessage(waNumber, media, { caption: waMessage });
+            const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
+            const sendTasks = phoneList.map(async (p) => {
+                const waNumber = formatPhoneWA(p);
+                try {
+                    if (waSendMode === 'message_only') {
+                        await Promise.race([
+                            session.client.sendMessage(waNumber, waMessage),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
+                        ]);
+                    } else {
+                        const response = await fetch(qrPublicUrl);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const buffer = Buffer.from(arrayBuffer);
+                        const base64Str = buffer.toString('base64');
+                        const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
+                        await Promise.race([
+                            session.client.sendMessage(waNumber, media, { caption: waMessage }),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
+                        ]);
+                    }
+                    return { phone: p, status: 'Success' };
+                } catch (err) {
+                    console.error('WA Send Error:', err.message);
+                    return { phone: p, status: 'Failed', error: err.message };
                 }
-                results.wa = 'Success';
-            } catch (err) {
-                console.error('WA Send Error:', err.message);
-                results.wa = 'Failed - ' + err.message;
-            }
+            });
+            results.wa = await Promise.all(sendTasks);
         }
     }
 
-    // B. PROSES SEND EMAIL
+    // B. PROSES SEND EMAIL (tidak diubah, tetap satu email)
     if (send_email && email) {
         if (transporter.options.auth.user === 'EMAIL_ANDA@gmail.com') {
             results.email = 'Failed - Harap setup Nodemailer Auth di index.js Server';
