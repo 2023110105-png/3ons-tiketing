@@ -137,7 +137,10 @@ function createWaClient(tenantId, session) {
     });
 
     client.on('qr', async (qr) => {
+        const now = new Date().toISOString();
         console.log(`\n==== STATUS: BUTUH SCAN QR [${tenantId}] ====`);
+        console.log(`WAKTU PERMINTAAN QR: ${now}`);
+        // Jika ingin menampilkan user, tambahkan info user di sini
         session.status = 'qr';
         session.isReady = false;
         session.lastError = null;
