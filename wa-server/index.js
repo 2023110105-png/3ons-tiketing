@@ -1,3 +1,8 @@
+function getRequesterInfo(req) {
+    // Coba ambil info user dari header, body, atau query
+    const user = req?.headers['x-requested-by'] || req?.body?.requested_by || req?.query?.requested_by || '';
+    return String(user).trim();
+}
 // Endpoint: Test Kirim Pesan WhatsApp (untuk owner/admin check-up device)
 app.post('/api/wa/test-send', async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
@@ -460,36 +465,29 @@ app.get('/api/wa/runtime', (_req, res) => {
 });
 
 // 1. Status Check & QR Retreival
-app.get('/api/wa/status', async (req, res) => {
+app.get('/api/wa/status', (req, res) => {
     const tenantId = resolveTenantId(req);
     const session = getOrCreateTenantSession(tenantId);
+    const requestedBy = getRequesterInfo(req);
 
-    // Jika client offline/disconnected, trigger recovery
-    let recoveryInProgress = false;
-    if (!session.client || session.status === 'disconnected' || session.status === 'offline') {
-        recoveryInProgress = true;
-        try {
-            ensureTenantClient(tenantId).catch((err) => {
-                const current = getOrCreateTenantSession(tenantId);
-                current.status = 'recovering';
-                current.lastError = err.message;
-            });
-        } catch (err) {
-            session.status = 'recovering';
-            session.lastError = err.message;
-        }
+    if (!session.client && !session.initPromise) {
+        ensureTenantClient(tenantId).catch((err) => {
+            const current = getOrCreateTenantSession(tenantId);
+            current.status = 'offline';
+            current.lastError = err.message;
+        });
     }
+
+    // Log permintaan QR
+    console.log(`[WA][QR_REQUEST] tenant_id=${tenantId} requested_by=${requestedBy || '-'} status=${session.status} time=${new Date().toISOString()}`);
 
     res.json({
         tenant_id: tenantId,
-        status: recoveryInProgress ? 'recovering' : session.status,
+        status: session.status,
         qrCode: session.currentQR,
         isReady: session.isReady,
         lastError: session.lastError,
-        recoveryInProgress,
-        instruction: recoveryInProgress
-          ? 'WA client sedang recovery. Jika QR muncul, scan ulang. Jika tetap gagal, reset tenant.'
-          : undefined
+        requested_by: requestedBy
     });
 });
 
@@ -515,6 +513,7 @@ app.post('/api/wa/batch-status', async (req, res) => {
         });
     }
 
+    const requestedBy = getRequesterInfo(req);
     const waitMsRaw = Number(req?.body?.wait_ms ?? req?.query?.wait_ms ?? 1200);
     const waitMs = Number.isFinite(waitMsRaw) ? Math.max(0, Math.min(waitMsRaw, 10000)) : 1200;
 
@@ -535,13 +534,16 @@ app.post('/api/wa/batch-status', async (req, res) => {
 
     const items = tenantIds.map((tenantId) => {
         const session = getOrCreateTenantSession(tenantId);
+        // Log permintaan QR batch
+        console.log(`[WA][QR_REQUEST][BATCH] tenant_id=${tenantId} requested_by=${requestedBy || '-'} status=${session.status} time=${new Date().toISOString()}`);
         return {
             tenant_id: tenantId,
             status: session.status,
             isReady: session.isReady,
             qrCode: session.currentQR,
             hasQr: !!session.currentQR,
-            lastError: session.lastError || null
+            lastError: session.lastError || null,
+            requested_by: requestedBy
         };
     });
 
@@ -549,6 +551,7 @@ app.post('/api/wa/batch-status', async (req, res) => {
         success: true,
         total: items.length,
         wait_ms: waitMs,
+        requested_by: requestedBy,
         items
     });
 });
