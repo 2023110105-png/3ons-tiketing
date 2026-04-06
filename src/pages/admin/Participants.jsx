@@ -24,6 +24,8 @@ export default function Participants() {
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
   const [broadcastMode, setBroadcastMode] = useState('message_only') // 'message_only' | 'message_with_barcode'
+  const [showBroadcastModeModal, setShowBroadcastModeModal] = useState(false)
+  const [pendingBroadcastParticipants, setPendingBroadcastParticipants] = useState([])
   
   const toast = useToast()
   const { user } = useAuth()
@@ -125,26 +127,20 @@ export default function Participants() {
     else toast.error('Gagal', 'Layanan pengiriman sedang tidak aktif.');
   }
 
-  const handleBroadcast = async () => {
+  const handleBroadcast = () => {
     const targetParticipants = participants;
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
+    setPendingBroadcastParticipants(targetParticipants);
+    setShowBroadcastModeModal(true);
+  }
 
-    // Pilihan mode sebelum broadcast
-    let mode = window.prompt(
-      `Pilih mode pengiriman:\n1 = Pesan Saja\n2 = Pesan + Barcode\nKetik 1 atau 2 lalu OK.\n\nJumlah peserta: ${targetParticipants.length}`,
-      '1'
-    );
-    if (!mode) return;
-    mode = String(mode).trim();
-    let selectedMode = 'message_only';
-    if (mode === '2') selectedMode = 'message_with_barcode';
+  const startBroadcastWithMode = async (selectedMode) => {
     setBroadcastMode(selectedMode);
-
+    setShowBroadcastModeModal(false);
+    const targetParticipants = pendingBroadcastParticipants;
     if (!window.confirm(`Perhatian!\nAnda akan mengirim tiket ke ${targetParticipants.length} peserta dengan mode: ${selectedMode === 'message_with_barcode' ? 'Pesan + Barcode' : 'Pesan Saja'}.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
-
     setIsBroadcasting(true);
     setBroadcastProgress({ current: 0, total: targetParticipants.length, success: 0, failed: 0 });
-
     let s = 0; let f = 0;
     for (let i = 0; i < targetParticipants.length; i++) {
       setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
@@ -571,20 +567,39 @@ export default function Participants() {
           {participants.length} dari {allParticipants.length} peserta
         </div>
 
+        {/* Modal Pilihan Mode Broadcast */}
+        {showBroadcastModeModal && (
+          <div className="modal-overlay modal-overlay-priority">
+            <div className="modal broadcast-modal broadcast-modal-mobile" style={{maxWidth: 380, textAlign: 'center'}}>
+              <Bot size={44} className="broadcast-bot-icon" />
+              <h3 className="broadcast-title">Pilih Mode Kirim WhatsApp</h3>
+              <p className="broadcast-note broadcast-note-mobile" style={{marginBottom: 24}}>Silakan pilih mode pengiriman untuk broadcast tiket ke peserta:</p>
+              <div style={{display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16}}>
+                <button className="btn btn-whatsapp" style={{fontWeight: 600, fontSize: 16, padding: '12px 0'}} onClick={() => startBroadcastWithMode('message_with_barcode')}>
+                  Pesan + Barcode (gambar QR)
+                </button>
+                <button className="btn btn-secondary" style={{fontWeight: 600, fontSize: 16, padding: '12px 0'}} onClick={() => startBroadcastWithMode('message_only')}>
+                  Pesan Saja (teks saja)
+                </button>
+              </div>
+              <p className="text-note" style={{fontSize: 13, color: '#888'}}>Pesan + Barcode akan mengirim gambar QR sebagai lampiran. Pesan Saja hanya mengirim teks tanpa gambar.</p>
+              <button className="btn btn-ghost mt-16" onClick={() => setShowBroadcastModeModal(false)} style={{marginTop: 16}}>Batal</button>
+            </div>
+          </div>
+        )}
+
         {isBroadcasting && (
           <div className="modal-overlay modal-overlay-priority">
             <div className="modal broadcast-modal broadcast-modal-mobile">
               <Bot size={44} className="broadcast-bot-icon" />
               <h3 className="broadcast-title">Mengirim Pesan...</h3>
               <p className="broadcast-note broadcast-note-mobile">Mohon jangan tutup halaman ini.</p>
-              
               <div className="broadcast-progress-track broadcast-progress-track-mobile">
                 <div className="broadcast-progress-fill" style={{ 
                   width: `${(broadcastProgress.current / broadcastProgress.total) * 100}%`,
                   transition: 'width 0.3s ease'
                 }} />
               </div>
-              
               <div className="broadcast-count broadcast-count-mobile">
                 {broadcastProgress.current} / {broadcastProgress.total} Tiket
               </div>
