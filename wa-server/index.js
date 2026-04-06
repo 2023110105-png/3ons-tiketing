@@ -1,3 +1,22 @@
+const express = require('express');
+const cors = require('cors');
+const qrcode = require('qrcode');
+const crypto = require('crypto');
+const fs = require('fs/promises');
+const jsQR = require('jsqr');
+const Jimp = require('jimp');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const nodemailer = require('nodemailer');
+const waServerPackage = require('./package.json');
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+const serverStartedAt = Date.now();
+const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
+const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
+
 function getRequesterInfo(req) {
     // Coba ambil info user dari header, body, atau query
     const user = req?.headers['x-requested-by'] || req?.body?.requested_by || req?.query?.requested_by || '';
@@ -60,24 +79,8 @@ async function logWaSendBatch(tenantId, phoneList, results, context = {}) {
         console.error('Gagal menulis log WA:', err.message);
     }
 }
-const express = require('express');
-const cors = require('cors');
-const qrcode = require('qrcode');
-const crypto = require('crypto');
-const fs = require('fs/promises');
-const jsQR = require('jsqr');
-const Jimp = require('jimp');
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const nodemailer = require('nodemailer');
-const waServerPackage = require('./package.json');
+// ...existing code...
 
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-const serverStartedAt = Date.now();
-const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
-const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
 const WA_PROTOCOL_TIMEOUT_MS = Number(process.env.WA_PROTOCOL_TIMEOUT_MS || 180000);
 const WA_LAUNCH_TIMEOUT_MS = Number(process.env.WA_LAUNCH_TIMEOUT_MS || 180000);
 
