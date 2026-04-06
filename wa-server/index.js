@@ -691,7 +691,11 @@ app.post('/api/send-ticket', async (req, res) => {
 app.post('/api/ticket/verify', (req, res) => {
     const qr = normalizeQRPayload(req?.body?.qr_data);
     if (!qr || !qr.ticketId || !qr.tenantId || !qr.eventId || !qr.signature || !Number.isFinite(qr.dayNumber)) {
-        return res.status(400).json({ valid: false, reason: 'invalid_payload' });
+        console.error('[TICKET_VERIFY] Payload invalid:', {
+            body: req.body,
+            qr_normalized: qr
+        });
+        return res.status(400).json({ valid: false, reason: 'invalid_payload', debug: { body: req.body, qr_normalized: qr } });
     }
 
     const requestedTenant = normalizeTenantId(req?.body?.tenant_id || qr.tenantId);
