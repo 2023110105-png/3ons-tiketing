@@ -367,13 +367,20 @@ function buildSecureSignature({ tenantId, eventId, ticketId, dayNumber, secureCo
 }
 
 function normalizeQRPayload(rawQr) {
-    let parsed;
+    let parsed = null;
+    const raw = String(rawQr || '').trim();
+    // Coba parse JSON
     try {
-        parsed = JSON.parse(String(rawQr || ''));
-    } catch {
-        return null;
+        parsed = JSON.parse(raw);
+    } catch {}
+    // Jika gagal, coba parse format string key-value (tid:xxx;t:xxx;e:xxx;d:1;sig:xxx;r:xxx;v:3)
+    if (!parsed || typeof parsed !== 'object') {
+        parsed = {};
+        raw.split(';').forEach(pair => {
+            const [k, ...rest] = pair.split(':');
+            if (k && rest.length) parsed[k.trim()] = rest.join(':').trim();
+        });
     }
-
     if (!parsed || typeof parsed !== 'object') return null;
     return {
         ticketId: String(parsed.tid || '').trim(),
