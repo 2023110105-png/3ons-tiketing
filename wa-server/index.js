@@ -217,8 +217,9 @@ function createWaClient(tenantId, session) {
         }
     });
 
+
     client.on('ready', () => {
-        console.log(`✅ WhatsApp Bot Ready! [${tenantId}]`);
+        console.log(`✅ WhatsApp client [${tenantId}] berhasil terkoneksi & siap digunakan!`);
         session.isReady = true;
         session.status = 'ready';
         session.currentQR = null;
@@ -226,7 +227,7 @@ function createWaClient(tenantId, session) {
     });
 
     client.on('disconnected', () => {
-        console.log(`❌ WhatsApp Disconnected! [${tenantId}]`);
+        console.log(`❌ WhatsApp client [${tenantId}] terputus/disconnected!`);
         session.isReady = false;
         session.status = 'disconnected';
         session.currentQR = null;
@@ -305,6 +306,7 @@ async function resetTenantClient(tenantId) {
 
     try {
         await clearTenantAuthData(tenantId);
+        console.log(`[WA RESET] Session ${tenantId} berhasil direset & QR lama dibersihkan.`);
     } catch (err) {
         warning = warning || `Gagal membersihkan auth session: ${err.message}`;
     }
@@ -315,6 +317,9 @@ async function resetTenantClient(tenantId) {
     session.currentQR = null;
     session.initPromise = null;
     session.lastError = null;
+
+    // QR lama tidak valid
+    console.log(`[WA RESET] QR lama untuk ${tenantId} sudah tidak valid. Menunggu QR baru...`);
 
     ensureTenantClient(tenantId).catch((err) => {
         session.status = 'offline';
