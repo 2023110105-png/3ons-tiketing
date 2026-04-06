@@ -1,3 +1,36 @@
+// Endpoint: Test Kirim Pesan WhatsApp (untuk owner/admin check-up device)
+app.post('/api/wa/test-send', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    const tenantId = resolveTenantId(req);
+    const { phone, message } = req.body;
+    if (!phone || !message) {
+        return res.status(400).json({ success: false, error: 'phone dan message wajib diisi' });
+    }
+    let session = getOrCreateTenantSession(tenantId);
+    if (!session.client && !session.initPromise) {
+        ensureTenantClient(tenantId).catch(() => {});
+    }
+    if (session.initPromise) {
+        try { await session.initPromise; } catch {}
+    }
+    session = getOrCreateTenantSession(tenantId);
+    if (!session.isReady || !session.client) {
+        return res.json({ success: false, error: 'WA Client Not Ready', status: session.status });
+    }
+    const waNumber = formatPhoneWA(phone);
+    try {
+        console.log(`[WA TEST SEND] Mulai kirim test ke ${waNumber} (tenant: ${tenantId})`);
+        const sendResult = await Promise.race([
+            session.client.sendMessage(waNumber, message),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
+        ]);
+        console.log(`[WA TEST SEND] Sukses kirim test ke ${waNumber} (tenant: ${tenantId})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
+        return res.json({ success: true, phone, msgId: sendResult && sendResult.id ? sendResult.id.id : undefined });
+    } catch (err) {
+        console.error(`[WA TEST SEND ERROR] Gagal kirim test ke ${waNumber} (tenant: ${tenantId}):`, err.message);
+        return res.json({ success: false, phone, error: err.message });
+    }
+});
 // Helper: Log pengiriman WhatsApp ke file log JSON
 async function logWaSendBatch(tenantId, phoneList, results, context = {}) {
     const logFile = `wa-send-log.json`;
