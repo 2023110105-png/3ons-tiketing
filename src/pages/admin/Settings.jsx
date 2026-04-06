@@ -440,34 +440,7 @@ export default function Settings() {
                 required
               ></textarea>
             </div>
-            <div className="form-group">
-              <label className="form-label">Mode Kirim WhatsApp Bot</label>
-              <div className="d-flex gap-16 flex-wrap">
-                <label className="d-flex align-center gap-8">
-                  <input
-                    type="radio"
-                    name="wa-send-mode"
-                    value="message_with_barcode"
-                    checked={waSendMode === 'message_with_barcode'}
-                    onChange={e => setWaSendModeState(e.target.value)}
-                  />
-                  <span>Pesan + Barcode</span>
-                </label>
-                <label className="d-flex align-center gap-8">
-                  <input
-                    type="radio"
-                    name="wa-send-mode"
-                    value="message_only"
-                    checked={waSendMode === 'message_only'}
-                    onChange={e => setWaSendModeState(e.target.value)}
-                  />
-                  <span>Pesan Saja</span>
-                </label>
-              </div>
-              <p className="text-note mt-8">
-                Pilih <b>Pesan + Barcode</b> untuk kirim gambar barcode sebagai lampiran. Pilih <b>Pesan Saja</b> untuk kirim teks tanpa lampiran gambar.
-              </p>
-            </div>
+
             <div className="actions-right">
               <button type="submit" className="btn btn-primary">Simpan Pengaturan WhatsApp</button>
             </div>
