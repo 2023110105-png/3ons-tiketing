@@ -652,7 +652,7 @@ export default function Participants() {
 
         {/* Modal Hapus Peserta */}
         {showDeleteModal && deleteTarget && (
-          <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal-overlay modal-overlay-priority" onClick={() => setShowDeleteModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: 400}}>
               <div className="modal-header">
                 <h3 className="modal-title">Konfirmasi Hapus Peserta</h3>
