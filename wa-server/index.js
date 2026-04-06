@@ -6,6 +6,7 @@ const fs = require('fs/promises');
 const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { buildTicketQrImageNode } = require('./ticket-image');
 const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
 
@@ -676,10 +677,17 @@ app.post('/api/send-ticket', async (req, res) => {
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
                         ]);
                     } else if (waSendMode === 'message_with_barcode') {
-                        const response = await fetch(qrPublicUrl);
-                        const arrayBuffer = await response.arrayBuffer();
-                        const buffer = Buffer.from(arrayBuffer);
-                        const base64Str = buffer.toString('base64');
+                        // Generate e-ticket image with QR and details (Node.js/canvas)
+                        const participant = {
+                            name,
+                            ticket_id,
+                            category,
+                            day_number,
+                            qr_data
+                        };
+                        // Optionally, you can pass eventLabel/brandLabel if available
+                        const imageBuffer = await buildTicketQrImageNode(participant, {});
+                        const base64Str = imageBuffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         sendResult = await Promise.race([
                             session.client.sendMessage(waNumber, media, { caption: waMessage }),
