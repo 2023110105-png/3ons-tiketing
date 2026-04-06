@@ -79,7 +79,46 @@ async function logWaSendBatch(tenantId, phoneList, results, context = {}) {
         console.error('Gagal menulis log WA:', err.message);
     }
 }
-// ...existing code...
+
+// ===== WA SEND MODE PERSISTENCE (DATABASE FILE) =====
+const WA_SEND_MODE_DB_FILE = 'wa-send-mode-db.json';
+let waSendModeDb = {};
+
+// Load database saat startup
+async function loadWaSendModeDb() {
+    try {
+        const raw = await fs.readFile(WA_SEND_MODE_DB_FILE, 'utf8');
+        waSendModeDb = JSON.parse(raw);
+    } catch {
+        waSendModeDb = {};
+    }
+}
+
+// Simpan database ke file
+async function saveWaSendModeDb() {
+    try {
+        await fs.writeFile(WA_SEND_MODE_DB_FILE, JSON.stringify(waSendModeDb, null, 2));
+    } catch (err) {
+        console.error('Gagal menyimpan waSendModeDb:', err.message);
+    }
+}
+
+// Set mode per tenant
+async function setWaSendMode(tenantId, mode) {
+    waSendModeDb[tenantId] = mode;
+    await saveWaSendModeDb();
+}
+
+// Get mode per tenant
+function getWaSendMode(tenantId) {
+    const mode = waSendModeDb[tenantId];
+    if (mode === 'message_with_barcode') return 'message_with_barcode';
+    if (mode === 'message_only') return 'message_only';
+    return 'message_only'; // fallback default
+}
+
+// Load DB saat server start
+loadWaSendModeDb();
 
 const WA_PROTOCOL_TIMEOUT_MS = Number(process.env.WA_PROTOCOL_TIMEOUT_MS || 180000);
 const WA_LAUNCH_TIMEOUT_MS = Number(process.env.WA_LAUNCH_TIMEOUT_MS || 180000);
@@ -596,7 +635,13 @@ app.post('/api/send-ticket', async (req, res) => {
     const phoneList = Array.isArray(phones) && phones.length > 0 ? phones : (phone ? [phone] : []);
     const results = { wa: [], email: null };
     const qrPublicUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr_data)}`;
-    const waSendMode = wa_send_mode === 'message_with_barcode' ? 'message_with_barcode' : 'message_only';
+
+    // PATCH: Simpan mode jika ada input baru
+    let waSendMode = getWaSendMode(tenantId);
+    if (wa_send_mode === 'message_with_barcode' || wa_send_mode === 'message_only') {
+        waSendMode = wa_send_mode;
+        await setWaSendMode(tenantId, waSendMode);
+    }
 
     let session = getOrCreateTenantSession(tenantId);
     if (!session.client && !session.initPromise) {
@@ -630,7 +675,7 @@ app.post('/api/send-ticket', async (req, res) => {
                             session.client.sendMessage(waNumber, waMessage),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
                         ]);
-                    } else {
+                    } else if (waSendMode === 'message_with_barcode') {
                         const response = await fetch(qrPublicUrl);
                         const arrayBuffer = await response.arrayBuffer();
                         const buffer = Buffer.from(arrayBuffer);
@@ -638,6 +683,12 @@ app.post('/api/send-ticket', async (req, res) => {
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         sendResult = await Promise.race([
                             session.client.sendMessage(waNumber, media, { caption: waMessage }),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
+                        ]);
+                    } else {
+                        // fallback: kirim pesan saja
+                        sendResult = await Promise.race([
+                            session.client.sendMessage(waNumber, waMessage),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
                         ]);
                     }
