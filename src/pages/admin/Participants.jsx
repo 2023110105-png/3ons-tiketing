@@ -23,6 +23,7 @@ export default function Participants() {
   // Broadcast States
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
+  const [broadcastMode, setBroadcastMode] = useState('message_only') // 'message_only' | 'message_with_barcode'
   
   const toast = useToast()
   const { user } = useAuth()
@@ -87,17 +88,16 @@ export default function Participants() {
   }
 
   // --- BOT BROADCAST FEATURES ---
-  const sendTicketViaBot = async (participant) => {
+  const sendTicketViaBot = async (participant, waSendModeOverride = null) => {
     if (!participant.phone && !participant.email) return false;
-    
     const template = getWaTemplate();
-    const waSendMode = getWaSendMode();
+    // Gunakan mode override jika ada, jika tidak fallback ke getWaSendMode()
+    const waSendMode = waSendModeOverride || getWaSendMode();
     const wa_message = template
       .replace(/\{\{nama\}\}/g, participant.name || '')
       .replace(/\{\{tiket\}\}/g, participant.ticket_id || '')
       .replace(/\{\{hari\}\}/g, participant.day_number || '')
       .replace(/\{\{kategori\}\}/g, participant.category || '');
-
     try {
       await apiFetch('/api/send-ticket', {
         method: 'POST',
@@ -126,27 +126,35 @@ export default function Participants() {
   }
 
   const handleBroadcast = async () => {
-    const targetParticipants = participants; // They can filter first, then broadcast the current view
+    const targetParticipants = participants;
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
-    
-    if (!window.confirm(`Perhatian!\nAnda akan mengirim pesan tiket otomatis ke ${targetParticipants.length} peserta.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
+
+    // Pilihan mode sebelum broadcast
+    let mode = window.prompt(
+      `Pilih mode pengiriman:\n1 = Pesan Saja\n2 = Pesan + Barcode\nKetik 1 atau 2 lalu OK.\n\nJumlah peserta: ${targetParticipants.length}`,
+      '1'
+    );
+    if (!mode) return;
+    mode = String(mode).trim();
+    let selectedMode = 'message_only';
+    if (mode === '2') selectedMode = 'message_with_barcode';
+    setBroadcastMode(selectedMode);
+
+    if (!window.confirm(`Perhatian!\nAnda akan mengirim tiket ke ${targetParticipants.length} peserta dengan mode: ${selectedMode === 'message_with_barcode' ? 'Pesan + Barcode' : 'Pesan Saja'}.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
 
     setIsBroadcasting(true);
     setBroadcastProgress({ current: 0, total: targetParticipants.length, success: 0, failed: 0 });
 
     let s = 0; let f = 0;
-    
     for (let i = 0; i < targetParticipants.length; i++) {
       setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const success = await sendTicketViaBot(targetParticipants[i]);
+      const success = await sendTicketViaBot(targetParticipants[i], selectedMode);
       if (success) s++; else f++;
-      
       // Artificial delay 2.5 seconds to prevent WA Ban
       if (i < targetParticipants.length - 1) {
         await new Promise(r => setTimeout(r, 2500));
       }
     }
-
     setBroadcastProgress(prev => ({ ...prev, success: s, failed: f }));
     toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`);
     setTimeout(() => setIsBroadcasting(false), 3000);
