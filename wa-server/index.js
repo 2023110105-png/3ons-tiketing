@@ -1,3 +1,27 @@
+// Helper: Log pengiriman WhatsApp ke file log JSON
+async function logWaSendBatch(tenantId, phoneList, results, context = {}) {
+    const logFile = `wa-send-log.json`;
+    const now = new Date().toISOString();
+    const entry = {
+        tenantId,
+        time: now,
+        phoneList,
+        results,
+        ...context
+    };
+    try {
+        let logs = [];
+        try {
+            const raw = await fs.readFile(logFile, 'utf8');
+            logs = JSON.parse(raw);
+        } catch {}
+        logs.unshift(entry);
+        if (logs.length > 2000) logs = logs.slice(0, 2000); // keep last 2000
+        await fs.writeFile(logFile, JSON.stringify(logs, null, 2));
+    } catch (err) {
+        console.error('Gagal menulis log WA:', err.message);
+    }
+}
 const express = require('express');
 const cors = require('cors');
 const qrcode = require('qrcode');
@@ -557,6 +581,8 @@ app.post('/api/send-ticket', async (req, res) => {
             });
             results.wa = await Promise.all(sendTasks);
         }
+        // Log hasil pengiriman batch WA
+        logWaSendBatch(tenantId, phoneList, results.wa, { ticket_id, category, day_number });
     }
 
     // B. PROSES SEND EMAIL (tidak diubah, tetap satu email)
