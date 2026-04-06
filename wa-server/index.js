@@ -557,8 +557,10 @@ app.post('/api/send-ticket', async (req, res) => {
             const sendTasks = phoneList.map(async (p) => {
                 const waNumber = formatPhoneWA(p);
                 try {
+                    console.log(`[WA SEND] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id})`);
+                    let sendResult;
                     if (waSendMode === 'message_only') {
-                        await Promise.race([
+                        sendResult = await Promise.race([
                             session.client.sendMessage(waNumber, waMessage),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
                         ]);
@@ -568,14 +570,15 @@ app.post('/api/send-ticket', async (req, res) => {
                         const buffer = Buffer.from(arrayBuffer);
                         const base64Str = buffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
-                        await Promise.race([
+                        sendResult = await Promise.race([
                             session.client.sendMessage(waNumber, media, { caption: waMessage }),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
                         ]);
                     }
-                    return { phone: p, status: 'Success' };
+                    console.log(`[WA SEND] Sukses kirim ke ${waNumber} (ticket_id: ${ticket_id})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
+                    return { phone: p, status: 'Success', msgId: sendResult && sendResult.id ? sendResult.id.id : undefined };
                 } catch (err) {
-                    console.error('WA Send Error:', err.message);
+                    console.error(`[WA SEND ERROR] Gagal kirim ke ${waNumber} (ticket_id: ${ticket_id}):`, err.message);
                     return { phone: p, status: 'Failed', error: err.message };
                 }
             });
