@@ -158,35 +158,44 @@ export default function Participants() {
 
 
 
+  // State untuk modal hapus peserta
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteApproval, setDeleteApproval] = useState('');
+
   const handleDelete = (p) => {
-    if (confirm(`Hapus peserta ${p.name}?`)) {
-      const reason = window.prompt('Masukkan alasan penghapusan peserta (wajib):', '')
-      if (reason === null) return
-      if (!String(reason).trim()) {
-        toast.error('Alasan wajib', 'Isi alasan penghapusan terlebih dahulu')
-        return
-      }
-      if (String(reason).trim().length < 15) {
-        toast.error('Alasan terlalu pendek', 'Alasan minimal 15 karakter')
-        return
-      }
+    setDeleteTarget(p);
+    setDeleteReason('');
+    setDeleteApproval('');
+    setShowDeleteModal(true);
+  };
 
-      const approval = window.prompt('Konfirmasi kedua: ketik SETUJU untuk melanjutkan', '')
-      if (approval === null) return
-      if (approval !== 'SETUJU') {
-        toast.error('Dibatalkan', 'Konfirmasi kedua harus SETUJU')
-        return
-      }
-
-      const result = deleteParticipant(p.id, user, reason)
-      if (!result?.success) {
-        toast.error('Gagal menghapus', result?.error || 'Validasi alasan gagal')
-        return
-      }
-      toast.error('Peserta dihapus', p.name)
-      void refreshData(true)
+  const confirmDeleteParticipant = () => {
+    if (!deleteReason.trim()) {
+      toast.error('Alasan wajib', 'Isi alasan penghapusan terlebih dahulu');
+      return;
     }
-  }
+    if (deleteReason.trim().length < 15) {
+      toast.error('Alasan terlalu pendek', 'Alasan minimal 15 karakter');
+      return;
+    }
+    if (deleteApproval !== 'SETUJU') {
+      toast.error('Dibatalkan', 'Konfirmasi kedua harus SETUJU');
+      return;
+    }
+    const result = deleteParticipant(deleteTarget.id, user, deleteReason);
+    if (!result?.success) {
+      toast.error('Gagal menghapus', result?.error || 'Validasi alasan gagal');
+      return;
+    }
+    toast.error('Peserta dihapus', deleteTarget.name);
+    setShowDeleteModal(false);
+    setDeleteTarget(null);
+    setDeleteReason('');
+    setDeleteApproval('');
+    void refreshData(true);
+  };
 
   const getRowDayValue = (row) => row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
 
@@ -637,6 +646,33 @@ export default function Participants() {
                   <button type="submit" className="btn btn-primary">Tambah</button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Hapus Peserta */}
+        {showDeleteModal && deleteTarget && (
+          <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: 400}}>
+              <div className="modal-header">
+                <h3 className="modal-title">Konfirmasi Hapus Peserta</h3>
+                <button className="modal-close" onClick={() => setShowDeleteModal(false)}><X size={14} /></button>
+              </div>
+              <div className="modal-body">
+                <p>Anda yakin ingin menghapus peserta <b>{deleteTarget.name}</b>?</p>
+                <div className="form-group mt-16">
+                  <label className="form-label">Alasan Penghapusan <span style={{color: 'red'}}>*</span></label>
+                  <textarea className="form-input" placeholder="Masukkan alasan minimal 15 karakter" value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3} required />
+                </div>
+                <div className="form-group mt-16">
+                  <label className="form-label">Konfirmasi Kedua <span style={{color: 'red'}}>*</span></label>
+                  <input className="form-input" placeholder="Ketik SETUJU untuk melanjutkan" value={deleteApproval} onChange={e => setDeleteApproval(e.target.value)} required />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Batal</button>
+                <button className="btn btn-danger" onClick={confirmDeleteParticipant}>Hapus Peserta</button>
+              </div>
             </div>
           </div>
         )}
