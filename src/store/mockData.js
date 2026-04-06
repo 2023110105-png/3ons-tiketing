@@ -1713,11 +1713,11 @@ export function getWaTemplate() {
 }
 
 export function getWaSendMode() {
-  const ev = getActiveEvent()
-  const mode = ev.waSendMode || safeStorageGet(WA_SEND_MODE_KEY) || safeStorageGet(LEGACY_WA_SEND_MODE_KEY)
-  return mode === WA_SEND_MODE_MESSAGE_ONLY
-    ? WA_SEND_MODE_MESSAGE_ONLY
-    : DEFAULT_WA_SEND_MODE
+  const ev = getActiveEvent();
+  const mode = ev.waSendMode || safeStorageGet(WA_SEND_MODE_KEY) || safeStorageGet(LEGACY_WA_SEND_MODE_KEY);
+  if (mode === WA_SEND_MODE_MESSAGE_ONLY) return WA_SEND_MODE_MESSAGE_ONLY;
+  if (mode === WA_SEND_MODE_MESSAGE_WITH_BARCODE) return WA_SEND_MODE_MESSAGE_WITH_BARCODE;
+  return DEFAULT_WA_SEND_MODE;
 }
 
 export function setWaTemplate(template, actor = 'system') {
@@ -1730,15 +1730,16 @@ export function setWaTemplate(template, actor = 'system') {
 }
 
 export function setWaSendMode(mode, actor = 'system') {
-  const nextMode = mode === WA_SEND_MODE_MESSAGE_ONLY
-    ? WA_SEND_MODE_MESSAGE_ONLY
-    : DEFAULT_WA_SEND_MODE
-  const ev = getActiveEvent()
-  ev.waSendMode = nextMode
-  safeStorageSet(WA_SEND_MODE_KEY, nextMode)
-  safeStorageRemove(LEGACY_WA_SEND_MODE_KEY)
-  saveStore()
-  logAdminAction('wa_send_mode_update', `Mode kirim WhatsApp diubah ke ${nextMode}`, actor, { mode: nextMode })
+  let nextMode;
+  if (mode === WA_SEND_MODE_MESSAGE_ONLY) nextMode = WA_SEND_MODE_MESSAGE_ONLY;
+  else if (mode === WA_SEND_MODE_MESSAGE_WITH_BARCODE) nextMode = WA_SEND_MODE_MESSAGE_WITH_BARCODE;
+  else nextMode = DEFAULT_WA_SEND_MODE;
+  const ev = getActiveEvent();
+  ev.waSendMode = nextMode;
+  safeStorageSet(WA_SEND_MODE_KEY, nextMode);
+  safeStorageRemove(LEGACY_WA_SEND_MODE_KEY);
+  saveStore();
+  logAdminAction('wa_send_mode_update', `Mode kirim WhatsApp diubah ke ${nextMode}`, actor, { mode: nextMode });
 }
 
 export function getMaxPendingAttempts() {
