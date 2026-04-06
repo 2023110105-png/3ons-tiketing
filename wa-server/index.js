@@ -493,8 +493,11 @@ app.get('/api/wa/status', (req, res) => {
         });
     }
 
-    // Log permintaan QR
-    console.log(`[WA][QR_REQUEST] tenant_id=${tenantId} requested_by=${requestedBy || '-'} status=${session.status} time=${new Date().toISOString()}`);
+
+    // Log permintaan QR hanya jika status belum ready
+    if (session.status !== 'ready') {
+        console.log(`[WA][QR_REQUEST] tenant_id=${tenantId} requested_by=${requestedBy || '-'} status=${session.status} time=${new Date().toISOString()}`);
+    }
 
     res.json({
         tenant_id: tenantId,
