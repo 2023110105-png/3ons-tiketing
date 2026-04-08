@@ -82,14 +82,20 @@ export default function ConnectDevice() {
   useEffect(() => {
     let timer
     let stopped = false
+    let inFlight = false
 
     const getNextIntervalMs = (status, isReady) => {
-      if (isReady || status === 'ready') return 2000
-      if (status === 'checking') return 700
-      return 1000
+      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+      if (hidden) return 8000
+      if (isReady || status === 'ready') return 5000
+      if (status === 'checking') return 1500
+      if (status === 'offline' || status === 'disconnected') return 3500
+      return 2500
     }
     
     const checkWaStatus = async () => {
+      if (inFlight || stopped) return
+      inFlight = true
       let nextStatus = 'offline'
       let nextIsReady = false
 
@@ -116,6 +122,8 @@ export default function ConnectDevice() {
         setLastError(formatConnectionError(err?.message))
         nextStatus = 'offline'
         nextIsReady = false
+      } finally {
+        inFlight = false
       }
 
       if (stopped) return
@@ -136,8 +144,11 @@ export default function ConnectDevice() {
 
     let timer
     let stopped = false
+    let inFlight = false
 
     const loadSessions = async () => {
+      if (inFlight || stopped) return
+      inFlight = true
       try {
         const res = await apiFetch('/api/wa/sessions')
         const data = await res.json().catch(() => ({}))
@@ -146,10 +157,13 @@ export default function ConnectDevice() {
         setSessionsError('')
       } catch (err) {
         setSessionsError(humanizeUserMessage(err?.message, { fallback: 'Gagal memuat daftar sambungan akun.' }))
+      } finally {
+        inFlight = false
       }
 
       if (stopped) return
-      timer = setTimeout(loadSessions, 5000)
+      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+      timer = setTimeout(loadSessions, hidden ? 12000 : 7000)
     }
 
     loadSessions()

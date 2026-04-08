@@ -226,8 +226,22 @@ function isParticipantDeleted(participant) {
 }
 
 function getActiveParticipantsFromEvent(ev, dayFilter = null) {
-  const base = dayFilter ? ev.participants.filter(p => p.day_number === dayFilter) : ev.participants
-  return base.filter(p => !isParticipantDeleted(p))
+  cleanupDeletedParticipantTombstones()
+  const tombstones = deletedParticipantTombstones
+  const hasDeletedMarks = Object.keys(tombstones).length > 0
+  const all = Array.isArray(ev?.participants) ? ev.participants : []
+  const targetDay = dayFilter == null ? null : Number(dayFilter)
+
+  // Fast path: no day filter and no deleted marks.
+  if (targetDay == null && !hasDeletedMarks) return all
+
+  const result = []
+  for (const participant of all) {
+    if (targetDay != null && Number(participant?.day_number) !== targetDay) continue
+    if (participant?.id && tombstones[participant.id]) continue
+    result.push(participant)
+  }
+  return result
 }
 
 function safeStorageRemove(key) {

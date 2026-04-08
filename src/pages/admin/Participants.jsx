@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
@@ -318,11 +318,16 @@ export default function Participants() {
       await bootstrapStoreFromFirebase(true)
     }
     setAvailableDays(getAvailableDays())
-    let data = getParticipants(dayFilter)
+    setParticipants(getParticipants(dayFilter))
+  }, [dayFilter, tenantId])
+
+  const visibleParticipants = useMemo(() => {
+    let data = participants
     if (debouncedSearch) {
+      const keyword = debouncedSearch.toLowerCase()
       data = data.filter(p =>
-        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        p.ticket_id.toLowerCase().includes(debouncedSearch.toLowerCase())
+        p.name.toLowerCase().includes(keyword) ||
+        p.ticket_id.toLowerCase().includes(keyword)
       )
     }
     if (categoryFilter !== 'all') data = data.filter(p => p.category === categoryFilter)
@@ -330,8 +335,8 @@ export default function Participants() {
       if (statusFilter === 'checked') data = data.filter(p => p.is_checked_in)
       else data = data.filter(p => !p.is_checked_in)
     }
-    setParticipants(data)
-  }, [debouncedSearch, dayFilter, categoryFilter, statusFilter])
+    return data
+  }, [participants, debouncedSearch, categoryFilter, statusFilter])
 
   useEffect(() => {
     void refreshData(true)
@@ -339,8 +344,9 @@ export default function Participants() {
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      void refreshData(true)
-    }, 5000)
+      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+      void refreshData(!hidden)
+    }, 12000)
     return () => window.clearInterval(id)
   }, [refreshData])
 
@@ -429,9 +435,9 @@ export default function Participants() {
       setShowWaConnectModal(true)
       return
     }
-    const targetParticipants = participants.filter(hasValidWaTarget)
+    const targetParticipants = visibleParticipants.filter(hasValidWaTarget)
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
-    const skippedCount = participants.length - targetParticipants.length
+    const skippedCount = visibleParticipants.length - targetParticipants.length
     if (skippedCount > 0) {
       toast.warning('Sebagian dilewati', `${skippedCount} peserta dilewati karena nomor WA kosong/tidak valid.`)
     }
@@ -665,7 +671,7 @@ export default function Participants() {
     }
   }
 
-  const allParticipants = getParticipants(dayFilter)
+  const allParticipants = participants
   const checkedCount = allParticipants.filter(p => p.is_checked_in).length
   const showWaConnectBanner = !waConn.isReady
   const waConnectText = waConn.status === 'offline' || waConn.status === 'disconnected'
@@ -1026,13 +1032,13 @@ export default function Participants() {
 
         {/* Mobile Card List */}
         <div className="m-card-list">
-          {participants.length === 0 ? (
+          {visibleParticipants.length === 0 ? (
             <div className="m-empty">
               <span><Search size={28} /></span>
               <p>Tidak ada data ditemukan</p>
             </div>
           ) : (
-            participants.map(p => (
+            visibleParticipants.map(p => (
               <div key={p.id} className="m-participant-card">
                 <div className={`m-p-avatar ${p.is_checked_in ? 'm-p-avatar-checked' : 'm-p-avatar-pending'}`}>
                   {p.is_checked_in ? <CheckCircle size={16} /> : p.name.charAt(0)}
@@ -1072,7 +1078,7 @@ export default function Participants() {
         </div>
 
         <div className="m-participant-summary">
-          {participants.length} dari {allParticipants.length} peserta
+          {visibleParticipants.length} dari {allParticipants.length} peserta
         </div>
 
         {/* Modal Pilihan Mode Broadcast */}
@@ -1271,9 +1277,9 @@ export default function Participants() {
             </tr>
           </thead>
           <tbody>
-            {participants.length === 0 ? (
+            {visibleParticipants.length === 0 ? (
               <tr><td colSpan={9}><div className="empty-state empty-pad-lg"><div className="empty-state-icon"><Search size={32} /></div><h3>Tidak ada data</h3><p>Coba ubah filter</p></div></td></tr>
-            ) : participants.map((p, i) => (
+            ) : visibleParticipants.map((p, i) => (
               <tr key={p.id}>
                 <td className="td-muted">{i + 1}</td>
                 <td><code className="ticket-id-code">{p.ticket_id}</code></td>
@@ -1308,7 +1314,7 @@ export default function Participants() {
       </div>
 
       <div className="summary-muted">
-        Menampilkan {participants.length} dari {allParticipants.length} peserta
+        Menampilkan {visibleParticipants.length} dari {allParticipants.length} peserta
       </div>
 
       {showWaConnectModal && (
