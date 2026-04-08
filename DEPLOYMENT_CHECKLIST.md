@@ -1,79 +1,76 @@
-# 🚀 Deployment Checklist - Vercel + Railway
+# Deployment Checklist - Vercel + Railway (Split Services)
 
-## Backend (Railway) ✅
-- [x] Service `yamaha-scan-tiketing` deployed ke Railway
-- [x] Status: **Online**
-- [x] Public URL: `https://yamaha-scan-tiketing-production.up.railway.app`
-- [x] Storage persisten untuk `auth_data` aktif
+Gunakan checklist ini untuk deployment production dengan 2 service backend:
+- `api-server` (port 3002): tenant/user API, owner API, Firebase integration
+- `wa-server` (port 3001): connect device, QR, send-ticket, WA delivery
 
-## Frontend (Vercel) - Langkah Selanjutnya
+## 1) Railway Services
 
-### 1. Set Environment Variable di Vercel
+- [ ] Service `api-server` online dan punya URL sendiri.
+- [ ] Service `wa-server` online dan punya URL sendiri.
+- [ ] `wa-server` memakai storage persisten untuk folder `auth_data`.
+- [ ] Kedua service tidak restart loop.
 
-**Step-by-step:**
-1. Buka project frontend di [Vercel Dashboard](https://vercel.com/dashboard)
-2. Klik **Settings** → **Environment Variables**
-3. Klik **Add** atau **+ Add New**
-4. Isi form:
-   - **Name:** `VITE_API_BASE_URL`
-   - **Value:** `https://yamaha-scan-tiketing-production.up.railway.app`
-   - **Environments:** Pilih **Production** (atau semua jika ingin development juga)
-5. Klik **Save**
+## 2) Railway Environment Variables
 
-### 2. Redeploy Frontend
+### api-server
+- [ ] `PORT=3002`
+- [ ] `CORS_ALLOWED_ORIGINS` berisi domain frontend production.
+- [ ] `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` terisi.
+- [ ] `PLATFORM_ADMIN_SECRET` terisi (bukan nilai default).
+- [ ] `API_DEV_BYPASS_AUTH=false`
 
-Setelah env variable disimpan, Vercel akan otomatis redeploy. Atau trigger manual:
-1. Buka **Deployments**
-2. Pilih deployment terbaru
-3. Klik **Redeploy** (kalau env belum ter-apply)
+### wa-server
+- [ ] `PORT=3001`
+- [ ] `CORS_ALLOWED_ORIGINS` berisi domain frontend production.
+- [ ] `WA_ADMIN_SECRET` terisi (bukan nilai default).
+- [ ] `TICKET_SIGNING_SECRET` terisi.
 
-Tunggu status berubah menjadi **Ready**.
+## 3) Vercel Environment Variables
 
-### 3. Test Koneksi Backend
+Set di project frontend (Production):
 
-1. Buka aplikasi frontend Vercel yang sudah redeploy
-2. Navigasi ke halaman **Connect Device** (di menu admin)
-3. Tunggu loading sekitar 3-5 detik
-4. Cek apakah:
-   - ✅ **QR Code muncul** = Backend connected! Scan dengan WhatsApp Web
-   - ❌ **"Bot Server Terputus"** = Ada masalah, kirim screenshot error
+- [ ] `VITE_API_BASE_URL=https://<api-server>.up.railway.app`
+- [ ] `VITE_PLATFORM_API_BASE_URL=https://<api-server>.up.railway.app`
+- [ ] `VITE_WA_BASE_URL=https://<wa-server>.up.railway.app`
+- [ ] `VITE_PLATFORM_ADMIN_SECRET=<sama dengan PLATFORM_ADMIN_SECRET di api-server>`
+- [ ] `VITE_WA_ADMIN_SECRET=<sama dengan WA_ADMIN_SECRET di wa-server>`
 
-### 4. Uji Fitur Bot (Opsional)
+Setelah update env, lakukan redeploy Vercel.
 
-Kalau QR code sudah muncul dan login berhasil:
-1. Buka halaman **Peserta**
-2. Tambah peserta baru dengan nomor WhatsApp yang valid
-3. Centang **"Simpan & Auto-Kirim"**
-4. Cek apakah pesan WhatsApp terkirim ke nomor itu
+## 4) Health Check Production
 
----
+### api-server URL
+- [ ] `GET /health` -> 200
+- [ ] `GET /health/deep` -> 200
 
-## Environment Variable Summary
+### wa-server URL
+- [ ] `GET /health` -> 200 dan `ok: true`
+- [ ] `GET /api/wa/status?tenant_id=tenant-default` -> response valid
 
-```bash
-VITE_API_BASE_URL=https://yamaha-scan-tiketing-production.up.railway.app
-```
+## 5) Smoke Test Aplikasi
 
-Di Vercel, URL ini akan digunakan oleh semua API calls dari:
-- `src/pages/admin/ConnectDevice.jsx` (status WA)
-- `src/pages/admin/Participants.jsx` (kirim tiket)
-- `src/store/mockData.js` (auto-send)
+- [ ] Login owner/admin berhasil.
+- [ ] Halaman `Connect Device` menampilkan status WA.
+- [ ] Bootstrap session on login berjalan (QR muncul saat diperlukan).
+- [ ] Kirim 1 tiket uji dari `Participants` berhasil.
+- [ ] Entri delivery muncul di `WA Delivery`.
 
----
+## 6) Troubleshooting Cepat
 
-## Troubleshooting
+**Connect Device gagal / WA offline**
+- Pastikan `VITE_WA_BASE_URL` mengarah ke service `wa-server`, bukan `api-server`.
+- Pastikan `VITE_WA_ADMIN_SECRET` sama dengan `WA_ADMIN_SECRET`.
+- Cek `wa-server` logs untuk status `qr`, `ready`, `disconnected`.
 
-**"Bot Server Terputus" tetap muncul?**
-- Cek apakah `VITE_API_BASE_URL` sudah disimpan di Vercel env
-- Pastikan deployment sudah selesai (status **Ready**)
-- Cek apakah Railway service masih **Online**
-- Buka browser dev tools → Console untuk melihat error HTTP
+**Owner API Unauthorized**
+- Pastikan `VITE_PLATFORM_ADMIN_SECRET` sama dengan `PLATFORM_ADMIN_SECRET`.
+- Pastikan `VITE_PLATFORM_API_BASE_URL` mengarah ke `api-server`.
 
-**Tidak bisa kirim tiket?**
-- Pastikan nomor WhatsApp format benar (dengan 62)
-- Cek apakah WhatsApp di Railway sudah login (scan QR)
-- Lihat logs di Railway untuk error detailnya
+**CORS blocked**
+- Tambahkan domain Vercel production ke `CORS_ALLOWED_ORIGINS` di kedua service.
 
----
+## 7) Go / No-Go
 
-**Status:** Siap deploy ke production ✅
+- **GO** jika health check + smoke test lolos semua.
+- **NO-GO** jika ada endpoint health gagal, secret mismatch, atau flow kirim tiket gagal.
