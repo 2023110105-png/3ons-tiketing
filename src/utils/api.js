@@ -29,6 +29,7 @@ function needsWaAdminSecret(path) {
     || cleanPath.startsWith('/api/wa/logout')
     || cleanPath.startsWith('/api/wa/test-send')
     || cleanPath.startsWith('/api/wa/batch-status')
+    || cleanPath.startsWith('/api/wa/send-log')
     || cleanPath.startsWith('/api/send-ticket')
 }
 

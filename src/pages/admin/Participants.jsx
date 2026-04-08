@@ -374,7 +374,7 @@ export default function Participants() {
     const waSendMode = waSendModeOverride || getWaSendMode();
     const wa_message = generateWaMessage(participant)
     try {
-      await apiFetch('/api/send-ticket', {
+      const res = await apiFetch('/api/send-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -386,6 +386,8 @@ export default function Participants() {
           wa_send_mode: waSendMode
         })
       });
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data?.success === false) return false
       return true;
     } catch (e) {
       console.error('Layanan pengiriman sedang tidak aktif:', e);
