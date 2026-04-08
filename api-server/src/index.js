@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import crypto from 'crypto'
 
 import { readEnv } from './env.js'
 import { initFirebaseAdmin, getAuth, getFirestore } from './firebaseAdmin.js'
@@ -14,11 +15,25 @@ initFirebaseAdmin({
 })
 
 const app = express()
+const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 30000)
+
+if (!env.apiDevBypassAuth && String(process.env.NODE_ENV || '').toLowerCase() === 'production' && !env.PLATFORM_ADMIN_SECRET) {
+  throw new Error('PLATFORM_ADMIN_SECRET wajib diisi di production')
+}
 
 app.disable('x-powered-by')
 app.use(helmet())
 app.use(express.json({ limit: '1mb' }))
 app.use(morgan('tiny'))
+app.use((req, res, next) => {
+  req.requestId = crypto.randomUUID()
+  res.setHeader('x-request-id', req.requestId)
+  next()
+})
+app.use((req, _res, next) => {
+  req.setTimeout(REQUEST_TIMEOUT_MS)
+  next()
+})
 
 app.use(cors({
   origin(origin, cb) {
@@ -35,7 +50,9 @@ app.get('/health', (req, res) => {
   res.json({
     success: true,
     service: 'api-server',
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
+    uptime_seconds: Math.round(process.uptime()),
+    request_id: req.requestId
   })
 })
 

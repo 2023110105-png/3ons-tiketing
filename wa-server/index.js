@@ -16,6 +16,16 @@ const CORS_ALLOWED_ORIGINS = String(process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 30000);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 10000);
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
+const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
+const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
+const rateLimitStore = new Map();
+
+if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && !WA_ADMIN_SECRET) {
+    throw new Error('WA_ADMIN_SECRET wajib diisi di production');
+}
 
 app.use(cors({
     origin(origin, callback) {
@@ -28,9 +38,16 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use((req, res, next) => {
+    req._requestId = crypto.randomUUID();
+    res.setHeader('x-request-id', req._requestId);
+    next();
+});
+app.use((req, _res, next) => {
+    req.setTimeout(REQUEST_TIMEOUT_MS);
+    next();
+});
 const serverStartedAt = Date.now();
-const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
-const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
 
 function getRequesterInfo(req) {
     // Coba ambil info user dari header, body, atau query
@@ -44,7 +61,7 @@ function shortQrHash(value) {
     return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 12);
 }
 // Endpoint: Test Kirim Pesan WhatsApp (untuk owner/admin check-up device)
-app.post('/api/wa/test-send', async (req, res) => {
+app.post('/api/wa/test-send', rateLimit, async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
     const tenantId = resolveTenantId(req);
     const { phone, message } = req.body;
@@ -254,6 +271,34 @@ function requireWaAdminSecret(req, res) {
     }
     res.status(403).json({ success: false, error: 'Forbidden: invalid admin secret' });
     return false;
+}
+
+function getRateLimitKey(req) {
+    const ip = String(req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown');
+    const tenant = resolveTenantId(req);
+    return `${ip}|${tenant}|${req.path}`;
+}
+
+function rateLimit(req, res, next) {
+    const now = Date.now();
+    const key = getRateLimitKey(req);
+    const entry = rateLimitStore.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    if (now > entry.resetAt) {
+        entry.count = 0;
+        entry.resetAt = now + RATE_LIMIT_WINDOW_MS;
+    }
+    entry.count += 1;
+    rateLimitStore.set(key, entry);
+
+    if (entry.count > RATE_LIMIT_MAX) {
+        res.setHeader('retry-after', String(Math.ceil((entry.resetAt - now) / 1000)));
+        return res.status(429).json({
+            success: false,
+            error: 'Terlalu banyak request, coba beberapa detik lagi',
+            request_id: req._requestId
+        });
+    }
+    return next();
 }
 
 function createWaClient(tenantId, session) {
@@ -574,7 +619,7 @@ app.get('/api/wa/debug-ticket-image', async (req, res) => {
 });
 
 // Admin self-check: stress test QR verify and rendered decode
-app.get('/api/wa/stress-qr-check', async (req, res) => {
+app.get('/api/wa/stress-qr-check', rateLimit, async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
     try {
         const totalRaw = Number(req.query.total || 1000);
@@ -727,7 +772,7 @@ app.post('/api/wa/logout', async (req, res) => {
 });
 
 // 2. Send Ticket (WA & Email)
-app.post('/api/send-ticket', async (req, res) => {
+app.post('/api/send-ticket', rateLimit, async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
     const tenantId = resolveTenantId(req);
     const { name, phone, phones, email, ticket_id, category, day_number, qr_data, send_wa, send_email, wa_send_mode } = req.body;
@@ -876,7 +921,7 @@ app.post('/api/send-ticket', async (req, res) => {
 });
 
 // 3. Verify ticket signature (server-side check)
-app.post('/api/ticket/verify', (req, res) => {
+app.post('/api/ticket/verify', rateLimit, (req, res) => {
     const qr = normalizeQRPayload(req?.body?.qr_data);
     if (!qr || !qr.ticketId || !qr.tenantId || !qr.eventId || !qr.signature || !Number.isFinite(qr.dayNumber)) {
         console.error('[TICKET_VERIFY] Payload invalid:', {
