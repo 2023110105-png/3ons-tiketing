@@ -66,14 +66,18 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const categoryLabel = normalizeCategory(participant?.category)
   const style = resolveStyle(categoryLabel)
 
-  const image = new Jimp(width, height, '#f7fbff')
+  const image = new Jimp(width, height, '#eef3f9')
   const safeX = 20
   const safeY = 20
   const safeW = width - 40
   const safeH = height - 40
 
+  // Outer card + subtle layered depth
+  await fillRect(image, safeX + 6, safeY + 10, safeW - 4, safeH - 2, '#d9e2ee')
   await fillRect(image, safeX, safeY, safeW, safeH, '#ffffff')
-  await fillRect(image, safeX, safeY, safeW, 22, style.accent)
+  await fillRect(image, safeX, safeY, safeW, 22, '#0f172a')
+  await fillRect(image, safeX, safeY + 22, safeW, 6, style.accent)
+  await fillRect(image, safeX + safeW - 210, safeY, 210, 22, style.accent)
 
   const qrX = safeX + safeW - qrSize - 56
   const qrY = safeY + 88
@@ -82,12 +86,13 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const leftW = qrX - leftX - 18
   const leftH = safeY + safeH - leftY - 20
 
-  await fillRect(image, leftX, leftY, leftW, leftH, '#ffffff')
-  await fillRect(image, leftX - 1, leftY - 1, leftW + 2, 1, '#edf0f6')
-  await fillRect(image, leftX - 1, leftY + leftH, leftW + 2, 1, '#edf0f6')
-  await fillRect(image, leftX - 1, leftY, 1, leftH, '#edf0f6')
-  await fillRect(image, leftX + leftW, leftY, 1, leftH, '#edf0f6')
+  await fillRect(image, leftX, leftY, leftW, leftH, '#fbfdff')
+  await fillRect(image, leftX - 1, leftY - 1, leftW + 2, 1, '#dbe4ef')
+  await fillRect(image, leftX - 1, leftY + leftH, leftW + 2, 1, '#dbe4ef')
+  await fillRect(image, leftX - 1, leftY, 1, leftH, '#dbe4ef')
+  await fillRect(image, leftX + leftW, leftY, 1, leftH, '#dbe4ef')
 
+  await fillRect(image, qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, '#e2e8f0')
   await fillRect(image, qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, '#ffffff')
   await fillRect(image, qrX - 18, qrY - 18, qrSize + 36, 2, style.accent)
   await fillRect(image, qrX - 18, qrY + qrSize + 16, qrSize + 36, 2, style.accent)
@@ -111,9 +116,10 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const fontBody = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK)
   const fontSmall = await Jimp.loadFont(Jimp.FONT_SANS_14_BLACK)
 
-  image.print(fontTitle, leftX + 22, leftY + 18, 'E-TICKET')
-  printClamp(image, fontSmall, eventLabel, leftX + 22, leftY + 62, leftW - 44)
-  printClamp(image, fontSmall, brandLabel.toUpperCase(), leftX + 22, leftY + 84, leftW - 44)
+  image.print(fontTitle, leftX + 22, leftY + 14, 'E-TICKET')
+  await fillRect(image, leftX + 22, leftY + 56, leftW - 44, 1, '#e2e8f0')
+  printClamp(image, fontSmall, eventLabel.toUpperCase(), leftX + 22, leftY + 66, leftW - 44)
+  printClamp(image, fontSmall, brandLabel.toUpperCase(), leftX + 22, leftY + 86, leftW - 44)
 
   await fillRect(image, leftX + 22, leftY + 112, 190, 42, style.soft)
   await fillRect(image, leftX + 22, leftY + 112, 190, 2, style.accent)
@@ -122,12 +128,13 @@ async function buildTicketQrImageNode(participant, options = {}) {
   await fillRect(image, leftX + 210, leftY + 112, 2, 42, style.accent)
   printClamp(image, fontBody, categoryLabel, leftX + 38, leftY + 122, 160)
 
-  printClamp(image, fontBody, `Nama: ${String(participant?.name || '-')}`, leftX + 22, leftY + 180, leftW - 44)
-  image.print(fontSmall, leftX + 22, leftY + 216, `ID TIKET: ${String(participant?.ticket_id || '-')}`)
-  image.print(fontSmall, leftX + 22, leftY + 240, `HARI: ${String(participant?.day_number || '-')}`)
-  image.print(fontSmall, leftX + 22, leftY + 264, `KATEGORI: ${categoryLabel}`)
+  printClamp(image, fontBody, String(participant?.name || '-'), leftX + 22, leftY + 178, leftW - 44)
+  image.print(fontSmall, leftX + 22, leftY + 206, 'ID TIKET')
+  image.print(fontBody, leftX + 22, leftY + 222, String(participant?.ticket_id || '-'))
+  image.print(fontSmall, leftX + 22, leftY + 250, `HARI: ${String(participant?.day_number || '-')}`)
+  image.print(fontSmall, leftX + 22, leftY + 272, `KATEGORI: ${categoryLabel}`)
 
-  await fillRect(image, leftX + 22, leftY + leftH - 74, leftW - 44, 1, '#e5e7eb')
+  await fillRect(image, leftX + 22, leftY + leftH - 76, leftW - 44, 1, '#e2e8f0')
   image.print(fontSmall, leftX + 22, leftY + leftH - 60, 'Valid untuk 1 orang. Dilarang duplikasi tiket.')
   const dob = getMetaValue(participant, 'Tanggal Lahir')
   image.print(
@@ -137,10 +144,8 @@ async function buildTicketQrImageNode(participant, options = {}) {
     dob ? `Tanggal Lahir: ${dob}` : 'Tunjukkan tiket ini saat registrasi di pintu masuk.'
   )
 
-  image.print(fontSmall, qrX + 28, qrY + qrSize + 20, 'SCAN DI GERBANG')
-
-  await fillRect(image, leftX + leftW - 150, leftY + 8, 128, 24, '#ef4444')
-  image.print(fontSmall, leftX + leftW - 138, leftY + 12, 'DESIGN V4')
+  image.print(fontBody, qrX + 34, qrY + qrSize + 18, 'SCAN QR')
+  image.print(fontSmall, qrX + 20, qrY + qrSize + 40, 'Tunjukkan layar terang saat di gerbang')
 
   return image.getBufferAsync(Jimp.MIME_PNG)
 }
