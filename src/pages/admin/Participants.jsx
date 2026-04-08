@@ -763,8 +763,28 @@ export default function Participants() {
         Menampilkan {participants.length} dari {allParticipants.length} peserta
       </div>
 
+      {showBroadcastModeModal && (
+        <div className="modal-overlay modal-overlay-priority">
+          <div className="modal broadcast-modal broadcast-modal-desktop" style={{ maxWidth: 420, textAlign: 'center' }}>
+            <Bot size={44} className="broadcast-bot-icon" />
+            <h3 className="broadcast-title">Pilih Mode Kirim WhatsApp</h3>
+            <p className="broadcast-note" style={{ marginBottom: 24 }}>Silakan pilih mode pengiriman untuk broadcast tiket ke peserta:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
+              <button type="button" className="btn btn-whatsapp" style={{ fontWeight: 600, fontSize: 16, padding: '12px 0' }} onClick={() => startBroadcastWithMode('message_with_barcode')}>
+                Pesan + Barcode (gambar QR)
+              </button>
+              <button type="button" className="btn btn-secondary" style={{ fontWeight: 600, fontSize: 16, padding: '12px 0' }} onClick={() => startBroadcastWithMode('message_only')}>
+                Pesan Saja (teks saja)
+              </button>
+            </div>
+            <p className="text-note" style={{ fontSize: 13, color: '#888' }}>Pesan + Barcode akan mengirim gambar QR sebagai lampiran. Pesan Saja hanya mengirim teks tanpa gambar.</p>
+            <button type="button" className="btn btn-ghost mt-16" onClick={() => setShowBroadcastModeModal(false)} style={{ marginTop: 16 }}>Batal</button>
+          </div>
+        </div>
+      )}
+
       {isBroadcasting && (
-        <div className="modal-overlay">
+        <div className="modal-overlay modal-overlay-priority">
           <div className="modal broadcast-modal broadcast-modal-desktop">
             <Bot size={48} className="broadcast-bot-icon" />
             <h2 className="broadcast-title">Mengirim Pesan...</h2>
@@ -815,6 +835,32 @@ export default function Participants() {
               </div>
               <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">Tambah Peserta</button></div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && deleteTarget && (
+        <div className="modal-overlay modal-overlay-priority" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Konfirmasi Hapus Peserta</h3>
+              <button type="button" className="modal-close" onClick={() => setShowDeleteModal(false)}><X size={14} /></button>
+            </div>
+            <div className="modal-body">
+              <p>Anda yakin ingin menghapus peserta <b>{deleteTarget.name}</b>?</p>
+              <div className="form-group mt-16">
+                <label className="form-label">Alasan Penghapusan <span style={{ color: 'red' }}>*</span></label>
+                <textarea className="form-input" placeholder="Masukkan alasan minimal 15 karakter" value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3} required />
+              </div>
+              <div className="form-group mt-16">
+                <label className="form-label">Konfirmasi Kedua <span style={{ color: 'red' }}>*</span></label>
+                <input className="form-input" placeholder="Ketik SETUJU untuk melanjutkan" value={deleteApproval} onChange={e => setDeleteApproval(e.target.value)} required />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Batal</button>
+              <button type="button" className="btn btn-danger" onClick={confirmDeleteParticipant}>Hapus Peserta</button>
+            </div>
           </div>
         </div>
       )}
