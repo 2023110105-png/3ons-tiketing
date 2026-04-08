@@ -32,6 +32,13 @@ function needsWaAdminSecret(path) {
     || cleanPath.startsWith('/api/send-ticket')
 }
 
+function isWaRoute(path) {
+  const cleanPath = String(path || '')
+  return cleanPath.startsWith('/api/wa/')
+    || cleanPath === '/api/wa'
+    || cleanPath.startsWith('/api/send-ticket')
+}
+
 function normalizeBaseUrl(rawUrl) {
   const value = String(rawUrl || '').trim()
   if (!value) return ''
@@ -79,7 +86,7 @@ export function getPlatformApiBaseUrl() {
 }
 
 export function buildApiUrl(path) {
-  const baseUrl = needsWaAdminSecret(path) ? getWaBaseUrl() : getApiBaseUrl()
+  const baseUrl = isWaRoute(path) ? getWaBaseUrl() : getApiBaseUrl()
   if (!baseUrl) return path
 
   const cleanBase = baseUrl.replace(/\/$/, '')
