@@ -6,7 +6,7 @@ const fs = require('fs/promises');
 const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const { buildTicketQrImageNode } = require('./ticket-image');
+const { buildTicketQrImageNode } = require('./ticket-image-jimp');
 const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
 
