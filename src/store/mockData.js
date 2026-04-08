@@ -2539,7 +2539,15 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
     return { success: false, status: 'invalid', message: 'QR Code tidak valid' }
   }
 
-  const participant = ev.participants.find(p => p.ticket_id === parsed.tid)
+  const rawQr = String(qrData || '').trim()
+  const parsedTicketId = String(parsed?.tid || '').trim()
+  const parsedSecureRef = String(parsed?.r || '').trim()
+
+  // Prefer exact QR match first, then secure_ref match, then ticket_id fallback.
+  // This prevents false mismatch when ticket_id collides or participants are recreated.
+  const participant = ev.participants.find(p => String(p.qr_data || '').trim() === rawQr)
+    || ev.participants.find(p => p.ticket_id === parsedTicketId && (!parsedSecureRef || String(p.secure_ref || '').trim() === parsedSecureRef))
+    || ev.participants.find(p => p.ticket_id === parsedTicketId)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
   }

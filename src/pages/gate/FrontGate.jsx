@@ -89,7 +89,13 @@ export default function FrontGate() {
       return { valid: false, reason: 'invalid_payload', enforced: true }
     }
 
-    const matched = getParticipants().find(p => p.ticket_id === parsed?.tid)
+    const normalizedQr = String(qrData || '').trim()
+    const parsedTicketId = String(parsed?.tid || '').trim()
+    const parsedSecureRef = String(parsed?.r || '').trim()
+    const participantPool = getParticipants()
+    const matched = participantPool.find(p => String(p.qr_data || '').trim() === normalizedQr)
+      || participantPool.find(p => p.ticket_id === parsedTicketId && (!parsedSecureRef || String(p.secure_ref || '').trim() === parsedSecureRef))
+      || participantPool.find(p => p.ticket_id === parsedTicketId)
     // Ambil tenant_id dari tenant aktif, bukan dari QR
     const activeTenantId = getActiveTenant().id
 
