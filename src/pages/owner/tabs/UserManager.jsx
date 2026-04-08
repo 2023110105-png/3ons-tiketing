@@ -97,30 +97,36 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   }
 
   const handleToggleStatus = async (user) => {
-    const result = updateTenantUser(selectedTenantId, user.id, { is_active: !user.is_active }, currentUser)
+    const result = await updateTenantUser(selectedTenantId, user.id, { is_active: !user.is_active }, currentUser)
     if (result.success) {
       await refreshTenantData(selectedTenantId, true)
       toast.success('Update', `Status user ${user.username} diperbarui`)
+    } else {
+      toast.error('Gagal', result.error || 'Tidak bisa memperbarui status user')
     }
   }
 
   const handleDeleteUser = async (user) => {
     if (window.confirm(`Hapus user ${user.username}?`)) {
-      const result = deleteTenantUser(selectedTenantId, user.id, currentUser)
+      const result = await deleteTenantUser(selectedTenantId, user.id, currentUser)
       if (result.success) {
         await refreshTenantData(selectedTenantId, true)
         toast.success('Dihapus', `User ${user.username} berhasil dihapus`)
+      } else {
+        toast.error('Gagal', result.error || 'Tidak bisa menghapus user')
       }
     }
   }
 
-  const handleResetPassword = (user) => {
+  const handleResetPassword = async (user) => {
     const newPass = window.prompt(`Masukkan password baru untuk ${user.username}:`, '123456')
     if (newPass === null) return
     
-    const result = updateTenantUser(selectedTenantId, user.id, { password: newPass }, currentUser)
+    const result = await updateTenantUser(selectedTenantId, user.id, { password: newPass }, currentUser)
     if (result.success) {
       toast.success('Sukses', `Password ${user.username} berhasil direset`)
+    } else {
+      toast.error('Gagal', result.error || 'Tidak bisa reset password')
     }
   }
 

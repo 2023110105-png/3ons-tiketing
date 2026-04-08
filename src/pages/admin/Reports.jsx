@@ -22,9 +22,9 @@ const RECHARTS_TOOLTIP_LABEL_STYLE = { color: '#9CA3AF' }
 export default function Reports() {
   const getIsMobileLayout = () => {
     if (typeof window === 'undefined') return false
-    const isNarrow = window.matchMedia('(max-width: 768px)').matches
-    const isTouch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
-    return isNarrow && isTouch
+    // Gunakan lebar layar saja supaya klasifikasi mobile konsisten
+    // (jangan bergantung pointer/coarse yang bisa berbeda antar device/browser).
+    return window.innerWidth <= 768
   }
 
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
@@ -277,6 +277,14 @@ export default function Reports() {
     }
   }, [])
 
+  useEffect(() => {
+    // Setelah navigasi/route mount, beberapa chart butuh "layout pass" tambahan.
+    const raf = window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [isMobile])
+
   // ===== LAPORAN MOBILE =====
   if (isMobile) {
     return (
@@ -313,6 +321,40 @@ export default function Reports() {
               <span className="m-chip-label">{cat}</span>
             </div>
           ))}
+        </div>
+
+        {/* Grafik Analitik Mobile */}
+        <div className="m-section">
+          <div className="m-section-header">
+            <span className="m-section-title inline-title-icon"><Activity size={16} /> Grafik Kedatangan</span>
+          </div>
+          {peakData.length > 0 ? (
+            <div className="m-chart-shell">
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={peakData} margin={{ top: 8, right: 10, left: -10, bottom: 10 }}>
+                  <defs>
+                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#E60012" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#E60012" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="time" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
+                  <RechartsTooltip
+                    contentStyle={RECHARTS_TOOLTIP_CONTENT_STYLE}
+                    itemStyle={RECHARTS_TOOLTIP_ITEM_STYLE}
+                  />
+                  <Area type="monotone" dataKey="count" name="Peserta Hadir" stroke="#E60012" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="m-empty m-empty-compact">
+              <Activity size={24} className="m-muted-icon" />
+              <p className="m-empty-text">Grafik akan muncul setelah ada check-in</p>
+            </div>
+          )}
         </div>
 
         {/* Aksi Unduh Mobile - kartu besar */}
@@ -352,42 +394,6 @@ export default function Reports() {
               <div className="m-report-desc">Lampiran resmi aktivitas admin</div>
             </div>
           </button>
-        </div>
-
-        {/* Grafik Analitik Mobile */}
-        <div className="m-section">
-          <div className="m-section-header">
-            <span className="m-section-title inline-title-icon"><Activity size={16} /> Grafik Kedatangan</span>
-          </div>
-          <div className="card m-card-compact">
-            {peakData.length > 0 ? (
-              <div className="m-chart-shell">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={peakData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#E60012" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#E60012" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="time" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} />
-                    <RechartsTooltip 
-                      contentStyle={RECHARTS_TOOLTIP_CONTENT_STYLE}
-                      itemStyle={RECHARTS_TOOLTIP_ITEM_STYLE}
-                    />
-                    <Area type="monotone" dataKey="count" name="Peserta Hadir" stroke="#E60012" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="empty-state m-empty-compact">
-                <Activity size={24} className="m-muted-icon" />
-                <p className="m-empty-text">Grafik akan muncul setelah ada check-in</p>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Umpan Aktivitas Mobile */}
@@ -522,7 +528,7 @@ export default function Reports() {
         </div>
         <div className="peak-chart-wrap">
           {peakData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={peakData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCountDesktop" x1="0" y1="0" x2="0" y2="1">

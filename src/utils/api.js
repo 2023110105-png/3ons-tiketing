@@ -1,8 +1,25 @@
 const DEFAULT_PROD_API_BASE_URL = 'https://yamaha-scan-tiketing-production.up.railway.app'
 const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret'
+const PLATFORM_ADMIN_SECRET_HEADER = 'x-platform-admin-secret'
 
 function getWaAdminSecret() {
   return String(import.meta.env.VITE_WA_ADMIN_SECRET || '').trim()
+}
+
+function getApiBaseEnv() {
+  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
+}
+
+function getPlatformApiBaseEnv() {
+  return normalizeBaseUrl(import.meta.env.VITE_PLATFORM_API_BASE_URL)
+}
+
+function getWaBaseEnv() {
+  return normalizeBaseUrl(import.meta.env.VITE_WA_BASE_URL)
+}
+
+function getPlatformAdminSecret() {
+  return String(import.meta.env.VITE_PLATFORM_ADMIN_SECRET || '').trim()
 }
 
 function needsWaAdminSecret(path) {
@@ -33,7 +50,7 @@ function isLocalHostLike(url) {
 }
 
 export function getApiBaseUrl() {
-  const envBase = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
+  const envBase = getApiBaseEnv()
   const browserHost = typeof window !== 'undefined' ? window.location.hostname : ''
   const isLocalBrowser = browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0'
 
@@ -50,8 +67,19 @@ export function getApiBaseUrl() {
   return ''
 }
 
+export function getWaBaseUrl() {
+  const envBase = getWaBaseEnv()
+  if (envBase) return envBase
+  // Backward compat: WA server used to be the same as API base
+  return getApiBaseUrl()
+}
+
+export function getPlatformApiBaseUrl() {
+  return getPlatformApiBaseEnv()
+}
+
 export function buildApiUrl(path) {
-  const baseUrl = getApiBaseUrl()
+  const baseUrl = needsWaAdminSecret(path) ? getWaBaseUrl() : getApiBaseUrl()
   if (!baseUrl) return path
 
   const cleanBase = baseUrl.replace(/\/$/, '')
@@ -77,4 +105,20 @@ export function apiFetch(path, options) {
   }
 
   return fetch(buildApiUrl(path), requestOptions)
+}
+
+export async function platformFetch(path, options) {
+  const baseUrl = getPlatformApiBaseUrl()
+  const cleanPath = String(path || '')
+  const url = baseUrl ? `${baseUrl.replace(/\/$/, '')}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}` : cleanPath
+
+  const requestOptions = { ...(options || {}) }
+  const secret = getPlatformAdminSecret()
+  if (secret) {
+    const headers = new Headers(requestOptions.headers || {})
+    headers.set(PLATFORM_ADMIN_SECRET_HEADER, secret)
+    requestOptions.headers = headers
+  }
+
+  return fetch(url, requestOptions)
 }

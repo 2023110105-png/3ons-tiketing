@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
-import { getParticipants, getWaTemplate, getWaSendMode, getCurrentDay } from '../../store/mockData'
-import { Link } from 'react-router-dom'
+import { getParticipants, getWaSendMode, getCurrentDay } from '../../store/mockData'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -27,6 +26,13 @@ function statusTone(status) {
 }
 
 export default function WaDelivery() {
+  const getIsMobileLayout = () => {
+    if (typeof window === 'undefined') return false
+    const isNarrow = window.matchMedia('(max-width: 768px)').matches
+    const isTouch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
+    return isNarrow && isTouch
+  }
+
   const toast = useToast()
   const { user } = useAuth()
   const tenantId = user?.tenant?.id || 'tenant-default'
@@ -39,6 +45,17 @@ export default function WaDelivery() {
   const [expanded, setExpanded] = useState(null)
   const [retryingKey, setRetryingKey] = useState('')
   const waConn = useWaStatus({ tenantId })
+
+  const [isMobile, setIsMobile] = useState(getIsMobileLayout())
+  useEffect(() => {
+    const h = () => setIsMobile(getIsMobileLayout())
+    window.addEventListener('resize', h)
+    window.addEventListener('orientationchange', h)
+    return () => {
+      window.removeEventListener('resize', h)
+      window.removeEventListener('orientationchange', h)
+    }
+  }, [])
 
   const participantIndex = useMemo(() => {
     const all = getParticipants(null)
@@ -193,6 +210,136 @@ export default function WaDelivery() {
     }
   }
 
+  // ===== LAPORAN / LIST MOBILE =====
+  if (isMobile) {
+    const visibleRows = filtered.slice(0, 250)
+
+    return (
+      <div className="page-container animate-fade-in-up">
+        <div className="page-header">
+          <div className="page-title-group">
+            <span className="page-kicker">Operasional</span>
+            <h1>WA Delivery</h1>
+            <p>Pantau hasil kirim tiket via WhatsApp, lihat alasan gagal, dan lakukan pengiriman ulang.</p>
+          </div>
+          <div className="admin-actions-wrap">
+            <button type="button" className="btn btn-secondary" onClick={loadLogs} disabled={loading}>
+              <RefreshCw size={16} className={loading ? 'spinner' : ''} /> Muat ulang
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={retryBatchFailed} disabled={loading || retryingKey}>
+              <RotateCcw size={16} /> Retry yang gagal
+            </button>
+          </div>
+        </div>
+
+        {!waConn.isReady && (
+          <WaConnectBanner
+            wa={waConn}
+            title="WhatsApp belum siap"
+          />
+        )}
+
+        <div className="admin-toolbar">
+          <div className="admin-filters" style={{ marginBottom: 0 }}>
+            <div className="admin-search-wrap">
+              <Search size={16} className="admin-search-icon" />
+              <input className="form-input" placeholder="Cari tiket / nama / nomor / alasan gagal…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+            <select className="form-select admin-select-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="all">Semua status</option>
+              <option value="success">Sukses</option>
+              <option value="failed">Gagal</option>
+            </select>
+            <div className="badge badge-gray" title="Ringkasan filter saat ini">
+              Total: {summary.total} · Sukses: {summary.success} · Gagal: {summary.failed}
+            </div>
+          </div>
+        </div>
+
+        <div className="m-section">
+          <div className="m-section-header">
+            <span className="m-section-title">Riwayat pengiriman</span>
+            <span className="badge badge-gray badge-xs">Hari: {getCurrentDay()}</span>
+          </div>
+
+          {visibleRows.length === 0 ? (
+            <div className="m-empty">
+              <span><ClipboardList size={28} /></span>
+              <div style={{ marginTop: 4 }}>Belum ada riwayat pengiriman pada filter ini.</div>
+            </div>
+          ) : (
+            <div className="m-activity-list">
+              {visibleRows.map(row => {
+                const s = String(row.status || '').toLowerCase()
+                const isFailed = s === 'failed'
+                const isOpen = expanded === row.key
+                const avatarClass = s === 'success' ? 'm-activity-avatar-success' : 'm-activity-avatar-warning'
+                const avatarIcon = s === 'success'
+                  ? <CheckCircle2 size={16} />
+                  : isFailed ? <XCircle size={16} /> : <AlertTriangle size={16} />
+
+                return (
+                  <div key={row.key}>
+                    <div className="m-activity-card">
+                      <div className={`m-activity-avatar ${avatarClass}`}>
+                        {avatarIcon}
+                      </div>
+
+                      <div className="m-activity-info">
+                        <div className="m-activity-name">{row.name || row.ticket_id || '-'}</div>
+                        <div className="m-activity-meta">
+                          <span className="badge badge-gray text-xs">Kategori: {row.category || '-'}</span>
+                          <span className="badge badge-gray text-xs">Hari: {row.day_number || '-'}</span>
+                          {row.wa_send_mode ? (
+                            <span className="badge badge-gray text-xs">Mode: {row.wa_send_mode}</span>
+                          ) : null}
+                          {row.msgId ? <span className="badge badge-green text-xs">msgId</span> : null}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                        <div className="m-activity-time">{formatTime(row.time)}</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          {isFailed && (
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => retrySend({ ticket_id: row.ticket_id, phone: row.phone, wa_send_mode: row.wa_send_mode })}
+                              disabled={!!retryingKey || !waConn.isReady}
+                              title={!waConn.isReady ? 'Sambungkan WhatsApp dulu' : ''}
+                            >
+                              <Send size={14} /> Retry
+                            </button>
+                          )}
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExpanded(isOpen ? null : row.key)}>
+                            {isOpen ? 'Tutup' : 'Detail'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isOpen && (
+                      <div style={{ padding: 12, background: 'var(--bg-elevated)', borderTop: '1px solid var(--border-color)' }}>
+                        {row.error && (
+                          <div style={{ color: 'var(--danger)', fontWeight: 650, marginBottom: 8 }}>
+                            Alasan gagal: {humanizeUserMessage(row.error, { fallback: String(row.error) })}
+                          </div>
+                        )}
+                        <div className="code-muted-sm">
+                          Tips: pastikan WhatsApp status <b>Siap</b> di menu Sambungkan Perangkat, lalu coba retry.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
@@ -264,8 +411,8 @@ export default function WaDelivery() {
                   const isFailed = String(row.status || '').toLowerCase() === 'failed'
                   const isOpen = expanded === row.key
                   return (
-                    <>
-                      <tr key={row.key}>
+                    <Fragment key={row.key}>
+                      <tr>
                         <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatTime(row.time)}</td>
                         <td className="ticket-id-code">{row.ticket_id}</td>
                         <td style={{ fontWeight: 700 }}>{row.name || '-'}</td>
@@ -296,7 +443,7 @@ export default function WaDelivery() {
                         </td>
                       </tr>
                       {isOpen && (
-                        <tr key={`${row.key}:detail`}>
+                        <tr>
                           <td colSpan="6" style={{ background: 'var(--bg-elevated)' }}>
                             <div style={{ padding: 12, display: 'grid', gap: 6 }}>
                               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -317,7 +464,7 @@ export default function WaDelivery() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   )
                 })
               )}

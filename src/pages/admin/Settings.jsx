@@ -432,9 +432,9 @@ export default function Settings() {
             <code className="token-code ml-8">{'{{kategori}}'}</code>
             <code className="token-code ml-8">{'{{tanggal_lahir}}'}</code>
             <code className="token-code ml-8">{'{{catatan}}'}</code>
-            <div className="text-note mt-12" style={{ marginTop: 10 }}>
-              Data Tambahan lain bisa dipanggil pakai token: ubah nama kolom jadi huruf kecil, lalu ganti spasi dengan `_` (contoh: `Tanggal Lahir` => {'{{tanggal_lahir}}'}).
-            </div>
+            <span className="text-note mt-12" style={{ marginTop: 10, display: 'block' }}>
+              Data Tambahan lain bisa dipanggil pakai token: ubah nama kolom jadi huruf kecil, lalu ganti spasi dengan `_` (contoh: `Tanggal Lahir` menjadi {'{{tanggal_lahir}}'}).
+            </span>
           </p>
 
           <form onSubmit={handleSaveTemplate}>

@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { 
   Settings, Palette, Type, Image as ImageIcon, 
   Save, Search, ShieldCheck, Layout 
 } from 'lucide-react'
-import { getTenants, updateTenantBranding } from '../../../store/mockData'
+import { bootstrapStoreFromFirebase, getTenants, updateTenantBranding } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -22,6 +22,20 @@ export default function WhiteLabel() {
   const selectedTenant = useMemo(() => 
     tenants.find(t => t.id === selectedTenantId), 
   [tenants, selectedTenantId])
+
+  useEffect(() => {
+    let cancelled = false
+    const hydrate = async () => {
+      try {
+        await bootstrapStoreFromFirebase(true)
+      } catch {
+        // Keep UI available even if hydrate fails.
+      }
+      if (!cancelled) setTenants(getTenants())
+    }
+    hydrate()
+    return () => { cancelled = true }
+  }, [])
 
   const handleSelectTenant = (tenantId) => {
     setSelectedTenantId(tenantId)

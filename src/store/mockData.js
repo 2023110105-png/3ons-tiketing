@@ -1,7 +1,7 @@
 // Mock data store - simulates Supabase backend
 // Replace with real Supabase client when ready
 
-import { apiFetch } from '../utils/api'
+import { apiFetch, platformFetch } from '../utils/api'
 import { onAuthStateChanged } from 'firebase/auth'
 import {
   syncAuditLog,
@@ -50,6 +50,10 @@ function isAllowedStrictStorageKey(key) {
     || key === LEGACY_TENANT_REGISTRY_KEY
     || key === STORE_KEY
     || key === LEGACY_STORE_KEY
+    // Owner utilities (audit trail + notifications) must remain usable
+    // even when strict data mode blocks most localStorage keys.
+    || key === OWNER_AUDIT_LOG_KEY
+    || key === OWNER_NOTIFICATIONS_KEY
 }
 
 async function ensureFirebaseAuthSessionReady() {
@@ -678,6 +682,32 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
     }
   }
 
+  // Fullstack path: when Firebase is enabled, create user via api-server (Firebase Admin),
+  // so enable/disable/reset password/delete also work on real auth accounts.
+  if (isFirebaseEnabled) {
+    try {
+      const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: userData?.username,
+          email: userData?.email,
+          password: userData?.password,
+          name: userData?.name,
+          role: userData?.role
+        })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data?.success === false) {
+        return { success: false, error: data?.error || `HTTP ${res.status}` }
+      }
+      await bootstrapStoreFromFirebase(true)
+      return { success: true, user: data.user }
+    } catch (err) {
+      return { success: false, error: err?.message || 'Tidak bisa terhubung ke api-server' }
+    }
+  }
+
   const activeFirebaseUser =
     FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled
       ? await ensureFirebaseAuthSessionReady()
@@ -748,7 +778,26 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
   return { success: true, user: newUser }
 }
 
-export function updateTenantUser(tenantId, userId, data, actor = 'system') {
+export async function updateTenantUser(tenantId, userId, data, actor = 'system') {
+  // Fullstack path: update via api-server so status/password apply to Firebase Auth.
+  if (isFirebaseEnabled) {
+    try {
+      const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data || {})
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok || payload?.success === false) {
+        return { success: false, error: payload?.error || `HTTP ${res.status}` }
+      }
+      await bootstrapStoreFromFirebase(true)
+      return { success: true, user: payload?.user || null }
+    } catch (err) {
+      return { success: false, error: err?.message || 'Tidak bisa terhubung ke api-server' }
+    }
+  }
+
   const tenant = tenantRegistry.tenants[tenantId]
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   
@@ -769,7 +818,23 @@ export function updateTenantUser(tenantId, userId, data, actor = 'system') {
   return { success: true }
 }
 
-export function deleteTenantUser(tenantId, userId, actor = 'system') {
+export async function deleteTenantUser(tenantId, userId, actor = 'system') {
+  if (isFirebaseEnabled) {
+    try {
+      const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
+        method: 'DELETE'
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok || payload?.success === false) {
+        return { success: false, error: payload?.error || `HTTP ${res.status}` }
+      }
+      await bootstrapStoreFromFirebase(true)
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err?.message || 'Tidak bisa terhubung ke api-server' }
+    }
+  }
+
   const tenant = tenantRegistry.tenants[tenantId]
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   
