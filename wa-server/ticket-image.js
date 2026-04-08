@@ -157,6 +157,12 @@ async function buildTicketQrImageNode(participant, options = {}) {
   ctx.font = '900 40px Arial';
   ctx.fillText('E-TICKET', leftX + 22, leftY + 74);
 
+  // Design marker: helps verify latest renderer is active in production.
+  fillRoundedRect(leftX + leftW - 170, leftY + 40, 148, 30, 10, '#ef4444');
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 14px Arial';
+  ctx.fillText('DESIGN V2', leftX + leftW - 152, leftY + 61);
+
   ctx.fillStyle = '#475569';
   ctx.font = '700 19px Arial';
   clampText(eventLabel || 'Event Pass', leftX + 22, leftY + 104, leftW - 44);
