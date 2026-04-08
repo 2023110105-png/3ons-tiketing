@@ -26,7 +26,7 @@ const EnvSchema = z.object({
   API_DEV_BYPASS_AUTH: z.string().optional().default('false')
 })
 
-export function readEnv(processEnv = process.env) {
+export function readEnv(processEnv = globalThis.process?.env ?? {}) {
   const parsed = EnvSchema.safeParse(processEnv)
   if (!parsed.success) {
     const msg = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')

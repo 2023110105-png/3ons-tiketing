@@ -30,7 +30,7 @@ export default function OpsMonitor() {
   const toast = useToast()
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [tick, setTick] = useState(0)
+  const [, setTick] = useState(0)
 
   // Lightweight auto-refresh for live ops view
   useEffect(() => {
@@ -38,10 +38,10 @@ export default function OpsMonitor() {
     return () => window.clearInterval(id)
   }, [])
 
-  const stats = useMemo(() => getStats(dayFilter), [dayFilter, tick])
-  const checkInLogs = useMemo(() => getCheckInLogs(dayFilter).slice(0, 50), [dayFilter, tick])
-  const pendingQueue = useMemo(() => getPendingCheckIns(), [tick])
-  const offlineHistory = useMemo(() => getOfflineQueueHistory(60), [tick])
+  const stats = getStats(dayFilter)
+  const checkInLogs = getCheckInLogs(dayFilter).slice(0, 50)
+  const pendingQueue = getPendingCheckIns()
+  const offlineHistory = getOfflineQueueHistory(60)
 
   const lastScanAt = checkInLogs[0]?.timestamp || null
   const pendingCount = pendingQueue.length

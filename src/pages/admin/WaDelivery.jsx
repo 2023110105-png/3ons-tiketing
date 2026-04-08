@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
@@ -64,7 +64,7 @@ export default function WaDelivery() {
     return map
   }, [])
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setLoading(true)
     try {
       const res = await apiFetch(`/api/wa/send-log?tenant_id=${encodeURIComponent(tenantId)}&limit=250`)
@@ -79,9 +79,9 @@ export default function WaDelivery() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [tenantId, toast])
 
-  useEffect(() => { loadLogs() }, [tenantId])
+  useEffect(() => { loadLogs() }, [loadLogs])
 
   // WA status polling handled by useWaStatus()
 
@@ -205,7 +205,6 @@ export default function WaDelivery() {
     const ok = window.confirm(`Coba ulang ${failedRows.length} pengiriman yang gagal?`)
     if (!ok) return
     for (const row of failedRows) {
-      // eslint-disable-next-line no-await-in-loop
       await retrySend({ ticket_id: row.ticket_id, phone: row.phone, wa_send_mode: row.wa_send_mode })
     }
   }

@@ -47,7 +47,7 @@ export default function Settings() {
 
   // State for WA Template
   const [waTemplate, setWaTemplateState] = useState(getWaTemplate())
-  const [waSendMode, setWaSendModeState] = useState(getWaSendMode())
+  const [waSendMode] = useState(getWaSendMode())
   const [maxRetryAttempts, setMaxRetryAttemptsState] = useState(getMaxPendingAttempts())
   const [events, setEvents] = useState(getEventsWithOptions({ includeArchived: true }))
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())

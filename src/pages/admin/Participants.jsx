@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getWaTemplate, getWaSendMode, getAvailableDays, bootstrapStoreFromFirebase } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3 } from 'lucide-react'
@@ -42,7 +42,6 @@ export default function Participants() {
   // Broadcast States
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
-  const [broadcastMode, setBroadcastMode] = useState('message_with_barcode') // 'message_only' | 'message_with_barcode'
   const [showBroadcastModeModal, setShowBroadcastModeModal] = useState(false)
   const [pendingBroadcastParticipants, setPendingBroadcastParticipants] = useState([])
   
@@ -71,13 +70,6 @@ export default function Participants() {
       obj[key] = value
     })
     return obj
-  }
-
-  const metaToText = (meta) => {
-    if (!meta || typeof meta !== 'object') return ''
-    const entries = Object.entries(meta)
-      .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
-    return entries.map(([k, v]) => `${k}=${String(v)}`).join('\n')
   }
 
   const EXTRA_KEYS = ['Tanggal Lahir', 'Catatan']
@@ -119,7 +111,7 @@ export default function Participants() {
       if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
 
       // Try dd/mm/yyyy or mm/dd/yyyy or dd-mm-yyyy / mm-dd-yyyy / dd.mm.yyyy
-      const m = v.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})$/)
+      const m = v.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/)
       if (!m) return ''
       const a = Number(m[1])
       const b = Number(m[2])
@@ -368,7 +360,7 @@ export default function Participants() {
   }
 
   // --- BOT BROADCAST FEATURES ---
-  const sendTicketViaBot = async (participant, waSendModeOverride = null) => {
+  const sendTicketViaBot = async (participant) => {
     if (!participant.phone && !participant.email) return false;
     // Force desain tiket WA agar tidak jatuh ke mode QR polos.
     const waSendMode = 'message_with_barcode';
@@ -419,7 +411,6 @@ export default function Participants() {
       setShowWaConnectModal(true)
       return
     }
-    setBroadcastMode(selectedMode);
     setShowBroadcastModeModal(false);
     const targetParticipants = pendingBroadcastParticipants;
     if (!window.confirm(`Perhatian!\nAnda akan mengirim tiket ke ${targetParticipants.length} peserta dengan mode: ${selectedMode === 'message_with_barcode' ? 'Pesan + Barcode' : 'Pesan Saja'}.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
@@ -428,7 +419,7 @@ export default function Participants() {
     let s = 0; let f = 0;
     for (let i = 0; i < targetParticipants.length; i++) {
       setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const success = await sendTicketViaBot(targetParticipants[i], selectedMode);
+      const success = await sendTicketViaBot(targetParticipants[i]);
       if (success) s++; else f++;
       // Artificial delay 2.5 seconds to prevent WA Ban
       if (i < targetParticipants.length - 1) {
