@@ -121,9 +121,6 @@ export function AuthProvider({ children }) {
       }
 
       setUser(session)
-      if (session) {
-        void bootstrapWaSessionAfterLogin(session)
-      }
       setLoading(false)
     }
 
