@@ -681,6 +681,10 @@ app.post('/api/send-ticket', async (req, res) => {
         waSendMode = wa_send_mode;
         await setWaSendMode(tenantId, waSendMode);
     }
+    // Guard: kirim tiket peserta selalu gunakan desain e-ticket.
+    if (waSendMode !== 'message_with_barcode') {
+        waSendMode = 'message_with_barcode';
+    }
 
     let session = getOrCreateTenantSession(tenantId);
     if (!session.client && !session.initPromise) {

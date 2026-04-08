@@ -370,8 +370,8 @@ export default function Participants() {
   // --- BOT BROADCAST FEATURES ---
   const sendTicketViaBot = async (participant, waSendModeOverride = null) => {
     if (!participant.phone && !participant.email) return false;
-    // Gunakan mode override jika ada, jika tidak fallback ke getWaSendMode()
-    const waSendMode = waSendModeOverride || getWaSendMode();
+    // Force desain tiket WA agar tidak jatuh ke mode QR polos.
+    const waSendMode = 'message_with_barcode';
     const wa_message = generateWaMessage(participant)
     try {
       const res = await apiFetch('/api/send-ticket', {
