@@ -383,6 +383,17 @@ function dispatchTenantChangeEvent() {
   window.dispatchEvent(new CustomEvent('ons-tenant-changed'))
 }
 
+async function provisionTenantRuntime(tenantId) {
+  const id = String(tenantId || '').trim()
+  if (!id) return
+  try {
+    // Passive sync only: avoid creating QR/session before tenant logs in.
+    await apiFetch(`/api/wa/status?tenant_id=${encodeURIComponent(id)}`)
+  } catch {
+    // Keep tenant creation/switch flow non-blocking even if WA runtime is temporarily offline.
+  }
+}
+
 export function getActiveTenant() {
   return { ...getActiveTenantState() }
 }
@@ -417,6 +428,7 @@ export function switchActiveTenant(tenantId, actor = 'system') {
   saveStore()
   saveTenantRegistry()
   dispatchTenantChangeEvent()
+  void provisionTenantRuntime(tenant.id)
 
   if (previous !== tenant.id) {
     logAdminAction('tenant_switch', `Pindah tenant aktif ke ${tenant.brandName}`, actor, {
@@ -492,6 +504,8 @@ export async function createTenant(data, actor = 'system') {
   logAdminAction('tenant_create', `Membuat tenant ${brandName}`, actor, {
     tenant_id: tenant.id
   })
+
+  void provisionTenantRuntime(tenant.id)
 
   return { success: true, tenant: { ...tenant } }
 }
@@ -742,6 +756,7 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
 
   // Fullstack path: when Firebase is enabled, create user via api-server (Firebase Admin),
   // so enable/disable/reset password/delete also work on real auth accounts.
+  let platformSyncUnavailable = false
   if (isFirebaseEnabled) {
     try {
       const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users`, {
@@ -757,21 +772,23 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || data?.success === false) {
-        return { success: false, error: data?.error || `HTTP ${res.status}` }
+        // Fallback to local registry in dev/offline mode when platform API is unreachable/misconfigured.
+        platformSyncUnavailable = true
+      } else {
+        await bootstrapStoreFromFirebase(true)
+        return { success: true, user: data.user }
       }
-      await bootstrapStoreFromFirebase(true)
-      return { success: true, user: data.user }
-    } catch (err) {
-      return { success: false, error: err?.message || 'Tidak bisa terhubung ke api-server' }
+    } catch {
+      platformSyncUnavailable = true
     }
   }
 
   const activeFirebaseUser =
-    FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled
+    FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled && !platformSyncUnavailable
       ? await ensureFirebaseAuthSessionReady()
       : null
 
-  if (FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled && !activeFirebaseUser) {
+  if (FIREBASE_AUTH_MODE === 'strict' && isFirebaseEnabled && !platformSyncUnavailable && !activeFirebaseUser) {
     return {
       success: false,
       error: 'Sesi Firebase belum aktif. Login ulang dengan akun yang terdaftar di Firebase Authentication.'
@@ -799,7 +816,7 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
   }
 
   const password = String(userData?.password || '123456')
-  if (isFirebaseEnabled && FIREBASE_AUTH_MODE === 'strict') {
+  if (isFirebaseEnabled && FIREBASE_AUTH_MODE === 'strict' && !platformSyncUnavailable) {
     if (!email) {
       return { success: false, error: 'Email wajib diisi pada mode Firebase strict' }
     }

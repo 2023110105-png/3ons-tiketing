@@ -3,6 +3,8 @@ const cors = require('cors');
 const qrcode = require('qrcode');
 const crypto = require('crypto');
 const fs = require('fs/promises');
+const fsSync = require('fs');
+const path = require('path');
 const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -10,6 +12,39 @@ const { buildTicketQrImageNode } = require('./ticket-image-jimp');
 const { runStressQrCheck } = require('./scripts/stress-qr-check');
 const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
+const { log, requestLog } = require('./lib/logger');
+const { withRetry } = require('./lib/delivery');
+const {
+    buildLegacySignature,
+    buildSecureSignatureLegacy,
+    buildHmacSignature,
+    buildV3Payload,
+    buildLegacyPayload
+} = require('./lib/security');
+
+function loadLocalEnvFile() {
+    try {
+        const envPath = path.join(__dirname, '.env');
+        if (!fsSync.existsSync(envPath)) return;
+        const raw = fsSync.readFileSync(envPath, 'utf8');
+        raw.split(/\r?\n/).forEach((line) => {
+            const trimmed = String(line || '').trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const idx = trimmed.indexOf('=');
+            if (idx <= 0) return;
+            const key = trimmed.slice(0, idx).trim();
+            let value = trimmed.slice(idx + 1).trim();
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1);
+            }
+            if (!process.env[key]) process.env[key] = value;
+        });
+    } catch (err) {
+        console.error('Failed to load wa-server .env:', err?.message || String(err));
+    }
+}
+
+loadLocalEnvFile();
 
 const app = express();
 const CORS_ALLOWED_ORIGINS = String(process.env.CORS_ALLOWED_ORIGINS || '')
@@ -21,17 +56,28 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 10000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
 const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
 const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
+const TICKET_SIGNING_SECRET = String(process.env.TICKET_SIGNING_SECRET || WA_ADMIN_SECRET || '').trim();
 const rateLimitStore = new Map();
+const deliveryMetrics = { waSendSuccess: 0, waSendFailed: 0 };
 
 if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && !WA_ADMIN_SECRET) {
     throw new Error('WA_ADMIN_SECRET wajib diisi di production');
+}
+if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && !TICKET_SIGNING_SECRET) {
+    throw new Error('TICKET_SIGNING_SECRET wajib diisi di production');
 }
 
 app.use(cors({
     origin(origin, callback) {
         // Allow server-to-server and same-origin requests without Origin header.
         if (!origin) return callback(null, true);
-        if (CORS_ALLOWED_ORIGINS.length === 0) return callback(null, true);
+        const isLocalDevOrigin = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(String(origin || ''));
+        if (String(process.env.NODE_ENV || '').toLowerCase() !== 'production' && isLocalDevOrigin) {
+            return callback(null, true);
+        }
+        if (CORS_ALLOWED_ORIGINS.length === 0) {
+            return callback(new Error('CORS origin not allowed'));
+        }
         if (CORS_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
         return callback(new Error('CORS origin not allowed'));
     }
@@ -40,7 +86,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use((req, res, next) => {
     req._requestId = crypto.randomUUID();
+    const startedAt = Date.now();
     res.setHeader('x-request-id', req._requestId);
+    res.on('finish', () => {
+        requestLog(req, 'request_finished', {
+            status: res.statusCode,
+            elapsed_ms: Date.now() - startedAt
+        });
+    });
     next();
 });
 app.use((req, _res, next) => {
@@ -48,11 +101,34 @@ app.use((req, _res, next) => {
     next();
 });
 const serverStartedAt = Date.now();
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of rateLimitStore.entries()) {
+        if (now > Number(value?.resetAt || 0) + RATE_LIMIT_WINDOW_MS) {
+            rateLimitStore.delete(key);
+        }
+    }
+}, Math.max(5000, RATE_LIMIT_WINDOW_MS)).unref();
 
 function getRequesterInfo(req) {
     // Coba ambil info user dari header, body, atau query
     const user = req?.headers['x-requested-by'] || req?.body?.requested_by || req?.query?.requested_by || '';
     return String(user).trim();
+}
+
+function getTenantBrandInfo(req) {
+    const brand = req?.headers['x-tenant-brand'] || req?.body?.tenant_brand || req?.query?.tenant_brand || '';
+    return String(brand || '').trim().slice(0, 80);
+}
+
+function logSessionEvent(event, tenantId, extra = {}) {
+    const payload = { event, tenant_id: tenantId, ...extra };
+    log('info', `wa_session_${event}`, payload);
+    const details = Object.entries(extra)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}=${String(value)}`)
+        .join(' ');
+    console.log(`[WA][SESSION] event=${event} tenant_id=${tenantId}${details ? ` ${details}` : ''}`);
 }
 
 function shortQrHash(value) {
@@ -82,14 +158,16 @@ app.post('/api/wa/test-send', rateLimit, async (req, res) => {
     const waNumber = formatPhoneWA(phone);
     try {
         console.log(`[WA TEST SEND] Mulai kirim test ke ${waNumber} (tenant: ${tenantId})`);
-        const sendResult = await Promise.race([
-            session.client.sendMessage(waNumber, message),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
-        ]);
+        const sendResult = await withRetry(() => session.client.sendMessage(waNumber, message), {
+            retries: 2,
+            timeoutMs: 20000
+        });
         console.log(`[WA TEST SEND] Sukses kirim test ke ${waNumber} (tenant: ${tenantId})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
+        deliveryMetrics.waSendSuccess += 1;
         return res.json({ success: true, phone, msgId: sendResult && sendResult.id ? sendResult.id.id : undefined });
     } catch (err) {
         console.error(`[WA TEST SEND ERROR] Gagal kirim test ke ${waNumber} (tenant: ${tenantId}):`, err.message);
+        deliveryMetrics.waSendFailed += 1;
         return res.json({ success: false, phone, error: err.message });
     }
 });
@@ -192,6 +270,7 @@ function getOrCreateTenantSession(tenantId) {
     if (!tenantSessions.has(tenantId)) {
         tenantSessions.set(tenantId, {
             tenantId,
+            tenantBrand: null,
             client: null,
             isReady: false,
             status: 'disconnected',
@@ -206,6 +285,7 @@ function getOrCreateTenantSession(tenantId) {
 function serializeSession(session) {
     return {
         tenant_id: session.tenantId,
+        tenant_brand: session.tenantBrand || null,
         status: session.status,
         isReady: session.isReady,
         hasQr: !!session.currentQR,
@@ -317,9 +397,7 @@ function createWaClient(tenantId, session) {
 
     client.on('qr', async (qr) => {
         const now = new Date().toISOString();
-        console.log(`\n==== STATUS: BUTUH SCAN QR [${tenantId}] ====`);
-        console.log(`WAKTU PERMINTAAN QR: ${now}`);
-        // Jika ingin menampilkan user, tambahkan info user di sini
+        logSessionEvent('qr_required', tenantId, { time: now });
         session.status = 'qr';
         session.isReady = false;
         session.lastError = null;
@@ -333,7 +411,7 @@ function createWaClient(tenantId, session) {
 
 
     client.on('ready', () => {
-        console.log(`✅ WhatsApp client [${tenantId}] berhasil terkoneksi & siap digunakan!`);
+        logSessionEvent('ready', tenantId);
         session.isReady = true;
         session.status = 'ready';
         session.currentQR = null;
@@ -341,14 +419,15 @@ function createWaClient(tenantId, session) {
     });
 
     client.on('disconnected', () => {
-        console.log(`❌ WhatsApp client [${tenantId}] terputus/disconnected!`);
+        logSessionEvent('disconnected', tenantId);
         session.isReady = false;
         session.status = 'disconnected';
         session.currentQR = null;
     });
 
     client.on('auth_failure', () => {
-        console.error(`❌ WhatsApp Auth Failed [${tenantId}]`);
+        log('error', 'wa_session_auth_failure', { tenant_id: tenantId });
+        console.error(`[WA][SESSION] event=auth_failure tenant_id=${tenantId}`);
         session.status = 'disconnected';
         session.isReady = false;
         session.currentQR = null;
@@ -445,24 +524,18 @@ async function resetTenantClient(tenantId) {
     return warning;
 }
 
-ensureTenantClient('tenant-default').catch((err) => {
-    const session = getOrCreateTenantSession('tenant-default');
-    console.error('Failed to initialize WhatsApp client [tenant-default]', err.message);
-    session.status = 'offline';
-    session.isReady = false;
-    session.currentQR = null;
-    session.lastError = err.message;
-});
+// Session is now bootstrapped lazily from explicit login/bootstrap requests.
 
 
 // ----- EMAIL CLIENT (NODEMAILER) -----
-// Anda perlu mengganti konfigurasi ini dengan Gmail Anda
-// dan mengaktifkan "App Password" dari setelan keamanan Google Account
+const SMTP_SERVICE = String(process.env.SMTP_SERVICE || 'gmail').trim();
+const SMTP_USER = String(process.env.SMTP_USER || '').trim();
+const SMTP_PASS = String(process.env.SMTP_PASS || '').trim();
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: SMTP_SERVICE,
     auth: {
-        user: 'EMAIL_ANDA@gmail.com', // Ganti dengan Gmail Admin
-        pass: 'APP_PASSWORD_ANDA'     // Ganti dengan Google App Password
+        user: SMTP_USER,
+        pass: SMTP_PASS
     }
 });
 
@@ -475,14 +548,6 @@ function formatPhoneWA(phone) {
     
     // Format khusus API whatsapp-web.js tambah '@c.us'
     return `${cleaned}@c.us`; 
-}
-
-function buildLegacySignature({ tenantId, eventId, ticketId, dayNumber }) {
-    return Buffer.from(`${tenantId}|${eventId}|${ticketId}|${dayNumber}|event-2026`).toString('base64');
-}
-
-function buildSecureSignature({ tenantId, eventId, ticketId, dayNumber, secureCode, secureRef }) {
-    return Buffer.from(`${tenantId}|${eventId}|${ticketId}|${dayNumber}|${secureCode}|${secureRef}|event-secure-v3`).toString('base64');
 }
 
 function normalizeQRPayload(rawQr) {
@@ -587,7 +652,13 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-    res.json({ ok: true, uptime: process.uptime() });
+    const runtime = buildRuntimeInfo();
+    res.json({
+        ok: true,
+        uptime: process.uptime(),
+        sessions: runtime.sessions,
+        delivery: deliveryMetrics
+    });
 });
 
 app.get('/api/wa/runtime', (_req, res) => {
@@ -668,19 +739,16 @@ app.get('/api/wa/status', (req, res) => {
     const tenantId = resolveTenantId(req);
     const session = getOrCreateTenantSession(tenantId);
     const requestedBy = getRequesterInfo(req);
-
-    if (!session.client && !session.initPromise) {
-        ensureTenantClient(tenantId).catch((err) => {
-            const current = getOrCreateTenantSession(tenantId);
-            current.status = 'offline';
-            current.lastError = err.message;
-        });
-    }
-
+    const tenantBrand = getTenantBrandInfo(req);
+    if (tenantBrand) session.tenantBrand = tenantBrand;
 
     // Log permintaan QR hanya jika status belum ready
     if (session.status !== 'ready') {
-        console.log(`[WA][QR_REQUEST] tenant_id=${tenantId} requested_by=${requestedBy || '-'} status=${session.status} time=${new Date().toISOString()}`);
+        logSessionEvent('status_check', tenantId, {
+            tenant_brand: session.tenantBrand || '-',
+            requested_by: requestedBy || '-',
+            status: session.status
+        });
     }
 
     res.json({
@@ -690,6 +758,49 @@ app.get('/api/wa/status', (req, res) => {
         isReady: session.isReady,
         lastError: session.lastError,
         requested_by: requestedBy
+    });
+});
+
+// 1.1 Explicit bootstrap, typically called once after successful login.
+app.post('/api/wa/bootstrap-session', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    const tenantId = resolveTenantId(req);
+    const requestedBy = getRequesterInfo(req);
+    const tenantBrand = getTenantBrandInfo(req);
+    const session = getOrCreateTenantSession(tenantId);
+    if (tenantBrand) session.tenantBrand = tenantBrand;
+
+    if (!session.client && !session.initPromise) {
+        logSessionEvent('bootstrap_start', tenantId, {
+            tenant_brand: session.tenantBrand || '-',
+            requested_by: requestedBy || '-'
+        });
+    }
+
+    try {
+        await ensureTenantClient(tenantId);
+    } catch (err) {
+        const current = getOrCreateTenantSession(tenantId);
+        current.status = 'offline';
+        current.isReady = false;
+        current.currentQR = null;
+        current.lastError = err?.message || 'Failed to initialize tenant client';
+        log('error', 'wa_session_bootstrap_failed', {
+            tenant_id: tenantId,
+            tenant_brand: current.tenantBrand || null,
+            requested_by: requestedBy || '-',
+            error: current.lastError
+        });
+    }
+
+    const current = getOrCreateTenantSession(tenantId);
+    return res.json({
+        success: true,
+        tenant_id: tenantId,
+        status: current.status,
+        isReady: current.isReady,
+        hasQr: !!current.currentQR,
+        requested_by: requestedBy || '-'
     });
 });
 
@@ -824,10 +935,10 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                     console.log(`[WA SEND] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`);
                     let sendResult;
                     if (waSendMode === 'message_only') {
-                        sendResult = await Promise.race([
-                            session.client.sendMessage(waNumber, waMessage),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
-                        ]);
+                        sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
+                            retries: 2,
+                            timeoutMs: 20000
+                        });
                     } else if (waSendMode === 'message_with_barcode') {
                         // Generate e-ticket image with QR and details (Node.js/canvas)
                         const participant = {
@@ -842,21 +953,23 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                         console.log(`[WA SEND IMAGE] tenant=${tenantId} ticket=${ticket_id || '-'} qr_hash=${qrHash} bytes=${imageBuffer?.length || 0}`);
                         const base64Str = imageBuffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
-                        sendResult = await Promise.race([
-                            session.client.sendMessage(waNumber, media, { caption: waMessage }),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
-                        ]);
+                        sendResult = await withRetry(() => session.client.sendMessage(waNumber, media, { caption: waMessage }), {
+                            retries: 2,
+                            timeoutMs: 20000
+                        });
                     } else {
                         // fallback: kirim pesan saja
-                        sendResult = await Promise.race([
-                            session.client.sendMessage(waNumber, waMessage),
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
-                        ]);
+                        sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
+                            retries: 2,
+                            timeoutMs: 20000
+                        });
                     }
                     console.log(`[WA SEND] Sukses kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
+                    deliveryMetrics.waSendSuccess += 1;
                     return { phone: p, status: 'Success', msgId: sendResult && sendResult.id ? sendResult.id.id : undefined };
                 } catch (err) {
                     console.error(`[WA SEND ERROR] Gagal kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash}):`, err.message);
+                    deliveryMetrics.waSendFailed += 1;
                     return { phone: p, status: 'Failed', error: err.message };
                 }
             });
@@ -874,8 +987,8 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
 
     // B. PROSES SEND EMAIL (tidak diubah, tetap satu email)
     if (send_email && email) {
-        if (transporter.options.auth.user === 'EMAIL_ANDA@gmail.com') {
-            results.email = 'Failed - Harap setup Nodemailer Auth di index.js Server';
+        if (!SMTP_USER || !SMTP_PASS) {
+            results.email = 'Failed - Harap setup SMTP_USER dan SMTP_PASS di environment server';
         } else {
             try {
                 const mailOptions = {
@@ -922,6 +1035,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
 
 // 3. Verify ticket signature (server-side check)
 app.post('/api/ticket/verify', rateLimit, (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const qr = normalizeQRPayload(req?.body?.qr_data);
     if (!qr || !qr.ticketId || !qr.tenantId || !qr.eventId || !qr.signature || !Number.isFinite(qr.dayNumber)) {
         console.error('[TICKET_VERIFY] Payload invalid:', {
@@ -945,7 +1059,13 @@ app.post('/api/ticket/verify', rateLimit, (req, res) => {
         ticketId: qr.ticketId,
         dayNumber: qr.dayNumber
     });
-    const validLegacy = expectedLegacy === qr.signature;
+    const expectedLegacyHmac = buildHmacSignature(buildLegacyPayload({
+        tenantId: qr.tenantId,
+        eventId: qr.eventId,
+        ticketId: qr.ticketId,
+        dayNumber: qr.dayNumber
+    }), TICKET_SIGNING_SECRET);
+    const validLegacy = expectedLegacy === qr.signature || expectedLegacyHmac === qr.signature;
 
     // v3 secure mode: verify with hidden participant token sent by scanner app
     if (qr.version >= 3 || qr.secureRef) {
@@ -958,7 +1078,15 @@ app.post('/api/ticket/verify', rateLimit, (req, res) => {
             return res.json({ valid: false, reason: 'missing_secure_token', mode: 'v3-secure' });
         }
 
-        const expected = buildSecureSignature({
+        const expected = buildHmacSignature(buildV3Payload({
+            tenantId: qr.tenantId,
+            eventId: qr.eventId,
+            ticketId: qr.ticketId,
+            dayNumber: qr.dayNumber,
+            secureCode,
+            secureRef
+        }), TICKET_SIGNING_SECRET);
+        const expectedLegacySecure = buildSecureSignatureLegacy({
             tenantId: qr.tenantId,
             eventId: qr.eventId,
             ticketId: qr.ticketId,
@@ -967,7 +1095,7 @@ app.post('/api/ticket/verify', rateLimit, (req, res) => {
             secureRef
         });
 
-        const valid = expected === qr.signature;
+        const valid = expected === qr.signature || expectedLegacySecure === qr.signature;
         if (valid) return res.json({ valid: true, reason: 'ok', mode: 'v3-secure' });
         if (validLegacy) return res.json({ valid: true, reason: 'ok_legacy_compat', mode: 'legacy-v2-compat' });
         return res.json({ valid: false, reason: 'invalid_signature', mode: 'v3-secure' });
@@ -981,6 +1109,7 @@ app.post('/api/ticket/verify', rateLimit, (req, res) => {
 
 // API: Extract QR from image
 app.post('/api/import/barcode', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const tenantId = normalizeTenantId(req?.body?.tenant_id);
     const { image_base64, source_type, qr_string } = req.body;
 
@@ -1077,6 +1206,7 @@ app.post('/api/import/barcode', async (req, res) => {
 
 // API: Server verify + register import
 app.post('/api/import/verify-and-register', (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const tenantId = normalizeTenantId(req?.body?.tenant_id);
     const {
         ticket_id,
@@ -1105,22 +1235,29 @@ app.post('/api/import/verify-and-register', (req, res) => {
     let mode = 'unknown';
 
     if (qrVersion >= 3) {
-        expectedSignature = buildSecureSignature({
+        expectedSignature = buildHmacSignature(buildV3Payload({
             tenantId,
             eventId: event_id,
             ticketId: ticket_id,
             dayNumber: day_number,
             secureCode: secure_code,
             secureRef: secure_ref
-        });
+        }), TICKET_SIGNING_SECRET);
         mode = 'v3-secure';
     } else {
-        expectedSignature = buildLegacySignature({
+        const legacyHmac = buildHmacSignature(buildLegacyPayload({
+            tenantId,
+            eventId: event_id,
+            ticketId: ticket_id,
+            dayNumber: day_number
+        }), TICKET_SIGNING_SECRET);
+        const legacyBase64 = buildLegacySignature({
             tenantId,
             eventId: event_id,
             ticketId: ticket_id,
             dayNumber: day_number
         });
+        expectedSignature = signature === legacyHmac ? legacyHmac : legacyBase64;
         mode = 'legacy-v2';
     }
 
@@ -1167,6 +1304,7 @@ app.post('/api/import/verify-and-register', (req, res) => {
 
 // API: Get import logs (for audit)
 app.get('/api/import/logs', (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const tenantId = normalizeTenantId(req?.query?.tenant_id);
     const logs = importLogs.get(tenantId) || [];
     res.json({
@@ -1176,8 +1314,32 @@ app.get('/api/import/logs', (req, res) => {
     });
 });
 
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    const msg = String(err?.message || '').toLowerCase();
+    if (msg.includes('cors')) {
+        return res.status(403).json({ success: false, error: 'CORS blocked', request_id: req?._requestId || null });
+    }
+    return res.status(500).json({ success: false, error: 'Server error', request_id: req?._requestId || null });
+});
+
 // Start Server
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`\n🚀 3oNs Digital WA/Email Bot API Server berjalan di http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+    log('info', 'wa_server_started', {
+        port: Number(PORT),
+        node_env: String(process.env.NODE_ENV || 'development').toLowerCase(),
+        version: waServerPackage.version || 'unknown'
+    });
 });
+
+function shutdown(signal) {
+    log('warn', 'wa_server_shutdown_signal', { signal });
+    server.close(() => {
+        log('info', 'wa_server_stopped', { signal });
+        process.exit(0);
+    });
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

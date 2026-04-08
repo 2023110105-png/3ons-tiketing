@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState, useCallback } from 'react'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, isFirebaseEnabled } from '../lib/firebase'
+import { apiFetch } from '../utils/api'
 import {
   bootstrapStoreFromFirebase,
   getSession,
@@ -36,6 +37,43 @@ function isValidEmail(value) {
   const text = String(value || '').trim().toLowerCase()
   if (!text) return false
   return /^[^@]+@[^@]+\.[^@]+$/.test(text)
+}
+
+function resolveTenantIdFromUser(user) {
+  const fromTenantObject = String(user?.tenant?.id || '').trim()
+  if (fromTenantObject) return fromTenantObject
+  const fromTenantId = String(user?.tenant_id || '').trim()
+  if (fromTenantId) return fromTenantId
+  return ''
+}
+
+function resolveTenantBrandFromUser(user) {
+  const fromTenantObject = String(user?.tenant?.brandName || '').trim()
+  if (fromTenantObject) return fromTenantObject
+  const fromTenantName = String(user?.tenant_name || '').trim()
+  if (fromTenantName) return fromTenantName
+  return ''
+}
+
+function shouldBootstrapWaOnLogin(user) {
+  const role = String(user?.role || '').trim().toLowerCase()
+  return role === 'owner' || role === 'super_admin' || role === 'admin_client'
+}
+
+async function bootstrapWaSessionAfterLogin(user) {
+  if (!shouldBootstrapWaOnLogin(user)) return
+  const tenantId = resolveTenantIdFromUser(user)
+  if (!tenantId) return
+  const tenantBrand = resolveTenantBrandFromUser(user)
+  try {
+    await apiFetch('/api/wa/bootstrap-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-requested-by': String(user?.username || user?.email || 'login') },
+      body: JSON.stringify({ tenant_id: tenantId, tenant_brand: tenantBrand })
+    })
+  } catch {
+    // Keep login flow non-blocking when WA runtime is temporarily unavailable.
+  }
 }
 
 async function waitForFirebaseAuthReady() {
@@ -83,6 +121,9 @@ export function AuthProvider({ children }) {
       }
 
       setUser(session)
+      if (session) {
+        void bootstrapWaSessionAfterLogin(session)
+      }
       setLoading(false)
     }
 
@@ -130,12 +171,14 @@ export function AuthProvider({ children }) {
         const identityResult = loginByIdentity(username)
         if (identityResult.success) {
           setUser(identityResult.user)
+          void bootstrapWaSessionAfterLogin(identityResult.user)
           return identityResult
         }
 
         const emailIdentityResult = loginByIdentity(candidateEmail)
         if (emailIdentityResult.success) {
           setUser(emailIdentityResult.user)
+          void bootstrapWaSessionAfterLogin(emailIdentityResult.user)
           return emailIdentityResult
         }
 
@@ -151,6 +194,7 @@ export function AuthProvider({ children }) {
           try {
             await createUserWithEmailAndPassword(auth, candidateEmail, password)
             setUser(localResult.user)
+            void bootstrapWaSessionAfterLogin(localResult.user)
             return localResult
           } catch {
             return {
@@ -171,6 +215,7 @@ export function AuthProvider({ children }) {
           const identityResult = loginByIdentity(username)
           if (identityResult.success) {
             setUser(identityResult.user)
+            void bootstrapWaSessionAfterLogin(identityResult.user)
             return identityResult
           }
         } catch {
@@ -182,6 +227,7 @@ export function AuthProvider({ children }) {
     const result = doLogin(username, password)
     if (result.success) {
       setUser(result.user)
+      void bootstrapWaSessionAfterLogin(result.user)
     }
     return result
   }, [])

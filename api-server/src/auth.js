@@ -36,7 +36,8 @@ export function authRequired({ devBypass = false } = {}) {
       }
       return next()
     } catch (err) {
-      return res.status(401).json({ success: false, error: 'Unauthorized', detail: err?.message || String(err) })
+      void err
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
     }
   }
 }

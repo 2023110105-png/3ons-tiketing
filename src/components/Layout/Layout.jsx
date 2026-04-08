@@ -18,7 +18,7 @@ export default function Layout({ children }) {
   const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
-  const [, setTenantBranding] = useState(getTenantBranding())
+  const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
 
   const roleLabel = {
     super_admin: 'Admin Utama',
@@ -195,7 +195,7 @@ export default function Layout({ children }) {
             </button>
           )}
           <div className={`sidebar-product-mark${isMobile ? ' sidebar-product-mark--mobile' : ''}`}>
-            <span className="sidebar-product-mark-badge">3oNs</span>
+            <span className="sidebar-product-mark-badge">{tenantBranding?.brandName || '3oNs'}</span>
             <span className="sidebar-product-mark-role">{scopeLabels[user?.role] ?? 'Digital'}</span>
           </div>
         </div>

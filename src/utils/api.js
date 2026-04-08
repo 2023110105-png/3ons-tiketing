@@ -19,7 +19,18 @@ function getWaBaseEnv() {
 }
 
 function getPlatformAdminSecret() {
-  return String(import.meta.env.VITE_PLATFORM_ADMIN_SECRET || '').trim()
+  const envSecret = String(import.meta.env.VITE_PLATFORM_ADMIN_SECRET || '').trim()
+  if (envSecret) return envSecret
+
+  // Local dev fallback to match api-server/.env default.
+  if (typeof window !== 'undefined') {
+    const host = String(window.location.hostname || '').trim()
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+      return 'local-platform-admin-secret'
+    }
+  }
+
+  return ''
 }
 
 function needsWaAdminSecret(path) {
@@ -27,6 +38,7 @@ function needsWaAdminSecret(path) {
   return cleanPath.startsWith('/api/wa/sessions')
     || cleanPath.startsWith('/api/wa/runtime')
     || cleanPath.startsWith('/api/wa/logout')
+    || cleanPath.startsWith('/api/wa/bootstrap-session')
     || cleanPath.startsWith('/api/wa/test-send')
     || cleanPath.startsWith('/api/wa/batch-status')
     || cleanPath.startsWith('/api/wa/send-log')
@@ -83,7 +95,19 @@ export function getWaBaseUrl() {
 }
 
 export function getPlatformApiBaseUrl() {
-  return getPlatformApiBaseEnv()
+  const envBase = getPlatformApiBaseEnv()
+  if (envBase) return envBase
+
+  // Local dev fallback: owner platform endpoints run on api-server (default 3002).
+  if (typeof window !== 'undefined') {
+    const host = String(window.location.hostname || '').trim()
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+      return 'http://127.0.0.1:3002'
+    }
+  }
+
+  // Production fallback: most deployments host /api and /platform on same backend.
+  return getApiBaseUrl()
 }
 
 export function buildApiUrl(path) {

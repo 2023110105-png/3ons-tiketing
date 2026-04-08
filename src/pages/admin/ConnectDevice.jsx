@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
+import { getActiveTenant } from '../../store/mockData'
 
 function formatConnectionError(message) {
   const text = String(message || '').trim()
@@ -20,6 +21,11 @@ function formatConnectionError(message) {
 }
 
 export default function ConnectDevice() {
+  const resolveTenantId = (userValue) => {
+    const fromStore = String(getActiveTenant()?.id || '').trim()
+    if (fromStore) return fromStore
+    return String(userValue?.tenant?.id || 'tenant-default').trim() || 'tenant-default'
+  }
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
   const [tenantSessions, setTenantSessions] = useState([])
   const [sessionsError, setSessionsError] = useState('')
@@ -32,7 +38,7 @@ export default function ConnectDevice() {
   const [lastError, setLastError] = useState('')
   const toast = useToast()
   const { user } = useAuth()
-  const tenantId = user?.tenant?.id || 'tenant-default'
+  const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
   const canMonitorAllSessions = user?.role === 'owner'
   const canAccessConnectDevice = user?.role === 'owner' || user?.role === 'super_admin' || user?.role === 'admin_client'
   const normalizedWaStatus = String(waState?.status || '').toLowerCase()
@@ -41,7 +47,8 @@ export default function ConnectDevice() {
   const apiSource = getApiBaseUrl() ? 'Terhubung ke server pusat' : 'Tanpa server online (lokal)'
   const filteredSessions = tenantSessions.filter((session) => {
     const q = sessionQuery.trim().toLowerCase()
-    const textMatch = !q || String(session.tenant_id || '').toLowerCase().includes(q)
+    const textHaystack = `${String(session.tenant_id || '')} ${String(session.tenant_brand || '')}`.toLowerCase()
+    const textMatch = !q || textHaystack.includes(q)
 
     if (sessionStatusFilter === 'all') return textMatch
     if (sessionStatusFilter === 'offline') {
@@ -60,6 +67,17 @@ export default function ConnectDevice() {
     else acc.other += 1
     return acc
   }, { ready: 0, qr: 0, offline: 0, checking: 0, other: 0 })
+
+  useEffect(() => {
+    const syncTenantId = () => setTenantId(resolveTenantId(user))
+    syncTenantId()
+    window.addEventListener('ons-tenant-changed', syncTenantId)
+    window.addEventListener('focus', syncTenantId)
+    return () => {
+      window.removeEventListener('ons-tenant-changed', syncTenantId)
+      window.removeEventListener('focus', syncTenantId)
+    }
+  }, [user])
 
   useEffect(() => {
     let timer
@@ -455,7 +473,10 @@ export default function ConnectDevice() {
             <div className="admin-note-list">
               {filteredSessions.map((session) => (
                 <div key={session.tenant_id} className="status-note" style={{ marginBottom: 10 }}>
-                  <b>ID Akun:</b> {session.tenant_id} - {session.status} {session.isReady ? '(siap)' : ''} {session.hasQr ? '(kode QR)' : ''}
+                  <b>ID Akun:</b> {session.tenant_id}
+                  {session.tenant_brand ? ` (${session.tenant_brand})` : ''}
+                  {' - '}
+                  {session.status} {session.isReady ? '(siap)' : ''} {session.hasQr ? '(kode QR)' : ''}
                   {session.lastError ? ` - kendala: ${session.lastError}` : ''}
                   <div style={{ marginTop: 8 }}>
                     <button

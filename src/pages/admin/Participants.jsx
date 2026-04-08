@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3 } from 'lucide-react'
@@ -12,6 +12,11 @@ import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 export default function Participants() {
+  const resolveTenantId = (userValue) => {
+    const fromStore = String(getActiveTenant()?.id || '').trim()
+    if (fromStore) return fromStore
+    return String(userValue?.tenant?.id || 'tenant-default').trim() || 'tenant-default'
+  }
   const currentDay = getCurrentDay()
   const [participants, setParticipants] = useState([])
   const [search, setSearch] = useState('')
@@ -50,7 +55,18 @@ export default function Participants() {
   const navigate = useNavigate()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const fileInputRef = useRef(null)
-  const tenantId = user?.tenant?.id || 'tenant-default'
+  const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
+
+  useEffect(() => {
+    const syncTenantId = () => setTenantId(resolveTenantId(user))
+    syncTenantId()
+    window.addEventListener('ons-tenant-changed', syncTenantId)
+    window.addEventListener('focus', syncTenantId)
+    return () => {
+      window.removeEventListener('ons-tenant-changed', syncTenantId)
+      window.removeEventListener('focus', syncTenantId)
+    }
+  }, [user])
 
   const waConn = useWaStatus({ tenantId })
   const [showWaConnectModal, setShowWaConnectModal] = useState(false)
@@ -360,8 +376,18 @@ export default function Participants() {
   }
 
   // --- BOT BROADCAST FEATURES ---
+  const hasValidWaTarget = (participant) => {
+    const raw = String(participant?.phone || '').trim()
+    if (!raw) return false
+    const digits = raw.replace(/\D/g, '')
+    return digits.length >= 10
+  }
+
   const sendTicketViaBot = async (participant) => {
-    if (!participant.phone && !participant.email) return false;
+    if (!hasValidWaTarget(participant)) {
+      return { success: false, error: 'Nomor WhatsApp peserta kosong atau tidak valid.' }
+    }
+    const tenantIdNow = resolveTenantId(user)
     // Force desain tiket WA agar tidak jatuh ke mode QR polos.
     const waSendMode = 'message_with_barcode';
     const wa_message = generateWaMessage(participant)
@@ -371,7 +397,7 @@ export default function Participants() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...participant,
-          tenant_id: user?.tenant?.id || 'tenant-default',
+          tenant_id: tenantIdNow,
           send_wa: !!participant.phone,
           send_email: !!participant.email,
           wa_message,
@@ -379,19 +405,23 @@ export default function Participants() {
         })
       });
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || data?.success === false) return false
-      return true;
+      if (!res.ok || data?.success === false) {
+        const serverError = data?.error || `HTTP ${res.status}`
+        console.error('Broadcast send-ticket failed:', { tenant_id: tenantIdNow, ticket_id: participant?.ticket_id, serverError })
+        return { success: false, error: serverError }
+      }
+      return { success: true, error: null }
     } catch (e) {
       console.error('Layanan pengiriman sedang tidak aktif:', e);
-      return false;
+      return { success: false, error: e?.message || 'Tidak bisa terhubung ke layanan pengiriman' }
     }
   }
 
   const handleSingleBotSend = async (participant) => {
     toast.info('Mengirim...', `Meneruskan tiket ${participant.name} ke layanan pengiriman`);
-    const success = await sendTicketViaBot(participant);
-    if (success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
-    else toast.error('Gagal', 'Layanan pengiriman sedang tidak aktif.');
+    const result = await sendTicketViaBot(participant);
+    if (result?.success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
+    else toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Layanan pengiriman sedang tidak aktif.' }));
   }
 
   const handleBroadcast = () => {
@@ -399,8 +429,12 @@ export default function Participants() {
       setShowWaConnectModal(true)
       return
     }
-    const targetParticipants = participants;
+    const targetParticipants = participants.filter(hasValidWaTarget)
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
+    const skippedCount = participants.length - targetParticipants.length
+    if (skippedCount > 0) {
+      toast.warning('Sebagian dilewati', `${skippedCount} peserta dilewati karena nomor WA kosong/tidak valid.`)
+    }
     setPendingBroadcastParticipants(targetParticipants);
     setShowBroadcastModeModal(true);
   }
@@ -417,17 +451,30 @@ export default function Participants() {
     setIsBroadcasting(true);
     setBroadcastProgress({ current: 0, total: targetParticipants.length, success: 0, failed: 0 });
     let s = 0; let f = 0;
+    const failureReasons = []
     for (let i = 0; i < targetParticipants.length; i++) {
       setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const success = await sendTicketViaBot(targetParticipants[i]);
-      if (success) s++; else f++;
+      const result = await sendTicketViaBot(targetParticipants[i]);
+      if (result?.success) {
+        s++
+      } else {
+        f++
+        if (failureReasons.length < 3) {
+          failureReasons.push(humanizeUserMessage(result?.error, { fallback: 'Pengiriman gagal tanpa alasan terinci.' }))
+        }
+      }
       // Artificial delay 2.5 seconds to prevent WA Ban
       if (i < targetParticipants.length - 1) {
         await new Promise(r => setTimeout(r, 2500));
       }
     }
     setBroadcastProgress(prev => ({ ...prev, success: s, failed: f }));
-    toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`);
+    if (f > 0) {
+      const reasonText = failureReasons.length > 0 ? ` Alasan utama: ${failureReasons.join(' | ')}` : ''
+      toast.warning('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}.${reasonText}`)
+    } else {
+      toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`)
+    }
     setTimeout(() => setIsBroadcasting(false), 3000);
   }
 

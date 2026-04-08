@@ -64,7 +64,7 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const eventLabel = String(options.eventLabel || 'Event Platform').trim() || 'Event Platform'
   const brandLabel = String(options.brandLabel || '3oNs Digital').trim() || '3oNs Digital'
   const categoryLabel = normalizeCategory(participant?.category)
-  const style = resolveStyle(categoryLabel)
+  resolveStyle(categoryLabel)
 
   const image = new Jimp(width, height, '#f3f6fb')
   const safeX = 20

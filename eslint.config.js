@@ -43,4 +43,15 @@ export default defineConfig([
       },
     },
   },
+  {
+    files: ['api-server/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      parserOptions: {
+        sourceType: 'module',
+      },
+    },
+  },
 ])

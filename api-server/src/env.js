@@ -34,10 +34,20 @@ export function readEnv(processEnv = globalThis.process?.env ?? {}) {
   }
 
   const env = parsed.data
+  const nodeEnv = String(env.NODE_ENV || 'development').toLowerCase()
+  const isProduction = nodeEnv === 'production'
+  const apiDevBypassAuth = String(env.API_DEV_BYPASS_AUTH || '').toLowerCase() === 'true'
+
+  if (isProduction && apiDevBypassAuth) {
+    throw new Error('Invalid env: API_DEV_BYPASS_AUTH tidak boleh aktif di production')
+  }
+
   return {
     ...env,
+    nodeEnv,
+    isProduction,
     corsAllowedOrigins: splitCsv(env.CORS_ALLOWED_ORIGINS),
-    apiDevBypassAuth: String(env.API_DEV_BYPASS_AUTH || '').toLowerCase() === 'true'
+    apiDevBypassAuth
   }
 }
 

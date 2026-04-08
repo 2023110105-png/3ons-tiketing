@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
-import { getParticipants, getWaSendMode, getCurrentDay } from '../../store/mockData'
+import { getParticipants, getWaSendMode, getCurrentDay, getActiveTenant } from '../../store/mockData'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -26,6 +26,11 @@ function statusTone(status) {
 }
 
 export default function WaDelivery() {
+  const resolveTenantId = (userValue) => {
+    const fromStore = String(getActiveTenant()?.id || '').trim()
+    if (fromStore) return fromStore
+    return String(userValue?.tenant?.id || 'tenant-default').trim() || 'tenant-default'
+  }
   const getIsMobileLayout = () => {
     if (typeof window === 'undefined') return false
     const isNarrow = window.matchMedia('(max-width: 768px)').matches
@@ -35,7 +40,18 @@ export default function WaDelivery() {
 
   const toast = useToast()
   const { user } = useAuth()
-  const tenantId = user?.tenant?.id || 'tenant-default'
+  const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
+
+  useEffect(() => {
+    const syncTenantId = () => setTenantId(resolveTenantId(user))
+    syncTenantId()
+    window.addEventListener('ons-tenant-changed', syncTenantId)
+    window.addEventListener('focus', syncTenantId)
+    return () => {
+      window.removeEventListener('ons-tenant-changed', syncTenantId)
+      window.removeEventListener('focus', syncTenantId)
+    }
+  }, [user])
 
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
@@ -162,9 +178,10 @@ export default function WaDelivery() {
     if (retryingKey) return
     setRetryingKey(key)
     try {
+      const tenantIdNow = resolveTenantId(user)
       const body = {
         ...p,
-        tenant_id: tenantId,
+        tenant_id: tenantIdNow,
         phone: targetPhone,
         send_wa: true,
         send_email: false,
