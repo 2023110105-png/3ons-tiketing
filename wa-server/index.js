@@ -36,6 +36,12 @@ function getRequesterInfo(req) {
     const user = req?.headers['x-requested-by'] || req?.body?.requested_by || req?.query?.requested_by || '';
     return String(user).trim();
 }
+
+function shortQrHash(value) {
+    const raw = String(value || '');
+    if (!raw) return '-';
+    return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 12);
+}
 // Endpoint: Test Kirim Pesan WhatsApp (untuk owner/admin check-up device)
 app.post('/api/wa/test-send', async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
@@ -713,7 +719,8 @@ app.post('/api/send-ticket', async (req, res) => {
         waSendMode = 'message_with_barcode';
         await setWaSendMode(tenantId, waSendMode);
     }
-    console.log(`[WA SEND MODE] tenant=${tenantId} mode=${waSendMode} ticket=${ticket_id || '-'}`);
+    const qrHash = shortQrHash(qr_data);
+    console.log(`[WA SEND MODE] tenant=${tenantId} mode=${waSendMode} ticket=${ticket_id || '-'} qr_hash=${qrHash}`);
 
     let session = getOrCreateTenantSession(tenantId);
     if (!session.client && !session.initPromise) {
@@ -740,7 +747,7 @@ app.post('/api/send-ticket', async (req, res) => {
             const sendTasks = phoneList.map(async (p) => {
                 const waNumber = formatPhoneWA(p);
                 try {
-                    console.log(`[WA SEND] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id})`);
+                    console.log(`[WA SEND] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`);
                     let sendResult;
                     if (waSendMode === 'message_only') {
                         sendResult = await Promise.race([
@@ -758,7 +765,7 @@ app.post('/api/send-ticket', async (req, res) => {
                         };
                         // Optionally, you can pass eventLabel/brandLabel if available
                         const imageBuffer = await buildTicketQrImageNode(participant, {});
-                        console.log(`[WA SEND IMAGE] tenant=${tenantId} ticket=${ticket_id || '-'} bytes=${imageBuffer?.length || 0}`);
+                        console.log(`[WA SEND IMAGE] tenant=${tenantId} ticket=${ticket_id || '-'} qr_hash=${qrHash} bytes=${imageBuffer?.length || 0}`);
                         const base64Str = imageBuffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         sendResult = await Promise.race([
@@ -772,10 +779,10 @@ app.post('/api/send-ticket', async (req, res) => {
                             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 20000))
                         ]);
                     }
-                    console.log(`[WA SEND] Sukses kirim ke ${waNumber} (ticket_id: ${ticket_id})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
+                    console.log(`[WA SEND] Sukses kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
                     return { phone: p, status: 'Success', msgId: sendResult && sendResult.id ? sendResult.id.id : undefined };
                 } catch (err) {
-                    console.error(`[WA SEND ERROR] Gagal kirim ke ${waNumber} (ticket_id: ${ticket_id}):`, err.message);
+                    console.error(`[WA SEND ERROR] Gagal kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash}):`, err.message);
                     return { phone: p, status: 'Failed', error: err.message };
                 }
             });
