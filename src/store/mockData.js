@@ -36,6 +36,8 @@ const TENANT_REGISTRY_KEY = 'ons_tenant_registry'
 const LEGACY_TENANT_REGISTRY_KEY = 'event_tenant_registry'
 const OWNER_AUDIT_LOG_KEY = 'ons_owner_audit_log'
 const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
+const DELETED_PARTICIPANT_TOMBSTONES_KEY = 'ons_deleted_participant_tombstones'
+const DELETED_PARTICIPANT_TOMBSTONE_TTL_MS = 24 * 60 * 60 * 1000
 const WA_SEND_MODE_MESSAGE_WITH_BARCODE = 'message_with_barcode'
 const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
 const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_WITH_BARCODE
@@ -170,6 +172,62 @@ function safeStorageSet(key, value) {
   } catch {
     return false
   }
+}
+
+function readDeletedParticipantTombstones() {
+  const raw = safeStorageGet(DELETED_PARTICIPANT_TOMBSTONES_KEY)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveDeletedParticipantTombstones(mapObj) {
+  safeStorageSet(DELETED_PARTICIPANT_TOMBSTONES_KEY, JSON.stringify(mapObj || {}))
+}
+
+let deletedParticipantTombstones = readDeletedParticipantTombstones()
+
+function cleanupDeletedParticipantTombstones() {
+  const now = Date.now()
+  let changed = false
+  Object.entries(deletedParticipantTombstones).forEach(([id, ts]) => {
+    const t = Number(ts || 0)
+    if (!Number.isFinite(t) || t <= 0 || now - t > DELETED_PARTICIPANT_TOMBSTONE_TTL_MS) {
+      delete deletedParticipantTombstones[id]
+      changed = true
+    }
+  })
+  if (changed) saveDeletedParticipantTombstones(deletedParticipantTombstones)
+}
+
+function markParticipantDeleted(participantId) {
+  if (!participantId) return
+  cleanupDeletedParticipantTombstones()
+  deletedParticipantTombstones[participantId] = Date.now()
+  saveDeletedParticipantTombstones(deletedParticipantTombstones)
+}
+
+function clearDeletedParticipantMark(participantId) {
+  if (!participantId) return
+  if (deletedParticipantTombstones[participantId]) {
+    delete deletedParticipantTombstones[participantId]
+    saveDeletedParticipantTombstones(deletedParticipantTombstones)
+  }
+}
+
+function isParticipantDeleted(participant) {
+  if (!participant?.id) return false
+  cleanupDeletedParticipantTombstones()
+  return !!deletedParticipantTombstones[participant.id]
+}
+
+function getActiveParticipantsFromEvent(ev, dayFilter = null) {
+  const base = dayFilter ? ev.participants.filter(p => p.day_number === dayFilter) : ev.participants
+  return base.filter(p => !isParticipantDeleted(p))
 }
 
 function safeStorageRemove(key) {
@@ -2115,8 +2173,7 @@ export function logout() {
 
 export function getParticipants(dayFilter = null) {
   const ev = getActiveEvent()
-  if (dayFilter) return ev.participants.filter(p => p.day_number === dayFilter)
-  return ev.participants
+  return getActiveParticipantsFromEvent(ev, dayFilter)
 }
 
 export function getParticipant(id) {
@@ -2157,6 +2214,7 @@ export function addParticipant(data) {
     checked_in_by: null,
     created_at: new Date().toISOString()
   }
+  clearDeletedParticipantMark(participant.id)
   ev.participants.push(participant)
   saveStore()
   void syncEventSnapshot({ tenantId: tenant.id, event: ev })
@@ -2271,6 +2329,7 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
   const tenant = getActiveTenantState()
   const participant = ev.participants.find(p => p.id === id)
   ev.participants = ev.participants.filter(p => p.id !== id)
+  if (participant?.id) markParticipantDeleted(participant.id)
   saveStore()
   void syncEventSnapshot({ tenantId: tenant.id, event: ev })
 
@@ -2289,6 +2348,10 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
       day_number: participant.day_number,
       reason: cleanReason || null
     })
+  }
+
+  if (participant) {
+    notifyListeners({ type: 'participant_delete', participant })
   }
 
   return { success: true }
@@ -2450,9 +2513,10 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
     }
 
     // Duplicate detection: same day + same phone (WA)
+    const activeParticipants = getActiveParticipantsFromEvent(ev)
     const existing =
       matchBy === 'phone' && phone
-        ? ev.participants.find(p => p.day_number === rowDay && normalizeParticipantPhone(p.phone) === phone) || null
+        ? activeParticipants.find(p => p.day_number === rowDay && normalizeParticipantPhone(p.phone) === phone) || null
         : null
 
     if (existing) {
@@ -2525,7 +2589,7 @@ export function searchParticipants(query, dayFilter = null) {
   const q = query.toLowerCase().trim()
   if (!q) return []
   const ev = getActiveEvent()
-  const list = dayFilter ? ev.participants.filter(p => p.day_number === dayFilter) : ev.participants
+  const list = getActiveParticipantsFromEvent(ev, dayFilter)
   return list.filter(p => String(p.name || '').toLowerCase().includes(q) || String(p.ticket_id || '').toLowerCase().includes(q))
 }
 
@@ -2545,9 +2609,10 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
 
   // Prefer exact QR match first, then secure_ref match, then ticket_id fallback.
   // This prevents false mismatch when ticket_id collides or participants are recreated.
-  const participant = ev.participants.find(p => String(p.qr_data || '').trim() === rawQr)
-    || ev.participants.find(p => p.ticket_id === parsedTicketId && (!parsedSecureRef || String(p.secure_ref || '').trim() === parsedSecureRef))
-    || ev.participants.find(p => p.ticket_id === parsedTicketId)
+  const activeParticipants = getActiveParticipantsFromEvent(ev)
+  const participant = activeParticipants.find(p => String(p.qr_data || '').trim() === rawQr)
+    || activeParticipants.find(p => p.ticket_id === parsedTicketId && (!parsedSecureRef || String(p.secure_ref || '').trim() === parsedSecureRef))
+    || activeParticipants.find(p => p.ticket_id === parsedTicketId)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
   }
