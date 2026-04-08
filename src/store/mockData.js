@@ -2562,46 +2562,51 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
 
   if (parsed.sig) {
     const hasSecureFields = !!participant.secure_code && !!participant.secure_ref
+    const legacySig = btoa(`${activeTenant.id}|${ev.id}|${participant.ticket_id}|${participant.day_number}|event-2026`)
 
     if (hasSecureFields) {
       if (!parsed.r || parsed.r !== participant.secure_ref) {
-        return {
-          success: false,
-          status: 'invalid',
-          message: 'Token barcode tidak cocok',
-          participant,
-          security: buildSecurityMeta(participant)
+        if (parsed.sig === legacySig) {
+          // Compat mode for older tickets generated before secure token rollout.
+          // Keep scan operational while migration is still in progress.
+          // eslint-disable-next-line no-console
+          console.warn('[SCAN COMPAT] legacy signature accepted for secure participant', participant.ticket_id)
+        } else {
+          return {
+            success: false,
+            status: 'invalid',
+            message: 'Token barcode tidak cocok',
+            participant,
+            security: buildSecurityMeta(participant)
+          }
+        }
+      } else {
+        const secureSignature = buildQrSignature({
+          tenantId: activeTenant.id,
+          eventId: ev.id,
+          ticketId: participant.ticket_id,
+          dayNumber: participant.day_number,
+          secureCode: participant.secure_code,
+          secureRef: participant.secure_ref
+        })
+
+        if (parsed.sig !== secureSignature && parsed.sig !== legacySig) {
+          return {
+            success: false,
+            status: 'invalid',
+            message: 'Signature barcode tidak valid',
+            participant,
+            security: buildSecurityMeta(participant)
+          }
         }
       }
-
-      const secureSignature = buildQrSignature({
-        tenantId: activeTenant.id,
-        eventId: ev.id,
-        ticketId: participant.ticket_id,
-        dayNumber: participant.day_number,
-        secureCode: participant.secure_code,
-        secureRef: participant.secure_ref
-      })
-
-      if (parsed.sig !== secureSignature) {
-        return {
-          success: false,
-          status: 'invalid',
-          message: 'Signature barcode tidak valid',
-          participant,
-          security: buildSecurityMeta(participant)
-        }
-      }
-    } else {
-      const legacySig = btoa(`${activeTenant.id}|${ev.id}|${participant.ticket_id}|${participant.day_number}|event-2026`)
-      if (parsed.sig !== legacySig) {
-        return {
-          success: false,
-          status: 'invalid',
-          message: 'Signature barcode tidak valid',
-          participant,
-          security: buildSecurityMeta(participant)
-        }
+    } else if (parsed.sig !== legacySig) {
+      return {
+        success: false,
+        status: 'invalid',
+        message: 'Signature barcode tidak valid',
+        participant,
+        security: buildSecurityMeta(participant)
       }
     }
   }

@@ -7,6 +7,7 @@ const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { buildTicketQrImageNode } = require('./ticket-image-jimp');
+const { runStressQrCheck } = require('./scripts/stress-qr-check');
 const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
 
@@ -572,6 +573,34 @@ app.get('/api/wa/debug-ticket-image', async (req, res) => {
     }
 });
 
+// Admin self-check: stress test QR verify and rendered decode
+app.get('/api/wa/stress-qr-check', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    try {
+        const totalRaw = Number(req.query.total || 1000);
+        const sampleRaw = Number(req.query.render_sample || 150);
+        const total = Number.isFinite(totalRaw) ? Math.max(1, Math.min(totalRaw, 5000)) : 1000;
+        const renderSample = Number.isFinite(sampleRaw) ? Math.max(0, Math.min(sampleRaw, total)) : 150;
+        const tenantId = String(req.query.tenant_id || resolveTenantId(req) || 'tenant-default').trim();
+        const eventId = String(req.query.event_id || 'event-main').trim();
+
+        const startedAt = Date.now();
+        const summary = await runStressQrCheck({ total, renderSample, tenantId, eventId });
+        const elapsedMs = Date.now() - startedAt;
+
+        return res.json({
+            success: true,
+            elapsed_ms: elapsedMs,
+            ...summary
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: err?.message || String(err)
+        });
+    }
+});
+
 // Delivery log: latest WA send attempts
 app.get('/api/wa/send-log', async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
@@ -865,9 +894,22 @@ app.post('/api/ticket/verify', (req, res) => {
     const secureCode = String(req?.body?.secure_code || '').trim();
     const secureRef = String(req?.body?.secure_ref || '').trim();
 
+    const expectedLegacy = buildLegacySignature({
+        tenantId: qr.tenantId,
+        eventId: qr.eventId,
+        ticketId: qr.ticketId,
+        dayNumber: qr.dayNumber
+    });
+    const validLegacy = expectedLegacy === qr.signature;
+
     // v3 secure mode: verify with hidden participant token sent by scanner app
     if (qr.version >= 3 || qr.secureRef) {
         if (!secureCode || !secureRef || secureRef !== qr.secureRef) {
+            // Compat fallback for older generated tickets / stale gate cache:
+            // if legacy signature is valid, still allow check-in.
+            if (validLegacy) {
+                return res.json({ valid: true, reason: 'ok_legacy_compat', mode: 'legacy-v2-compat' });
+            }
             return res.json({ valid: false, reason: 'missing_secure_token', mode: 'v3-secure' });
         }
 
@@ -881,18 +923,12 @@ app.post('/api/ticket/verify', (req, res) => {
         });
 
         const valid = expected === qr.signature;
-        return res.json({ valid, reason: valid ? 'ok' : 'invalid_signature', mode: 'v3-secure' });
+        if (valid) return res.json({ valid: true, reason: 'ok', mode: 'v3-secure' });
+        if (validLegacy) return res.json({ valid: true, reason: 'ok_legacy_compat', mode: 'legacy-v2-compat' });
+        return res.json({ valid: false, reason: 'invalid_signature', mode: 'v3-secure' });
     }
 
     // Legacy mode fallback for old tickets
-    const expectedLegacy = buildLegacySignature({
-        tenantId: qr.tenantId,
-        eventId: qr.eventId,
-        ticketId: qr.ticketId,
-        dayNumber: qr.dayNumber
-    });
-
-    const validLegacy = expectedLegacy === qr.signature;
     return res.json({ valid: validLegacy, reason: validLegacy ? 'ok' : 'invalid_signature', mode: 'legacy-v2' });
 });
 

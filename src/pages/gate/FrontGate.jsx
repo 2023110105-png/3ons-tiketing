@@ -5,6 +5,8 @@ import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Squar
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 import { apiFetch } from '../../utils/api'
 
+const SAME_QR_DEBOUNCE_MS = 5000
+
 export default function FrontGate() {
   const currentDay = getCurrentDay()
   const [result, setResult] = useState(null)
@@ -121,8 +123,8 @@ export default function FrontGate() {
 
   const handleScan = useCallback(async (qrData) => {
     const now = Date.now()
-    if (lastScanRef.current.data === qrData && now - lastScanRef.current.time < 3000) {
-      return // Abaikan jika QR yang sama discan dalam waktu < 3 detik
+    if (lastScanRef.current.data === qrData && now - lastScanRef.current.time < SAME_QR_DEBOUNCE_MS) {
+      return // Abaikan jika QR yang sama discan berulang dalam jendela 5 detik
     }
     lastScanRef.current = { data: qrData, time: now }
 
