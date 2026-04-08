@@ -6,7 +6,7 @@ const fs = require('fs/promises');
 const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const { buildTicketQrImageNode } = require('./ticket-image-jimp');
+const { buildTicketQrImageNode } = require('./ticket-image');
 const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
 
@@ -49,7 +49,7 @@ app.post('/api/wa/test-send', async (req, res) => {
         ensureTenantClient(tenantId).catch(() => {});
     }
     if (session.initPromise) {
-        try { await session.initPromise; } catch {}
+        try { await session.initPromise; } catch (err) { void err; }
     }
     session = getOrCreateTenantSession(tenantId);
     if (!session.isReady || !session.client) {
@@ -85,7 +85,9 @@ async function logWaSendBatch(tenantId, phoneList, results, context = {}) {
         try {
             const raw = await fs.readFile(logFile, 'utf8');
             logs = JSON.parse(raw);
-        } catch {}
+        } catch (err) {
+            void err;
+        }
         logs.unshift(entry);
         if (logs.length > 2000) logs = logs.slice(0, 2000); // keep last 2000
         await fs.writeFile(logFile, JSON.stringify(logs, null, 2));
@@ -437,7 +439,9 @@ function normalizeQRPayload(rawQr) {
     // Coba parse JSON
     try {
         parsed = JSON.parse(raw);
-    } catch {}
+    } catch (err) {
+        void err;
+    }
     // Jika gagal, coba parse format string key-value (tid:xxx;t:xxx;e:xxx;d:1;sig:xxx;r:xxx;v:3)
     if (!parsed || typeof parsed !== 'object') {
         parsed = {};
