@@ -684,7 +684,9 @@ app.post('/api/send-ticket', async (req, res) => {
     // Guard: kirim tiket peserta selalu gunakan desain e-ticket.
     if (waSendMode !== 'message_with_barcode') {
         waSendMode = 'message_with_barcode';
+        await setWaSendMode(tenantId, waSendMode);
     }
+    console.log(`[WA SEND MODE] tenant=${tenantId} mode=${waSendMode} ticket=${ticket_id || '-'}`);
 
     let session = getOrCreateTenantSession(tenantId);
     if (!session.client && !session.initPromise) {
@@ -729,6 +731,7 @@ app.post('/api/send-ticket', async (req, res) => {
                         };
                         // Optionally, you can pass eventLabel/brandLabel if available
                         const imageBuffer = await buildTicketQrImageNode(participant, {});
+                        console.log(`[WA SEND IMAGE] tenant=${tenantId} ticket=${ticket_id || '-'} bytes=${imageBuffer?.length || 0}`);
                         const base64Str = imageBuffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         sendResult = await Promise.race([
