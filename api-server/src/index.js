@@ -56,6 +56,40 @@ app.get('/health', (req, res) => {
   })
 })
 
+app.get('/health/deep', async (req, res) => {
+  const startedAt = Date.now()
+  try {
+    const db = getFirestore()
+    // Lightweight Firestore connectivity check
+    await db.collection('tenants').limit(1).get()
+
+    return res.json({
+      success: true,
+      service: 'api-server',
+      checks: {
+        api: 'ok',
+        firestore: 'ok'
+      },
+      elapsed_ms: Date.now() - startedAt,
+      time: new Date().toISOString(),
+      request_id: req.requestId
+    })
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      service: 'api-server',
+      checks: {
+        api: 'ok',
+        firestore: 'fail'
+      },
+      error: err?.message || String(err),
+      elapsed_ms: Date.now() - startedAt,
+      time: new Date().toISOString(),
+      request_id: req.requestId
+    })
+  }
+})
+
 // Note: /me endpoint intentionally removed for now since owner panel uses secret auth.
 
 function platformSecretRequired(req, res, next) {
