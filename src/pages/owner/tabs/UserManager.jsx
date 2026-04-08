@@ -136,9 +136,10 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   if (!selectedTenantId) {
     return (
       <div className="owner-empty-state owner-fade-in-up" style={{ padding: '64px 24px' }}>
+        <span className="page-kicker">Akses pengguna</span>
         <div className="owner-empty-icon">👥</div>
-        <div className="owner-empty-title">Pilih Akun Brand untuk Mengelola Pengguna</div>
-        <p className="text-muted mb-24">Setiap akun brand dapat memiliki admin acara dan petugas pintu sendiri.</p>
+        <div className="owner-empty-title">Pilih akun brand</div>
+        <p className="text-muted mb-24">Tiap tenant memiliki himpunan penggunanya sendiri (admin acara, gate, dll.). Pilih akun di bawah untuk menambah, menonaktifkan, atau reset sandi.</p>
         <div className="grid-responsive mt-24" style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div className="form-group mb-0">
             <select 
@@ -160,11 +161,16 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
 
   return (
     <div className="user-manager-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Akses pengguna</span>
+        <h2>Kelola pengguna tenant</h2>
+        <p>User di sini hanya untuk tenant <strong>{selectedTenant?.brandName}</strong>. Tindakan reset sandi sebaiknya disertai verifikasi identitas pengguna.</p>
+      </div>
       <div className="owner-toolbar">
-        <button className="btn btn-ghost p-0" onClick={() => setSelectedTenantId('')}>
+        <button type="button" className="btn btn-ghost p-0" onClick={() => setSelectedTenantId('')}>
           <ArrowLeft size={18} /> Kembali ke daftar akun
         </button>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+        <button type="button" className="btn btn-primary" onClick={() => setShowAddModal(true)}>
           <UserPlus size={18} /> Tambah Pengguna Baru
         </button>
       </div>
@@ -174,7 +180,8 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
            <div className="flex justify-between items-center flex-wrap gap-12">
               <div>
                 <h3 className="card-title">{selectedTenant.brandName}</h3>
-                <p className="text-muted text-xs">ID Akun: {selectedTenant.id}</p>
+                <p className="text-muted text-xs">ID akun: {selectedTenant.id}</p>
+                <p className="card-subtitle-hint" style={{ marginTop: 8 }}>Baris di bawah menampilkan semua login yang terikat ke tenant ini.</p>
               </div>
               <div className="admin-search-wrap" style={{ minWidth: '240px', flex: 1 }}>
                 <Search size={14} className="admin-search-icon" />

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { humanizeUserMessage } from '../utils/userFriendlyMessage'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -22,7 +23,7 @@ export default function Login() {
     if (text.includes('firebase')) {
       return 'Layanan masuk sedang bermasalah. Silakan coba lagi beberapa saat.'
     }
-    return message
+    return humanizeUserMessage(message, { fallback: 'Proses masuk gagal. Silakan coba lagi.' })
   }
 
   const handleSubmit = async (e) => {
@@ -63,34 +64,39 @@ export default function Login() {
           </div>
           <div className="login-brand-subtitle">Digital</div>
         </div>
-        <h1 className="login-title">Selamat Datang</h1>
-        <p className="login-subtitle">Silakan masuk untuk melanjutkan pengelolaan acara dan data peserta.</p>
+        <h1 className="login-title">Masuk ke akun Anda</h1>
+        <p className="login-subtitle">Satu pintu masuk untuk admin acara, pemilik platform, dan petugas pintu. Gunakan kredensial yang diberikan tim Anda.</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Nama Pengguna</label>
+          <div className="form-group login-form-group">
+            <label className="form-label" htmlFor="login-username">Nama Pengguna</label>
             <input
               id="login-username"
               type="text"
-              className="form-input"
-              placeholder="Contoh: admin, petugas depan, petugas belakang"
+              className="form-input login-form-input"
+              placeholder="Ketik nama pengguna Anda"
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
               autoFocus
+              autoComplete="username"
             />
+            <p className="login-field-hint">
+              Contoh: admin, petugas depan, petugas belakang
+            </p>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Kata sandi</label>
+          <div className="form-group login-form-group">
+            <label className="form-label" htmlFor="login-password">Kata sandi</label>
             <input
               id="login-password"
               type="password"
-              className="form-input"
+              className="form-input login-form-input"
               placeholder="Masukkan kata sandi"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
 
@@ -116,13 +122,13 @@ export default function Login() {
         </form>
 
         <div className="login-demo-card">
-          <div className="login-demo-title">Informasi Akses</div>
+          <div className="login-demo-title">Butuh akun baru?</div>
           <p className="login-demo-text">
-            Jika belum memiliki akun, silakan hubungi tim kami melalui WhatsApp untuk permintaan akun
-            dan pengaturan akses.
+            Hubungi administrator atau tim 3oNs Digital. Akun hanya dibuat untuk peran yang sudah disetujui
+            (admin, owner, atau petugas gate).
           </p>
           <p className="login-demo-text login-demo-text-muted">
-            Hak akses akan disesuaikan dengan kebutuhan peran Anda di sistem.
+            Jangan bagikan kata sandi. Keluar dari perangkat bersama setelah selesai bekerja.
           </p>
         </div>
       </div>

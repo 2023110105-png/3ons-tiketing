@@ -606,12 +606,12 @@ export default function ServerVerifyTools() {
         return `respons valid=${String(data?.valid)}, reason=${String(data?.reason || '-')}`
       })
 
-      await pushCheck('Firebase Sync Probe', async () => {
+      await pushCheck('Sinkron data ke server', async () => {
         if (typeof bootstrapStoreFromFirebase !== 'function') {
-          throw new Error('bootstrapStoreFromFirebase tidak tersedia')
+          throw new Error('Penyegaran data tidak tersedia di aplikasi ini')
         }
         await bootstrapStoreFromFirebase(true)
-        return 'Sinkronisasi Firebase berhasil dipanggil'
+        return 'Sinkronisasi data ke server berhasil dijalankan'
       })
 
       const passed = checks.filter((item) => item.ok).length
@@ -633,11 +633,11 @@ export default function ServerVerifyTools() {
       })
 
       if (nextHealthReport.allPassed) {
-        toast.success('Health check selesai', `${nextHealthReport.passed}/${nextHealthReport.total} pemeriksaan PASS.`)
+        toast.success('Pemeriksaan server selesai', `${nextHealthReport.passed}/${nextHealthReport.total} pemeriksaan berhasil.`)
       } else if (passed > 0) {
-        toast.warning('Health check selesai sebagian', `${nextHealthReport.passed}/${nextHealthReport.total} pemeriksaan PASS.`)
+        toast.warning('Pemeriksaan server selesai sebagian', `${nextHealthReport.passed}/${nextHealthReport.total} pemeriksaan berhasil.`)
       } else {
-        toast.error('Health check gagal', 'Tidak ada pemeriksaan yang berhasil.')
+        toast.error('Pemeriksaan server gagal', 'Tidak ada pemeriksaan yang berhasil.')
       }
     } finally {
       setHealthRunning(false)
@@ -666,7 +666,7 @@ export default function ServerVerifyTools() {
         summary: `runtime version=${String(nextInfo?.version || '-')}, uptime=${String(nextInfo?.uptimeSeconds || 0)}s`,
         payload: nextInfo
       })
-      toast.success('Runtime info berhasil dimuat', `Versi ${String(nextInfo?.version || '-')} | uptime ${String(nextInfo?.uptimeSeconds || 0)}s`)
+      toast.success('Informasi layanan berhasil dimuat', `Versi ${String(nextInfo?.version || '-')} · aktif ${String(nextInfo?.uptimeSeconds || 0)} detik`)
     } catch (err) {
       const msg = err?.message || 'Gagal memuat runtime info'
       appendDiagnosticLog({
@@ -676,7 +676,7 @@ export default function ServerVerifyTools() {
         summary: msg,
         payload: { error: msg }
       })
-      toast.error('Runtime info gagal', msg)
+      toast.error('Gagal memuat informasi layanan', msg)
     } finally {
       setRuntimeRunning(false)
     }
@@ -758,13 +758,13 @@ export default function ServerVerifyTools() {
       },
       {
         key: 'firebase-sync-probe',
-        label: 'CLIENT bootstrapStoreFromFirebase(true)',
+        label: 'Sinkron data di perangkat (klien)',
         run: async () => {
           if (typeof bootstrapStoreFromFirebase !== 'function') {
-            return { ok: false, status: 0, detail: 'bootstrapStoreFromFirebase tidak tersedia' }
+            return { ok: false, status: 0, detail: 'Penyegaran data tidak tersedia' }
           }
           await bootstrapStoreFromFirebase(true)
-          return { ok: true, status: 200, detail: 'Firebase sync call berhasil' }
+          return { ok: true, status: 200, detail: 'Sinkronisasi data berhasil' }
         }
       }
     ]
@@ -814,11 +814,11 @@ export default function ServerVerifyTools() {
       })
 
       if (nextReport.allPassed) {
-        toast.success('Endpoint matrix selesai', `${nextReport.passed}/${nextReport.total} endpoint PASS.`)
+        toast.success('Pemeriksaan layanan selesai', `${nextReport.passed}/${nextReport.total} layanan berhasil.`)
       } else if (passed > 0) {
-        toast.warning('Endpoint matrix selesai sebagian', `${nextReport.passed}/${nextReport.total} endpoint PASS.`)
+        toast.warning('Pemeriksaan layanan selesai sebagian', `${nextReport.passed}/${nextReport.total} layanan berhasil.`)
       } else {
-        toast.error('Endpoint matrix gagal', 'Semua endpoint test gagal.')
+        toast.error('Pemeriksaan layanan gagal', 'Semua pemeriksaan sambungan gagal.')
       }
     } finally {
       setMatrixRunning(false)
@@ -1213,7 +1213,7 @@ export default function ServerVerifyTools() {
       JSON.stringify(filteredDiagnosticLogs, null, 2),
       'application/json;charset=utf-8'
     )
-    toast.success('Export JSON berhasil', `${filteredDiagnosticLogs.length} log diekspor.`)
+    toast.success('Ekspor data berhasil', `${filteredDiagnosticLogs.length} catatan log diekspor.`)
   }
 
   const exportDiagnosticLogsCsv = () => {
@@ -1746,7 +1746,12 @@ export default function ServerVerifyTools() {
   }
 
   return (
-    <div>
+    <div className="server-verify-tools-page owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Operasi IT</span>
+        <h2>Alat verifikasi &amp; diagnostik</h2>
+        <p>Suite untuk uji koneksi API, audit data, matriks keandalan, dan rekap error. Jalankan dari lingkungan tepercaya; beberapa tugas memuat data besar atau memicu permintaan jaringan beruntun.</p>
+      </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <h3 className="card-title">Ringkasan Real-time IT Tools</h3>
@@ -1872,7 +1877,7 @@ export default function ServerVerifyTools() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <h3 className="card-title">Health Check 1 Klik</h3>
-          <span className="badge badge-yellow">Frontend + API + WA + Firebase</span>
+          <span className="badge badge-yellow">Aplikasi · server · WhatsApp · penyimpanan data</span>
         </div>
         <p className="scanner-note" style={{ marginBottom: 12 }}>
           Jalankan pemeriksaan cepat seluruh komponen utama untuk memastikan sistem siap operasional.

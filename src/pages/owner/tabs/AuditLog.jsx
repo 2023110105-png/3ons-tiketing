@@ -1,11 +1,20 @@
 import { useState, useMemo } from 'react'
-import { ShieldCheck, Search, Filter, Download, Clock, User, Info } from 'lucide-react'
+import { Search, Download, Clock, User, Info } from 'lucide-react'
 import { getOwnerAuditLog } from '../../../store/mockData'
+
+function formatMetaForViewer(meta) {
+  try {
+    return JSON.stringify(meta, null, 2)
+  } catch {
+    return String(meta)
+  }
+}
 
 export default function AuditLog() {
   const [logs] = useState(getOwnerAuditLog())
   const [searchQuery, setSearchQuery] = useState('')
   const [filterAction, setFilterAction] = useState('all')
+  const [metaDetail, setMetaDetail] = useState(null)
 
   const filteredLogs = useMemo(() => {
     return logs
@@ -43,6 +52,11 @@ export default function AuditLog() {
 
   return (
     <div className="audit-log-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Kepatuhan</span>
+        <h2>Riwayat aktivitas pemilik</h2>
+        <p>Ringkasan aksi dari akun pemilik platform: siapa, kapan, dan apa yang berubah. Unduh CSV untuk lampiran audit internal atau eksternal.</p>
+      </div>
       <div className="owner-toolbar">
         <div className="owner-toolbar-left">
           <div className="owner-search-input" style={{ flex: 1, maxWidth: '400px' }}>
@@ -65,7 +79,7 @@ export default function AuditLog() {
           </select>
         </div>
         <div className="owner-toolbar-right">
-          <button className="btn btn-ghost" onClick={handleExport} title="Unduh sebagai CSV">
+          <button type="button" className="btn btn-ghost" onClick={handleExport} title="Unduh sebagai CSV">
             <Download size={18} /> Unduh CSV
           </button>
         </div>
@@ -73,24 +87,24 @@ export default function AuditLog() {
 
       <div className="owner-card-container" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="owner-card-header" style={{ borderRadius: 0 }}>
-          <div className="owner-card-title">Riwayat Aktivitas Pemilik</div>
+          <div className="owner-card-title">Log aktivitas</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredLogs.length} catatan</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="owner-data-table">
             <thead>
               <tr>
-                <th>📅 Waktu</th>
-                <th>👤 Aktor</th>
-                <th>⚡ Aksi</th>
-                <th>📝 Deskripsi</th>
+                <th>Waktu</th>
+                <th>Aktor</th>
+                <th>Aksi</th>
+                <th>Deskripsi</th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan="4" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                    📋 Belum ada riwayat aktivitas
+                    Belum ada riwayat aktivitas
                   </td>
                 </tr>
               ) : (
@@ -115,9 +129,10 @@ export default function AuditLog() {
                       {log.description}
                       {log.meta && (
                         <button 
+                          type="button"
                           className="btn btn-ghost btn-sm p-4 ml-8" 
-                          title="Lihat Detail"
-                          onClick={() => alert(JSON.stringify(log.meta, null, 2))}
+                          title="Lihat rincian tambahan"
+                          onClick={() => setMetaDetail(log.meta)}
                         >
                           <Info size={12} />
                         </button>
@@ -130,6 +145,32 @@ export default function AuditLog() {
           </table>
         </div>
       </div>
+
+      {metaDetail != null && (
+        <div className="modal-overlay" onClick={() => setMetaDetail(null)} role="presentation">
+          <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="audit-meta-title">
+            <div className="modal-header">
+              <h3 id="audit-meta-title" className="modal-title">Rincian tambahan</h3>
+              <button type="button" className="modal-close" onClick={() => setMetaDetail(null)} aria-label="Tutup">
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="card-subtitle-hint" style={{ marginBottom: 12 }}>
+                Ringkasan teknis untuk keperluan audit. Berikan ke tim pendukung hanya jika diminta.
+              </p>
+              <pre style={{ fontSize: '0.75rem', overflow: 'auto', maxHeight: 280, margin: 0, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                {formatMetaForViewer(metaDetail)}
+              </pre>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-primary" onClick={() => setMetaDetail(null)}>
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

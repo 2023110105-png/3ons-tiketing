@@ -29,12 +29,12 @@ describe('AuditLog', () => {
   it('renders audit log entries and filter works', () => {
     render(<AuditLog />)
 
-    expect(screen.getByText('Riwayat Aktivitas Pemilik')).toBeTruthy()
-    expect(screen.getByText('tenant Acme berhasil dibuat', { exact: false })).toBeTruthy()
+    expect(screen.getByText('Log aktivitas')).toBeTruthy()
+    expect(screen.getByText(/Tenant Acme berhasil dibuat/i)).toBeTruthy()
     expect(screen.getByText('2 catatan')).toBeTruthy()
 
     fireEvent.change(screen.getByPlaceholderText('Cari di riwayat aktivitas...'), { target: { value: 'quota' } })
-    expect(screen.queryByText('Tenant Acme berhasil dibuat')).toBeNull()
+    expect(screen.queryByText(/Tenant Acme berhasil dibuat/i)).toBeNull()
     expect(screen.getByText('Quota tenant diupdate', { exact: false })).toBeTruthy()
   })
 

@@ -42,14 +42,19 @@ export default function ImpersonateView() {
 
   return (
     <div className="impersonate-view-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Dukungan operasional</span>
+        <h2>Masuk sebagai pengguna tenant</h2>
+        <p>Untuk troubleshooting atau demo: Anda akan keluar dari panel pemilik dan masuk sebagai akun yang dipilih. Pastikan kebijakan internal mengizinkan impersonasi.</p>
+      </div>
       <div className="owner-card-container" style={{ borderColor: 'var(--primary)' }}>
         <div className="card-pad flex gap-16 items-center">
           <div className="p-12 bg-primary rounded-full text-white">
             <Eye size={28} />
           </div>
           <div>
-            <h3 className="font-bold">Mode Masuk Sebagai Pengguna</h3>
-            <p className="text-sm text-muted">Fitur ini memungkinkan Anda masuk ke halaman pengguna untuk membantu operasional. Semua tindakan tetap tercatat di riwayat aktivitas pemilik.</p>
+            <h3 className="font-bold">Peringatan singkat</h3>
+            <p className="text-sm text-muted">Login pengguna akan mengganti sesi pemilik. Rekomendasikan dokumentasi tiket dukungan untuk jejak audit.</p>
           </div>
         </div>
       </div>

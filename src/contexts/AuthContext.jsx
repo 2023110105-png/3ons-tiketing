@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (username, password) => {
     if (FIREBASE_AUTH_MODE === 'strict') {
       if (!isFirebaseEnabled || !auth) {
-        return { success: false, error: 'Konfigurasi Firebase belum aktif untuk mode strict' }
+        return { success: false, error: 'Layanan masuk belum diaktifkan. Hubungi administrator.' }
       }
 
       // Always refresh latest tenant/user snapshot before credential checks.
@@ -155,7 +155,7 @@ export function AuthProvider({ children }) {
           } catch {
             return {
               success: false,
-              error: 'Sistem mencoba mendaftarkan sesi Firebase namun gagal. Periksa aturan Firebase atau API Key.'
+              error: 'Pendaftaran ke layanan masuk gagal. Hubungi administrator atau tim pendukung.'
             }
           }
         }

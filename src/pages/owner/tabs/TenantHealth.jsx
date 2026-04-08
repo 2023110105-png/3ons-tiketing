@@ -29,10 +29,14 @@ export default function TenantHealth() {
 
   return (
     <div className="tenant-health-container owner-fade-in-up">
-      <div className="owner-toolbar">
-        <div className="owner-card-title">🏥 Pantauan Kesehatan Sistem</div>
-        <button className="btn btn-ghost" onClick={handleRefresh} disabled={isRefreshing}>
-          <RefreshCw size={18} className={isRefreshing ? 'spinner' : ''} /> Segarkan Data
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Observabilitas</span>
+        <h2>Kesehatan tenant</h2>
+        <p>Indikator ringkas per tenant: volume check-in, peserta, dan beban kuota. Tekan segarkan setelah data diperbarui dari server atau setelah ada gangguan operasi.</p>
+      </div>
+      <div className="owner-toolbar" style={{ justifyContent: 'flex-end' }}>
+        <button type="button" className="btn btn-ghost" onClick={handleRefresh} disabled={isRefreshing}>
+          <RefreshCw size={18} className={isRefreshing ? 'spinner' : ''} /> Segarkan data
         </button>
       </div>
 

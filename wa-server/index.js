@@ -11,7 +11,20 @@ const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
 
 const app = express();
-app.use(cors());
+const CORS_ALLOWED_ORIGINS = String(process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin(origin, callback) {
+        // Allow server-to-server and same-origin requests without Origin header.
+        if (!origin) return callback(null, true);
+        if (CORS_ALLOWED_ORIGINS.length === 0) return callback(null, true);
+        if (CORS_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+        return callback(new Error('CORS origin not allowed'));
+    }
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const serverStartedAt = Date.now();
@@ -213,8 +226,8 @@ function buildRuntimeInfo() {
 }
 
 function hasValidWaAdminSecret(req) {
-    // Backward compatible: if secret not configured, keep endpoint accessible.
-    if (!WA_ADMIN_SECRET) return true;
+    // Hardened mode: protected endpoints are blocked when secret is missing.
+    if (!WA_ADMIN_SECRET) return false;
 
     const provided = String(req.get(WA_ADMIN_SECRET_HEADER) || '').trim();
     if (!provided) return false;
@@ -223,6 +236,13 @@ function hasValidWaAdminSecret(req) {
 
 function requireWaAdminSecret(req, res) {
     if (hasValidWaAdminSecret(req)) return true;
+    if (!WA_ADMIN_SECRET) {
+        res.status(500).json({
+            success: false,
+            error: 'WA_ADMIN_SECRET belum diatur di server. Hubungi administrator.'
+        });
+        return false;
+    }
     res.status(403).json({ success: false, error: 'Forbidden: invalid admin secret' });
     return false;
 }
@@ -629,6 +649,7 @@ app.post('/api/wa/logout', async (req, res) => {
 
 // 2. Send Ticket (WA & Email)
 app.post('/api/send-ticket', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
     const tenantId = resolveTenantId(req);
     const { name, phone, phones, email, ticket_id, category, day_number, qr_data, send_wa, send_email, wa_send_mode } = req.body;
 

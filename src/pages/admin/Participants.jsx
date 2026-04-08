@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
 import { getWhatsAppShareLink } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
+import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 
 export default function Participants() {
   const currentDay = getCurrentDay()
@@ -80,7 +81,7 @@ export default function Participants() {
 
     const p = addParticipant({ ...newParticipant, day_number: safeDay, actor: user })
     if (newParticipant.auto_send) {
-      toast.success('Peserta ditambahkan', `${p.name} - Sedang dikirim via Bot...`)
+      toast.success('Peserta ditambahkan', `${p.name} — sedang dikirim lewat WhatsApp…`)
     } else {
       toast.success('Peserta ditambahkan', `${p.name} (${p.ticket_id})`)
     }
@@ -186,7 +187,7 @@ export default function Participants() {
     }
     const result = deleteParticipant(deleteTarget.id, user, deleteReason);
     if (!result?.success) {
-      toast.error('Gagal menghapus', result?.error || 'Validasi alasan gagal');
+      toast.error('Gagal menghapus', humanizeUserMessage(result?.error, { fallback: 'Validasi alasan gagal.' }));
       return;
     }
     toast.error('Peserta dihapus', deleteTarget.name);
@@ -472,6 +473,7 @@ export default function Participants() {
 
         <div className="m-section-header m-section-header-tight">
           <div>
+            <span className="m-mobile-kicker">Data acara</span>
             <h1 className="m-section-title">Peserta</h1>
             <p className="m-section-subtitle">{checkedCount}/{allParticipants.length} hadir</p>
           </div>
@@ -687,8 +689,9 @@ export default function Participants() {
       <ImportModal />
 
       <div className="page-header">
-        <h1>Kelola Peserta</h1>
-        <p>{allParticipants.length} peserta terdaftar, {checkedCount} sudah check-in</p>
+        <span className="page-kicker">Data acara</span>
+        <h1>Kelola peserta</h1>
+        <p>{allParticipants.length} peserta terdaftar · {checkedCount} sudah check-in. Import, broadcast WA, dan hapus memerlukan konfirmasi sesuai kebijakan Anda.</p>
       </div>
 
       <div className="participants-toolbar">

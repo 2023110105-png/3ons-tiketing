@@ -283,8 +283,9 @@ export default function Reports() {
       <div className="page-container">
         <div className="m-section-header mb-16">
           <div>
+            <span className="m-mobile-kicker">Analitik</span>
             <h1 className="m-mobile-title">Laporan</h1>
-            <p className="m-mobile-subtitle">Hari {dayFilter}</p>
+            <p className="m-mobile-subtitle">Hari {dayFilter} · ringkasan, unduhan, dan audit</p>
           </div>
           <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
@@ -468,8 +469,9 @@ export default function Reports() {
     <div className="page-container">
       <div className="page-header admin-toolbar">
         <div>
-          <h1>Laporan Kehadiran</h1>
-          <p>Analisis data kehadiran acara</p>
+          <span className="page-kicker">Analitik & ekspor</span>
+          <h1>Laporan kehadiran</h1>
+          <p>Grafik, daftar scan, dan log audit untuk arsip. Pilih hari acara, lalu unduh PDF atau spreadsheet sesuai kebutuhan.</p>
         </div>
         <div className="admin-actions-wrap">
           <select className="form-select admin-select-auto" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
@@ -491,13 +493,32 @@ export default function Reports() {
       </div>
 
       <div className="grid-2 mb-24">
-        <div className="card"><div className="card-header"><h3 className="card-title">Per Kategori</h3></div><div className="chart-container"><Bar data={barData} options={barOptions} /></div></div>
-        <div className="card"><div className="card-header"><h3 className="card-title">Tingkat Kehadiran</h3></div><div className="chart-container chart-center"><Doughnut data={attendanceData} options={doughnutOptions} /></div></div>
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3 className="card-title">Per kategori</h3>
+              <p className="card-subtitle-hint">Batang: total tiket vs jumlah sudah hadir per kategori.</p>
+            </div>
+          </div>
+          <div className="chart-container"><Bar data={barData} options={barOptions} /></div>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3 className="card-title">Tingkat kehadiran</h3>
+              <p className="card-subtitle-hint">Rasio hadir vs belum untuk hari yang dipilih.</p>
+            </div>
+          </div>
+          <div className="chart-container chart-center"><Doughnut data={attendanceData} options={doughnutOptions} /></div>
+        </div>
       </div>
 
       <div className="card mb-24">
         <div className="card-header">
-          <h3 className="card-title inline-title-icon"><Activity size={18} /> Puncak Kedatangan Peserta</h3>
+          <div>
+            <h3 className="card-title inline-title-icon"><Activity size={18} /> Puncak kedatangan</h3>
+            <p className="card-subtitle-hint">Kapan peserta paling banyak melakukan check-in dalam satu hari.</p>
+          </div>
         </div>
         <div className="peak-chart-wrap">
           {peakData.length > 0 ? (
@@ -531,7 +552,13 @@ export default function Reports() {
       </div>
 
       <div className="card">
-        <div className="card-header"><h3 className="card-title">Riwayat Kehadiran</h3><span className="badge badge-green">{logs.length} data</span></div>
+        <div className="card-header">
+          <div>
+            <h3 className="card-title">Riwayat kehadiran</h3>
+            <p className="card-subtitle-hint">Setiap baris mencerminkan satu scan valid di pintu masuk.</p>
+          </div>
+          <span className="badge badge-green">{logs.length} data</span>
+        </div>
         {logs.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon"><ClipboardList size={40} /></div><h3>Belum ada data</h3><p>Data akan muncul setelah peserta melakukan check-in</p></div>
         ) : (
@@ -552,7 +579,10 @@ export default function Reports() {
 
       <div className="card mt-16">
         <div className="card-header admin-toolbar">
-          <h3 className="card-title inline-title-icon"><ShieldAlert size={18} /> Log Audit Admin</h3>
+          <div>
+            <h3 className="card-title inline-title-icon"><ShieldAlert size={18} /> Log audit admin</h3>
+            <p className="card-subtitle-hint">Aksi sensitif (hapus data, reset, ubah hari) tercatat dengan pengguna dan waktu.</p>
+          </div>
           <span className="badge badge-yellow">{filteredAdminLogs.length} data</span>
         </div>
         <div className="admin-filters">

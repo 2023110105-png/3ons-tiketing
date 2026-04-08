@@ -7,7 +7,12 @@ function getWaAdminSecret() {
 
 function needsWaAdminSecret(path) {
   const cleanPath = String(path || '')
-  return cleanPath.startsWith('/api/wa/sessions') || cleanPath.startsWith('/api/wa/runtime') || cleanPath.startsWith('/api/wa/logout')
+  return cleanPath.startsWith('/api/wa/sessions')
+    || cleanPath.startsWith('/api/wa/runtime')
+    || cleanPath.startsWith('/api/wa/logout')
+    || cleanPath.startsWith('/api/wa/test-send')
+    || cleanPath.startsWith('/api/wa/batch-status')
+    || cleanPath.startsWith('/api/send-ticket')
 }
 
 function normalizeBaseUrl(rawUrl) {

@@ -166,8 +166,20 @@ export default function Layout({ children }) {
 
   const mobileNavItems = getNavItems()
 
+  const scopeLabels = {
+    super_admin: 'Admin Acara',
+    admin_client: 'Admin Acara',
+    owner: 'Pemilik Platform',
+    gate_front: 'Pemindaian QR',
+    gate_back: 'Monitor Pintu',
+  }
+
+  const scopeClass = user?.role
+    ? `app-scope app-scope--${user.role.replace(/_/g, '-')}`
+    : 'app-scope'
+
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${scopeClass}`}>
       <div
         className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
         onClick={() => setSidebarOpen(false)}
@@ -176,10 +188,14 @@ export default function Layout({ children }) {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           {isMobile && (
-            <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
+            <button type="button" className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu">
               <X size={16} />
             </button>
           )}
+          <div className={`sidebar-product-mark${isMobile ? ' sidebar-product-mark--mobile' : ''}`}>
+            <span className="sidebar-product-mark-badge">3oNs</span>
+            <span className="sidebar-product-mark-role">{scopeLabels[user?.role] ?? 'Digital'}</span>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -270,10 +286,10 @@ export default function Layout({ children }) {
             {user?.role === 'super_admin' && (
               <>
                 <select
-                  className="form-select"
+                  className="form-select header-event-select"
                   value={activeEventId}
                   onChange={(e) => handleEventChange(e.target.value)}
-                  style={{ width: isMobile ? 130 : 180, height: 34, fontSize: '0.8rem' }}
+                  style={{ height: 34, fontSize: '0.8rem' }}
                   title="Pilih acara aktif"
                 >
                   {events.map(ev => (
@@ -286,16 +302,16 @@ export default function Layout({ children }) {
               </>
             )}
             {user?.role !== 'owner' && (
-              <form onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
+              <form className="header-day-form" onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="header-day-label" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
                 <input
                   type="number"
                   min="1"
                   value={dayInput}
                   onChange={(e) => setDayInput(e.target.value)}
                   onBlur={handleDaySubmit}
-                  className="form-input"
-                  style={{ width: isMobile ? 64 : 78, height: 34, padding: '6px 10px', fontWeight: 700 }}
+                  className="form-input header-day-input"
+                  style={{ height: 34, padding: '6px 10px', fontWeight: 700 }}
                   title="Isi hari aktif acara"
                 />
               </form>

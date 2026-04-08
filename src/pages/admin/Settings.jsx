@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { resetCheckIns, deleteAllParticipants, getWaTemplate, setWaTemplate, getWaSendMode, setWaSendMode, getMaxPendingAttempts, setMaxPendingAttempts, getEventsWithOptions, getCurrentEventId, renameEvent, archiveEvent, deleteEvent, getStoreBackups, restoreStoreBackup, exportStoreBackup, deleteStoreBackup, deleteInvalidStoreBackups } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
+import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
@@ -245,7 +246,7 @@ export default function Settings() {
     
     const result = resetCheckIns(user, resetReason)
     if (!result?.success) {
-      toast.error('Gagal', result?.error || 'Validasi alasan gagal')
+      toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Validasi alasan gagal.' }))
       return
     }
     toast.success('Sukses', 'Semua riwayat check-in telah dibersihkan.')
@@ -276,7 +277,7 @@ export default function Settings() {
     
     const result = deleteAllParticipants(user, deleteReason)
     if (!result?.success) {
-      toast.error('Gagal', result?.error || 'Validasi alasan gagal')
+      toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Validasi alasan gagal.' }))
       return
     }
     toast.success('Sukses', 'Semua data peserta telah dihapus dari sistem.')
@@ -309,7 +310,7 @@ export default function Settings() {
     const nextName = window.prompt('Nama event baru:', event.name)
     if (nextName === null) return
     const res = renameEvent(event.id, nextName, user)
-    if (!res.success) return toast.error('Gagal', res.error || 'Gagal mengubah nama acara')
+    if (!res.success) return toast.error('Gagal', humanizeUserMessage(res.error, { fallback: 'Gagal mengubah nama acara.' }))
     refreshEvents()
     toast.success('Sukses', 'Nama event berhasil diperbarui')
   }
@@ -321,7 +322,7 @@ export default function Settings() {
     const reason = window.prompt('Alasan arsip event (minimal 15 karakter):', '')
     if (reason === null) return
     const res = archiveEvent(event.id, user, reason)
-    if (!res.success) return toast.error('Gagal', res.error || 'Gagal mengarsipkan acara')
+    if (!res.success) return toast.error('Gagal', humanizeUserMessage(res.error, { fallback: 'Gagal mengarsipkan acara.' }))
     refreshEvents()
     toast.success('Sukses', 'Event berhasil diarsipkan')
   }
@@ -333,7 +334,7 @@ export default function Settings() {
     const reason = window.prompt('Alasan hapus event (minimal 15 karakter):', '')
     if (reason === null) return
     const res = deleteEvent(event.id, user, reason)
-    if (!res.success) return toast.error('Gagal', res.error || 'Gagal menghapus acara')
+    if (!res.success) return toast.error('Gagal', humanizeUserMessage(res.error, { fallback: 'Gagal menghapus acara.' }))
     refreshEvents()
     toast.success('Sukses', 'Event berhasil dihapus')
   }
@@ -350,7 +351,7 @@ export default function Settings() {
     if (reason === null) return
 
     const res = restoreStoreBackup(backup.key, user, reason)
-    if (!res.success) return toast.error('Gagal', res.error || 'Pemulihan data gagal')
+    if (!res.success) return toast.error('Gagal', humanizeUserMessage(res.error, { fallback: 'Pemulihan data gagal.' }))
 
     refreshEvents()
     toast.success('Sukses', 'Cadangan data berhasil dipulihkan. Muat ulang halaman bila perlu sinkronisasi penuh.')
@@ -359,7 +360,7 @@ export default function Settings() {
   const handleDownloadBackup = (backup) => {
     const result = exportStoreBackup(backup.key)
     if (!result.success) {
-      toast.error('Gagal', result.error || 'Cadangan data gagal diunduh')
+      toast.error('Gagal', humanizeUserMessage(result.error, { fallback: 'Cadangan data gagal diunduh.' }))
       return
     }
 
@@ -384,7 +385,7 @@ export default function Settings() {
     if (reason === null) return
 
     const result = deleteStoreBackup(backup.key, user, reason)
-    if (!result.success) return toast.error('Gagal', result.error || 'Gagal menghapus cadangan data')
+    if (!result.success) return toast.error('Gagal', humanizeUserMessage(result.error, { fallback: 'Gagal menghapus cadangan data.' }))
 
     refreshEvents()
     toast.success('Sukses', 'Cadangan data berhasil dihapus')
@@ -392,7 +393,7 @@ export default function Settings() {
 
   const handleDeleteInvalidBackups = () => {
     if (invalidBackupCount === 0) {
-      toast.error('Info', 'Tidak ada backup invalid untuk dihapus')
+      toast.error('Info', 'Tidak ada cadangan tidak valid untuk dihapus')
       return
     }
     const confirmWord = window.prompt(`Hapus ${invalidBackupCount} backup invalid? Ketik HAPUS untuk lanjut:`, '')
@@ -402,7 +403,7 @@ export default function Settings() {
     if (reason === null) return
 
     const result = deleteInvalidStoreBackups(user, reason)
-    if (!result.success) return toast.error('Gagal', result.error || 'Gagal hapus backup invalid')
+    if (!result.success) return toast.error('Gagal', humanizeUserMessage(result.error, { fallback: 'Gagal menghapus cadangan tidak valid.' }))
 
     refreshEvents()
     toast.success('Sukses', `${result.deleted} backup invalid berhasil dihapus`)
@@ -411,8 +412,9 @@ export default function Settings() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Pengaturan Sistem</h1>
-        <p>Kelola data dan konfigurasi aplikasi</p>
+        <span className="page-kicker">Konfigurasi</span>
+        <h1>Pengaturan sistem</h1>
+        <p>Templat WhatsApp, acara aktif, zona berisiko, dan cadangan data. Perubahan di sini memengaruhi seluruh tenant yang Anda kelola.</p>
       </div>
 
       <div className="settings-wrap">

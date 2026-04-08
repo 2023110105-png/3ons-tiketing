@@ -69,8 +69,8 @@ export default function OfflineIndicator() {
           </div>
           <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: 2 }}>
             {isOnline
-              ? 'Koneksi internet sudah pulih, data akan sync otomatis'
-              : 'Tidak ada koneksi internet. Data scan akan disimpan lokal'}
+              ? 'Koneksi internet sudah pulih. Data akan diselaraskan otomatis ke server.'
+              : 'Tidak ada koneksi internet. Hasil scan disimpan di perangkat ini dulu.'}
           </div>
         </div>
         {showBanner && (

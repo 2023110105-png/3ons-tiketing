@@ -9,11 +9,13 @@ Pola yang disarankan:
 1. Frontend di Vercel.
 2. `wa-server` di VPS, Render, Railway, Fly.io, atau server selalu aktif.
 3. Frontend membaca URL backend dari environment variable `VITE_API_BASE_URL`.
+4. Lindungi endpoint backend menggunakan secret `WA_ADMIN_SECRET`.
 
 Contoh:
 
 ```bash
 VITE_API_BASE_URL=https://bot-api.domain-anda.com
+VITE_WA_ADMIN_SECRET=isi-sama-dengan-secret-backend
 ```
 
 ## Local Development
@@ -38,6 +40,7 @@ Set environment variable berikut di project Vercel:
 
 ```bash
 VITE_API_BASE_URL=https://bot-api.domain-anda.com
+VITE_WA_ADMIN_SECRET=isi-sama-dengan-secret-backend
 ```
 
 ### Bot WA di server selalu hidup
@@ -66,14 +69,17 @@ Langkah umum:
 1. Jika service Railway sudah ada, pastikan yang dipakai adalah service backend `wa-server`.
 2. Tambahkan volume atau storage persisten untuk folder `/app/wa-server/auth_data`.
 3. Set `PORT=3001` bila Railway meminta port eksplisit.
-4. Ambil public URL service Railway, misalnya `https://nama-service.up.railway.app`.
-5. Isi `VITE_API_BASE_URL` di frontend Vercel dengan URL tersebut.
-6. Redeploy frontend Vercel setelah env diubah.
+4. Set `WA_ADMIN_SECRET` pada service backend Railway.
+5. Set `CORS_ALLOWED_ORIGINS` berisi domain frontend yang diizinkan (pisah koma jika lebih dari satu).
+6. Ambil public URL service Railway, misalnya `https://nama-service.up.railway.app`.
+7. Isi `VITE_API_BASE_URL` dan `VITE_WA_ADMIN_SECRET` di frontend Vercel.
+8. Redeploy frontend Vercel setelah env diubah.
 
 Contoh:
 
 ```bash
 VITE_API_BASE_URL=https://nama-service.up.railway.app
+VITE_WA_ADMIN_SECRET=isi-sama-dengan-secret-backend
 ```
 
 Penting:
@@ -81,6 +87,7 @@ Penting:
 1. Jangan taruh bot WhatsApp yang prosesnya panjang di Vercel.
 2. Simpan session login pada storage yang persisten di server tersebut.
 3. Jika backend diganti URL-nya, update `VITE_API_BASE_URL` di frontend.
+4. `WA_ADMIN_SECRET` (backend) dan `VITE_WA_ADMIN_SECRET` (frontend) harus sama.
 
 ## Checklist Final
 

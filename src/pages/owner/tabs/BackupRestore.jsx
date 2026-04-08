@@ -82,6 +82,11 @@ export default function BackupRestore() {
 
   return (
     <div className="backup-restore-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Cadangan data</span>
+        <h2>Pulihan &amp; unduhan snapshot</h2>
+        <p>Cadangan lokal mewakili snapshot store pada titik waktu tertentu. Pemulihan akan mengganti data aktif di browser ini—lakukan hanya setelah konfirmasi.</p>
+      </div>
       <div className="owner-card-container" style={{ background: 'var(--info-bg)', borderColor: 'var(--info)' }}>
         <div className="card-pad flex gap-16 items-center">
           <div className="p-12 bg-primary rounded-full text-white">

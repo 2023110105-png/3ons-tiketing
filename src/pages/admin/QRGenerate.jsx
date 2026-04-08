@@ -368,8 +368,9 @@ export default function QRGenerate() {
       <div className="page-container">
         <div className="m-section-header qr-mobile-header">
           <div>
-            <h1 className="qr-mobile-title">QR Code</h1>
-            <p className="qr-mobile-subtitle">{participants.length} peserta</p>
+            <span className="m-mobile-kicker">Tiket</span>
+            <h1 className="qr-mobile-title">QR & unduhan</h1>
+            <p className="qr-mobile-subtitle">{participants.length} peserta · hari {dayFilter}</p>
           </div>
           <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             <option value={1}>Hari 1</option>
@@ -487,47 +488,32 @@ export default function QRGenerate() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Manajemen Tiket QR</h1>
-        <p>Generate, kelola, dan verifikasi tiket QR dengan keamanan berlapis</p>
+        <span className="page-kicker">Tiket</span>
+        <h1>Manajemen tiket QR</h1>
+        <p>Unduh tiket visual, bagikan ke WhatsApp, atau impor barcode massal. Token aman dapat diperbarui untuk seluruh hari sekaligus.</p>
       </div>
 
-      {/* ===== TAB NAVIGATION ===== */}
-      <div className="tab-navigation" style={{ marginBottom: 24, display: 'flex', gap: 12, borderBottom: '2px solid #e8e4d0', paddingBottom: 0 }}>
+      <div className="qr-page-tabs" role="tablist" aria-label="Mode tiket">
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'generate'}
           onClick={() => setActiveTab('generate')}
-          className={`tab-button ${activeTab === 'generate' ? 'active' : ''}`}
-          style={{
-            padding: '12px 20px',
-            border: 'none',
-            background: 'none',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            color: activeTab === 'generate' ? '#4da6e8' : '#6b7280',
-            borderBottom: activeTab === 'generate' ? '3px solid #4da6e8' : 'none',
-            transition: 'all 0.2s ease'
-          }}
+          className={`qr-page-tab ${activeTab === 'generate' ? 'active' : ''}`}
         >
-          <QrCode size={16} style={{ display: 'inline', marginRight: 6 }} /> Generate Tiket
+          <QrCode size={16} /> Generate tiket
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'import'}
           onClick={() => setActiveTab('import')}
-          className={`tab-button ${activeTab === 'import' ? 'active' : ''}`}
-          style={{
-            padding: '12px 20px',
-            border: 'none',
-            background: 'none',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            color: activeTab === 'import' ? '#4da6e8' : '#6b7280',
-            borderBottom: activeTab === 'import' ? '3px solid #4da6e8' : 'none',
-            transition: 'all 0.2s ease'
-          }}
+          className={`qr-page-tab ${activeTab === 'import' ? 'active' : ''}`}
         >
-          <Upload size={16} style={{ display: 'inline', marginRight: 6 }} /> Import Barcode
+          <Upload size={16} /> Import barcode
         </button>
       </div>
+
 
       {/* ===== GENERATE TAB ===== */}
       {activeTab === 'generate' && (

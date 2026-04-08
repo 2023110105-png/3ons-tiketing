@@ -97,7 +97,7 @@ export default function BackGate() {
       {/* Big Counter */}
       <div className="monitor-counter animate-fade-in-up">
         <div className="monitor-kicker">
-          Live Attendance — Hari {currentDay}
+          Kehadiran langsung · Hari {currentDay}
         </div>
         <div className="monitor-counter-value">
           <span>{stats.checkedIn}</span> / {stats.total}
@@ -134,7 +134,10 @@ export default function BackGate() {
       {/* Live Feed */}
       <div className="card">
         <div className="card-header">
-          <h3 className="card-title">Live Check-in Feed</h3>
+          <div>
+            <h3 className="card-title">Umpan check-in</h3>
+            <p className="card-subtitle-hint">Setiap pemindaian valid di pintu depan muncul di sini hampir langsung.</p>
+          </div>
           <div className="monitor-live-head">
             <div className="monitor-live-dot"></div>
             <span className="badge badge-green">Real-time</span>
@@ -182,17 +185,17 @@ export default function BackGate() {
       <div className="card monitor-offline-card">
         <div className="card-header monitor-offline-header">
           <h3 className="card-title monitor-title-inline">
-            <WifiOff size={16} /> Offline Queue Monitor
+            <WifiOff size={16} /> Antrean offline
           </h3>
           <div className="monitor-offline-controls">
             <span className="badge badge-yellow">{pendingItems.length} pending</span>
             <span className={`badge ${getLimitBadgeClass()}`}>
               Limit: {getMaxPendingAttempts()}x
             </span>
-            <button className="btn btn-ghost btn-sm" onClick={handleToggleLimitInfo} title="Info warna retry limit">
+            <button className="btn btn-ghost btn-sm" onClick={handleToggleLimitInfo} title="Info warna batas pengulangan">
               <CircleHelp size={12} />
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport}>Export</button>
+            <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport}>Ekspor</button>
           </div>
         </div>
         {showLimitInfo && (

@@ -4,6 +4,7 @@ import {
   Search, AlertTriangle, AlertCircle, Save 
 } from 'lucide-react'
 import { getTenants, updateTenantQuota, getTenantHealth, bootstrapStoreFromFirebase } from '../../../store/mockData'
+import { humanizeUserMessage } from '../../../utils/userFriendlyMessage'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -62,7 +63,7 @@ export default function QuotaManager() {
       await refreshQuotaData(true)
       setIsEditing(null)
     } else {
-      toast.error('Gagal', result.error)
+      toast.error('Gagal', humanizeUserMessage(result.error, { fallback: 'Tidak bisa menyimpan perubahan kuota.' }))
     }
   }
 
@@ -75,6 +76,11 @@ export default function QuotaManager() {
 
   return (
     <div className="quota-manager-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Kapasitas</span>
+        <h2>Kuota akun brand</h2>
+        <p>Atur batas peserta, perangkat gate, dan jumlah event aktif agar pemakaian tetap selaras dengan paket. Kartu di bawah menyertakan indikator pemakaian saat ini.</p>
+      </div>
       <div className="owner-toolbar">
         <div className="owner-toolbar-left">
           <div className="owner-search-input" style={{ width: '300px' }}>

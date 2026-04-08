@@ -4,6 +4,7 @@ import {
   Search, CheckCircle, AlertCircle, Plus 
 } from 'lucide-react'
 import { getTenants, updateTenantContract, bootstrapStoreFromFirebase } from '../../../store/mockData'
+import { humanizeUserMessage } from '../../../utils/userFriendlyMessage'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -63,7 +64,7 @@ export default function ContractManager() {
       await refreshTenants(true)
       setIsEditing(null)
     } else {
-      toast.error('Gagal', result.error)
+      toast.error('Gagal', humanizeUserMessage(result.error, { fallback: 'Tidak bisa menyimpan perubahan kontrak.' }))
     }
   }
 
@@ -76,6 +77,11 @@ export default function ContractManager() {
 
   return (
     <div className="contract-manager-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Komersial</span>
+        <h2>Kontrak &amp; paket</h2>
+        <p>Perbarui paket, tanggal mulai–berakhir, nilai kontrak, dan status pembayaran per tenant. Perubahan ini sering dipakai untuk penagihan dan perpanjangan.</p>
+      </div>
       <div className="owner-toolbar">
         <div className="owner-toolbar-left">
           <div className="owner-search-input" style={{ maxWidth: '400px' }}>

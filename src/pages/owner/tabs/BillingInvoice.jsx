@@ -90,6 +90,11 @@ export default function BillingInvoice() {
 
   return (
     <div className="billing-invoice-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Keuangan</span>
+        <h2>Tagihan &amp; invoice</h2>
+        <p>Catat periode tagihan, nominal, dan status lunas per tenant. Filter membantu meninjau satu akun brand sekaligus sebelum menambah tagihan baru.</p>
+      </div>
       <div className="owner-toolbar">
         <div className="owner-toolbar-left">
           <div className="owner-search-input" style={{ flex: 1, maxWidth: '300px' }}>
@@ -122,19 +127,19 @@ export default function BillingInvoice() {
 
       <div className="owner-card-container" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="owner-card-header" style={{ borderRadius: 0 }}>
-          <div className="owner-card-title">💰 Manajemen Tagihan</div>
+          <div className="owner-card-title">Daftar tagihan</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredInvoices.length} tagihan</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="owner-data-table">
             <thead>
               <tr>
-                <th>📋 ID Tagihan</th>
-                <th>👥 Akun</th>
-                <th>📅 Periode</th>
-                <th>📤 Tgl Terbit</th>
-                <th>💵 Total</th>
-                <th>✓ Status</th>
+                <th>ID tagihan</th>
+                <th>Akun</th>
+                <th>Periode</th>
+                <th>Tgl terbit</th>
+                <th>Total</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>

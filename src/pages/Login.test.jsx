@@ -22,7 +22,7 @@ describe('Login', () => {
 
     render(<Login />)
 
-    fireEvent.change(screen.getByPlaceholderText('Contoh: admin, petugas depan, petugas belakang'), { target: { value: 'owner' } })
+    fireEvent.change(screen.getByPlaceholderText('Ketik nama pengguna Anda'), { target: { value: 'owner' } })
     fireEvent.change(screen.getByPlaceholderText('Masukkan kata sandi'), { target: { value: 'owner123' } })
     fireEvent.submit(screen.getByRole('button', { name: 'Masuk' }).closest('form'))
 

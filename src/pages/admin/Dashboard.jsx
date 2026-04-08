@@ -184,8 +184,9 @@ export default function Dashboard() {
     <div className="page-container">
       <div className="page-header dashboard-header">
         <div>
+          <span className="page-kicker">Panel admin</span>
           <h1>Ringkasan</h1>
-          <p>Ringkasan kehadiran hari {currentDay}</p>
+          <p>Kehadiran real-time untuk Hari {currentDay}. Angka dan grafik di bawah menyamai data di pintu masuk.</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in
@@ -221,18 +222,31 @@ export default function Dashboard() {
 
       <div className="grid-2 mb-24">
         <div className="card animate-fade-in-up">
-          <div className="card-header"><h3 className="card-title">Tren Kehadiran</h3></div>
+          <div className="card-header">
+            <div>
+              <h3 className="card-title">Tren kehadiran</h3>
+              <p className="card-subtitle-hint">Perkiraan check-in per jam (08:00–19:00) berdasarkan log hari ini.</p>
+            </div>
+          </div>
           <div className="chart-container"><Line data={lineData} options={lineOptions} /></div>
         </div>
         <div className="card animate-fade-in-up stagger-2">
-          <div className="card-header"><h3 className="card-title">Kategori Peserta</h3></div>
+          <div className="card-header">
+            <div>
+              <h3 className="card-title">Komposisi kategori</h3>
+              <p className="card-subtitle-hint">Distribusi peserta per tipe tiket (VIP, Dealer, Media, Regular).</p>
+            </div>
+          </div>
           <div className="chart-container"><Doughnut data={doughnutData} options={doughnutOptions} /></div>
         </div>
       </div>
 
       <div className="card animate-fade-in-up stagger-3">
         <div className="card-header">
-          <h3 className="card-title">Aktivitas Terbaru</h3>
+          <div>
+            <h3 className="card-title">Aktivitas terbaru</h3>
+            <p className="card-subtitle-hint">Alur check-in terbaru dari pemindaian di pintu masuk.</p>
+          </div>
           <span className="badge badge-green">Langsung</span>
         </div>
         {logs.length === 0 ? (

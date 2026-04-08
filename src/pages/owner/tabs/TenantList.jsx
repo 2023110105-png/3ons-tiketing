@@ -103,6 +103,11 @@ export default function TenantList({ onManageUsers, onEditContract }) {
 
   return (
     <div className="tenant-list-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Akun brand</span>
+        <h2>Daftar tenant</h2>
+        <p>Buat dan kelola akun brand serta statusnya. Gunakan <strong>Pakai</strong> untuk mengunci konteks tenant saat melanjutkan ke fitur lain; kontrak dan pengguna bisa dibuka dari kartu.</p>
+      </div>
       <div className="owner-toolbar">
         <div className="owner-toolbar-left">
           <div className="owner-search-input">

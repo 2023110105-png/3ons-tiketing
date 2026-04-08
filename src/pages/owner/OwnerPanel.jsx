@@ -54,12 +54,13 @@ export default function OwnerPanel() {
 
   return (
     <div className="owner-console-wrapper animate-fade-in">
-      <div className="page-header mb-24">
-        <h1>Pusat Kendali Pemilik</h1>
-        <p>Kelola operasional platform, akun brand, dan pemantauan sistem dari satu tempat.</p>
-      </div>
-      
-      <div className="owner-tab-content card">
+      <header className="owner-console-hero">
+        <span className="page-kicker">Platform</span>
+        <h1>Pusat kendali pemilik</h1>
+        <p>Kelola akun brand, kuota, kontrak, audit, dan kesehatan sistem. Perubahan di lingkungan ini berdampak ke banyak tenant—gunakan dengan hati-hati.</p>
+      </header>
+
+      <div className="owner-tab-content card owner-workspace-card">
         <div className="card-pad">
           {renderActiveTab()}
         </div>

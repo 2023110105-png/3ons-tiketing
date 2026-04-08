@@ -45,6 +45,11 @@ export default function WhiteLabel() {
 
   return (
     <div className="white-label-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Bentuk tampilan</span>
+        <h2>Branding &amp; white-label</h2>
+        <p>Sesuaikan nama aplikasi, warna aksen, dan aset visual yang dilihat klien. Pilih tenant terlebih dahulu—perubahan berlaku setelah disimpan dan data dimuat ulang di sisi mereka.</p>
+      </div>
       <div className="owner-toolbar">
         <select 
           className="owner-form-select" 
@@ -63,7 +68,8 @@ export default function WhiteLabel() {
         <div className="owner-grid-cols-2 gap-24">
           <div className="owner-card-container">
             <div className="card-pad">
-              <h3 className="card-title mb-24">Pengaturan Branding</h3>
+              <h3 className="card-title mb-8">Pengaturan branding</h3>
+              <p className="card-subtitle-hint mb-24">Nilai default mengikuti nama brand tenant jika dikosongkan.</p>
               
               <div className="owner-form-group mb-20">
                 <label className="owner-form-label">Nama Aplikasi Kustom</label>

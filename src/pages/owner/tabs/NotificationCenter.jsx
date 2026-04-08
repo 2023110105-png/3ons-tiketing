@@ -64,6 +64,11 @@ export default function NotificationCenter() {
 
   return (
     <div className="notification-center-container owner-fade-in-up">
+      <div className="owner-tab-intro">
+        <span className="page-kicker">Pemberitahuan</span>
+        <h2>Pusat notifikasi pemilik</h2>
+        <p>Alert sistem, kuota, atau peristiwa penting dikumpulkan di sini. Tandai dibaca setelah ditindaklanjuti agar daftar tetap relevan.</p>
+      </div>
       <div className="owner-toolbar">
          <div className="owner-toolbar-left flex-1">
             <div className="owner-search-input" style={{ maxWidth: '400px' }}>

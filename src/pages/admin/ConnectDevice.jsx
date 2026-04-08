@@ -3,6 +3,7 @@ import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert 
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
+import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 
 function formatConnectionError(message) {
   const text = String(message || '').trim()
@@ -12,10 +13,10 @@ function formatConnectionError(message) {
   const looksLocalPort = /localhost|127\.0\.0\.1|0\.0\.0\.0|:3001/i.test(text)
 
   if (isPortIssue && looksLocalPort) {
-    return 'Aplikasi belum tersambung ke server. Coba muat ulang halaman atau hubungi tim teknis.'
+    return 'Aplikasi belum tersambung ke server. Muat ulang halaman atau hubungi tim pendukung.'
   }
 
-  return text
+  return humanizeUserMessage(text, { fallback: 'Sambungan ke server belum berhasil. Coba lagi.' })
 }
 
 export default function ConnectDevice() {
@@ -37,7 +38,7 @@ export default function ConnectDevice() {
   const normalizedWaStatus = String(waState?.status || '').toLowerCase()
   const isOfflineState = normalizedWaStatus === 'offline' || normalizedWaStatus === 'disconnected'
   const statusTone = isOfflineState ? 'offline' : waState.isReady ? 'ready' : 'pending'
-  const apiSource = getApiBaseUrl() ? 'Server online' : 'Sambungan lokal'
+  const apiSource = getApiBaseUrl() ? 'Terhubung ke server pusat' : 'Tanpa server online (lokal)'
   const filteredSessions = tenantSessions.filter((session) => {
     const q = sessionQuery.trim().toLowerCase()
     const textMatch = !q || String(session.tenant_id || '').toLowerCase().includes(q)
@@ -126,7 +127,7 @@ export default function ConnectDevice() {
         setTenantSessions(Array.isArray(data?.sessions) ? data.sessions : [])
         setSessionsError('')
       } catch (err) {
-        setSessionsError(err?.message || 'Gagal memuat data pemantauan akun')
+        setSessionsError(humanizeUserMessage(err?.message, { fallback: 'Gagal memuat daftar sambungan akun.' }))
       }
 
       if (stopped) return
@@ -161,7 +162,7 @@ export default function ConnectDevice() {
         toast.info('Sambungan WhatsApp diputuskan.')
       }
     } catch (err) {
-      toast.error('Gagal memutus sambungan', err?.message || 'Pastikan layanan WhatsApp aktif.')
+      toast.error('Gagal memutus sambungan', humanizeUserMessage(err?.message, { fallback: 'Pastikan layanan WhatsApp berjalan lalu coba lagi.' }))
     } finally {
       setIsDisconnecting(false)
     }
@@ -183,7 +184,7 @@ export default function ConnectDevice() {
       setLastError('')
       toast.info('QR diperbarui', 'Silakan scan kode QR terbaru.')
     } catch (err) {
-      toast.error('Gagal membuat QR baru', err?.message || 'Coba lagi beberapa detik.')
+      toast.error('Gagal membuat QR baru', humanizeUserMessage(err?.message, { fallback: 'Coba lagi beberapa detik.' }))
     } finally {
       setIsRegeneratingQr(false)
     }
@@ -216,7 +217,7 @@ export default function ConnectDevice() {
         setTenantSessions(Array.isArray(sessionData?.sessions) ? sessionData.sessions : [])
       }
     } catch (err) {
-      toast.error('Gagal reset sambungan akun', err?.message || 'Coba lagi beberapa detik.')
+      toast.error('Gagal reset sambungan akun', humanizeUserMessage(err?.message, { fallback: 'Coba lagi beberapa detik.' }))
     } finally {
       setSessionActionTenantId('')
     }
@@ -287,7 +288,7 @@ export default function ConnectDevice() {
         <div className="card" style={{ margin: '20px auto', maxWidth: '500px', textAlign: 'center' }}>
           <h2>Akses Ditolak</h2>
           <p>Anda tidak memiliki izin untuk mengakses halaman Sambungkan WhatsApp. Hubungi admin untuk mendapatkan akses.</p>
-          <p><small>Role Anda: {user?.role || 'unknown'}</small></p>
+          <p><small>Peran akun: {user?.role === 'super_admin' ? 'Admin utama' : user?.role === 'admin_client' ? 'Admin acara' : user?.role === 'owner' ? 'Pemilik platform' : user?.role === 'gate_front' ? 'Petugas pintu depan' : user?.role === 'gate_back' ? 'Petugas pintu belakang' : 'Tidak diketahui'}</small></p>
         </div>
       </div>
     )
@@ -297,8 +298,9 @@ export default function ConnectDevice() {
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
         <div className="page-title-group">
+          <span className="page-kicker">Integrasi</span>
           <h1>Sambungkan WhatsApp</h1>
-          <p>Kelola sambungan nomor WhatsApp panitia untuk pengiriman tiket otomatis.</p>
+          <p>Hubungkan nomor layanan untuk kirim tiket otomatis. Pastikan ponsel tetap berkuasa dan terhubung internet saat sesi kirim massal.</p>
         </div>
       </div>
 

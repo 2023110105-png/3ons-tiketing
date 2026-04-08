@@ -67,7 +67,7 @@ export default function FrontGate() {
       if (res.failed === 0) {
         setResult({ success: true, status: 'synced', message: `${res.synced} scan offline berhasil disinkronkan` })
       } else {
-        setResult({ success: false, status: 'sync_partial', message: `Sync selesai: ${res.synced} berhasil, ${res.failed} gagal` })
+        setResult({ success: false, status: 'sync_partial', message: `Sinkronisasi selesai: ${res.synced} berhasil, ${res.failed} gagal` })
       }
       setShowResultDetail(false)
       setTimeout(() => setResult(null), getResultDismissMs(res.failed === 0
@@ -314,9 +314,9 @@ export default function FrontGate() {
   const getResultTitle = () => {
     if (!result) return ''
     if (result.status === 'queued_offline') return 'TERSIMPAN OFFLINE'
-    if (result.status === 'synced') return 'SYNC BERHASIL'
-    if (result.status === 'sync_partial') return 'SYNC SEBAGIAN'
-    if (result.status === 'invalid_server') return 'VERIFIKASI SERVER GAGAL'
+    if (result.status === 'synced') return 'SINKRON BERHASIL'
+    if (result.status === 'sync_partial') return 'SINKRON SEBAGIAN'
+    if (result.status === 'invalid_server') return 'VERIFIKASI DI SERVER GAGAL'
     if (result.success) return 'CHECK-IN BERHASIL'
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
     if (result.status === 'wrong_day') return 'SALAH HARI'
@@ -360,7 +360,7 @@ export default function FrontGate() {
 
   const handleRetryPendingItem = (itemId) => {
     if (!navigator.onLine) {
-      setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa retry saat offline' })
+      setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa mengulang saat offline' })
       setTimeout(() => setResult(null), 2500)
       return
     }
@@ -372,7 +372,7 @@ export default function FrontGate() {
     if (res.success) {
       setResult({ success: true, status: 'synced', message: 'Item pending berhasil disinkronkan' })
     } else {
-      setResult({ success: false, status: 'sync_partial', message: res.result?.message || 'Retry gagal' })
+      setResult({ success: false, status: 'sync_partial', message: res.result?.message || 'Pengulangan gagal' })
     }
     setTimeout(() => setResult(null), 2500)
   }
@@ -386,7 +386,7 @@ export default function FrontGate() {
 
   const handleRetryAllPending = () => {
     if (!navigator.onLine) {
-      setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa retry all saat offline' })
+      setResult({ success: false, status: 'sync_partial', message: 'Tidak bisa mengulang semua saat offline' })
       setTimeout(() => setResult(null), 2500)
       return
     }
@@ -405,9 +405,9 @@ export default function FrontGate() {
   const handleExportOfflineReport = async () => {
     const ok = await exportOfflineQueueReportToCSV(getPendingCheckIns(), getOfflineQueueHistory(1000))
     if (ok) {
-      setResult({ success: true, status: 'synced', message: 'Laporan offline queue berhasil diexport' })
+      setResult({ success: true, status: 'synced', message: 'Laporan antrean offline berhasil diekspor' })
     } else {
-      setResult({ success: false, status: 'sync_partial', message: 'Gagal export laporan offline queue' })
+      setResult({ success: false, status: 'sync_partial', message: 'Gagal mengekspor laporan antrean offline' })
     }
     setTimeout(() => setResult(null), 2500)
   }
@@ -415,11 +415,12 @@ export default function FrontGate() {
   return (
     <div className="scanner-container">
       <div className="scanner-header">
+        <span className="page-kicker">Pintu masuk</span>
         <h1 className="scanner-title">
-          Front Gate Scanner
+          Pemindaian tiket
         </h1>
         <p className="scanner-subtitle">
-          Scan QR Code peserta
+          Pindai QR, input kode manual, atau cari nama. Antrean offline disinkron saat jaringan kembali.
         </p>
         <div className="scanner-status-row">
           <span className={`badge ${isOnline ? 'badge-green' : 'badge-red'}`}>
@@ -428,7 +429,7 @@ export default function FrontGate() {
           <span className="badge badge-yellow">Pending: {pendingCount}</span>
           {isOnline && pendingCount > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={handleSyncPending} disabled={isSyncing}>
-              <RefreshCw size={12} className="scanner-inline-icon" /> {isSyncing ? 'Sync...' : 'Sync Sekarang'}
+              <RefreshCw size={12} className="scanner-inline-icon" /> {isSyncing ? 'Menyinkronkan…' : 'Sinkron sekarang'}
             </button>
           )}
         </div>
@@ -557,10 +558,17 @@ export default function FrontGate() {
             <div className="scanner-search-input-wrap">
               <Search size={16} className="scanner-search-icon" />
               <input
+                type="text"
                 className="form-input scanner-search-input"
                 placeholder="Ketik nama atau ticket ID..."
                 value={searchQuery}
                 onChange={e => handleSearch(e.target.value)}
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="search"
+                aria-label="Cari peserta berdasarkan nama atau ticket ID"
                 autoFocus
               />
             </div>
@@ -663,13 +671,13 @@ export default function FrontGate() {
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => setShowLimitInfo(prev => !prev)}
-              title="Info warna retry limit"
+              title="Info warna batas pengulangan"
             >
               <CircleHelp size={12} />
             </button>
             {pendingCount > 0 && (
               <>
-                <button className="btn btn-ghost btn-sm" onClick={handleRetryAllPending} disabled={!isOnline || isSyncing} title="Retry semua item">
+                <button className="btn btn-ghost btn-sm" onClick={handleRetryAllPending} disabled={!isOnline || isSyncing} title="Ulangi semua item">
                   <RefreshCw size={12} />
                 </button>
                 <button className="btn btn-ghost btn-danger btn-sm" onClick={handleClearAllPending} title="Hapus semua antrean">
@@ -677,7 +685,7 @@ export default function FrontGate() {
                 </button>
               </>
             )}
-            <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport} title="Export post-mortem offline queue">
+            <button className="btn btn-ghost btn-sm" onClick={handleExportOfflineReport} title="Ekspor laporan antrean offline">
               Export
             </button>
           </div>
@@ -705,7 +713,7 @@ export default function FrontGate() {
                     Attempts: {item.attempts || 0}{item.last_error ? ` · Error: ${item.last_error}` : ''}
                   </div>
                 </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => handleRetryPendingItem(item.id)} disabled={!isOnline} title="Retry item ini">
+                <button className="btn btn-ghost btn-sm" onClick={() => handleRetryPendingItem(item.id)} disabled={!isOnline} title="Ulangi item ini">
                   <RefreshCw size={12} />
                 </button>
                 <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleRemovePendingItem(item.id)} title="Hapus item ini">

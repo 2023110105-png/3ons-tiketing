@@ -14,7 +14,7 @@ afterEach(() => cleanup())
 describe('TenantHealth', () => {
   it('renders health cards and refresh button', () => {
     render(<TenantHealth />)
-    expect(screen.getByText(/Pantauan Kesehatan Sistem/i)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Kesehatan tenant/i })).toBeTruthy()
     expect(screen.getByText('Acme Event')).toBeTruthy()
   })
 
@@ -22,7 +22,7 @@ describe('TenantHealth', () => {
     vi.useFakeTimers()
     render(<TenantHealth />)
 
-    const refreshBtn = screen.getByRole('button', { name: /Segarkan Data/i })
+    const refreshBtn = screen.getByRole('button', { name: /Segarkan data/i })
     fireEvent.click(refreshBtn)
     expect(refreshBtn.disabled).toBe(true)
 
@@ -30,7 +30,7 @@ describe('TenantHealth', () => {
       vi.advanceTimersByTime(800)
     })
 
-    expect(screen.getByRole('button', { name: /Segarkan Data/i }).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: /Segarkan data/i }).disabled).toBe(false)
     vi.useRealTimers()
   })
 })

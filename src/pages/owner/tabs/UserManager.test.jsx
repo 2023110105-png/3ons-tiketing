@@ -32,7 +32,7 @@ describe('UserManager', () => {
   it('shows tenant selection when no tenant selected', async () => {
     render(<UserManager />)
     await waitFor(() => {
-      expect(screen.getByText(/Pilih Akun Brand untuk Mengelola Pengguna/i)).toBeTruthy()
+      expect(screen.getByText('Pilih akun brand', { exact: true })).toBeTruthy()
     })
   })
 
