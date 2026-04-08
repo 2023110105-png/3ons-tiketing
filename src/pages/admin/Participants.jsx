@@ -42,7 +42,7 @@ export default function Participants() {
   // Broadcast States
   const [isBroadcasting, setIsBroadcasting] = useState(false)
   const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
-  const [broadcastMode, setBroadcastMode] = useState('message_only') // 'message_only' | 'message_with_barcode'
+  const [broadcastMode, setBroadcastMode] = useState('message_with_barcode') // 'message_only' | 'message_with_barcode'
   const [showBroadcastModeModal, setShowBroadcastModeModal] = useState(false)
   const [pendingBroadcastParticipants, setPendingBroadcastParticipants] = useState([])
   

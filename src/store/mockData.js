@@ -38,7 +38,7 @@ const OWNER_AUDIT_LOG_KEY = 'ons_owner_audit_log'
 const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
 const WA_SEND_MODE_MESSAGE_WITH_BARCODE = 'message_with_barcode'
 const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
-const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_ONLY
+const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_WITH_BARCODE
 const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' ? 'hybrid' : 'strict'
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'

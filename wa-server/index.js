@@ -128,7 +128,7 @@ function getWaSendMode(tenantId) {
     const mode = waSendModeDb[tenantId];
     if (mode === 'message_with_barcode') return 'message_with_barcode';
     if (mode === 'message_only') return 'message_only';
-    return 'message_only'; // fallback default
+    return 'message_with_barcode'; // fallback default (prefer designed ticket image)
 }
 
 // Load DB saat server start
