@@ -3,23 +3,58 @@
 const Jimp = require('jimp')
 const QRCode = require('qrcode')
 
-const CATEGORY_COLORS = {
-  VIP: '#b91c1c',
-  Dealer: '#1d4ed8',
-  Media: '#ca8a04',
-  Regular: '#15803d'
+const CATEGORY_STYLES = {
+  VIP: { accent: '#b91c1c', soft: '#fdecea', dark: '#7f1d1d', label: 'VIP' },
+  Dealer: { accent: '#1d4ed8', soft: '#e8f1ff', dark: '#1e3a8a', label: 'DEALER' },
+  Media: { accent: '#ca8a04', soft: '#fff8e1', dark: '#854d0e', label: 'MEDIA' },
+  Regular: { accent: '#15803d', soft: '#eaf7ee', dark: '#14532d', label: 'REGULAR' }
 }
 
 function normalizeCategory(category) {
   const raw = String(category || '').trim()
   if (!raw) return 'Regular'
-  const key = Object.keys(CATEGORY_COLORS).find(k => k.toLowerCase() === raw.toLowerCase())
+  const key = Object.keys(CATEGORY_STYLES).find(k => k.toLowerCase() === raw.toLowerCase())
   return key || raw
 }
 
-function colorForCategory(category) {
+function resolveStyle(category) {
   const normalized = normalizeCategory(category)
-  return CATEGORY_COLORS[normalized] || CATEGORY_COLORS.Regular
+  return CATEGORY_STYLES[normalized] || CATEGORY_STYLES.Regular
+}
+
+function normalizeMetaKey(s) {
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+}
+
+function getMetaValue(participant, wantedLabel) {
+  const meta = participant?.meta && typeof participant.meta === 'object' ? participant.meta : {}
+  const target = normalizeMetaKey(wantedLabel)
+  const foundKey = Object.keys(meta).find(k => normalizeMetaKey(k) === target)
+  if (!foundKey) return ''
+  const value = meta[foundKey]
+  return value === undefined || value === null ? '' : String(value)
+}
+
+async function fillRect(image, x, y, w, h, color) {
+  const block = new Jimp(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)), color)
+  image.composite(block, Math.round(x), Math.round(y))
+}
+
+function printClamp(image, font, text, x, y, maxWidth) {
+  const value = String(text || '-')
+  if (Jimp.measureText(font, value) <= maxWidth) {
+    image.print(font, x, y, value)
+    return
+  }
+  let clipped = value
+  while (clipped.length > 0 && Jimp.measureText(font, `${clipped}...`) > maxWidth) {
+    clipped = clipped.slice(0, -1)
+  }
+  image.print(font, x, y, `${clipped}...`)
 }
 
 async function buildTicketQrImageNode(participant, options = {}) {
@@ -29,51 +64,83 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const eventLabel = String(options.eventLabel || 'Event Platform').trim() || 'Event Platform'
   const brandLabel = String(options.brandLabel || '3oNs Digital').trim() || '3oNs Digital'
   const categoryLabel = normalizeCategory(participant?.category)
-  const accent = colorForCategory(categoryLabel)
+  const style = resolveStyle(categoryLabel)
 
-  // Base layers
-  const image = new Jimp(width, height, '#f8fafc')
-  const card = new Jimp(width - 40, height - 40, '#ffffff')
-  image.composite(card, 20, 20)
+  const image = new Jimp(width, height, '#f7fbff')
+  const safeX = 20
+  const safeY = 20
+  const safeW = width - 40
+  const safeH = height - 40
 
-  const topBar = new Jimp(width - 40, 18, accent)
-  image.composite(topBar, 20, 20)
+  await fillRect(image, safeX, safeY, safeW, safeH, '#ffffff')
+  await fillRect(image, safeX, safeY, safeW, 22, style.accent)
 
-  // QR block
+  const qrX = safeX + safeW - qrSize - 56
+  const qrY = safeY + 88
+  const leftX = safeX + 20
+  const leftY = safeY + 34
+  const leftW = qrX - leftX - 18
+  const leftH = safeY + safeH - leftY - 20
+
+  await fillRect(image, leftX, leftY, leftW, leftH, '#ffffff')
+  await fillRect(image, leftX - 1, leftY - 1, leftW + 2, 1, '#edf0f6')
+  await fillRect(image, leftX - 1, leftY + leftH, leftW + 2, 1, '#edf0f6')
+  await fillRect(image, leftX - 1, leftY, 1, leftH, '#edf0f6')
+  await fillRect(image, leftX + leftW, leftY, 1, leftH, '#edf0f6')
+
+  await fillRect(image, qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, '#ffffff')
+  await fillRect(image, qrX - 18, qrY - 18, qrSize + 36, 2, style.accent)
+  await fillRect(image, qrX - 18, qrY + qrSize + 16, qrSize + 36, 2, style.accent)
+  await fillRect(image, qrX - 18, qrY - 16, 2, qrSize + 32, style.accent)
+  await fillRect(image, qrX + qrSize + 16, qrY - 16, 2, qrSize + 32, style.accent)
+
+  for (let i = safeY + 56; i < safeY + safeH - 28; i += 12) {
+    await fillRect(image, qrX - 32, i, 2, 4, '#e5e7eb')
+  }
+
   const qrBuffer = await QRCode.toBuffer(String(participant?.qr_data || '-'), {
-    margin: 2,
+    margin: 3,
     width: qrSize,
     color: { dark: '#111111', light: '#FFFFFF' },
     errorCorrectionLevel: 'H'
   })
   const qrImage = await Jimp.read(qrBuffer)
-  const qrX = width - qrSize - 70
-  const qrY = 110
-
-  const qrFrame = new Jimp(qrSize + 26, qrSize + 26, '#ffffff')
-  image.composite(qrFrame, qrX - 13, qrY - 13)
   image.composite(qrImage, qrX, qrY)
 
-  // Fonts
   const fontTitle = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK)
   const fontBody = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK)
   const fontSmall = await Jimp.loadFont(Jimp.FONT_SANS_14_BLACK)
 
-  // Text block
-  image.print(fontTitle, 52, 56, 'E-TICKET')
-  image.print(fontSmall, 52, 96, `${brandLabel} • ${eventLabel}`)
-  image.print(fontBody, 52, 148, `Nama: ${String(participant?.name || '-')}`)
-  image.print(fontBody, 52, 184, `Ticket ID: ${String(participant?.ticket_id || '-')}`)
-  image.print(fontBody, 52, 220, `Hari: ${String(participant?.day_number || '-')}`)
-  image.print(fontBody, 52, 256, `Kategori: ${categoryLabel}`)
-  image.print(fontSmall, 52, 312, 'Tunjukkan tiket ini saat registrasi di lokasi acara.')
-  image.print(fontSmall, 52, 334, 'Jangan bagikan QR ke pihak lain.')
-  image.print(fontSmall, qrX, qrY + qrSize + 18, 'SCAN DI GERBANG')
+  image.print(fontTitle, leftX + 22, leftY + 18, 'E-TICKET')
+  printClamp(image, fontSmall, eventLabel, leftX + 22, leftY + 62, leftW - 44)
+  printClamp(image, fontSmall, brandLabel.toUpperCase(), leftX + 22, leftY + 84, leftW - 44)
 
-  // Marker to verify latest renderer version in production
-  const marker = new Jimp(140, 28, '#ef4444')
-  image.composite(marker, width - 190, 52)
-  image.print(fontSmall, width - 178, 58, 'DESIGN V3')
+  await fillRect(image, leftX + 22, leftY + 112, 190, 42, style.soft)
+  await fillRect(image, leftX + 22, leftY + 112, 190, 2, style.accent)
+  await fillRect(image, leftX + 22, leftY + 152, 190, 2, style.accent)
+  await fillRect(image, leftX + 22, leftY + 112, 2, 42, style.accent)
+  await fillRect(image, leftX + 210, leftY + 112, 2, 42, style.accent)
+  printClamp(image, fontBody, categoryLabel, leftX + 38, leftY + 122, 160)
+
+  printClamp(image, fontBody, `Nama: ${String(participant?.name || '-')}`, leftX + 22, leftY + 180, leftW - 44)
+  image.print(fontSmall, leftX + 22, leftY + 216, `ID TIKET: ${String(participant?.ticket_id || '-')}`)
+  image.print(fontSmall, leftX + 22, leftY + 240, `HARI: ${String(participant?.day_number || '-')}`)
+  image.print(fontSmall, leftX + 22, leftY + 264, `KATEGORI: ${categoryLabel}`)
+
+  await fillRect(image, leftX + 22, leftY + leftH - 74, leftW - 44, 1, '#e5e7eb')
+  image.print(fontSmall, leftX + 22, leftY + leftH - 60, 'Valid untuk 1 orang. Dilarang duplikasi tiket.')
+  const dob = getMetaValue(participant, 'Tanggal Lahir')
+  image.print(
+    fontSmall,
+    leftX + 22,
+    leftY + leftH - 40,
+    dob ? `Tanggal Lahir: ${dob}` : 'Tunjukkan tiket ini saat registrasi di pintu masuk.'
+  )
+
+  image.print(fontSmall, qrX + 28, qrY + qrSize + 20, 'SCAN DI GERBANG')
+
+  await fillRect(image, leftX + leftW - 150, leftY + 8, 128, 24, '#ef4444')
+  image.print(fontSmall, leftX + leftW - 138, leftY + 12, 'DESIGN V4')
 
   return image.getBufferAsync(Jimp.MIME_PNG)
 }
