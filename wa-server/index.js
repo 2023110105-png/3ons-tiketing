@@ -539,6 +539,23 @@ app.get('/api/wa/runtime', (_req, res) => {
     res.json(buildRuntimeInfo());
 });
 
+// Delivery log: latest WA send attempts
+app.get('/api/wa/send-log', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    const tenantId = resolveTenantId(req);
+    const limitRaw = Number(req?.query?.limit || 200);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 500)) : 200;
+
+    try {
+        const raw = await fs.readFile('wa-send-log.json', 'utf8');
+        const logs = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+        const filtered = logs.filter((entry) => normalizeTenantId(entry?.tenantId) === tenantId);
+        res.json({ success: true, tenant_id: tenantId, total: filtered.length, logs: filtered.slice(0, limit) });
+    } catch {
+        res.json({ success: true, tenant_id: tenantId, total: 0, logs: [] });
+    }
+});
+
 // 1. Status Check & QR Retreival
 app.get('/api/wa/status', (req, res) => {
     const tenantId = resolveTenantId(req);
@@ -731,7 +748,13 @@ app.post('/api/send-ticket', async (req, res) => {
             results.wa = await Promise.all(sendTasks);
         }
         // Log hasil pengiriman batch WA
-        logWaSendBatch(tenantId, phoneList, results.wa, { ticket_id, category, day_number });
+        logWaSendBatch(tenantId, phoneList, results.wa, {
+            ticket_id,
+            category,
+            day_number,
+            name,
+            wa_send_mode: waSendMode
+        });
     }
 
     // B. PROSES SEND EMAIL (tidak diubah, tetap satu email)

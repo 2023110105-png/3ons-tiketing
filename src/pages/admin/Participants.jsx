@@ -1,16 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, getCurrentDay, getWaTemplate, getWaSendMode, getAvailableDays, bootstrapStoreFromFirebase } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getWaTemplate, getWaSendMode, getAvailableDays, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
-import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap } from 'lucide-react'
-import { getWhatsAppShareLink } from '../../utils/whatsapp'
+import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3 } from 'lucide-react'
+import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
+import { useNavigate, Link } from 'react-router-dom'
+import { useWaStatus } from '../../hooks/useWaStatus'
+import WaConnectBanner from '../../components/WaConnectBanner'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 export default function Participants() {
   const currentDay = getCurrentDay()
   const [participants, setParticipants] = useState([])
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 180)
   const [dayFilter, setDayFilter] = useState(currentDay)
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -19,7 +24,20 @@ export default function Participants() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const [importPreview, setImportPreview] = useState(null)
-  const [newParticipant, setNewParticipant] = useState({ name: '', phone: '', email: '', category: 'Regular', day_number: currentDay, auto_send: false })
+  const [importDuplicatePolicy, setImportDuplicatePolicy] = useState('overwrite') // overwrite|skip|block
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editTarget, setEditTarget] = useState(null)
+  const [editExtraRows, setEditExtraRows] = useState([])
+  const [editData, setEditData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    day_number: currentDay,
+    category: 'Regular',
+    extraFieldsText: ''
+  })
+  const [addExtraRows, setAddExtraRows] = useState([])
+  const [newParticipant, setNewParticipant] = useState({ name: '', phone: '', email: '', category: 'Regular', day_number: currentDay, auto_send: false, extraFieldsText: '' })
   
   // Broadcast States
   const [isBroadcasting, setIsBroadcasting] = useState(false)
@@ -30,8 +48,254 @@ export default function Participants() {
   
   const toast = useToast()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const fileInputRef = useRef(null)
+  const tenantId = user?.tenant?.id || 'tenant-default'
+
+  const waConn = useWaStatus({ tenantId })
+  const [showWaConnectModal, setShowWaConnectModal] = useState(false)
+
+  const parseExtraFieldsText = (text) => {
+    const obj = {}
+    String(text || '').split(/\r?\n/g).forEach((line) => {
+      const trimmed = String(line || '').trim()
+      if (!trimmed) return
+      if (trimmed.startsWith('#')) return
+      const idx = trimmed.indexOf('=')
+      if (idx === -1) return
+      const key = trimmed.slice(0, idx).trim()
+      const value = trimmed.slice(idx + 1).trim()
+      if (!key) return
+      if (!value) return
+      obj[key] = value
+    })
+    return obj
+  }
+
+  const metaToText = (meta) => {
+    if (!meta || typeof meta !== 'object') return ''
+    const entries = Object.entries(meta)
+      .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+    return entries.map(([k, v]) => `${k}=${String(v)}`).join('\n')
+  }
+
+  const EXTRA_KEYS = ['Tanggal Lahir', 'Catatan']
+
+  const metaToRows = (meta) => {
+    if (!meta || typeof meta !== 'object') return []
+    return Object.entries(meta)
+      .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+      .map(([k, v]) => {
+        const label = String(k)
+        const known = EXTRA_KEYS.find(x => x.toLowerCase() === label.toLowerCase())
+        if (known) return { type: known, customKey: '', value: String(v) }
+        return { type: '__custom__', customKey: label, value: String(v) }
+      })
+  }
+
+  const rowsToText = (rows) => {
+    if (!Array.isArray(rows)) return ''
+    const lines = []
+    rows.forEach((r) => {
+      const rawType = r?.type
+      const rawCustomKey = r?.customKey
+      const key = rawType === '__custom__' ? rawCustomKey : rawType
+      const val = r?.value
+      const cleanKey = String(key || '').trim()
+      const cleanVal = val === undefined || val === null ? '' : String(val).trim()
+      if (!cleanKey || !cleanVal) return
+      lines.push(`${cleanKey}=${cleanVal}`)
+    })
+    return lines.join('\n')
+  }
+
+  const ExtraFieldsEditor = ({ rows, setRows, onTextChange }) => {
+    const safeRows = Array.isArray(rows) ? rows : []
+
+    const dateToISO = (raw) => {
+      const v = String(raw || '').trim()
+      if (!v) return ''
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+
+      // Try dd/mm/yyyy or mm/dd/yyyy or dd-mm-yyyy / mm-dd-yyyy / dd.mm.yyyy
+      const m = v.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})$/)
+      if (!m) return ''
+      const a = Number(m[1])
+      const b = Number(m[2])
+      const y = Number(m[3])
+      if (!y) return ''
+
+      // Heuristic: if a > 12 => a is day (dd/mm). Otherwise if b > 12 => b is day (mm/dd).
+      let day = a
+      let month = b
+      if (a <= 12 && b > 12) {
+        month = a
+        day = b
+      }
+      // Default Indonesian dd/mm: day first.
+      const isoMonth = String(month).padStart(2, '0')
+      const isoDay = String(day).padStart(2, '0')
+      return `${y}-${isoMonth}-${isoDay}`
+    }
+
+    const sync = (nextRows) => {
+      setRows(nextRows)
+      onTextChange(rowsToText(nextRows))
+    }
+
+    const addRow = () => {
+      sync([
+        ...safeRows,
+        { type: 'Tanggal Lahir', customKey: '', value: '' }
+      ])
+    }
+
+    const updateRow = (idx, patch) => {
+      const next = safeRows.map((r, i) => i === idx ? { ...r, ...patch } : r)
+      sync(next)
+    }
+
+    const removeRow = (idx) => {
+      const next = safeRows.filter((_, i) => i !== idx)
+      sync(next)
+    }
+
+    return (
+      <div className="extra-fields-editor">
+        {safeRows.length === 0 ? (
+          <div className="text-note" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+            Belum ada data tambahan. Klik tombol di bawah untuk menambahkan.
+          </div>
+        ) : null}
+
+        {safeRows.map((r, idx) => (
+          <div key={`${idx}-${r?.type || ''}`} className="extra-field-row">
+            <select
+              className="form-select"
+              value={r?.type || 'Tanggal Lahir'}
+              onChange={(e) => {
+                const nextType = e.target.value
+                updateRow(idx, {
+                  type: nextType,
+                  customKey: nextType === '__custom__' ? (r.customKey || '') : ''
+                })
+              }}
+            >
+              <option value="Tanggal Lahir">Tanggal Lahir</option>
+              <option value="Catatan">Catatan</option>
+              <option value="__custom__">Lainnya (buat judul)</option>
+            </select>
+
+            {r?.type === '__custom__' && (
+              <input
+                className="form-input"
+                placeholder="Judul kolom (contoh: Tanggal Daftar)"
+                value={r.customKey || ''}
+                onChange={(e) => updateRow(idx, { customKey: e.target.value })}
+              />
+            )}
+
+            {r?.type === 'Tanggal Lahir' ? (
+              <input
+                className="form-input"
+                type="date"
+                value={dateToISO(r?.value)}
+                onChange={(e) => updateRow(idx, { value: e.target.value })}
+              />
+            ) : (
+              <input
+                className="form-input"
+                placeholder="Nilai"
+                value={r?.value || ''}
+                onChange={(e) => updateRow(idx, { value: e.target.value })}
+              />
+            )}
+
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeRow(idx)} title="Hapus field">
+              Hapus
+            </button>
+          </div>
+        ))}
+
+        <button type="button" className="btn btn-secondary btn-sm" onClick={addRow}>
+          Tambah Data Tambahan
+        </button>
+      </div>
+    )
+  }
+
+  const openEditParticipant = (p) => {
+    if (!p) return
+    setEditTarget(p)
+    const rows = metaToRows(p.meta)
+    setEditExtraRows(rows)
+    setEditData({
+      name: p.name || '',
+      phone: p.phone || '',
+      email: p.email || '',
+      day_number: p.day_number || dayFilter,
+      category: p.category || 'Regular',
+      extraFieldsText: rowsToText(rows)
+    })
+    setShowEditModal(true)
+  }
+
+  const fixEditSubmit = async (e) => {
+    e.preventDefault()
+    if (!editTarget) return
+    const safeDay = Number(editData.day_number)
+    if (!Number.isInteger(safeDay) || safeDay < 1) {
+      toast.error('Hari tidak valid', 'Nomor hari minimal 1')
+      return
+    }
+    if (editTarget.is_checked_in && safeDay !== editTarget.day_number) {
+      toast.error('Tidak bisa diubah', 'Peserta sudah check-in, hari tidak bisa diganti.')
+      return
+    }
+
+    const extras = parseExtraFieldsText(editData.extraFieldsText)
+    const res = updateParticipant(editTarget.id, user, {
+      name: editData.name,
+      phone: editData.phone,
+      email: editData.email,
+      category: editData.category,
+      day_number: safeDay,
+      meta: extras
+    })
+
+    if (!res?.success) {
+      toast.error('Gagal mengubah', humanizeUserMessage(res?.error || 'Tidak diketahui.', { fallback: 'Perubahan gagal.' }))
+      return
+    }
+
+    toast.success('Peserta diperbarui', `${res.participant.name} (${res.participant.ticket_id})`)
+    setShowEditModal(false)
+    setEditTarget(null)
+    setEditData({
+      name: '',
+      phone: '',
+      email: '',
+      day_number: currentDay,
+      category: 'Regular',
+      extraFieldsText: ''
+    })
+    await refreshData(true)
+  }
+
+  const openAddModal = () => {
+    setAddExtraRows([])
+    setNewParticipant({
+      name: '',
+      phone: '',
+      email: '',
+      category: 'Regular',
+      day_number: dayFilter,
+      auto_send: false,
+      extraFieldsText: ''
+    })
+    setShowModal(true)
+  }
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth <= 768)
@@ -39,16 +303,18 @@ export default function Participants() {
     return () => window.removeEventListener('resize', h)
   }, [])
 
+  // WA status polling handled by useWaStatus()
+
   const refreshData = useCallback(async (forceFirebase = true) => {
     if (forceFirebase) {
       await bootstrapStoreFromFirebase(true)
     }
     setAvailableDays(getAvailableDays())
     let data = getParticipants(dayFilter)
-    if (search) {
+    if (debouncedSearch) {
       data = data.filter(p =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.ticket_id.toLowerCase().includes(search.toLowerCase())
+        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.ticket_id.toLowerCase().includes(debouncedSearch.toLowerCase())
       )
     }
     if (categoryFilter !== 'all') data = data.filter(p => p.category === categoryFilter)
@@ -57,7 +323,7 @@ export default function Participants() {
       else data = data.filter(p => !p.is_checked_in)
     }
     setParticipants(data)
-  }, [search, dayFilter, categoryFilter, statusFilter])
+  }, [debouncedSearch, dayFilter, categoryFilter, statusFilter])
 
   useEffect(() => {
     void refreshData(true)
@@ -79,13 +345,24 @@ export default function Participants() {
       return
     }
 
-    const p = addParticipant({ ...newParticipant, day_number: safeDay, actor: user })
+    const extras = parseExtraFieldsText(newParticipant.extraFieldsText)
+    const p = addParticipant({
+      name: newParticipant.name,
+      phone: newParticipant.phone,
+      email: newParticipant.email,
+      category: newParticipant.category,
+      day_number: safeDay,
+      auto_send: newParticipant.auto_send,
+      actor: user,
+      ...extras
+    })
     if (newParticipant.auto_send) {
       toast.success('Peserta ditambahkan', `${p.name} — sedang dikirim lewat WhatsApp…`)
     } else {
       toast.success('Peserta ditambahkan', `${p.name} (${p.ticket_id})`)
     }
-    setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false })
+    setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false, extraFieldsText: '' })
+    setAddExtraRows([])
     setShowModal(false)
     await refreshData(true)
   }
@@ -93,14 +370,9 @@ export default function Participants() {
   // --- BOT BROADCAST FEATURES ---
   const sendTicketViaBot = async (participant, waSendModeOverride = null) => {
     if (!participant.phone && !participant.email) return false;
-    const template = getWaTemplate();
     // Gunakan mode override jika ada, jika tidak fallback ke getWaSendMode()
     const waSendMode = waSendModeOverride || getWaSendMode();
-    const wa_message = template
-      .replace(/\{\{nama\}\}/g, participant.name || '')
-      .replace(/\{\{tiket\}\}/g, participant.ticket_id || '')
-      .replace(/\{\{hari\}\}/g, participant.day_number || '')
-      .replace(/\{\{kategori\}\}/g, participant.category || '');
+    const wa_message = generateWaMessage(participant)
     try {
       await apiFetch('/api/send-ticket', {
         method: 'POST',
@@ -129,6 +401,10 @@ export default function Participants() {
   }
 
   const handleBroadcast = () => {
+    if (!waConn.isReady) {
+      setShowWaConnectModal(true)
+      return
+    }
     const targetParticipants = participants;
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
     setPendingBroadcastParticipants(targetParticipants);
@@ -136,6 +412,11 @@ export default function Participants() {
   }
 
   const startBroadcastWithMode = async (selectedMode) => {
+    if (!waConn.isReady) {
+      toast.error('WhatsApp belum tersambung', 'Sambungkan perangkat dulu agar pengiriman massal bisa berjalan.')
+      setShowWaConnectModal(true)
+      return
+    }
     setBroadcastMode(selectedMode);
     setShowBroadcastModeModal(false);
     const targetParticipants = pendingBroadcastParticipants;
@@ -207,7 +488,7 @@ export default function Participants() {
       if (dayValue === undefined || dayValue === null || String(dayValue).trim() === '') return
       const parsed = Number(dayValue)
       if (!Number.isInteger(parsed) || parsed < 1) {
-        invalidDayRows.push({ row: index + 1, value: dayValue })
+        invalidDayRows.push({ row: index + 1, rowIndex: index, value: dayValue })
       }
     })
     return { invalidDayRows }
@@ -258,38 +539,63 @@ export default function Participants() {
   const confirmImport = () => {
     if (!importPreview) return
     if (importPreview.invalidDayRows?.length > 0) {
-      toast.error('Import diblokir', 'Perbaiki nilai hari yang tidak valid terlebih dahulu')
-      return
+      toast.info(
+        'Hari tidak valid',
+        `Nilai hari yang tidak valid akan dipakai sebagai Hari ${dayFilter} (mengikuti default pilihan).`
+      )
     }
-    const result = bulkAddParticipants(importPreview.rows, dayFilter, user)
+    const result = bulkAddParticipants(
+      importPreview.rows,
+      dayFilter,
+      user,
+      { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
+    )
     setImportResult(result)
-    toast.success('Import berhasil', `${result.added.length} peserta ditambahkan`)
-    if (importPreview.invalidDayRows?.length > 0) {
-      toast.info('Hari default digunakan', `${importPreview.invalidDayRows.length} baris memakai hari default (${dayFilter}) karena nilai hari tidak valid`)
-    }
+    const addedCount = result?.added?.length ?? 0
+    const updatedCount = result?.updated?.length ?? 0
+    toast.success(
+      'Import berhasil',
+      updatedCount > 0
+        ? `${addedCount} peserta ditambahkan, ${updatedCount} diperbarui (overwrite).`
+        : `${addedCount} peserta ditambahkan.`
+    )
     void refreshData(true)
+  }
+
+  const fixInvalidDaysToDefault = () => {
+    if (!importPreview?.invalidDayRows?.length) return
+    const nextRows = importPreview.rows.slice()
+    importPreview.invalidDayRows.forEach((item) => {
+      if (typeof item?.rowIndex !== 'number') return
+      nextRows[item.rowIndex] = { ...nextRows[item.rowIndex], day_number: dayFilter }
+    })
+    const { invalidDayRows: nextInvalid } = validateImportRows(nextRows)
+    setImportPreview({ ...importPreview, rows: nextRows, invalidDayRows: nextInvalid })
   }
 
   const downloadTemplate = async () => {
     try {
       const XLSX = await import('xlsx')
       const templateData = [
-        { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer', hari: 1 },
-        { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP', hari: 2 },
-        { nama: 'Dian Pratama', telepon: '08111222333', kategori: 'Regular', hari: 3 },
-        { nama: 'Eko Wahyudi', telepon: '082233445566', kategori: 'Media', hari: 1 },
-        { nama: 'Fajar Nugraha', telepon: '081998877665', kategori: 'Regular', hari: 2 },
-        { nama: 'Gita Pertiwi', telepon: '083811223344', kategori: 'VIP', hari: 3 },
-        { nama: 'Hendra Saputra', telepon: '085700112233', kategori: 'Dealer', hari: 4 },
-        { nama: 'Intan Maharani', telepon: '082122334455', kategori: 'Media', hari: 5 }
+        { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer', hari: 1, 'Tanggal Lahir': '1990-01-01', Catatan: 'VIP' },
+        { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP', hari: 2, 'Tanggal Lahir': '1992-03-10', Catatan: '' },
+        { nama: 'Dian Pratama', telepon: '08111222333', kategori: 'Regular', hari: 3, 'Tanggal Lahir': '1995-07-21', Catatan: '' },
+        { nama: 'Eko Wahyudi', telepon: '082233445566', kategori: 'Media', hari: 1, 'Tanggal Lahir': '1988-11-02', Catatan: '' },
+        { nama: 'Fajar Nugraha', telepon: '081998877665', kategori: 'Regular', hari: 2, 'Tanggal Lahir': '1991-05-15', Catatan: '' },
+        { nama: 'Gita Pertiwi', telepon: '083811223344', kategori: 'VIP', hari: 3, 'Tanggal Lahir': '1993-09-09', Catatan: 'Prioritas' },
+        { nama: 'Hendra Saputra', telepon: '085700112233', kategori: 'Dealer', hari: 4, 'Tanggal Lahir': '1989-12-28', Catatan: '' },
+        { nama: 'Intan Maharani', telepon: '082122334455', kategori: 'Media', hari: 5, 'Tanggal Lahir': '1994-02-17', Catatan: '' }
       ]
       
       const ws = XLSX.utils.json_to_sheet(templateData)
       const guideData = [
         { kolom: 'nama', wajib: 'Ya', keterangan: 'Nama lengkap peserta', contoh: 'Budi Santoso' },
         { kolom: 'telepon', wajib: 'Tidak', keterangan: 'Nomor WA peserta', contoh: '081234567890' },
-        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta: Regular/VIP/Dealer/Media', contoh: 'VIP' },
-        { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, pakai hari default filter', contoh: '2' }
+        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta: boleh sesuai kategori Anda (bebas). Sistem menampilkan nama kategori apa adanya.', contoh: 'VIP / Kelas A / Premium' },
+        { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, pakai hari default filter', contoh: '2' },
+        { kolom: 'Tanggal Lahir', wajib: 'Tidak', keterangan: 'Opsional. Akan masuk sebagai Data Tambahan dan bisa diubah di daftar peserta.', contoh: '1990-01-01' },
+        { kolom: 'Catatan', wajib: 'Tidak', keterangan: 'Opsional. Akan masuk sebagai Data Tambahan dan bisa diubah di daftar peserta.', contoh: 'VIP' },
+        { kolom: 'Kolom lain', wajib: 'Tidak', keterangan: 'Kolom selain yang dikenali akan disimpan sebagai Data Tambahan (contoh: Alamat, Golongan, dll).', contoh: 'Alamat' }
       ]
       const wsGuide = XLSX.utils.json_to_sheet(guideData)
       
@@ -321,11 +627,25 @@ export default function Participants() {
 
   const allParticipants = getParticipants(dayFilter)
   const checkedCount = allParticipants.filter(p => p.is_checked_in).length
-  const hasInvalidImportDayRows = !!importPreview?.invalidDayRows?.length
+  const showWaConnectBanner = !waConn.isReady
+  const waConnectText = waConn.status === 'offline' || waConn.status === 'disconnected'
+    ? 'WhatsApp belum tersambung. Untuk kirim pesan massal, sambungkan dulu perangkat.'
+    : 'WhatsApp sedang disiapkan. Tunggu sampai status siap sebelum kirim massal.'
 
   const getCategoryBadge = (cat) => {
     const map = { VIP: 'badge-red', Dealer: 'badge-blue', Media: 'badge-yellow', Regular: 'badge-gray' }
     return map[cat] || 'badge-gray'
+  }
+
+  const getMetaPreview = (meta) => {
+    if (!meta || typeof meta !== 'object') return ''
+    const entries = Object.entries(meta)
+      .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+    if (entries.length === 0) return ''
+    const [k, v] = entries[0]
+    const value = String(v)
+    const short = value.length > 28 ? `${value.slice(0, 28)}…` : value
+    return `${k}: ${short}`
   }
 
   // Hidden file input
@@ -365,8 +685,20 @@ export default function Participants() {
                 <div className="import-result-stats">
                   <div className="import-result-stat">
                     <div className="import-result-count success">{importResult.added.length}</div>
-                    <div className="import-result-label">Berhasil</div>
+                    <div className="import-result-label">Ditambahkan</div>
                   </div>
+                  {!!(importResult.updated?.length) && (
+                    <div className="import-result-stat">
+                      <div className="import-result-count success">{importResult.updated.length}</div>
+                      <div className="import-result-label">Diperbarui</div>
+                    </div>
+                  )}
+                  {!!(importResult.skipped?.length) && (
+                    <div className="import-result-stat">
+                      <div className="import-result-count gray">{importResult.skipped.length}</div>
+                      <div className="import-result-label">Dilewati</div>
+                    </div>
+                  )}
                   {importResult.errors.length > 0 && (
                     <div className="import-result-stat">
                       <div className="import-result-count danger">{importResult.errors.length}</div>
@@ -410,8 +742,37 @@ export default function Participants() {
                     <div>
                       Contoh baris: {importPreview.invalidDayRows.slice(0, 5).map(item => `${item.row} (${item.value})`).join(', ')}
                     </div>
+                    <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={fixInvalidDaysToDefault}
+                      >
+                        Setel ke Hari {dayFilter}
+                      </button>
+                      <div className="text-note" style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                        Jika Anda klik Import, sistem akan otomatis memakai Hari default untuk baris yang tidak valid.
+                      </div>
+                    </div>
                   </div>
                 )}
+
+                <div className="import-preview-title" style={{ marginTop: 18 }}>Aturan duplikat</div>
+                <div className="import-preview-note" style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 13 }}>
+                  Duplikat dipadankan berdasarkan <strong>nomor telepon/WA</strong>.
+                </div>
+                <div className="form-group" style={{ marginTop: 10 }}>
+                  <label className="form-label" style={{ marginBottom: 6 }}>Tindakan saat duplikat ditemukan</label>
+                  <select
+                    className="form-select"
+                    value={importDuplicatePolicy}
+                    onChange={(e) => setImportDuplicatePolicy(e.target.value)}
+                  >
+                    <option value="overwrite">Overwrite (perbarui data yang sudah ada)</option>
+                    <option value="skip">Skip (lewati yang sudah ada)</option>
+                    <option value="block">Blokir (batalkan baris duplikat)</option>
+                  </select>
+                </div>
 
                 <div className="import-preview-title">Preview (5 baris pertama):</div>
                 <div className="import-preview-table-wrap">
@@ -437,7 +798,9 @@ export default function Participants() {
                   </table>
                 </div>
                 <p className="import-preview-help">
-                  Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong>, <strong>hari/day/day_number</strong> (VIP/Dealer/Media/Regular)
+                  Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong>, <strong>hari/day/day_number</strong>. <strong>Kategori bebas</strong> (contoh: VIP, Dealer, Kelas A, Premium, dll).
+                  <br />
+                  Kolom lain yang tidak dikenali (contoh: <strong>Tanggal Lahir</strong>) akan otomatis disimpan sebagai <strong>Data Tambahan</strong>.
                 </p>
               </>
             ) : null}
@@ -449,16 +812,102 @@ export default function Participants() {
               <>
                 <button className="btn btn-secondary" onClick={() => { setShowImportModal(false); setImportPreview(null) }}>Batal</button>
                 <button
-                  className={`btn btn-primary btn-inline-icon ${hasInvalidImportDayRows ? 'btn-disabled-look' : ''}`}
+                  className="btn btn-primary btn-inline-icon"
                   onClick={confirmImport}
-                  disabled={hasInvalidImportDayRows}
-                  title={hasInvalidImportDayRows ? 'Perbaiki nilai hari yang tidak valid sebelum import' : ''}
                 >
-                  <Upload size={14} /> {hasInvalidImportDayRows ? 'Perbaiki Hari Dulu' : `Import ${importPreview?.rows.length} Peserta`}
+                  <Upload size={14} /> Import {importPreview?.rows.length} Peserta
                 </button>
               </>
             )}
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  const EditModal = () => {
+    if (!showEditModal || !editTarget) return null
+
+    const isCheckedIn = !!editTarget?.is_checked_in
+
+    return (
+      <div className="modal-overlay" onClick={() => { setShowEditModal(false); setEditTarget(null) }}>
+        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+          <div className="modal-header">
+            <h3 className="modal-title modal-title-inline">Ubah Peserta</h3>
+            <button
+              className="modal-close"
+              type="button"
+              onClick={() => { setShowEditModal(false); setEditTarget(null) }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <form onSubmit={fixEditSubmit}>
+            <div className="modal-body">
+              <div className="import-preview-note" style={{ marginBottom: 14 }}>
+                <div style={{ color: 'var(--text-muted)' }}>
+                  Ticket ID: <strong>{editTarget.ticket_id}</strong>
+                </div>
+                {isCheckedIn && (
+                  <div style={{ color: 'var(--warning)', fontWeight: 700, marginTop: 6 }}>
+                    Peserta sudah check-in. Hari tidak bisa diubah.
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Nama</label>
+                <input className="form-input" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} required autoFocus />
+              </div>
+
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Telepon (WA)</label>
+                  <input className="form-input" value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input className="form-input" type="email" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Hari Tiket</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="1"
+                    value={editData.day_number}
+                    onChange={e => setEditData({ ...editData, day_number: Number(e.target.value) || '' })}
+                    required
+                    disabled={isCheckedIn}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Kategori (bebas)</label>
+                  <input className="form-input" value={editData.category} onChange={e => setEditData({ ...editData, category: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Data Tambahan (opsional)</label>
+                <ExtraFieldsEditor
+                  rows={editExtraRows}
+                  setRows={setEditExtraRows}
+                  onTextChange={(text) => setEditData(prev => ({ ...prev, extraFieldsText: text }))}
+                />
+                <div className="code-muted-sm" style={{ marginTop: 8 }}>
+                  Pilih “Tanggal Lahir” atau “Catatan”, atau pilih “Lainnya” untuk membuat judul kolom sendiri.
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setEditTarget(null) }}>Batal</button>
+              <button type="submit" className="btn btn-primary">Simpan Perubahan</button>
+            </div>
+          </form>
         </div>
       </div>
     )
@@ -470,6 +919,7 @@ export default function Participants() {
       <div className="page-container">
         <FileInput />
         <ImportModal />
+        <EditModal />
 
         <div className="m-section-header m-section-header-tight">
           <div>
@@ -477,7 +927,7 @@ export default function Participants() {
             <h1 className="m-section-title">Peserta</h1>
             <p className="m-section-subtitle">{checkedCount}/{allParticipants.length} hadir</p>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+          <button className="btn btn-primary btn-sm" onClick={openAddModal}>
             <UserPlus size={14} /> Tambah
           </button>
         </div>
@@ -493,6 +943,7 @@ export default function Participants() {
           <button
             className="btn btn-whatsapp btn-sm m-participant-action-btn"
             onClick={handleBroadcast}
+            title={showWaConnectBanner ? 'Sambungkan WhatsApp dulu' : ''}
           >
             <Zap size={14} /> Broadcast
           </button>
@@ -552,6 +1003,9 @@ export default function Participants() {
                     <span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span>
                     <span className="m-p-ticket">{p.ticket_id}</span>
                   </div>
+                  {getMetaPreview(p.meta) && (
+                    <div className="m-p-extra">{getMetaPreview(p.meta)}</div>
+                  )}
                   {p.checked_in_at && (
                     <div className="m-p-time">
                       Check-in {new Date(p.checked_in_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
@@ -565,6 +1019,9 @@ export default function Participants() {
                   <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="m-p-delete m-p-delete-wa" title="Kirim WA">
                     <MessageCircle size={16} />
                   </a>
+                  <button className="m-p-delete m-p-delete-edit" onClick={() => openEditParticipant(p)} title="Ubah data">
+                    <Edit3 size={16} />
+                  </button>
                   <button className="m-p-delete" onClick={() => handleDelete(p)} title="Hapus">
                     <Trash2 size={16} />
                   </button>
@@ -579,6 +1036,29 @@ export default function Participants() {
         </div>
 
         {/* Modal Pilihan Mode Broadcast */}
+        {showWaConnectModal && (
+          <div className="modal-overlay modal-overlay-priority" onClick={() => setShowWaConnectModal(false)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+              <div className="modal-header">
+                <h3 className="modal-title">WhatsApp belum tersambung</h3>
+                <button className="modal-close" onClick={() => setShowWaConnectModal(false)}><X size={14} /></button>
+              </div>
+              <div className="modal-body">
+                <div className="admin-note" style={{ marginBottom: 0 }}>
+                  <div style={{ fontWeight: 750, marginBottom: 6 }}>Pengiriman massal butuh perangkat WhatsApp yang tersambung.</div>
+                  <div style={{ color: 'var(--text-muted)' }}>{waConnectText}</div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowWaConnectModal(false)}>Nanti</button>
+                <button className="btn btn-primary btn-inline-icon" onClick={() => navigate('/admin/connect')}>
+                  <Zap size={14} /> Sambungkan perangkat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showBroadcastModeModal && (
           <div className="modal-overlay modal-overlay-priority">
             <div className="modal broadcast-modal broadcast-modal-mobile" style={{maxWidth: 380, textAlign: 'center'}}>
@@ -637,7 +1117,15 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Telepon (WA)</label><input className="form-input" placeholder="08xxx (untuk WA)" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
-                  <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
+                  <div className="form-group"><label className="form-label">Kategori</label><input className="form-input" placeholder="Kategori (bebas)" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })} /></div>
+                  <div className="form-group">
+                    <label className="form-label">Data Tambahan (opsional)</label>
+                    <ExtraFieldsEditor
+                      rows={addExtraRows}
+                      setRows={setAddExtraRows}
+                      onTextChange={(text) => setNewParticipant(prev => ({ ...prev, extraFieldsText: text }))}
+                    />
+                  </div>
                   <div className="form-group checkbox-inline-row">
                     <input type="checkbox" id="m-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} className="checkbox-brand" />
                     <label htmlFor="m-auto-send" className="checkbox-inline-label">Kirim WA / Email otomatis</label>
@@ -687,12 +1175,21 @@ export default function Participants() {
     <div className="page-container">
       <FileInput />
       <ImportModal />
+      <EditModal />
 
       <div className="page-header">
         <span className="page-kicker">Data acara</span>
         <h1>Kelola peserta</h1>
         <p>{allParticipants.length} peserta terdaftar · {checkedCount} sudah check-in. Import, broadcast WA, dan hapus memerlukan konfirmasi sesuai kebijakan Anda.</p>
       </div>
+
+      {showWaConnectBanner && (
+        <WaConnectBanner
+          wa={waConn}
+          title="WhatsApp belum siap"
+          className=""
+        />
+      )}
 
       <div className="participants-toolbar">
         <div className="search-bar participants-search">
@@ -723,7 +1220,7 @@ export default function Participants() {
         <button className="btn btn-ghost btn-sm btn-inline-icon" onClick={downloadTemplate} title="Download template Excel">
           <Download size={14} /> Template Excel
         </button>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}><UserPlus size={14} /> Tambah Peserta</button>
+        <button className="btn btn-primary" onClick={openAddModal}><UserPlus size={14} /> Tambah Peserta</button>
       </div>
 
       <div className="table-container animate-fade-in-up">
@@ -740,7 +1237,12 @@ export default function Participants() {
               <tr key={p.id}>
                 <td className="td-muted">{i + 1}</td>
                 <td><code className="ticket-id-code">{p.ticket_id}</code></td>
-                <td className="td-strong">{p.name}</td>
+                <td className="td-strong">
+                  {p.name}
+                  {getMetaPreview(p.meta) && (
+                    <div className="td-extra">{getMetaPreview(p.meta)}</div>
+                  )}
+                </td>
                 <td className="td-secondary">{p.phone}</td>
                 <td><span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span></td>
                 <td>{p.is_checked_in ? <span className="badge badge-green"><CheckCircle size={10} /> Check-in</span> : <span className="badge badge-gray">Belum</span>}</td>
@@ -752,6 +1254,9 @@ export default function Participants() {
                   <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-whatsapp btn-sm" title="Kirim Manual (WA Web)">
                     <MessageCircle size={14} />
                   </a>
+                  <button className="btn btn-ghost btn-blue btn-sm" onClick={() => openEditParticipant(p)} title="Ubah data peserta">
+                    <Edit3 size={14} />
+                  </button>
                   <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDelete(p)} title="Hapus">
                     <Trash2 size={14} />
                   </button>
@@ -765,6 +1270,29 @@ export default function Participants() {
       <div className="summary-muted">
         Menampilkan {participants.length} dari {allParticipants.length} peserta
       </div>
+
+      {showWaConnectModal && (
+        <div className="modal-overlay modal-overlay-priority" onClick={() => setShowWaConnectModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="modal-header">
+              <h3 className="modal-title">WhatsApp belum tersambung</h3>
+              <button type="button" className="modal-close" onClick={() => setShowWaConnectModal(false)}><X size={14} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="admin-note" style={{ marginBottom: 0 }}>
+                <div style={{ fontWeight: 750, marginBottom: 6 }}>Pengiriman massal butuh perangkat WhatsApp yang tersambung.</div>
+                <div style={{ color: 'var(--text-muted)' }}>{waConnectText}</div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowWaConnectModal(false)}>Nanti</button>
+              <button type="button" className="btn btn-primary btn-inline-icon" onClick={() => navigate('/admin/connect')}>
+                <Zap size={14} /> Sambungkan perangkat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showBroadcastModeModal && (
         <div className="modal-overlay modal-overlay-priority">
@@ -827,7 +1355,15 @@ export default function Participants() {
                   <div className="form-group"><label className="form-label">Alamat Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
                 </div>
                 <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
-                <div className="form-group"><label className="form-label">Kategori</label><select className="form-select" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })}><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="Dealer">Dealer</option><option value="Media">Media</option></select></div>
+                <div className="form-group"><label className="form-label">Kategori</label><input className="form-input" placeholder="Kategori (bebas)" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })} /></div>
+                <div className="form-group">
+                  <label className="form-label">Data Tambahan (opsional)</label>
+                  <ExtraFieldsEditor
+                    rows={addExtraRows}
+                    setRows={setAddExtraRows}
+                    onTextChange={(text) => setNewParticipant(prev => ({ ...prev, extraFieldsText: text }))}
+                  />
+                </div>
                 <div className="form-group auto-send-card">
                   <input type="checkbox" id="d-auto-send" checked={newParticipant.auto_send} onChange={e => setNewParticipant({ ...newParticipant, auto_send: e.target.checked })} className="checkbox-success" />
                   <div>

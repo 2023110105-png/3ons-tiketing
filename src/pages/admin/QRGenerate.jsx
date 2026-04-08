@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding, regenerateSecureQRTokens } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
-import { getWhatsAppShareLink } from '../../utils/whatsapp'
+import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import BarcodeImport from './BarcodeImport'
 
 const CATEGORY_STYLES = {
@@ -107,112 +107,190 @@ export default function QRGenerate() {
       ctx.fillText(`${clipped}...`, x, y)
     }
 
-    // Latar belakang
+    const normalizeMetaKey = (s) => String(s || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+
+    const getMetaValue = (p, wantedLabel) => {
+      const meta = p?.meta && typeof p.meta === 'object' ? p.meta : {}
+      const target = normalizeMetaKey(wantedLabel)
+      const foundKey = Object.keys(meta).find(k => normalizeMetaKey(k) === target)
+      if (!foundKey) return ''
+      const v = meta[foundKey]
+      return v === undefined || v === null ? '' : String(v)
+    }
+
+    const radius = Math.round(Math.min(width, height) * 0.035)
+    const pad = 22
+    const safeX = pad
+    const safeY = pad
+    const safeW = width - pad * 2
+    const safeH = height - pad * 2
+
+    const roundedRectPath = (x, y, w, h, r) => {
+      const rr = Math.max(0, Math.min(r, Math.min(w, h) / 2))
+      ctx.beginPath()
+      ctx.moveTo(x + rr, y)
+      ctx.arcTo(x + w, y, x + w, y + h, rr)
+      ctx.arcTo(x + w, y + h, x, y + h, rr)
+      ctx.arcTo(x, y + h, x, y, rr)
+      ctx.arcTo(x, y, x + w, y, rr)
+      ctx.closePath()
+    }
+
+    const fillRoundedRect = (x, y, w, h, r, fillStyle) => {
+      roundedRectPath(x, y, w, h, r)
+      ctx.fillStyle = fillStyle
+      ctx.fill()
+    }
+
+    const strokeRoundedRect = (x, y, w, h, r, strokeStyle, lineWidth = 1) => {
+      roundedRectPath(x, y, w, h, r)
+      ctx.strokeStyle = strokeStyle
+      ctx.lineWidth = lineWidth
+      ctx.stroke()
+    }
+
+    // Latar belakang (kertas halus)
     const bg = ctx.createLinearGradient(0, 0, width, height)
     bg.addColorStop(0, '#fffefb')
-    bg.addColorStop(1, '#f8fbff')
+    bg.addColorStop(1, '#f7fbff')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, width, height)
 
-    // Bingkai luar + area aman cetak
-    ctx.strokeStyle = '#d8dce7'
-    ctx.lineWidth = 3
-    ctx.strokeRect(12, 12, width - 24, height - 24)
-    ctx.strokeStyle = '#eef2f7'
-    ctx.lineWidth = 1
-    ctx.strokeRect(24, 24, width - 48, height - 48)
+    // Shadow + body tiket
+    ctx.save()
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.18)'
+    ctx.shadowBlur = 28
+    ctx.shadowOffsetY = 12
+    fillRoundedRect(safeX, safeY, safeW, safeH, radius, '#ffffff')
+    ctx.restore()
 
-    // Garis aksen atas
-    ctx.fillStyle = style.accent
-    ctx.fillRect(12, 12, width - 24, 20)
+    // Border tiket
+    strokeRoundedRect(safeX, safeY, safeW, safeH, radius, '#dfe6ef', 2)
+    strokeRoundedRect(safeX + 10, safeY + 10, safeW - 20, safeH - 20, Math.max(10, radius - 8), '#eef2f7', 1)
+
+    // Aksen atas (gradient biar lebih “brand”)
+    const topH = 18
+    const topGrad = ctx.createLinearGradient(safeX, safeY, safeX + safeW, safeY)
+    topGrad.addColorStop(0, style.accent)
+    topGrad.addColorStop(0.55, '#4da6e8')
+    topGrad.addColorStop(1, '#e84393')
+    fillRoundedRect(safeX, safeY, safeW, topH + 6, radius, topGrad)
 
     // Dekorasi pita kanan
-    ctx.fillStyle = `${style.accent}20`
+    ctx.fillStyle = `${style.accent}1f`
     ctx.beginPath()
-    ctx.moveTo(width - 190, 32)
-    ctx.lineTo(width - 24, 32)
-    ctx.lineTo(width - 24, 98)
+    ctx.moveTo(safeX + safeW - 190, safeY + 14)
+    ctx.lineTo(safeX + safeW - 10, safeY + 14)
+    ctx.lineTo(safeX + safeW - 10, safeY + 92)
     ctx.closePath()
     ctx.fill()
 
+    const qrX = safeX + safeW - qrSize - 56
+    const qrY = safeY + 88
+    const leftX = safeX + 20
+    const leftY = safeY + 34
+    const leftW = qrX - leftX - 18
+    const leftH = safeY + safeH - leftY - 20
+
     // Panel informasi kiri
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(42, 56, width - qrSize - 110, height - 96)
-    ctx.strokeStyle = '#edf0f6'
-    ctx.lineWidth = 2
-    ctx.strokeRect(42, 56, width - qrSize - 110, height - 96)
+    fillRoundedRect(leftX, leftY, leftW, leftH, Math.max(14, radius - 10), '#ffffff')
+    strokeRoundedRect(leftX, leftY, leftW, leftH, Math.max(14, radius - 10), '#edf0f6', 2)
 
     // Panel QR
-    const qrX = width - qrSize - 58
-    const qrY = 100
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32)
-    ctx.strokeStyle = style.accent
-    ctx.lineWidth = 4
-    ctx.strokeRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32)
+    fillRoundedRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 18, '#ffffff')
+    strokeRoundedRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 18, style.accent, 4)
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
+
+    // Perforation line
+    const perfX = qrX - 32
+    ctx.save()
+    ctx.strokeStyle = '#e5e7eb'
+    ctx.lineWidth = 2
+    ctx.setLineDash([2, 8])
+    ctx.beginPath()
+    ctx.moveTo(perfX, safeY + 56)
+    ctx.lineTo(perfX, safeY + safeH - 28)
+    ctx.stroke()
+    ctx.restore()
+
+    // Watermark brand halus
+    ctx.save()
+    ctx.globalAlpha = 0.05
+    ctx.fillStyle = style.accent
+    ctx.font = '900 90px "Arial"'
+    ctx.translate(leftX + 40, safeY + safeH - 80)
+    ctx.rotate(-0.12)
+    ctx.fillText(String(brandLabel || '3oNs').toUpperCase(), 0, 0)
+    ctx.restore()
 
     // Teks header
     ctx.fillStyle = '#0f172a'
-    ctx.font = '800 44px "Arial"'
-    ctx.fillText('E-TICKET', 64, 114)
+    ctx.font = '900 40px "Arial"'
+    ctx.fillText('E-TICKET', leftX + 22, leftY + 74)
 
     ctx.fillStyle = '#475569'
-    ctx.font = '600 21px "Arial"'
-    drawClampText(eventLabel || 'Event Pass', 64, 146, width - qrSize - 170)
+    ctx.font = '700 19px "Arial"'
+    drawClampText(eventLabel || 'Event Pass', leftX + 22, leftY + 104, leftW - 44)
 
     // Identitas header
     ctx.fillStyle = '#64748b'
-    ctx.font = '700 13px "Arial"'
-    drawClampText((brandLabel || '3oNs Digital').toUpperCase(), 64, 166, width - qrSize - 170)
+    ctx.font = '800 12px "Arial"'
+    drawClampText((brandLabel || '3oNs Digital').toUpperCase(), leftX + 22, leftY + 126, leftW - 44)
 
     // Lencana kategori
-    ctx.fillStyle = style.soft
-    ctx.fillRect(64, 184, 198, 44)
-    ctx.strokeStyle = style.accent
-    ctx.lineWidth = 2
-    ctx.strokeRect(64, 184, 198, 44)
+    fillRoundedRect(leftX + 22, leftY + 140, 176, 42, 14, style.soft)
+    strokeRoundedRect(leftX + 22, leftY + 140, 176, 42, 14, style.accent, 2)
     ctx.fillStyle = style.dark
-    ctx.font = '800 20px "Arial"'
-    ctx.fillText(style.label, 84, 214)
+    ctx.font = '900 18px "Arial"'
+    drawClampText(String(participant.category || style.label || '-'), leftX + 42, leftY + 168, 150)
 
     // Participant details
     ctx.fillStyle = '#0f172a'
-    ctx.font = '700 30px "Arial"'
-    drawClampText(participant.name || '-', 64, 276, width - qrSize - 170)
+    ctx.font = '900 30px "Arial"'
+    drawClampText(participant.name || '-', leftX + 22, leftY + 238, leftW - 44)
 
     ctx.fillStyle = '#64748b'
     ctx.font = '700 14px "Arial"'
-    ctx.fillText('ID TIKET', 64, 316)
-    ctx.fillText('HARI', 64, 358)
-    ctx.fillText('KATEGORI', 64, 400)
+    ctx.fillText('ID TIKET', leftX + 22, leftY + 282)
+    ctx.fillText('HARI', leftX + 22, leftY + 332)
+    ctx.fillText('KATEGORI', leftX + 22, leftY + 382)
 
     ctx.fillStyle = '#1e293b'
-    ctx.font = '700 24px "Arial"'
-    ctx.fillText(participant.ticket_id, 64, 340)
-    ctx.fillText(String(participant.day_number), 64, 382)
-    ctx.fillText(style.label, 64, 424)
+    ctx.font = '900 24px "Arial"'
+    ctx.fillText(String(participant.ticket_id || '-'), leftX + 22, leftY + 308)
+    ctx.font = '900 22px "Arial"'
+    ctx.fillText(String(participant.day_number || '-'), leftX + 22, leftY + 358)
+    ctx.font = '900 22px "Arial"'
+    drawClampText(String(participant.category || style.label || '-'), leftX + 22, leftY + 408, leftW - 44)
 
     // Divider before notes
-    ctx.strokeStyle = '#e2e8f0'
+    ctx.strokeStyle = '#e5e7eb'
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(64, 442)
-    ctx.lineTo(width - qrSize - 84, 442)
+    ctx.moveTo(leftX + 22, leftY + leftH - 94)
+    ctx.lineTo(leftX + leftW - 22, leftY + leftH - 94)
     ctx.stroke()
 
     // Footer notes
     ctx.fillStyle = '#334155'
     ctx.font = '700 14px "Arial"'
-    ctx.fillText('Valid untuk 1 orang. Dilarang duplikasi tiket.', 64, 468)
+    ctx.fillText('Valid untuk 1 orang. Dilarang duplikasi tiket.', leftX + 22, leftY + leftH - 64)
     ctx.fillStyle = '#64748b'
     ctx.font = '600 13px "Arial"'
-    ctx.fillText('Tunjukkan tiket ini saat registrasi di pintu masuk.', 64, 490)
+    const tl = getMetaValue(participant, 'Tanggal Lahir')
+    ctx.fillText(tl ? `Tanggal Lahir: ${tl}` : 'Tunjukkan tiket ini saat registrasi di pintu masuk.', leftX + 22, leftY + leftH - 42)
 
     // Scan note
     ctx.fillStyle = '#1e293b'
-    ctx.font = '700 16px "Arial"'
-    ctx.fillText('Scan QR di pintu masuk', qrX + 40, qrY + qrSize + 42)
+    ctx.font = '800 14px "Arial"'
+    ctx.fillText('Scan QR di pintu masuk', qrX + 24, qrY + qrSize + 44)
+    ctx.fillStyle = '#64748b'
+    ctx.font = '700 12px "Arial"'
+    ctx.fillText('Jaga layar tetap terang untuk scan cepat', qrX + 24, qrY + qrSize + 64)
 
     return canvas.toDataURL('image/png', 1)
   }
@@ -244,16 +322,8 @@ export default function QRGenerate() {
     const eventLabel = String(
       (activeEventName && activeEventName !== '-') ? activeEventName : (ticketBranding.eventName || 'Event')
     ).trim()
-
-    const message = `🎫 *E-Ticket*\n\n` +
-      `Halo *${participant.name}*,\n` +
-      `Berikut informasi tiket Anda:\n\n` +
-      `📋 ID Tiket: *${participant.ticket_id}*\n` +
-      `📂 Kategori: *${participant.category}*\n` +
-      `📅 Hari: *${participant.day_number}*\n\n` +
-      `Silakan tunjukkan QR ini saat registrasi di lokasi acara.\n` +
-      `Terima kasih!\n\n` +
-      `_${eventLabel || 'Event Platform'}_`
+    const base = generateWaMessage(participant)
+    const message = `${base}\n\nSilakan tunjukkan QR ini saat registrasi di lokasi acara.\nTerima kasih!\n\n_${eventLabel || 'Event Platform'}_`
 
     // Try Web Share API first (works on mobile, can share files)
     if (navigator.share) {

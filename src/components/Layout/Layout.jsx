@@ -5,7 +5,7 @@ import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentE
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
   BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck,
-  FileText, Eye, History, Activity, Database, Bell
+  FileText, Eye, History, Activity, Database, Bell, MessageCircle
 } from 'lucide-react'
 
 export default function Layout({ children }) {
@@ -138,6 +138,8 @@ export default function Layout({ children }) {
   const adminNav = [
     { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
     { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
+    { path: '/admin/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
+    { path: '/admin/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
     { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
     { path: '/admin/qr-generate', icon: <QrCode size={18} />, label: 'Buat QR' },
     { path: '/admin/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },

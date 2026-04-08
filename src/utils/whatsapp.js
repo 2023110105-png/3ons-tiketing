@@ -1,13 +1,36 @@
 import { getWaTemplate } from '../store/mockData'
 
+function normalizeTokenKey(key) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+}
+
 // Helper function to replace {{nama}}, {{tiket}}, etc in the template
+// + Supports extra placeholders from participant.meta (e.g. {{tanggal_lahir}}, {{catatan}})
 export const generateWaMessage = (participant) => {
-  const template = getWaTemplate();
-  return template
-    .replace(/\{\{nama\}\}/g, participant.name || '')
-    .replace(/\{\{tiket\}\}/g, participant.ticket_id || '')
-    .replace(/\{\{hari\}\}/g, participant.day_number || '')
-    .replace(/\{\{kategori\}\}/g, participant.category || '');
+  const template = String(getWaTemplate() || '')
+  const p = participant || {}
+
+  let message = template
+    .replace(/\{\{nama\}\}/g, p.name || '')
+    .replace(/\{\{tiket\}\}/g, p.ticket_id || '')
+    .replace(/\{\{hari\}\}/g, p.day_number || '')
+    .replace(/\{\{kategori\}\}/g, p.category || '')
+
+  const meta = p?.meta && typeof p.meta === 'object' ? p.meta : {}
+  Object.entries(meta).forEach(([rawKey, rawVal]) => {
+    const tokenKey = normalizeTokenKey(rawKey)
+    if (!tokenKey) return
+    const token = `{{${tokenKey}}}`
+    const val = rawVal === undefined || rawVal === null ? '' : String(rawVal)
+    // Replace all occurrences of token.
+    message = message.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), val)
+  })
+
+  return message
 }
 
 /**

@@ -16,6 +16,8 @@ const loadFrontGate = () => import('./pages/gate/FrontGate')
 const loadBackGate = () => import('./pages/gate/BackGate')
 const loadSettings = () => import('./pages/admin/Settings')
 const loadConnectDevice = () => import('./pages/admin/ConnectDevice')
+const loadOpsMonitor = () => import('./pages/admin/OpsMonitor')
+const loadWaDelivery = () => import('./pages/admin/WaDelivery')
 const loadOwnerPanel = () => import('./pages/owner/OwnerPanel')
 
 const Login = lazy(loadLogin)
@@ -27,6 +29,8 @@ const FrontGate = lazy(loadFrontGate)
 const BackGate = lazy(loadBackGate)
 const Settings = lazy(loadSettings)
 const ConnectDevice = lazy(loadConnectDevice)
+const OpsMonitor = lazy(loadOpsMonitor)
+const WaDelivery = lazy(loadWaDelivery)
 const OwnerPanel = lazy(loadOwnerPanel)
 
 function RouteFallback() {
@@ -156,6 +160,16 @@ function AppRoutes() {
       <Route path="/admin/reports" element={
         <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
           <Reports />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/ops" element={
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
+          <OpsMonitor />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/wa-delivery" element={
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client']}>
+          <WaDelivery />
         </ProtectedRoute>
       } />
       <Route path="/admin/settings" element={

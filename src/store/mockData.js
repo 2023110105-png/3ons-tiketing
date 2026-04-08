@@ -882,7 +882,46 @@ function normalizeParticipantDay(value, fallback = 1) {
 
 function normalizeParticipantCategory(value) {
   const clean = String(value || '').trim()
-  return categories.find(c => c.toLowerCase() === clean.toLowerCase()) || 'Regular'
+  if (!clean) return 'Regular'
+  const matched = categories.find(c => c.toLowerCase() === clean.toLowerCase())
+  return matched || clean
+}
+
+function normalizeKey(rawKey) {
+  return String(rawKey || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+}
+
+function extractParticipantExtras(raw = {}) {
+  // Store all unknown columns as participant.meta so client can customize fields.
+  // Example: "Tanggal Lahir" will be kept even if not part of system columns.
+  const known = new Set([
+    'name', 'nama',
+    'phone', 'telepon', 'hp',
+    'email', 'email_address',
+    'category', 'kategori',
+    'day_number', 'day', 'hari',
+    'auto_send', 'auto_send_email', 'auto_send_wa',
+    'auto_send_email', 'auto_send',
+    'id', 'ticket_id', 'secure_code', 'secure_ref',
+    'qr_data', 'is_checked_in', 'checked_in_at', 'checked_in_by',
+    'created_at'
+  ])
+
+  const extras = {}
+  Object.keys(raw || {}).forEach((k) => {
+    const nk = normalizeKey(k)
+    if (known.has(nk) || nk === 'meta') return
+    const v = raw?.[k]
+    if (v === undefined || v === null) return
+    const s = typeof v === 'string' ? v.trim() : String(v).trim()
+    if (!s) return
+    extras[k] = s
+  })
+
+  return extras
 }
 
 function toSafeCode(value) {
@@ -984,7 +1023,8 @@ function sanitizeParticipantInput(data, fallbackDay = 1) {
     phone: normalizeParticipantPhone(data?.phone),
     email: normalizeParticipantEmail(data?.email),
     category: normalizeParticipantCategory(data?.category),
-    day_number: normalizeParticipantDay(data?.day_number, fallbackDay)
+    day_number: normalizeParticipantDay(data?.day_number, fallbackDay),
+    meta: extractParticipantExtras(data)
   }
 }
 
@@ -2037,6 +2077,7 @@ export function addParticipant(data) {
     email: clean.email,
     category: clean.category,
     day_number: clean.day_number,
+    meta: clean.meta || {},
     qr_data: encodeQrPayload({
       ticketId,
       name,
@@ -2188,6 +2229,71 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
   return { success: true }
 }
 
+export function updateParticipant(id, actor = 'system', patch = {}, reason = '') {
+  const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
+  const participant = ev.participants.find(p => p.id === id)
+  if (!participant) return { success: false, error: 'Peserta tidak ditemukan' }
+
+  // Do not allow dangerous day changes after check-in (keeps audit/verification consistent).
+  if (participant.is_checked_in && patch?.day_number !== undefined && patch.day_number !== participant.day_number) {
+    return { success: false, error: 'Peserta sudah check-in. Hari tidak bisa diubah.' }
+  }
+
+  const safeName = patch?.name !== undefined ? normalizeParticipantName(patch?.name) : participant.name
+  const safePhone = patch?.phone !== undefined ? normalizeParticipantPhone(patch?.phone) : participant.phone
+  const safeEmail = patch?.email !== undefined ? normalizeParticipantEmail(patch?.email) : participant.email
+  const safeCategory = patch?.category !== undefined ? normalizeParticipantCategory(patch?.category) : participant.category
+  const safeDayNumber = patch?.day_number !== undefined
+    ? normalizeParticipantDay(patch?.day_number, participant.day_number)
+    : participant.day_number
+
+  let safeMeta = participant.meta || {}
+  if (patch?.meta && typeof patch.meta === 'object') {
+    safeMeta = {}
+    Object.entries(patch.meta).forEach(([k, v]) => {
+      const key = String(k || '').trim()
+      if (!key) return
+      const value = v === undefined || v === null ? '' : String(v).trim()
+      if (!value) return
+      safeMeta[key] = value
+    })
+  }
+
+  participant.name = safeName || participant.name
+  participant.phone = safePhone
+  participant.email = safeEmail
+  participant.category = safeCategory
+  participant.day_number = safeDayNumber
+  participant.meta = safeMeta
+
+  // Regenerate QR payload so day/name changes reflect in ticket QR verification.
+  participant.qr_data = encodeQrPayload({
+    ticketId: participant.ticket_id,
+    name: participant.name,
+    dayNumber: participant.day_number,
+    tenantId: tenant.id,
+    eventId: ev.id,
+    secureCode: participant.secure_code,
+    secureRef: participant.secure_ref
+  })
+
+  saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
+  void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
+
+  const cleanReason = normalizeReason(reason)
+  const description = cleanReason
+    ? `Ubah peserta ${participant.name} (${participant.ticket_id}) | Alasan: ${cleanReason}`
+    : `Ubah peserta ${participant.name} (${participant.ticket_id})`
+  logAdminAction('participant_update', description, actor, {
+    participant_id: participant.id,
+    day_number: participant.day_number
+  })
+
+  return { success: true, participant }
+}
+
 export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   const ev = getActiveEvent()
   const tenant = getActiveTenantState()
@@ -2248,26 +2354,94 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   }
 }
 
-export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
+export function bulkAddParticipants(rows, dayNumber, actor = 'system', options = {}) {
   const added = []
+  const updated = []
+  const skipped = []
   const errors = []
+
+  const duplicatesPolicy = String(options?.duplicatesPolicy || 'add').toLowerCase() // add|skip|overwrite|block
+  const matchBy = String(options?.matchBy || 'phone').toLowerCase() // saat ini: phone
+
+  const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
+  const fallbackDay = normalizeParticipantDay(dayNumber, 1)
 
   rows.forEach((row, index) => {
     const name = String(row.name || row.nama || row.Name || row.Nama || '').trim()
-    const phone = String(row.phone || row.telepon || row.Phone || row.Telepon || row.hp || row.HP || '').trim()
-    const email = String(row.email || row.Email || row.email_address || '').trim()
+    const phoneRaw = String(row.phone || row.telepon || row.Phone || row.Telepon || row.hp || row.HP || '').trim()
+    const phone = normalizeParticipantPhone(phoneRaw)
+    const emailRaw = String(row.email || row.Email || row.email_address || '').trim()
+    const email = normalizeParticipantEmail(emailRaw)
     const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
+    const matchedCat = normalizeParticipantCategory(category)
     const parsedDay = Number(row.day_number || row.day || row.hari || row.Hari || row.Day || row.Day_Number)
-    const rowDay = normalizeParticipantDay(parsedDay, normalizeParticipantDay(dayNumber, 1))
+    const rowDay = normalizeParticipantDay(parsedDay, fallbackDay)
+    const extras = extractParticipantExtras(row)
 
     if (!name) {
       errors.push({ row: index + 1, error: 'Nama kosong' })
       return
     }
 
-    const matchedCat = normalizeParticipantCategory(category)
+    // Duplicate detection: same day + same phone (WA)
+    const existing =
+      matchBy === 'phone' && phone
+        ? ev.participants.find(p => p.day_number === rowDay && normalizeParticipantPhone(p.phone) === phone) || null
+        : null
 
+    if (existing) {
+      // If user chooses to prevent duplicates, handle here.
+      if (duplicatesPolicy === 'skip' || duplicatesPolicy === 'skipped') {
+        skipped.push(existing.id)
+        return
+      }
+      if (duplicatesPolicy === 'block') {
+        errors.push({ row: index + 1, error: `Duplikat ditemukan (telepon: ${phone}). Baris dibatalkan.` })
+        return
+      }
+      if (duplicatesPolicy === 'add') {
+        // "add" means keep old behavior: still add new participant.
+        // Note: ticket_id will be different, so it's technically not a duplicate in this system.
+      } else if (duplicatesPolicy !== 'overwrite') {
+        // Unknown policy: fallback to overwrite for safety.
+      }
+
+      if (duplicatesPolicy === 'overwrite' && existing) {
+        if (existing.is_checked_in) {
+          errors.push({ row: index + 1, error: `Duplikat ditemukan tapi peserta sudah check-in. Baris dilewati.` })
+          return
+        }
+
+        existing.name = name
+        existing.phone = phone
+        existing.email = email
+        existing.category = matchedCat
+        existing.day_number = rowDay
+        existing.meta = { ...(existing.meta || {}), ...extras }
+
+        // Regenerate QR payload to reflect updated name/day.
+        existing.qr_data = encodeQrPayload({
+          ticketId: existing.ticket_id,
+          name: existing.name,
+          dayNumber: existing.day_number,
+          tenantId: tenant.id,
+          eventId: ev.id,
+          secureCode: existing.secure_code,
+          secureRef: existing.secure_ref
+        })
+
+        saveStore()
+        void syncEventSnapshot({ tenantId: tenant.id, event: ev })
+        void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: existing })
+        updated.push(existing)
+        return
+      }
+    }
+
+    // Default: create a new participant (existing behavior)
     const participant = addParticipant({
+      ...row,
       name,
       phone,
       email,
@@ -2279,7 +2453,7 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system') {
     added.push(participant)
   })
 
-  return { added, errors, total: rows.length }
+  return { added, updated, skipped, errors, total: rows.length }
 }
 
 export function searchParticipants(query, dayFilter = null) {
