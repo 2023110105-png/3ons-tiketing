@@ -539,6 +539,29 @@ app.get('/api/wa/runtime', (_req, res) => {
     res.json(buildRuntimeInfo());
 });
 
+// Debug preview: render ticket image from current backend renderer
+app.get('/api/wa/debug-ticket-image', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    try {
+        const participant = {
+            name: String(req.query.name || 'Peserta Uji'),
+            ticket_id: String(req.query.ticket_id || 'DEBUG-001'),
+            category: String(req.query.category || 'Regular'),
+            day_number: Number(req.query.day_number || 1),
+            qr_data: String(req.query.qr_data || 'DEBUG-QR-DATA')
+        };
+        const imageBuffer = await buildTicketQrImageNode(participant, {
+            eventLabel: String(req.query.event_name || 'Event Platform'),
+            brandLabel: String(req.query.brand_name || '3oNs Digital')
+        });
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.send(imageBuffer);
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
+});
+
 // Delivery log: latest WA send attempts
 app.get('/api/wa/send-log', async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
