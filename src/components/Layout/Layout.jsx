@@ -277,7 +277,7 @@ export default function Layout({ children }) {
               <Menu size={20} />
             </button>
             <Link to="/" className="logo-3ons logo-3ons--image" aria-label="3oNs Studio Digital">
-              <img src="/brand-logo.svg" alt="3oNs Studio Digital" className="brand-logo-image" />
+              <img src="/brand-logo.svg?v=20260409" alt="3oNs Studio Digital" className="brand-logo-image" />
             </Link>
           </div>
           <div className="header-right">
