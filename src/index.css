@@ -4553,6 +4553,7 @@ button:focus-visible,
   padding: 10px 14px;
   border-top: 1px solid var(--border-color);
   transition: background var(--transition-fast);
+  flex-wrap: wrap;
 }
 
 .m-activity-card:active {
@@ -4593,6 +4594,7 @@ button:focus-visible,
   margin-top: 2px;
   font-size: 0.68rem;
   color: var(--text-muted);
+  flex-wrap: wrap;
 }
 
 .m-activity-time {
@@ -4600,6 +4602,22 @@ button:focus-visible,
   color: var(--text-muted);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.m-activity-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.m-activity-actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* --- Mobile Empty State --- */

@@ -314,9 +314,9 @@ export default function WaDelivery() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                      <div className="m-activity-actions">
                         <div className="m-activity-time">{formatTime(row.time)}</div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <div className="m-activity-actions-row">
                           {isFailed && (
                             <button
                               type="button"
