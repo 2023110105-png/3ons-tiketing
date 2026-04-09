@@ -1959,6 +1959,9 @@ function mergePersistedLocalParticipantsIntoHydratedStore(nextStore, localStore)
 
       const remotePs = asArray(nextEv.participants)
       const localPs = asArray(localEv.participants)
+      const deletedByRemote = (nextEv?.deletedParticipantIds && typeof nextEv.deletedParticipantIds === 'object')
+        ? nextEv.deletedParticipantIds
+        : {}
       const byId = new Map()
       for (const p of remotePs) {
         if (p?.id) byId.set(p.id, p)
@@ -1968,6 +1971,7 @@ function mergePersistedLocalParticipantsIntoHydratedStore(nextStore, localStore)
       for (const p of localPs) {
         if (!p?.id) continue
         if (deletedParticipantTombstones[p.id]) continue
+        if (deletedByRemote[p.id]) continue
         if (!byId.has(p.id)) {
           byId.set(p.id, p)
           onlyLocal.push(p)
@@ -2011,6 +2015,9 @@ function salvageLargestParticipantListIntoActiveEvent(nextStore, ...sources) {
   const activeEv = bucket.events[eid]
   if (!activeEv) return
   if (asArray(activeEv.participants).length > 0) return
+  const activeDeletedMap = (activeEv?.deletedParticipantIds && typeof activeEv.deletedParticipantIds === 'object')
+    ? activeEv.deletedParticipantIds
+    : {}
 
   let best = []
   for (const src of sources) {
@@ -2018,7 +2025,11 @@ function salvageLargestParticipantListIntoActiveEvent(nextStore, ...sources) {
     const localBucket = src.tenants[tid]
     if (!localBucket?.events) continue
     for (const lev of Object.values(localBucket.events)) {
-      const ps = asArray(lev?.participants).filter((p) => p?.id && !deletedParticipantTombstones[p.id])
+      const ps = asArray(lev?.participants).filter((p) => (
+        p?.id
+        && !deletedParticipantTombstones[p.id]
+        && !activeDeletedMap[p.id]
+      ))
       if (ps.length > best.length) best = ps
     }
   }
@@ -2825,8 +2836,9 @@ export function addParticipant(data) {
         if (!res.ok || payload?.success === false) return
         const latest = getParticipant(participant.id)
         if (latest) {
-          latest.qr_locked = true
-          latest.wa_sent_at = new Date().toISOString()
+          const sentWithBarcode = waSendMode !== WA_SEND_MODE_MESSAGE_ONLY
+          latest.qr_locked = sentWithBarcode
+          latest.wa_sent_at = sentWithBarcode ? new Date().toISOString() : latest.wa_sent_at
           latest.wa_send_mode = waSendMode
           saveStore()
           void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: latest })

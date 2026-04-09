@@ -518,7 +518,9 @@ export default function Participants() {
       const result = await sendTicketViaBot(targetParticipants[i]);
       if (result?.success) {
         s++
-        markParticipantTicketSent(targetParticipants[i].id, selectedMode)
+        if (selectedMode === 'message_with_barcode') {
+          markParticipantTicketSent(targetParticipants[i].id, selectedMode)
+        }
       } else {
         f++
         if (failureReasons.length < 3) {
