@@ -1,0 +1,59 @@
+[
+  {
+    "tenantId": "d085ccdc-c4d9-4aad-bad5-7525e53b9fef",
+    "time": "2026-04-08T16:07:59.921Z",
+    "phoneList": [
+      "085768644215"
+    ],
+    "results": [
+      {
+        "phone": "085768644215",
+        "status": "Success",
+        "msgId": "3EB031CC7D73B69206D8B4"
+      }
+    ],
+    "ticket_id": "YAMA-D1-001",
+    "category": "Regular",
+    "day_number": 1,
+    "name": "NATA",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "8954bd15-9ecb-426c-bab6-0c9693d681a1",
+    "time": "2026-04-08T16:07:52.703Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB0004AA10E0DEC3AD654"
+      }
+    ],
+    "ticket_id": "ETRI-D1-001",
+    "category": "Regular",
+    "day_number": 1,
+    "name": "muhammad zaki al hakim",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "d085ccdc-c4d9-4aad-bad5-7525e53b9fef",
+    "time": "2026-04-08T16:00:37.769Z",
+    "phoneList": [
+      "085768644215"
+    ],
+    "results": [
+      {
+        "phone": "085768644215",
+        "status": "Success",
+        "msgId": "3EB0FCE200791882570631"
+      }
+    ],
+    "ticket_id": "YAMA-D1-001",
+    "category": "Regular",
+    "day_number": 1,
+    "name": "NATA",
+    "wa_send_mode": "message_with_barcode"
+  }
+]
