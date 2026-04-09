@@ -92,7 +92,7 @@ export default function BillingInvoice() {
     }
   }
 
-  const handlePrintInvoice = (invoice) => {
+  const handlePrintInvoice = async (invoice) => {
     const tenant = tenants.find((t) => t.id === invoice.tenantId)
     const tenantName = tenant ? getTenantDisplayName(tenant) : invoice.tenantName
     const issueDate = new Date(invoice.issued_at)
@@ -103,118 +103,80 @@ export default function BillingInvoice() {
     const subtotal = Math.max(0, amount - tax)
     const notes = String(invoice.notes || '').trim()
 
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=700')
-    if (!printWindow) {
-      toast.error('Gagal', 'Popup diblokir browser. Izinkan popup untuk mencetak invoice.')
-      return
-    }
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+      ])
 
-    const html = `<!doctype html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invoice #${invoice.id}</title>
-  <style>
-    :root { --primary:#0f172a; --accent:#e11d48; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; }
-    * { box-sizing:border-box; }
-    body { margin:0; font-family: Inter, "Segoe UI", Arial, sans-serif; background:var(--bg); color:#0b1220; }
-    .page { max-width:920px; margin:24px auto; background:#fff; border:1px solid var(--line); border-radius:18px; overflow:hidden; box-shadow:0 10px 30px rgba(15,23,42,.08); }
-    .hero { padding:26px 30px; background:linear-gradient(130deg, #0f172a, #1e293b 58%, #334155); color:#fff; display:flex; justify-content:space-between; gap:20px; }
-    .brand-title { margin:0; font-size:24px; letter-spacing:.2px; }
-    .brand-sub { margin-top:6px; color:#cbd5e1; font-size:13px; }
-    .badge { padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:.4px; }
-    .badge.paid { background:#dcfce7; color:#166534; }
-    .badge.unpaid { background:#fef3c7; color:#92400e; }
-    .content { padding:28px 30px 30px; }
-    .meta-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:22px; }
-    .meta-card { border:1px solid var(--line); border-radius:12px; padding:12px; background:#fff; }
-    .meta-label { font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
-    .meta-value { font-size:14px; font-weight:700; }
-    .tenant-box { margin:14px 0 16px; padding:14px; border:1px solid var(--line); border-radius:12px; background:#f8fafc; }
-    table { width:100%; border-collapse:collapse; margin-top:14px; }
-    th, td { padding:12px 10px; border-bottom:1px solid var(--line); text-align:left; font-size:14px; }
-    th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
-    .right { text-align:right; }
-    .totals { margin-top:18px; margin-left:auto; width:320px; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
-    .totals-row { display:flex; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--line); font-size:14px; }
-    .totals-row:last-child { border-bottom:none; font-weight:800; font-size:16px; background:#f8fafc; }
-    .notes { margin-top:18px; border:1px dashed #cbd5e1; border-radius:12px; padding:12px; color:#334155; font-size:13px; white-space:pre-wrap; }
-    .foot { margin-top:20px; color:var(--muted); font-size:12px; display:flex; justify-content:space-between; gap:12px; }
-    @media print {
-      body { background:#fff; }
-      .page { margin:0; border:none; border-radius:0; box-shadow:none; max-width:none; }
-      .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
-  </style>
-</head>
-<body>
-  <main class="page">
-    <section class="hero">
-      <div>
-        <h1 class="brand-title">INVOICE</h1>
-        <div class="brand-sub">Event Platform • Dokumen tagihan resmi</div>
-      </div>
-      <div>
-        <div class="badge ${invoice.status === 'paid' ? 'paid' : 'unpaid'}">${statusLabel}</div>
-      </div>
-    </section>
-    <section class="content">
-      <div class="meta-grid">
-        <div class="meta-card"><div class="meta-label">Invoice ID</div><div class="meta-value">#${invoice.id}</div></div>
-        <div class="meta-card"><div class="meta-label">Periode</div><div class="meta-value">${invoice.period || '-'}</div></div>
-        <div class="meta-card"><div class="meta-label">Tanggal Terbit</div><div class="meta-value">${issueDate.toLocaleDateString('id-ID')}</div></div>
-        <div class="meta-card"><div class="meta-label">Jatuh Tempo</div><div class="meta-value">${dueDate ? dueDate.toLocaleDateString('id-ID') : '-'}</div></div>
-      </div>
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+      const pageW = doc.internal.pageSize.getWidth()
 
-      <div class="tenant-box">
-        <div class="meta-label">Ditagihkan kepada</div>
-        <div class="meta-value">${tenantName}</div>
-        <div style="color:#64748b;font-size:12px;margin-top:4px;">Tenant ID: ${invoice.tenantId}</div>
-      </div>
+      doc.setFillColor(15, 23, 42)
+      doc.rect(0, 0, pageW, 36, 'F')
 
-      <table>
-        <thead>
-          <tr>
-            <th>Deskripsi</th>
-            <th class="right">Subtotal</th>
-            <th class="right">PPN 11%</th>
-            <th class="right">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Biaya layanan platform • Periode ${invoice.period || '-'}</td>
-            <td class="right">Rp ${subtotal.toLocaleString('id-ID')}</td>
-            <td class="right">Rp ${tax.toLocaleString('id-ID')}</td>
-            <td class="right">Rp ${amount.toLocaleString('id-ID')}</td>
-          </tr>
-        </tbody>
-      </table>
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(20)
+      doc.text('INVOICE', 14, 16)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.text('Event Platform • Dokumen tagihan resmi', 14, 23)
 
-      <div class="totals">
-        <div class="totals-row"><span>Subtotal</span><span>Rp ${subtotal.toLocaleString('id-ID')}</span></div>
-        <div class="totals-row"><span>PPN 11%</span><span>Rp ${tax.toLocaleString('id-ID')}</span></div>
-        <div class="totals-row"><span>Total Tagihan</span><span>Rp ${amount.toLocaleString('id-ID')}</span></div>
-      </div>
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.text(`Status: ${statusLabel}`, pageW - 14, 16, { align: 'right' })
 
-      ${notes ? `<div class="notes"><strong>Catatan:</strong>\n${notes}</div>` : ''}
+      doc.setTextColor(30, 41, 59)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text(`Invoice ID: #${invoice.id}`, 14, 46)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Periode: ${invoice.period || '-'}`, 14, 52)
+      doc.text(`Tanggal Terbit: ${issueDate.toLocaleDateString('id-ID')}`, 14, 58)
+      doc.text(`Jatuh Tempo: ${dueDate ? dueDate.toLocaleDateString('id-ID') : '-'}`, 14, 64)
+      doc.text(`Ditagihkan kepada: ${tenantName}`, 14, 70)
+      doc.text(`Tenant ID: ${invoice.tenantId}`, 14, 76)
 
-      <div class="foot">
-        <div>Dokumen dibuat otomatis oleh sistem.</div>
-        <div>Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
-      </div>
-    </section>
-  </main>
-</body>
-</html>`
+      autoTable(doc, {
+        startY: 84,
+        head: [['Deskripsi', 'Subtotal', 'PPN 11%', 'Total']],
+        body: [[
+          `Biaya layanan platform • Periode ${invoice.period || '-'}`,
+          `Rp ${subtotal.toLocaleString('id-ID')}`,
+          `Rp ${tax.toLocaleString('id-ID')}`,
+          `Rp ${amount.toLocaleString('id-ID')}`
+        ]],
+        styles: { fontSize: 10, cellPadding: 3 },
+        headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85] },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      })
 
-    printWindow.document.open()
-    printWindow.document.write(html)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.onload = () => {
-      printWindow.print()
+      const afterTableY = doc.lastAutoTable?.finalY || 110
+      doc.setFont('helvetica', 'bold')
+      doc.text('Ringkasan', 14, afterTableY + 10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Subtotal: Rp ${subtotal.toLocaleString('id-ID')}`, 14, afterTableY + 17)
+      doc.text(`PPN 11%: Rp ${tax.toLocaleString('id-ID')}`, 14, afterTableY + 23)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Total Tagihan: Rp ${amount.toLocaleString('id-ID')}`, 14, afterTableY + 30)
+
+      if (notes) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Catatan', 14, afterTableY + 40)
+        doc.setFont('helvetica', 'normal')
+        const noteLines = doc.splitTextToSize(notes, pageW - 28)
+        doc.text(noteLines, 14, afterTableY + 47)
+      }
+
+      doc.setFontSize(9)
+      doc.setTextColor(100, 116, 139)
+      doc.text(`Dibuat otomatis • ${new Date().toLocaleString('id-ID')}`, 14, 287)
+
+      doc.save(`Invoice_${invoice.id}.pdf`)
+      toast.success('Berhasil', `Invoice #${invoice.id} berhasil diunduh (PDF).`)
+    } catch (err) {
+      toast.error('Gagal', `Tidak bisa membuat PDF invoice. ${err?.message || ''}`.trim())
     }
   }
 
