@@ -228,14 +228,35 @@ function getActiveParticipantsFromEvent(ev, dayFilter = null) {
   const hasDeletedMarks = Object.keys(tombstones).length > 0
   const all = Array.isArray(ev?.participants) ? ev.participants : []
   const targetDay = dayFilter == null ? null : Number(dayFilter)
+  const activeTenantId = String(getActiveTenantState()?.id || '').trim()
+
+  const belongsToActiveTenant = (participant) => {
+    if (!activeTenantId) return true
+    const explicitTenantId = String(participant?.tenant_id || participant?.tenantId || '').trim()
+    if (explicitTenantId) return explicitTenantId === activeTenantId
+    const rawQr = String(participant?.qr_data || '').trim()
+    if (!rawQr) return true
+    try {
+      const parsedQr = JSON.parse(rawQr)
+      const qrTenantId = String(parsedQr?.t || '').trim()
+      if (!qrTenantId) return true
+      return qrTenantId === activeTenantId
+    } catch {
+      // Keep legacy participant rows that don't use JSON QR payloads.
+      return true
+    }
+  }
 
   // Fast path: no day filter and no deleted marks.
-  if (targetDay == null && !hasDeletedMarks) return all
+  if (targetDay == null && !hasDeletedMarks) {
+    return all.filter(belongsToActiveTenant)
+  }
 
   const result = []
   for (const participant of all) {
     if (targetDay != null && Number(participant?.day_number) !== targetDay) continue
     if (participant?.id && tombstones[participant.id]) continue
+    if (!belongsToActiveTenant(participant)) continue
     result.push(participant)
   }
   return result
