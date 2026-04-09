@@ -347,7 +347,7 @@ export default function Participants() {
     const id = window.setInterval(() => {
       const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
       void refreshData(!hidden)
-    }, 12000)
+    }, 30000)
     return () => window.clearInterval(id)
   }, [refreshData])
 
@@ -528,6 +528,17 @@ export default function Participants() {
 
   const getRowDayValue = (row) => row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
 
+  const sanitizeImportRowKeys = (row) => {
+    if (!row || typeof row !== 'object') return row
+    const out = {}
+    Object.entries(row).forEach(([k, v]) => {
+      const key = String(k || '').replace(/^\ufeff/, '').trim()
+      if (!key) return
+      out[key] = v
+    })
+    return out
+  }
+
   const validateImportRows = (rows) => {
     const invalidDayRows = []
     rows.forEach((row, index) => {
@@ -554,7 +565,8 @@ export default function Participants() {
       const preferredIdx = names.findIndex((n) => String(n || '').trim().toLowerCase() === 'template peserta')
       const sheetName = preferredIdx >= 0 ? names[preferredIdx] : names[0]
       const sheet = workbook.Sheets[sheetName]
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
+      const rows = rawRows.map(sanitizeImportRowKeys).filter((r) => r && Object.keys(r).length > 0)
 
       if (rows.length === 0) {
         toast.error('File kosong', 'Tidak ada data di file Excel')
