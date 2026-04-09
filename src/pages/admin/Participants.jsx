@@ -31,6 +31,7 @@ export default function Participants() {
   const [importResult, setImportResult] = useState(null)
   const [importPreview, setImportPreview] = useState(null)
   const [importDuplicatePolicy, setImportDuplicatePolicy] = useState('overwrite') // overwrite|skip|block
+    const [importManualDay, setImportManualDay] = useState('')
   const [showEditModal, setShowEditModal] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [editExtraRows, setEditExtraRows] = useState([])
@@ -630,9 +631,15 @@ export default function Participants() {
       console.log('[IMPORT DEBUG] Data rows yang akan diimport:', rows)
       result = bulkAddParticipants(
         rows,
+            allNoDay
+          })
         dayFilter,
         user,
         { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
+            let finalRows = rows
+            if (manualDay) {
+              finalRows = rows.map((row) => ({ ...row, day_number: manualDay }))
+            }
       )
       console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result)
     } catch (err) {
@@ -689,6 +696,21 @@ export default function Participants() {
   const confirmImport = () => {
     if (!importPreview) return
     executeImportRows(importPreview.rows, importPreview.invalidDayRows || [])
+    setImportManualDay('')
+    // Tambahkan input manual hari pada modal import jika diperlukan
+    // (Letakkan pada komponen/modal import Excel)
+    // Contoh:
+    // {importPreview?.allNoDay && (
+    //   <div style={{margin: '12px 0'}}>
+    //     <label>Pilih Hari untuk Semua Peserta: </label>
+    //     <select value={importManualDay} onChange={e => setImportManualDay(e.target.value)}>
+    //       <option value="">Pilih Hari</option>
+    //       {availableDays.map((d) => (
+    //         <option key={d} value={d}>{`Hari ${d}`}</option>
+    //       ))}
+    //     </select>
+    //   </div>
+    // )}
   }
 
   const fixInvalidDaysToDefault = () => {
