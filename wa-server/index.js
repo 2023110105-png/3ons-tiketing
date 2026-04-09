@@ -602,6 +602,29 @@ function normalizeQRPayload(rawQr) {
     };
 }
 
+function normalizeOutgoingQrData(rawQr, fallback = {}) {
+    const parsed = normalizeQRPayload(rawQr);
+    if (!parsed || !parsed.ticketId || !parsed.tenantId || !parsed.eventId || !parsed.signature || !Number.isFinite(parsed.dayNumber)) {
+        return { ok: false, value: '', reason: 'invalid_qr_payload' };
+    }
+
+    const payload = {
+        tid: parsed.ticketId,
+        n: String(fallback?.name || '').trim() || '',
+        d: parsed.dayNumber,
+        t: parsed.tenantId,
+        e: parsed.eventId,
+        r: parsed.secureRef || '',
+        sig: parsed.signature,
+        v: Number.isFinite(parsed.version) ? parsed.version : 1
+    };
+
+    return {
+        ok: true,
+        value: JSON.stringify(payload)
+    };
+}
+
 // ===== IMPORT BARCODE HELPERS =====
 
 // Helper: Extract QR data from image (base64)
@@ -913,8 +936,18 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
 
     // phones: array nomor WA, phone: satu nomor WA (backward compatible)
     const phoneList = Array.isArray(phones) && phones.length > 0 ? phones : (phone ? [phone] : []);
+    const normalizedQr = normalizeOutgoingQrData(qr_data, { name });
+    if (!normalizedQr.ok) {
+        return res.status(400).json({
+            success: false,
+            error: 'QR data tidak valid. Kirim ulang tiket dari data peserta terbaru.',
+            error_code: 'invalid_qr_payload',
+            tenant_id: tenantId
+        });
+    }
+    const qrData = normalizedQr.value;
     const results = { wa: [], email: null };
-    const qrPublicUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr_data)}`;
+    const qrPublicUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
 
     // PATCH: Simpan mode jika ada input baru
     let waSendMode = getWaSendMode(tenantId);
@@ -927,7 +960,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
         waSendMode = 'message_with_barcode';
         await setWaSendMode(tenantId, waSendMode);
     }
-    const qrHash = shortQrHash(qr_data);
+    const qrHash = shortQrHash(qrData);
     console.log(`[WA SEND MODE] tenant=${tenantId} mode=${waSendMode} ticket=${ticket_id || '-'} qr_hash=${qrHash}`);
 
     let session = getOrCreateTenantSession(tenantId);
@@ -974,7 +1007,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                             ticket_id,
                             category,
                             day_number,
-                            qr_data
+                            qr_data: qrData
                         };
                         // Optionally, you can pass eventLabel/brandLabel if available
                         const imageBuffer = await buildTicketQrImageNode(participant, {});
