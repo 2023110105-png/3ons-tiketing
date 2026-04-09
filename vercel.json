@@ -3,15 +3,15 @@
   "rewrites": [
     {
       "source": "/api/platform/:path*",
-      "destination": "https://yamaha-scan-tiketing-copy-production.up.railway.app/platform/:path*"
+      "destination": "https://yamaha-scan-tiketing-production.up.railway.app/platform/:path*"
     },
     {
       "source": "/api/:path*",
-      "destination": "https://yamaha-scan-tiketing-copy-production.up.railway.app/api/:path*"
+      "destination": "https://yamaha-scan-tiketing-production.up.railway.app/api/:path*"
     },
     {
       "source": "/platform/:path*",
-      "destination": "https://yamaha-scan-tiketing-copy-production.up.railway.app/platform/:path*"
+      "destination": "https://yamaha-scan-tiketing-production.up.railway.app/platform/:path*"
     },
     {
       "source": "/(.*)",
