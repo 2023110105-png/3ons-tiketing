@@ -793,7 +793,7 @@ export default function Participants() {
       .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
     if (entries.length === 0) return ''
     const [k, v] = entries[0]
-    const value = String(v)
+        if (!file) return;
     const short = value.length > 28 ? `${value.slice(0, 28)}…` : value
     return `${k}: ${short}`
   }
