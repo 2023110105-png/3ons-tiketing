@@ -7,6 +7,7 @@ import {
   syncAuditLog,
   fetchFirebaseWorkspaceSnapshot,
   syncCheckInLog,
+  syncResetCheckInLogs,
   syncEventDelete,
   syncEventSnapshot,
   syncParticipantDelete,
@@ -3529,14 +3530,18 @@ export function resetCheckIns(actor = 'system', reason = '') {
   }
 
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const totalBeforeReset = ev.participants.filter(p => p.is_checked_in).length
   ev.participants.forEach(p => {
     p.is_checked_in = false
     p.checked_in_at = null
     p.checked_in_by = null
+    void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: p })
   })
   ev.checkInLogs = []
   saveStore()
+  void syncResetCheckInLogs({ tenantId: tenant.id, eventId: ev.id })
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
 
   const cleanReason = normalizeReason(reason)
   const description = cleanReason

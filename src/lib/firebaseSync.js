@@ -300,6 +300,18 @@ export function syncCheckInLog({ tenantId, eventId, log }) {
   })
 }
 
+export function syncResetCheckInLogs({ tenantId, eventId }) {
+  if (!tenantId || !eventId) return noopPromise()
+
+  return withSyncGuard(async () => {
+    const checkinsRef = collection(db, 'tenants', tenantId, 'events', eventId, 'checkins')
+    const snapshot = await getDocs(checkinsRef)
+    if (snapshot.empty) return true
+    await Promise.all(snapshot.docs.map((entry) => deleteDoc(entry.ref)))
+    return true
+  })
+}
+
 export function syncAuditLog({ tenantId, eventId, log }) {
   if (!tenantId || !eventId || !log?.id) return noopPromise()
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getStats, getCheckInLogs, getCurrentDay, getPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts } from '../../store/mockData'
+import { getStats, getCheckInLogs, getCurrentDay, getPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
@@ -21,6 +21,7 @@ export default function BackGate() {
   // Refresh stats periodically
   useEffect(() => {
     const interval = setInterval(() => {
+      void bootstrapStoreFromFirebase(true)
       setRefreshKey(k => k + 1)
     }, 1500)
     return () => clearInterval(interval)

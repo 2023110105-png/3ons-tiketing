@@ -268,6 +268,15 @@ export default function FrontGate() {
   }, [refreshPendingState])
 
   useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void refreshFromFirebaseIfStale()
+      refreshStats()
+      refreshPendingState()
+    }, 1500)
+    return () => window.clearInterval(intervalId)
+  }, [refreshFromFirebaseIfStale, refreshPendingState, refreshStats])
+
+  useEffect(() => {
     const goOnline = () => {
       setIsOnline(true)
       handleSyncPending()

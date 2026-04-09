@@ -34,7 +34,10 @@ export default function OpsMonitor() {
 
   // Lightweight auto-refresh for live ops view
   useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), 4000)
+    const id = window.setInterval(() => {
+      void bootstrapStoreFromFirebase(true)
+      setTick(t => t + 1)
+    }, 1500)
     return () => window.clearInterval(id)
   }, [])
 
