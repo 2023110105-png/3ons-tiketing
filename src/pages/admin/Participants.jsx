@@ -843,7 +843,8 @@ export default function Participants() {
                   Kolom terdeteksi: {importPreview.columns.join(', ')}
                 </div>
                 <div className="import-preview-note">
-                  Hari default import saat ini: <strong>Hari {dayFilter}</strong> (dipakai jika kolom hari/day/day_number kosong)
+                  <b>Catatan:</b> Data akan dimasukkan ke hari sesuai kolom <b>hari</b> pada file Excel (bisa 1, 2, dst).<br />
+                  Jika kolom hari/day/day_number kosong atau tidak valid, maka akan masuk ke hari filter aktif: <strong>Hari {dayFilter}</strong>.
                 </div>
                 {importPreview.invalidDayRows?.length > 0 && (
                   <div className="import-preview-warning">
