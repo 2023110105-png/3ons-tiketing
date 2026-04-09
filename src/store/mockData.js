@@ -3177,6 +3177,8 @@ export function setCurrentDay(day, actor = 'system') {
   ev.currentDay = Number.isInteger(safeDay) && safeDay > 0 ? safeDay : 1
   saveStore()
   if (previousDay !== ev.currentDay) {
+    const tenant = getActiveTenantState()
+    void syncEventSnapshot({ tenantId: tenant.id, event: ev })
     logAdminAction('current_day_update', `Ubah hari aktif dari ${previousDay} ke ${ev.currentDay}`, actor, {
       from: previousDay,
       to: ev.currentDay

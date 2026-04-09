@@ -59,10 +59,16 @@ export default function Participants() {
   const fileInputRef = useRef(null)
   const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
 
+  const handleDayFilterChange = (newDay) => {
+    setDayFilter(newDay)
+    setCurrentDay(newDay, user)
+    // Synchronize to UI
+    updateLocalView()
+  }
+
   const handleAddNewDay = () => {
     const newDay = createNewDay(user)
-    setAvailableDays(getAvailableDays())
-    setDayFilter(newDay)
+    handleDayFilterChange(newDay)
     toast.success('Hari Baru Ditambahkan', `Sistem telah menyiapkan Hari ${newDay}. Anda sekarang bisa import peserta untuk hari ini.`)
   }
 
@@ -297,7 +303,7 @@ export default function Participants() {
       category: 'Regular',
       extraFieldsText: ''
     })
-    await refreshData(true)
+    updateLocalView()
   }
 
   const openAddModal = () => {
@@ -556,7 +562,7 @@ export default function Participants() {
     setDeleteTarget(null);
     setDeleteReason('');
     setDeleteApproval('');
-    void refreshData(true);
+    updateLocalView();
   };
 
   // Mendukung kolom hari dinamis seperti 'Hari 2', 'Day 2', dst
@@ -695,11 +701,8 @@ export default function Participants() {
     if (dayNums.length) {
       listDay = Math.min(...dayNums);
     }
-    // Immediately refresh available days from store so new day tabs appear
-    const freshDays = getAvailableDays();
-    setAvailableDays(freshDays);
     // Switch day filter to the imported day
-    setDayFilter(listDay);
+    handleDayFilterChange(listDay);
     if (addedCount + updatedCount > 0) {
       setCategoryFilter('all');
       setStatusFilter('all');
@@ -1154,7 +1157,7 @@ export default function Participants() {
 
         <div className="m-filter-chips">
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+            <select className="m-filter-select" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
               {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
             </select>
             <button className="btn btn-ghost btn-sm m-filter-select" onClick={handleAddNewDay} title="Tambah Hari" style={{ padding: '0 8px' }}>
@@ -1389,7 +1392,7 @@ export default function Participants() {
           {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <select className="form-select select-sm" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+          <select className="form-select select-sm" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
           <button className="btn btn-ghost btn-sm" onClick={handleAddNewDay} title="Tambah Hari Baru" style={{ padding: '6px 8px' }}>
