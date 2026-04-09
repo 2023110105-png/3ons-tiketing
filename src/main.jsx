@@ -59,6 +59,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   const updateSW = registerSW({
     immediate: true,
+    onNeedRefresh() {
+      updateSW(true)
+      window.setTimeout(() => {
+        window.location.reload()
+      }, 250)
+    },
     onRegisterError(error) {
       console.error('[PWA] register failed:', error)
     }
