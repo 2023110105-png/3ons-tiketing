@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { apiFetch } from '../../utils/api';
-import { getParticipants } from '../../store/mockData';
+import { useAuth } from '../../contexts/useAuth';
+import { getParticipants, getActiveTenant } from '../../store/mockData';
 import './BarcodeImport.css';
 
 function mapImportError(message = '', reason = '') {
@@ -27,6 +28,13 @@ function mapImportError(message = '', reason = '') {
 }
 
 export default function BarcodeImport() {
+  const { user } = useAuth();
+  const resolveTenantId = (userValue) => {
+    const fromStore = String(getActiveTenant()?.id || '').trim();
+    if (fromStore) return fromStore;
+    return String(userValue?.tenant?.id || 'tenant-default').trim() || 'tenant-default';
+  };
+  const tenantId = resolveTenantId(user);
   const [sourceType, setSourceType] = useState('camera');
   const [imageBase64, setImageBase64] = useState('');
   const [qrString, setQrString] = useState('');
@@ -90,7 +98,7 @@ export default function BarcodeImport() {
 
     try {
       const payload = {
-        tenant_id: 'tenant-default',
+        tenant_id: tenantId,
         source_type: nextSourceType,
         image_base64: base64,
         ...(nextSourceType === 'manual_paste' && { qr_string: manualQr })
