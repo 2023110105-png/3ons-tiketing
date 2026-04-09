@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './index.css'
 
@@ -54,12 +55,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )
 
-// Disable service worker runtime to prevent unexpected auto-refresh loops in production.
-// Also unregister previously installed workers from older deployments.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-    .catch(() => {
-      // Ignore cleanup errors.
-    })
+// Register PWA service worker in production-like environments.
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  registerSW({
+    immediate: true,
+    onRegisterError(error) {
+      console.error('[PWA] register failed:', error)
+    }
+  })
 }

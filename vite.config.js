@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const ENABLE_PWA = false
+const ENABLE_PWA = true
 
 export default defineConfig({
   test: {
@@ -69,7 +69,7 @@ export default defineConfig({
     // PWA disabled temporarily to prioritize runtime stability on production devices.
     // Re-enable after refresh-loop issue is fully resolved.
     ...(ENABLE_PWA ? [VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
         name: '3oNs Digital - Event Platform',
@@ -87,6 +87,10 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        // Avoid stale HTML causing chunk mismatch after deployments.
+        navigateFallbackDenylist: [/^\/api\//]
       }
     })] : []),
   ]
