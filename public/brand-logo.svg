@@ -1,12 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="3ons">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4da6e8"/>
-      <stop offset="100%" stop-color="#1e3a8a"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <circle cx="256" cy="256" r="160" fill="none" stroke="#ffffff" stroke-width="32" opacity="0.9"/>
-  <path d="M173 256h166" stroke="#ffffff" stroke-width="32" stroke-linecap="round"/>
-  <path d="M213 196h86a30 30 0 0 1 0 60h-86m0 0h74a30 30 0 0 1 0 60h-74" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="3ons text logo">
+  <rect width="512" height="512" rx="112" fill="#fffdd6"/>
+  <text
+    x="256"
+    y="286"
+    text-anchor="middle"
+    font-family="'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif"
+    font-size="142"
+    font-weight="800"
+    letter-spacing="2"
+  >
+    <tspan fill="#4da6e8">3</tspan><tspan fill="#2eab6e">o</tspan><tspan fill="#e84040">N</tspan><tspan fill="#e84393">s</tspan>
+  </text>
+  <text
+    x="256"
+    y="342"
+    text-anchor="middle"
+    font-family="'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif"
+    font-size="28"
+    font-weight="700"
+    letter-spacing="3"
+  >
+    <tspan fill="#4da6e8">S</tspan><tspan fill="#2eab6e">T</tspan><tspan fill="#e84040">U</tspan><tspan fill="#e84393">D</tspan><tspan fill="#f5c800">I</tspan><tspan fill="#4da6e8">O</tspan>
+    <tspan fill="#b8960a"> </tspan>
+    <tspan fill="#2eab6e">D</tspan><tspan fill="#e84040">I</tspan><tspan fill="#e84393">G</tspan><tspan fill="#f5c800">I</tspan><tspan fill="#4da6e8">T</tspan><tspan fill="#2eab6e">A</tspan><tspan fill="#e84040">L</tspan>
+  </text>
 </svg>
