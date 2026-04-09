@@ -4,7 +4,7 @@ import { isFirebaseEnabled } from './firebase'
 import { isSupabaseEnabled } from './supabase'
 
 function getBackend() {
-  const mode = String(import.meta.env.VITE_DATA_BACKEND || 'firebase').trim().toLowerCase()
+  const mode = String(import.meta.env.VITE_DATA_BACKEND || 'supabase').trim().toLowerCase()
   return mode === 'supabase' ? 'supabase' : 'firebase'
 }
 

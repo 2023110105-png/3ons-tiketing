@@ -32,6 +32,7 @@ const ConnectDevice = lazy(loadConnectDevice)
 const OpsMonitor = lazy(loadOpsMonitor)
 const WaDelivery = lazy(loadWaDelivery)
 const OwnerPanel = lazy(loadOwnerPanel)
+const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
 
 function RouteFallback() {
   return (
@@ -53,9 +54,12 @@ function ProtectedRoute({ children, allowedRoles }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
+  if (!OWNER_FEATURES_ENABLED && user?.role === 'owner') {
+    return <Navigate to="/admin" replace />
+  }
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect based on role
-    if (user.role === 'owner') return <Navigate to="/owner" replace />
+    if (user.role === 'owner') return <Navigate to={OWNER_FEATURES_ENABLED ? '/owner' : '/admin'} replace />
     if (user.role === 'gate_front') return <Navigate to="/gate/scan" replace />
     if (user.role === 'gate_back') return <Navigate to="/gate/monitor" replace />
     return <Navigate to="/admin" replace />
@@ -95,7 +99,7 @@ function AppRoutes() {
         return
       }
 
-      if (user.role === 'owner') {
+      if (user.role === 'owner' && OWNER_FEATURES_ENABLED) {
         loadOwnerPanel()
       }
     }
@@ -122,18 +126,22 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={
-        user.role === 'owner' ? '/owner' :
+        user.role === 'owner' ? (OWNER_FEATURES_ENABLED ? '/owner' : '/admin') :
         (user.role === 'super_admin' || user.role === 'admin_client') ? '/admin' :
         user.role === 'gate_front' ? '/gate/scan' :
         '/gate/monitor'
       } replace /> : <Login />} />
 
       {/* Owner Route */}
-      <Route path="/owner" element={<Navigate to="/owner/tenants" replace />} />
+      <Route path="/owner" element={<Navigate to={OWNER_FEATURES_ENABLED ? '/owner/tenants' : '/admin'} replace />} />
       <Route path="/owner/:activeTab" element={
-        <ProtectedRoute allowedRoles={['owner']}>
-          <OwnerPanel />
-        </ProtectedRoute>
+        OWNER_FEATURES_ENABLED ? (
+          <ProtectedRoute allowedRoles={['owner']}>
+            <OwnerPanel />
+          </ProtectedRoute>
+        ) : (
+          <Navigate to="/admin" replace />
+        )
       } />
       
       {/* Admin Routes */}

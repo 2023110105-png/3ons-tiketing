@@ -11,6 +11,7 @@ import {
 
 const RELEASE_MORNING_MODE = true
 const REALTIME_SYNC_INTERVAL_MS = 2500
+const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
 const OWNER_RELEASE_VISIBLE_PATHS = new Set([
   '/owner/users',
   '/owner/billing',
@@ -128,7 +129,7 @@ export default function Layout({ children }) {
         { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai' }
       ]
     }
-    if (user?.role === 'owner') {
+    if (user?.role === 'owner' && OWNER_FEATURES_ENABLED) {
       return [{ path: '/owner', icon: <ShieldCheck size={18} />, label: 'Pemilik' }]
     }
     if (user?.role === 'gate_front') {
@@ -262,7 +263,7 @@ export default function Layout({ children }) {
             </div>
           )}
 
-          {user?.role === 'owner' && (
+          {user?.role === 'owner' && OWNER_FEATURES_ENABLED && (
             <div className="nav-section">
               <div className="nav-section-title">Panel Pemilik</div>
               {ownerNavVisible.map(item => (
@@ -355,7 +356,7 @@ export default function Layout({ children }) {
         </header>
 
         <div className="page-wrapper">
-          {RELEASE_MORNING_MODE && user?.role === 'owner' && (
+          {RELEASE_MORNING_MODE && user?.role === 'owner' && OWNER_FEATURES_ENABLED && (
             <div
               style={{
                 marginBottom: 12,

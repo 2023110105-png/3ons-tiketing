@@ -20,8 +20,8 @@ Set these variables:
 - `VITE_DATA_BACKEND=supabase`
 - `VITE_SUPABASE_URL=<your-project-url>`
 - `VITE_SUPABASE_ANON_KEY=<your-anon-key>`
-
-`VITE_USE_FIREBASE` can stay enabled for auth compatibility while data sync uses Supabase.
+- `VITE_ENABLE_OWNER_FEATURES=false` (fokus tenant default)
+- `VITE_USE_FIREBASE=false` (potong jalur Firebase sementara)
 
 ## 3) Run app
 
