@@ -5,7 +5,8 @@ import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Squar
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 import { apiFetch } from '../../utils/api'
 
-const SAME_QR_DEBOUNCE_MS = 5000
+const SAME_QR_DEBOUNCE_MS = 1200
+const VERIFY_TIMEOUT_MS = 2200
 
 export default function FrontGate() {
   const currentDay = getCurrentDay()
@@ -41,7 +42,7 @@ export default function FrontGate() {
     const now = Date.now()
     if (now - lastFirebaseSyncRef.current < 2000) return
     lastFirebaseSyncRef.current = now
-    await bootstrapStoreFromFirebase(true)
+    void bootstrapStoreFromFirebase(true)
   }, [])
 
   const getLimitBadgeClass = () => {
@@ -80,7 +81,7 @@ export default function FrontGate() {
   }, [isSyncing, refreshPendingState, refreshStats])
 
   const verifyScanWithServer = useCallback(async (qrData) => {
-    await refreshFromFirebaseIfStale()
+    void refreshFromFirebaseIfStale()
 
     let parsed
     try {
@@ -100,9 +101,12 @@ export default function FrontGate() {
     const activeTenantId = getActiveTenant().id
 
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
       const response = await apiFetch('/api/ticket/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           qr_data: qrData,
           tenant_id: activeTenantId,
@@ -110,6 +114,7 @@ export default function FrontGate() {
           secure_ref: matched?.secure_ref || ''
         })
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         return { valid: false, reason: 'verify_http_error', enforced: false }
@@ -134,7 +139,7 @@ export default function FrontGate() {
     }
     lastScanRef.current = { data: qrData, time: now }
 
-    await refreshFromFirebaseIfStale()
+    void refreshFromFirebaseIfStale()
 
     if (!navigator.onLine) {
       enqueuePendingCheckIn(qrData, 'gate_front', scanMode)
