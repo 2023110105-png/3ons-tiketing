@@ -21,7 +21,7 @@ function hasFirebaseConfig() {
 }
 
 export const isFirebaseEnabled =
-  import.meta.env.VITE_USE_FIREBASE === 'true' && hasFirebaseConfig()
+  false
 
 let app = null
 let auth = null
