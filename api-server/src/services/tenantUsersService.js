@@ -32,6 +32,16 @@ function normalizeRole(value) {
   return 'gate_front'
 }
 
+function userMatchesIdentifier(user, rawUserId) {
+  const normalized = normalizeString(rawUserId)
+  if (!normalized) return false
+  const lowered = normalized.toLowerCase()
+  return String(user?.id || '').trim() === normalized
+    || String(user?.auth_uid || '').trim() === normalized
+    || String(user?.username || '').trim().toLowerCase() === lowered
+    || String(user?.email || '').trim().toLowerCase() === lowered
+}
+
 async function resolveTenantUserRef({ tenantId, userId, db }) {
   const usersCol = db.collection('tenants').doc(tenantId).collection('users')
   const rawUserId = normalizeString(userId)
@@ -59,6 +69,25 @@ async function resolveTenantUserRef({ tenantId, userId, db }) {
   }
 
   return { ref: null, snap: null }
+}
+
+async function resolveTenantUserFromTenantDoc({ tenantId, userId, db }) {
+  const tenantRef = db.collection('tenants').doc(tenantId)
+  const tenantSnap = await tenantRef.get()
+  if (!tenantSnap.exists) return null
+
+  const tenantData = tenantSnap.data() || {}
+  const users = Array.isArray(tenantData.users) ? tenantData.users : []
+  const index = users.findIndex((user) => userMatchesIdentifier(user, userId))
+  if (index < 0) return null
+
+  return {
+    tenantRef,
+    tenantData,
+    users,
+    index,
+    user: users[index]
+  }
 }
 
 export async function createTenantUser({ tenantId, body, db, auth }) {
@@ -102,7 +131,34 @@ export async function createTenantUser({ tenantId, body, db, auth }) {
 export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
   const payload = PatchUserSchema.parse(body || {})
   const { ref, snap } = await resolveTenantUserRef({ tenantId, userId, db })
-  if (!ref || !snap || !snap.exists) return null
+  if (!ref || !snap || !snap.exists) {
+    const legacyMatch = await resolveTenantUserFromTenantDoc({ tenantId, userId, db })
+    if (!legacyMatch) return null
+
+    const next = { ...(legacyMatch.user || {}) }
+    if (payload.username !== undefined) next.username = normalizeString(payload.username).toLowerCase()
+    if (payload.email !== undefined) next.email = normalizeEmail(payload.email)
+    if (payload.name !== undefined) next.name = normalizeString(payload.name) || next.name
+    if (payload.role !== undefined) next.role = normalizeRole(payload.role)
+    if (payload.is_active !== undefined) next.is_active = !!payload.is_active
+    next.updated_at = new Date().toISOString()
+
+    const updatedUsers = [...legacyMatch.users]
+    updatedUsers[legacyMatch.index] = next
+    await legacyMatch.tenantRef.set({ users: updatedUsers }, { merge: true })
+
+    const legacyAuthUid = normalizeString(next.auth_uid || '') || normalizeString(next.id || '') || null
+    if (legacyAuthUid) {
+      const authUpdates = {}
+      if (payload.email !== undefined) authUpdates.email = next.email
+      if (payload.name !== undefined) authUpdates.displayName = next.name
+      if (payload.password !== undefined) authUpdates.password = normalizeString(payload.password)
+      if (payload.is_active !== undefined) authUpdates.disabled = !next.is_active
+      if (Object.keys(authUpdates).length > 0) await auth.updateUser(legacyAuthUid, authUpdates).catch(() => {})
+      if (payload.role !== undefined) await auth.setCustomUserClaims(legacyAuthUid, { role: next.role, tenant_id: tenantId }).catch(() => {})
+    }
+    return next
+  }
 
   const current = snap.data() || {}
   const authUid = normalizeString(current.auth_uid || '') || null
@@ -130,7 +186,24 @@ export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
 
 export async function deleteTenantUser({ tenantId, userId, db, auth }) {
   const { ref, snap } = await resolveTenantUserRef({ tenantId, userId, db })
-  if (!ref || !snap || !snap.exists) return false
+  if (!ref || !snap || !snap.exists) {
+    const legacyMatch = await resolveTenantUserFromTenantDoc({ tenantId, userId, db })
+    if (!legacyMatch) return false
+
+    const updatedUsers = legacyMatch.users.filter((_, idx) => idx !== legacyMatch.index)
+    await legacyMatch.tenantRef.set({ users: updatedUsers }, { merge: true })
+
+    const legacyAuthUid = normalizeString(legacyMatch.user?.auth_uid || '') || normalizeString(legacyMatch.user?.id || '') || null
+    if (legacyAuthUid) {
+      try {
+        await auth.deleteUser(legacyAuthUid)
+      } catch (err) {
+        const msg = String(err?.message || err)
+        if (!msg.toLowerCase().includes('user')) throw err
+      }
+    }
+    return true
+  }
   const data = snap.data() || {}
   const authUid = normalizeString(data.auth_uid || '') || null
 
