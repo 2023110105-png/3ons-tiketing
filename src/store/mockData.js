@@ -3199,6 +3199,33 @@ export function createNewDay(actor = 'system') {
   return nextDay
 }
 
+export function deleteCurrentDay(actor = 'system') {
+  const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
+  const dayToDelete = ev.currentDay
+  if (dayToDelete <= 1) return { success: false, error: 'Hari 1 tidak bisa dihapus' }
+  
+  // Collect participants for this day
+  const participantsToDelete = ev.participants.filter(p => p.day_number === dayToDelete)
+  
+  // Delete from local array
+  ev.participants = ev.participants.filter(p => p.day_number !== dayToDelete)
+  
+  // Sync deletions
+  for (const p of participantsToDelete) {
+    deletedParticipantTombstones[p.id] = true
+    void syncParticipantDelete({ tenantId: tenant.id, eventId: ev.id, participantId: p.id })
+  }
+  
+  // Revert to Day 1 locally
+  ev.currentDay = 1
+  saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
+  
+  logAdminAction('delete_day', `Hari ${dayToDelete} dihapus beserta ${participantsToDelete.length} peserta`, actor)
+  return { success: true }
+}
+
 export function resetCheckIns(actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }

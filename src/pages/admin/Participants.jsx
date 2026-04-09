@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay, deleteCurrentDay } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus } from 'lucide-react'
@@ -70,6 +70,19 @@ export default function Participants() {
     const newDay = createNewDay(user)
     handleDayFilterChange(newDay)
     toast.success('Hari Baru Ditambahkan', `Sistem telah menyiapkan Hari ${newDay}. Anda sekarang bisa import peserta untuk hari ini.`)
+  }
+
+  const handleDeleteDay = () => {
+    if (dayFilter <= 1) return toast.error('Ditolak', 'Hari 1 tidak bisa dihapus')
+    if (!window.confirm(`Semua data peserta di Hari ${dayFilter} akan Dihapus secara PERMANEN. Anda YAKIN?`)) return
+    
+    const res = deleteCurrentDay(user)
+    if (res.success) {
+      toast.success('Berhasil dihapus', `Hari ${dayFilter} dan semua datanya telah dimusnahkan.`)
+      handleDayFilterChange(1) // Revert day filter to Day 1 explicitly
+    } else {
+      toast.error('Gagal menghapus hari', res.error)
+    }
   }
 
   useEffect(() => {
@@ -1163,6 +1176,11 @@ export default function Participants() {
             <button className="btn btn-ghost btn-sm m-filter-select" onClick={handleAddNewDay} title="Tambah Hari" style={{ padding: '0 8px' }}>
               <Plus size={14} />
             </button>
+            {dayFilter > 1 && (
+              <button className="btn btn-ghost btn-danger btn-sm m-filter-select" onClick={handleDeleteDay} title="Hapus Hari Ini" style={{ padding: '0 8px' }}>
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
           <select className="m-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="all">Semua</option>
@@ -1398,6 +1416,11 @@ export default function Participants() {
           <button className="btn btn-ghost btn-sm" onClick={handleAddNewDay} title="Tambah Hari Baru" style={{ padding: '6px 8px' }}>
             <Plus size={14} />
           </button>
+          {dayFilter > 1 && (
+            <button className="btn btn-ghost btn-danger btn-sm" onClick={handleDeleteDay} title="Hapus Hari Ini" style={{ padding: '6px 8px' }}>
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
         <select className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="all">Semua Status</option>
