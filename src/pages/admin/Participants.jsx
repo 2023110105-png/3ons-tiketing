@@ -322,14 +322,18 @@ export default function Participants() {
 
   // WA status polling handled by useWaStatus()
 
-  const refreshData = useCallback(async (forceFirebase = true, listDayOverride = null) => {
+  const refreshData = useCallback(async (forceFirebase = false) => {
     if (forceFirebase) {
       await bootstrapStoreFromFirebase(true)
     }
     setAvailableDays(getAvailableDays())
-    const listDay = listDayOverride != null ? listDayOverride : dayFilter
-    setParticipants(getParticipants(listDay))
-  }, [dayFilter, tenantId])
+    // Let dayFilter effect handle participant setting
+  }, [])
+
+  const updateLocalView = useCallback(() => {
+    setParticipants(getParticipants(dayFilter))
+    setAvailableDays(getAvailableDays())
+  }, [dayFilter])
 
   const visibleParticipants = useMemo(() => {
     let data = participants
@@ -354,17 +358,32 @@ export default function Participants() {
     return [...cats].sort()
   }, [participants])
 
+  // Initial load
   useEffect(() => {
-    void refreshData(true)
-  }, [refreshData])
+    const load = async () => {
+      await refreshData(true)
+      updateLocalView()
+    }
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
+  // View dependency on dayFilter
   useEffect(() => {
-    const id = window.setInterval(() => {
+    updateLocalView()
+  }, [updateLocalView])
+
+  // Background polling synced with server
+  useEffect(() => {
+    const id = window.setInterval(async () => {
       const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
-      void refreshData(!hidden)
+      if (!hidden) {
+        await refreshData(true)
+        updateLocalView()
+      }
     }, 30000)
     return () => window.clearInterval(id)
-  }, [refreshData])
+  }, [refreshData, updateLocalView])
 
   const handleAdd = async (e) => {
     e.preventDefault()

@@ -3175,9 +3175,15 @@ export function setCurrentDay(day, actor = 'system') {
 }
 
 export function createNewDay(actor = 'system') {
+  const ev = getActiveEvent()
   const days = getAvailableDays()
   const nextDay = (days.length > 0 ? Math.max(...days) : 0) + 1
   setCurrentDay(nextDay, actor)
+  
+  // Sync so it's not lost on re-fetch
+  const tenant = getActiveTenantState()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
+  
   return nextDay
 }
 
