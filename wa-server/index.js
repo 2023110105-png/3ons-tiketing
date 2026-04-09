@@ -153,6 +153,12 @@ function classifyWaSendError(err) {
             message: 'Perangkat WhatsApp belum siap.'
         };
     }
+    if (text.includes('timeout')) {
+        return {
+            code: 'wa_send_timeout',
+            message: 'Kirim WhatsApp timeout. Coba ulang saat koneksi stabil.'
+        };
+    }
     return {
         code: 'wa_send_failed',
         message: raw || 'Pengiriman WhatsApp gagal.'
@@ -997,8 +1003,8 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                     let sendResult;
                     if (waSendMode === 'message_only') {
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
-                            retries: 2,
-                            timeoutMs: 20000
+                            retries: 3,
+                            timeoutMs: 45000
                         });
                     } else if (waSendMode === 'message_with_barcode') {
                         // Generate e-ticket image with QR and details (Node.js/canvas)
@@ -1015,14 +1021,14 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                         const base64Str = imageBuffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, media, { caption: waMessage }), {
-                            retries: 2,
-                            timeoutMs: 20000
+                            retries: 3,
+                            timeoutMs: 45000
                         });
                     } else {
                         // fallback: kirim pesan saja
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
-                            retries: 2,
-                            timeoutMs: 20000
+                            retries: 3,
+                            timeoutMs: 45000
                         });
                     }
                     console.log(`[WA SEND] Sukses kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
