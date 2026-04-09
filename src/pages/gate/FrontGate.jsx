@@ -21,6 +21,7 @@ export default function FrontGate() {
   const [pendingItems, setPendingItems] = useState(getPendingCheckIns())
   const [showResultDetail, setShowResultDetail] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isResolvingLatestData, setIsResolvingLatestData] = useState(false)
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const lastScanRef = useRef({ data: null, time: 0 })
@@ -172,8 +173,13 @@ export default function FrontGate() {
     if (!res.success && res.status === 'invalid' && String(res.message || '').toLowerCase().includes('tidak ditemukan')) {
       // New participants may still be in-flight from admin device sync.
       // Force a fresh pull and retry once so gate scan works without manual refresh.
-      await bootstrapStoreFromFirebase(true)
-      res = checkIn(qrData)
+      setIsResolvingLatestData(true)
+      try {
+        await bootstrapStoreFromFirebase(true)
+        res = checkIn(qrData)
+      } finally {
+        setIsResolvingLatestData(false)
+      }
     }
     setResult(res)
     setShowResultDetail(false)
@@ -455,6 +461,9 @@ export default function FrontGate() {
             {isOnline ? 'ONLINE' : 'OFFLINE'}
           </span>
           <span className="badge badge-yellow">Pending: {pendingCount}</span>
+          {isResolvingLatestData && (
+            <span className="badge badge-blue">Sinkron data terbaru...</span>
+          )}
           {isOnline && pendingCount > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={handleSyncPending} disabled={isSyncing}>
               <RefreshCw size={12} className="scanner-inline-icon" /> {isSyncing ? 'Menyinkronkan…' : 'Sinkron sekarang'}
