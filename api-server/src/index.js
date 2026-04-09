@@ -39,8 +39,18 @@ app.use(requestContext(REQUEST_TIMEOUT_MS))
 app.use(cors({
   origin(origin, cb) {
     if (!origin) return cb(null, true)
+    const normalizedOrigin = String(origin || '').trim()
+    const host = (() => {
+      try {
+        return new URL(normalizedOrigin).hostname.toLowerCase()
+      } catch {
+        return ''
+      }
+    })()
     const isLocalDevOrigin = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(String(origin || ''))
+    const isVercelOrigin = host.endsWith('.vercel.app')
     if (!env.isProduction && isLocalDevOrigin) return cb(null, true)
+    if (isVercelOrigin) return cb(null, true)
     if (env.corsAllowedOrigins.length === 0) return cb(null, true)
     if (env.corsAllowedOrigins.includes(origin)) return cb(null, true)
     return cb(new Error('CORS blocked'))
