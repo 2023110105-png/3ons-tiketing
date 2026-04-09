@@ -2971,6 +2971,7 @@ export function addParticipant(data) {
     void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
   }
 
+
   logAdminAction('participant_add', `Tambah peserta ${participant.name} (${participant.ticket_id})`, data.actor, {
     participant_id: participant.id,
     day_number: participant.day_number,
@@ -3426,7 +3427,7 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
       errors.push({ row: index + 1, error: e?.message || 'Gagal menyimpan peserta' })
       return
     }
-    added.push((participant && participant.participant) ? participant.participant : participant)
+    added.push(participant)
   })
 
   if (added.length + updated.length > 0) {
