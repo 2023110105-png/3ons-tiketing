@@ -313,12 +313,13 @@ export default function Participants() {
 
   // WA status polling handled by useWaStatus()
 
-  const refreshData = useCallback(async (forceFirebase = true) => {
+  const refreshData = useCallback(async (forceFirebase = true, listDayOverride = null) => {
     if (forceFirebase) {
       await bootstrapStoreFromFirebase(true)
     }
     setAvailableDays(getAvailableDays())
-    setParticipants(getParticipants(dayFilter))
+    const listDay = listDayOverride != null ? listDayOverride : dayFilter
+    setParticipants(getParticipants(listDay))
   }, [dayFilter, tenantId])
 
   const visibleParticipants = useMemo(() => {
@@ -549,9 +550,11 @@ export default function Participants() {
       const XLSX = await import('xlsx')
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data)
-      const sheetName = workbook.SheetNames[0]
+      const names = workbook.SheetNames || []
+      const preferredIdx = names.findIndex((n) => String(n || '').trim().toLowerCase() === 'template peserta')
+      const sheetName = preferredIdx >= 0 ? names[preferredIdx] : names[0]
       const sheet = workbook.Sheets[sheetName]
-      const rows = XLSX.utils.sheet_to_json(sheet)
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
 
       if (rows.length === 0) {
         toast.error('File kosong', 'Tidak ada data di file Excel')
@@ -599,13 +602,47 @@ export default function Participants() {
     setImportResult(result)
     const addedCount = result?.added?.length ?? 0
     const updatedCount = result?.updated?.length ?? 0
-    toast.success(
-      'Import berhasil',
-      updatedCount > 0
-        ? `${addedCount} peserta ditambahkan, ${updatedCount} diperbarui (overwrite).`
-        : `${addedCount} peserta ditambahkan.`
-    )
-    void refreshData(true)
+    const errCount = result?.errors?.length ?? 0
+    const touched = [...(result.added || []), ...(result.updated || [])]
+    const dayNums = [
+      ...new Set(
+        touched
+          .map((p) => Number(p.day_number))
+          .filter((d) => Number.isInteger(d) && d >= 1)
+      )
+    ]
+    let listDay = dayFilter
+    if (dayNums.length) {
+      listDay = Math.min(...dayNums)
+      setDayFilter(listDay)
+    }
+    if (addedCount + updatedCount > 0) {
+      setCategoryFilter('all')
+      setStatusFilter('all')
+    }
+    if (addedCount + updatedCount === 0 && errCount > 0) {
+      toast.error(
+        'Import tidak menambah data',
+        errCount >= importPreview.rows.length
+          ? 'Semua baris gagal. Lihat detail error di bawah.'
+          : `${errCount} baris gagal, tidak ada yang ditambahkan atau diperbarui.`
+      )
+    } else if (addedCount + updatedCount === 0) {
+      toast.info(
+        'Tidak ada perubahan',
+        'Semua baris dilewati (misalnya duplikat dengan opsi Skip) atau tidak valid.'
+      )
+    } else {
+      toast.success(
+        'Import berhasil',
+        updatedCount > 0
+          ? `${addedCount} peserta ditambahkan, ${updatedCount} diperbarui. Tampilan: Hari ${listDay} (filter kategori/status direset).`
+          : `${addedCount} peserta ditambahkan. Tampilan: Hari ${listDay} (filter kategori/status direset).`
+      )
+    }
+    // Jangan paksa pull Firebase langsung setelah bulk write: snapshot remote bisa belum lengkap
+    // dan akan menimpa data lokal yang baru diimpor.
+    void refreshData(false, listDay)
   }
 
   const fixInvalidDaysToDefault = () => {
