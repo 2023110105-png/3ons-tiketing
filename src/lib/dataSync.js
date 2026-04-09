@@ -32,6 +32,10 @@ export function syncResetCheckInLogs(payload) {
   return provider().syncResetCheckInLogs(payload)
 }
 
+export function syncResetAdminLogs(payload) {
+  return provider().syncResetAdminLogs(payload)
+}
+
 export function syncEventDelete(payload) {
   return provider().syncEventDelete(payload)
 }

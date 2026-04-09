@@ -368,6 +368,18 @@ export function syncResetCheckInLogs({ tenantId, eventId }) {
   })
 }
 
+export function syncResetAdminLogs({ tenantId, eventId }) {
+  if (!tenantId || !eventId) return noopPromise()
+
+  return withSyncGuard(async () => {
+    const logsRef = collection(db, 'tenants', tenantId, 'events', eventId, 'admin_logs')
+    const snapshot = await getDocs(logsRef)
+    if (snapshot.empty) return true
+    await Promise.all(snapshot.docs.map((entry) => deleteDoc(entry.ref)))
+    return true
+  })
+}
+
 export function syncAuditLog({ tenantId, eventId, log }) {
   if (!tenantId || !eventId || !log?.id) return noopPromise()
 
@@ -409,6 +421,8 @@ export function syncEventSnapshot({ tenantId, event }) {
             ? event.offlineConfig.maxPendingAttempts
             : 5
         },
+        pendingCheckIns: Array.isArray(event?.pendingCheckIns) ? event.pendingCheckIns : [],
+        offlineQueueHistory: Array.isArray(event?.offlineQueueHistory) ? event.offlineQueueHistory : [],
         updated_at: serverTimestamp()
       },
       { merge: true }

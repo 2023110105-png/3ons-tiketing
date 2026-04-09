@@ -8,6 +8,7 @@ import {
   fetchFirebaseWorkspaceSnapshot,
   syncCheckInLog,
   syncResetCheckInLogs,
+  syncResetAdminLogs,
   syncEventDelete,
   syncEventSnapshot,
   syncParticipantDelete,
@@ -457,8 +458,11 @@ function runOneTimeDefaultTenantPurge() {
       event.pendingCheckIns = []
       event.offlineQueueHistory = []
       event.adminLogs = []
+      event.currentDay = 1
     })
     store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
+    deletedParticipantTombstones = {}
+    saveDeletedParticipantTombstones(deletedParticipantTombstones)
     saveStore()
   }
 
@@ -2204,7 +2208,21 @@ export async function bootstrapStoreFromFirebase(force = false) {
           if (!participantId) return
           void syncParticipantDelete({ tenantId: DEFAULT_TENANT_ID, eventId, participantId })
         })
+        void syncEventSnapshot({
+          tenantId: DEFAULT_TENANT_ID,
+          event: {
+            ...event,
+            participants: [],
+            deletedParticipantIds: {},
+            checkInLogs: [],
+            adminLogs: [],
+            pendingCheckIns: [],
+            offlineQueueHistory: [],
+            currentDay: 1
+          }
+        })
         void syncResetCheckInLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
+        void syncResetAdminLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
       })
     }
 

@@ -254,6 +254,18 @@ export function syncResetCheckInLogs({ tenantId, eventId }) {
   })
 }
 
+export function syncResetAdminLogs({ tenantId, eventId }) {
+  if (!tenantId || !eventId) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, tenantId, eventId)
+    event.adminLogs = []
+  }).catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error('[SupabaseSync] reset admin logs failed:', err?.message || err)
+    return false
+  })
+}
+
 export function syncAuditLog({ tenantId, eventId, log }) {
   if (!tenantId || !eventId || !log?.id) return noopPromise()
   return mutateWorkspace((snapshot) => {
@@ -291,6 +303,8 @@ export function syncEventSnapshot({ tenantId, event }) {
           ? event.offlineConfig.maxPendingAttempts
           : (current?.offlineConfig?.maxPendingAttempts || 5)
       },
+      pendingCheckIns: Array.isArray(event?.pendingCheckIns) ? event.pendingCheckIns : (current?.pendingCheckIns || []),
+      offlineQueueHistory: Array.isArray(event?.offlineQueueHistory) ? event.offlineQueueHistory : (current?.offlineQueueHistory || []),
       updated_at: new Date().toISOString()
     }
     if (!bucket.activeEventId) bucket.activeEventId = event.id
