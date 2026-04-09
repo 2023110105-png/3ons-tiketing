@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db, isFirebaseEnabled } from './firebase'
 
 function noopPromise() {
@@ -54,6 +54,30 @@ function sortByTimestampDescending(items, fieldNames = ['timestamp', 'created_at
   return [...items].sort((a, b) => getTimestampScore(b, fieldNames) - getTimestampScore(a, fieldNames))
 }
 
+function parseStoredJSON(raw) {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function readSessionSnapshot() {
+  if (typeof localStorage === 'undefined') return null
+  const active = parseStoredJSON(localStorage.getItem('ons_session'))
+  if (active) return active
+  return parseStoredJSON(localStorage.getItem('event_session'))
+}
+
+function getScopedTenantIdFromSession() {
+  const session = readSessionSnapshot()
+  const role = String(session?.role || '').trim().toLowerCase()
+  const isGlobalRole = role === 'owner' || role === 'super_admin'
+  if (isGlobalRole) return ''
+  return String(session?.tenant?.id || '').trim()
+}
+
 async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
   const [tenantUsers, tenantEvents] = await Promise.all([
     readCollectionDocs(['tenants', tenantId, 'users']),
@@ -105,7 +129,29 @@ async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
 export async function fetchFirebaseWorkspaceSnapshot() {
   if (!isFirebaseEnabled || !db) return null
 
-  const tenantSnapshots = await readCollectionDocs(['tenants'])
+  const scopedTenantId = getScopedTenantIdFromSession()
+  let tenantSnapshots = []
+  try {
+    tenantSnapshots = await readCollectionDocs(['tenants'])
+  } catch (err) {
+    const message = String(err?.message || err).toLowerCase()
+    const permissionDenied = message.includes('permission') || message.includes('insufficient')
+    if (!permissionDenied || !scopedTenantId) throw err
+
+    const tenantDoc = await getDoc(doc(db, 'tenants', scopedTenantId))
+    if (!tenantDoc.exists()) {
+      return {
+        tenantRegistry: null,
+        store: null
+      }
+    }
+    tenantSnapshots = [{ id: tenantDoc.id, ...toPlainValue(tenantDoc.data()) }]
+  }
+
+  if (scopedTenantId) {
+    tenantSnapshots = tenantSnapshots.filter((tenant) => String(tenant?.id || '').trim() === scopedTenantId)
+  }
+
   if (tenantSnapshots.length === 0) {
     return {
       tenantRegistry: null,
