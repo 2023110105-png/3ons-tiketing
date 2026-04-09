@@ -922,6 +922,39 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
 }
 
 export async function updateTenantUser(tenantId, userId, data, actor = 'system') {
+  const updateUserLocally = (candidateIds = []) => {
+    const tenant = tenantRegistry.tenants[tenantId]
+    if (!tenant) return null
+    const users = asArray(tenant.users)
+    const loweredCandidates = candidateIds.map((id) => String(id || '').trim().toLowerCase()).filter(Boolean)
+    const index = users.findIndex((u) => {
+      const values = [
+        String(u?.id || '').trim(),
+        String(u?.auth_uid || '').trim(),
+        String(u?.username || '').trim().toLowerCase(),
+        String(u?.email || '').trim().toLowerCase()
+      ].filter(Boolean)
+      return values.some((v) => loweredCandidates.includes(v.toLowerCase()))
+    })
+    if (index < 0) return null
+
+    const user = { ...(users[index] || {}) }
+    const nextData = { ...(data || {}) }
+    if (Object.prototype.hasOwnProperty.call(nextData, 'email')) {
+      nextData.email = normalizeParticipantEmail(nextData.email)
+    }
+    Object.assign(user, nextData)
+    users[index] = user
+    tenant.users = users
+    saveTenantRegistry()
+    void syncTenantUserUpsert({ tenantId, user })
+    logOwnerAction('tenant_user_update', `Update user ${user.username} di tenant ${tenant.brandName}`, actor, {
+      tenant_id: tenantId,
+      user_id: user.id || userId
+    })
+    return user
+  }
+
   // Fullstack path: update via api-server so status/password apply to Firebase Auth.
   if (isFirebaseEnabled) {
     try {
@@ -964,6 +997,10 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
         }
       }
       if (!patched) {
+        if (Number(lastStatus || 0) === 404) {
+          const fallbackUser = updateUserLocally(candidateUserIds)
+          if (fallbackUser) return { success: true, user: fallbackUser }
+        }
         return { success: false, error: lastPayload?.error || `HTTP ${lastStatus || 404}` }
       }
       await bootstrapStoreFromFirebase(true)
