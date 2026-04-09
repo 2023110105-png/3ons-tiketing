@@ -154,7 +154,12 @@ export function apiFetch(path, options) {
 export async function platformFetch(path, options) {
   const baseUrl = getPlatformApiBaseUrl()
   const cleanPath = String(path || '')
-  const url = baseUrl ? `${baseUrl.replace(/\/$/, '')}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}` : cleanPath
+  const localProxyPath = cleanPath.startsWith('/platform/')
+    ? `/api${cleanPath}`
+    : (cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`)
+  const url = baseUrl
+    ? `${baseUrl.replace(/\/$/, '')}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}`
+    : localProxyPath
 
   const requestOptions = { ...(options || {}) }
   const secret = getPlatformAdminSecret()

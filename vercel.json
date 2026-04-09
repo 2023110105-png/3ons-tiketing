@@ -2,6 +2,10 @@
   "buildCommand": "npm run build",
   "rewrites": [
     {
+      "source": "/api/platform/:path*",
+      "destination": "https://yamaha-scan-tiketing-production.up.railway.app/platform/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://yamaha-scan-tiketing-production.up.railway.app/api/:path*"
     },
