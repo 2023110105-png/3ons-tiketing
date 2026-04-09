@@ -608,12 +608,25 @@ export default function Participants() {
     return out
   }
 
+  const parseImportDayValue = (value) => {
+    if (value === undefined || value === null) return NaN
+    const raw = String(value).trim()
+    if (!raw) return NaN
+    const normalized = raw.replace(',', '.')
+    const direct = Number(normalized)
+    if (Number.isFinite(direct) && Number.isInteger(direct) && direct > 0) return direct
+    const m = normalized.match(/(\d+)/)
+    if (!m) return NaN
+    const extracted = Number(m[1])
+    return Number.isFinite(extracted) && Number.isInteger(extracted) && extracted > 0 ? extracted : NaN
+  }
+
   const validateImportRows = (rows) => {
     const invalidDayRows = []
     rows.forEach((row, index) => {
       const dayValue = getRowDayValue(row)
       if (dayValue === undefined || dayValue === null || String(dayValue).trim() === '') return
-      const parsed = Number(dayValue)
+      const parsed = parseImportDayValue(dayValue)
       if (!Number.isInteger(parsed) || parsed < 1) {
         invalidDayRows.push({ row: index + 1, rowIndex: index, value: dayValue })
       }

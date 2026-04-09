@@ -1043,6 +1043,22 @@ function normalizeParticipantDay(value, fallback = 1) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
 }
 
+function parseParticipantDayValue(value) {
+  if (value === undefined || value === null) return NaN
+  const raw = String(value).trim()
+  if (!raw) return NaN
+
+  const normalized = raw.replace(',', '.')
+  const direct = Number(normalized)
+  if (Number.isFinite(direct) && Number.isInteger(direct) && direct > 0) return direct
+
+  // Support text like "Hari 2", "Day-2", "D2", etc.
+  const m = normalized.match(/(\d+)/)
+  if (!m) return NaN
+  const extracted = Number(m[1])
+  return Number.isFinite(extracted) && Number.isInteger(extracted) && extracted > 0 ? extracted : NaN
+}
+
 function normalizeParticipantCategory(value) {
   const clean = String(value || '').trim()
   if (!clean) return 'Regular'
@@ -2680,9 +2696,7 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
       const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
       matchedCat = normalizeParticipantCategory(category)
       const rawDay = row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
-      const parsedDay = rawDay === undefined || rawDay === null || String(rawDay).trim() === ''
-        ? NaN
-        : Number(String(rawDay).trim().replace(',', '.'))
+      const parsedDay = parseParticipantDayValue(rawDay)
       rowDay = normalizeParticipantDay(parsedDay, fallbackDay)
       extras = extractParticipantExtras(row)
     } catch (e) {
