@@ -1574,12 +1574,75 @@ function normalizeHydratedStore(snapshot) {
   return { tenants: normalizedTenants }
 }
 
+function participantMergeTimestamp(p) {
+  const primary = p?.updated_at || p?.created_at
+  const n = primary ? new Date(primary).getTime() : 0
+  return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * Gabungkan peserta lokal (localStorage) ke store hasil Firebase supaya impor Excel
+ * tidak lenyap saat snapshot remote kosong/belum tertulis (race sync).
+ */
+function mergePersistedLocalParticipantsIntoHydratedStore(nextStore, localStore) {
+  if (!nextStore?.tenants || !localStore?.tenants || !isValidStoreShape(localStore)) return
+
+  for (const tenantId of Object.keys(nextStore.tenants)) {
+    const nextBucket = nextStore.tenants[tenantId]
+    const localBucket = localStore.tenants[tenantId]
+    if (!nextBucket?.events || !localBucket?.events) continue
+
+    for (const eventId of Object.keys(nextBucket.events)) {
+      const nextEv = nextBucket.events[eventId]
+      const localEv = localBucket.events[eventId]
+      if (!nextEv || !localEv) continue
+
+      const remotePs = asArray(nextEv.participants)
+      const localPs = asArray(localEv.participants)
+      const byId = new Map()
+      for (const p of remotePs) {
+        if (p?.id) byId.set(p.id, p)
+      }
+
+      const onlyLocal = []
+      for (const p of localPs) {
+        if (!p?.id) continue
+        if (deletedParticipantTombstones[p.id]) continue
+        if (!byId.has(p.id)) {
+          byId.set(p.id, p)
+          onlyLocal.push(p)
+        } else {
+          const existing = byId.get(p.id)
+          if (participantMergeTimestamp(p) > participantMergeTimestamp(existing)) {
+            byId.set(p.id, p)
+          }
+        }
+      }
+
+      const merged = Array.from(byId.values()).sort(
+        (a, b) => participantMergeTimestamp(a) - participantMergeTimestamp(b)
+      )
+      nextEv.participants = merged
+
+      if (onlyLocal.length > 0) {
+        for (const p of onlyLocal) {
+          void syncParticipantUpsert({ tenantId, eventId, participant: p })
+        }
+        void syncEventSnapshot({ tenantId, event: nextEv })
+      }
+    }
+  }
+}
+
 export async function bootstrapStoreFromFirebase(force = false) {
   if (!isFirebaseEnabled) return false
   if (firebaseStoreReady && !force) return true
   if (firebaseBootstrapPromise && !force) return firebaseBootstrapPromise
 
   firebaseBootstrapPromise = (async () => {
+    const localRaw = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
+    const localSnap = parseStoredJSON(localRaw)
+
     const snapshot = await fetchFirebaseWorkspaceSnapshot()
     if (!snapshot?.tenantRegistry || !snapshot?.store) {
       firebaseStoreReady = true
@@ -1588,6 +1651,7 @@ export async function bootstrapStoreFromFirebase(force = false) {
 
     tenantRegistry = normalizeHydratedTenantRegistry(snapshot.tenantRegistry)
     store = normalizeHydratedStore(snapshot.store)
+    mergePersistedLocalParticipantsIntoHydratedStore(store, localSnap)
     persistHydratedState()
     firebaseStoreReady = true
     return true
