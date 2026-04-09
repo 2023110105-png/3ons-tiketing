@@ -115,7 +115,8 @@ async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
           ? event.offlineConfig.maxPendingAttempts
           : 5
       },
-      waTemplate: event.waTemplate || null
+      waTemplate: event.waTemplate || null,
+      waSendMode: String(event.waSendMode || '').trim() || 'message_with_barcode'
     }
   }
 
@@ -333,6 +334,13 @@ export function syncEventSnapshot({ tenantId, event }) {
         deletedParticipantIds: (event?.deletedParticipantIds && typeof event.deletedParticipantIds === 'object')
           ? event.deletedParticipantIds
           : {},
+        waTemplate: String(event?.waTemplate || '').trim() || null,
+        waSendMode: String(event?.waSendMode || '').trim() || 'message_with_barcode',
+        offlineConfig: {
+          maxPendingAttempts: Number.isInteger(event?.offlineConfig?.maxPendingAttempts) && event.offlineConfig.maxPendingAttempts >= 1
+            ? event.offlineConfig.maxPendingAttempts
+            : 5
+        },
         updated_at: serverTimestamp()
       },
       { merge: true }
