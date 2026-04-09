@@ -1,4 +1,4 @@
-const DEFAULT_PROD_API_BASE_URL = 'https://yamaha-scan-tiketing-production.up.railway.app'
+const DEFAULT_PROD_API_BASE_URL = 'https://yamaha-scan-tiketing-copy-production.up.railway.app'
 const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret'
 const PLATFORM_ADMIN_SECRET_HEADER = 'x-platform-admin-secret'
 
