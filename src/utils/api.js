@@ -73,16 +73,16 @@ export function getApiBaseUrl() {
   const envBase = getApiBaseEnv()
   const browserHost = typeof window !== 'undefined' ? window.location.hostname : ''
   const isLocalBrowser = browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0'
+  const isBrowserRuntime = typeof window !== 'undefined'
+
+  // In browser production, always use same-origin to prevent CORS issues.
+  if (isBrowserRuntime && !isLocalBrowser) {
+    return ''
+  }
 
   // Explicit env always wins in local development.
   if (envBase && (isLocalBrowser || !isLocalHostLike(envBase))) {
     return envBase
-  }
-
-  // In browser production, prefer same-origin and let host rewrites/proxy handle routing.
-  // This avoids direct cross-origin calls that often trigger CORS "Failed to fetch".
-  if (typeof window !== 'undefined' && !isLocalBrowser) {
-    return ''
   }
 
   return ''
@@ -98,18 +98,21 @@ export function getWaBaseUrl() {
 export function getPlatformApiBaseUrl() {
   const envBase = getPlatformApiBaseEnv()
   const browserHost = typeof window !== 'undefined' ? String(window.location.hostname || '').trim() : ''
+  const isLocalBrowser = browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0'
+
+  // Hard rule: browser production must use same-origin proxy paths.
+  // This prevents accidental direct calls to external hosts from env vars.
+  if (typeof window !== 'undefined' && !isLocalBrowser) {
+    return ''
+  }
+
   if (envBase) return envBase
 
   // Local dev fallback: owner platform endpoints run on api-server (default 3002).
   if (typeof window !== 'undefined') {
-    if (browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0') {
+    if (isLocalBrowser) {
       return 'http://127.0.0.1:3002'
     }
-  }
-
-  // In browser production, force same-origin so owner API goes through host proxy.
-  if (typeof window !== 'undefined' && browserHost) {
-    return ''
   }
 
   // Non-browser fallback (tests/SSR).
