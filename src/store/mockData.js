@@ -1845,12 +1845,11 @@ function salvageLargestParticipantListIntoActiveEvent(nextStore, ...sources) {
   let best = []
   for (const src of sources) {
     if (!src?.tenants) continue
-    for (const lb of Object.values(src.tenants)) {
-      if (!lb?.events) continue
-      for (const lev of Object.values(lb.events)) {
-        const ps = asArray(lev?.participants).filter((p) => p?.id && !deletedParticipantTombstones[p.id])
-        if (ps.length > best.length) best = ps
-      }
+    const localBucket = src.tenants[tid]
+    if (!localBucket?.events) continue
+    for (const lev of Object.values(localBucket.events)) {
+      const ps = asArray(lev?.participants).filter((p) => p?.id && !deletedParticipantTombstones[p.id])
+      if (ps.length > best.length) best = ps
     }
   }
   if (best.length === 0) return
