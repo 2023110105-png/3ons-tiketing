@@ -7,6 +7,10 @@ import { getTenants, getTenantUsers } from '../../../store/mockData'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+function getTenantDisplayName(tenant) {
+  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+}
+
 export default function ImpersonateView() {
   const toast = useToast()
   const { login } = useAuth()
@@ -68,7 +72,7 @@ export default function ImpersonateView() {
         >
           <option value="">-- Pilih Akun Brand --</option>
           {tenants.map(t => (
-            <option key={t.id} value={t.id}>{t.brandName}</option>
+            <option key={t.id} value={t.id}>{getTenantDisplayName(t)}</option>
           ))}
         </select>
         {selectedTenantId && (

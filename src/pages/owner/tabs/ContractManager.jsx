@@ -8,6 +8,10 @@ import { humanizeUserMessage } from '../../../utils/userFriendlyMessage'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+function getTenantDisplayName(tenant) {
+  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+}
+
 export default function ContractManager() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
@@ -71,7 +75,7 @@ export default function ContractManager() {
   const filteredTenants = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
     return tenants.filter(t => 
-      !q || t.brandName.toLowerCase().includes(q) || t.eventName.toLowerCase().includes(q)
+      !q || getTenantDisplayName(t).toLowerCase().includes(q) || t.eventName.toLowerCase().includes(q)
     )
   }, [tenants, searchQuery])
 
@@ -102,7 +106,7 @@ export default function ContractManager() {
             <div className="card-pad">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ flex: 1, minWidth: '200px' }}>
-                  <h3 className="card-title">{tenant.brandName}</h3>
+                  <h3 className="card-title">{getTenantDisplayName(tenant)}</h3>
                   <p className="text-muted text-sm">{tenant.eventName}</p>
                 </div>
 

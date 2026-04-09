@@ -7,6 +7,10 @@ import { getTenants, addTenantInvoice, updateInvoiceStatus, bootstrapStoreFromFi
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+function getTenantDisplayName(tenant) {
+  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+}
+
 export default function BillingInvoice() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
@@ -51,7 +55,7 @@ export default function BillingInvoice() {
   }, [refreshTenants])
 
   const allInvoices = useMemo(() => {
-    return tenants.flatMap(t => (t.invoices || []).map(i => ({ ...i, tenantId: t.id, tenantName: t.brandName })))
+    return tenants.flatMap(t => (t.invoices || []).map(i => ({ ...i, tenantId: t.id, tenantName: getTenantDisplayName(t) })))
       .sort((a, b) => new Date(b.issued_at) - new Date(a.issued_at))
   }, [tenants])
 
@@ -114,7 +118,7 @@ export default function BillingInvoice() {
           >
             <option value="">Semua Akun</option>
             {tenants.map(t => (
-              <option key={t.id} value={t.id}>{t.brandName}</option>
+              <option key={t.id} value={t.id}>{getTenantDisplayName(t)}</option>
             ))}
           </select>
         </div>
@@ -188,7 +192,7 @@ export default function BillingInvoice() {
                   >
                     <option value="">-- Pilih Akun --</option>
                     {tenants.map(t => (
-                      <option key={t.id} value={t.id}>{t.brandName}</option>
+                      <option key={t.id} value={t.id}>{getTenantDisplayName(t)}</option>
                     ))}
                   </select>
                 </div>

@@ -7,6 +7,10 @@ import { bootstrapStoreFromFirebase, getTenants, updateTenantBranding } from '..
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+function getTenantDisplayName(tenant) {
+  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+}
+
 export default function WhiteLabel() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
@@ -79,7 +83,7 @@ export default function WhiteLabel() {
         >
           <option value="">-- Pilih Akun Brand untuk Kustomisasi --</option>
           {tenants.map(t => (
-            <option key={t.id} value={t.id}>{t.brandName}</option>
+            <option key={t.id} value={t.id}>{getTenantDisplayName(t)}</option>
           ))}
         </select>
       </div>
@@ -99,7 +103,7 @@ export default function WhiteLabel() {
                     className="owner-form-input" 
                     value={branding.appName}
                     onChange={e => setBranding({...branding, appName: e.target.value})}
-                    placeholder={selectedTenant.brandName}
+                    placeholder={getTenantDisplayName(selectedTenant)}
                   />
                 </div>
                 <p className="text-xs text-muted mt-4">Nama ini akan muncul di sidebar dan judul halaman client.</p>
@@ -159,7 +163,7 @@ export default function WhiteLabel() {
                       {branding.appName?.charAt(0)}
                     </div>
                     <div>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{branding.appName || selectedTenant.brandName}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{branding.appName || getTenantDisplayName(selectedTenant)}</div>
                       <div style={{ fontSize: '10px', color: '#666' }}>{selectedTenant.eventName}</div>
                     </div>
                   </div>

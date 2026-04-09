@@ -5,6 +5,10 @@ import {
 } from 'lucide-react'
 import { getTenantHealth, bootstrapStoreFromFirebase } from '../../../store/mockData'
 
+function getTenantDisplayName(health) {
+  return String(health?.branding?.appName || health?.brandName || '-').trim() || '-'
+}
+
 export default function TenantHealth() {
   const [healthData, setHealthData] = useState(getTenantHealth())
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -46,7 +50,7 @@ export default function TenantHealth() {
             <div className="card-pad">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div style={{ flex: 1 }}>
-                  <h3 className="card-title text-sm">{health.brandName}</h3>
+                  <h3 className="card-title text-sm">{getTenantDisplayName(health)}</h3>
                   <div className="flex items-center gap-4 text-xs text-muted mt-4">
                     {health.isOnline ? (
                       <span className="flex items-center gap-2 text-green font-bold">

@@ -8,6 +8,10 @@ import { humanizeUserMessage } from '../../../utils/userFriendlyMessage'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+function getTenantDisplayName(tenant, fallback = '-') {
+  return String(tenant?.branding?.appName || tenant?.brandName || fallback || '-').trim() || '-'
+}
+
 export default function QuotaManager() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
@@ -69,10 +73,12 @@ export default function QuotaManager() {
 
   const filteredHealth = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
-    return healthData.filter(h => 
-      !q || h.brandName.toLowerCase().includes(q)
-    )
-  }, [healthData, searchQuery])
+    return healthData.filter((h) => {
+      const tenant = tenants.find((t) => t.id === h.tenantId)
+      const displayName = getTenantDisplayName(tenant, h.brandName).toLowerCase()
+      return !q || displayName.includes(q)
+    })
+  }, [healthData, searchQuery, tenants])
 
   return (
     <div className="quota-manager-container owner-fade-in-up">
@@ -106,7 +112,7 @@ export default function QuotaManager() {
           return (
             <div key={health.tenantId} className="owner-card-container">
               <div className="owner-card-header">
-                <div className="owner-card-title">{health.brandName}</div>
+                <div className="owner-card-title">{getTenantDisplayName(tenant, health.brandName)}</div>
               </div>
               
               <div className="owner-card-body">

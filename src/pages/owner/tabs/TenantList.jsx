@@ -4,6 +4,10 @@ import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, delet
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
+function getTenantDisplayName(tenant) {
+  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+}
+
 export default function TenantList({ onManageUsers, onEditContract }) {
   const toast = useToast()
   const { user } = useAuth()
@@ -62,7 +66,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
     const result = switchActiveTenant(tenant.id, user)
     if (result.success) {
       await refreshTenants(true)
-      toast.success('Aktif', `Sekarang mengelola: ${tenant.brandName}`)
+      toast.success('Aktif', `Sekarang mengelola: ${getTenantDisplayName(tenant)}`)
     } else {
       toast.error('Gagal', result.error)
     }
@@ -73,16 +77,16 @@ export default function TenantList({ onManageUsers, onEditContract }) {
     const result = setTenantStatus(tenant.id, nextStatus, user)
     if (result.success) {
       await refreshTenants(true)
-      toast.success('Update', `Status ${tenant.brandName} menjadi ${nextStatus}`)
+      toast.success('Update', `Status ${getTenantDisplayName(tenant)} menjadi ${nextStatus}`)
     }
   }
 
   const handleDelete = async (tenant) => {
-    if (window.confirm(`Hapus akun brand ${tenant.brandName}? Semua data terkait akan hilang.`)) {
+    if (window.confirm(`Hapus akun brand ${getTenantDisplayName(tenant)}? Semua data terkait akan hilang.`)) {
       const result = deleteTenant(tenant.id, user)
       if (result.success) {
         await refreshTenants(true)
-        toast.success('Dihapus', `Akun brand ${tenant.brandName} berhasil dihapus`)
+        toast.success('Dihapus', `Akun brand ${getTenantDisplayName(tenant)} berhasil dihapus`)
       }
     }
   }
@@ -97,7 +101,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
       })
       .filter(t => {
         const q = tenantSearch.toLowerCase().trim()
-        return !q || `${t.brandName} ${t.eventName}`.toLowerCase().includes(q)
+        return !q || `${getTenantDisplayName(t)} ${t.eventName}`.toLowerCase().includes(q)
       })
   }, [tenants, tenantFilter, tenantSearch])
 
@@ -147,7 +151,7 @@ export default function TenantList({ onManageUsers, onEditContract }) {
               <div style={{ flex: 1 }}>
                 <div className="owner-card-title">
                   {tenant.id === activeTenantId && <span style={{ color: 'var(--brand-primary)', fontSize: '0.8rem' }}>●</span>}
-                  {tenant.brandName}
+                  {getTenantDisplayName(tenant)}
                 </div>
                 <p style={{ marginTop: '2px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tenant.eventName}</p>
               </div>
