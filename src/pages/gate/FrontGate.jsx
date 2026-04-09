@@ -284,7 +284,7 @@ export default function FrontGate() {
       void refreshFromFirebaseIfStale()
       refreshStats()
       refreshPendingState()
-    }, 1500)
+    }, 5000)
     return () => window.clearInterval(intervalId)
   }, [refreshFromFirebaseIfStale, refreshPendingState, refreshStats])
 

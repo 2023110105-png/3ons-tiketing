@@ -23,7 +23,7 @@ export default function BackGate() {
     const interval = setInterval(() => {
       void bootstrapStoreFromFirebase(true)
       setRefreshKey(k => k + 1)
-    }, 1500)
+    }, 5000)
     return () => clearInterval(interval)
   }, [])
 

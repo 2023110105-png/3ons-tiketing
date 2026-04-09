@@ -394,7 +394,7 @@ export default function Participants() {
         await refreshData(true)
         updateLocalView()
       }
-    }, 1500)
+    }, 5000)
     return () => window.clearInterval(id)
   }, [refreshData, updateLocalView])
 

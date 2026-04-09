@@ -965,13 +965,18 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
         || String(u?.username || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
         || String(u?.email || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
       ))
-      const candidateUserIds = Array.from(new Set([
+      const primaryCandidateIds = [
         String(userId || '').trim(),
         String(localUser?.id || '').trim(),
-        String(localUser?.auth_uid || '').trim(),
+        String(localUser?.auth_uid || '').trim()
+      ].filter(Boolean)
+      const aliasCandidateIds = [
         String(localUser?.username || '').trim().toLowerCase(),
         String(localUser?.email || '').trim().toLowerCase()
-      ].filter(Boolean)))
+      ].filter(Boolean)
+      const candidateUserIds = Array.from(new Set(
+        primaryCandidateIds.length > 0 ? primaryCandidateIds : aliasCandidateIds
+      ))
 
       let lastPayload = {}
       let lastStatus = 0
@@ -1078,13 +1083,18 @@ export async function deleteTenantUser(tenantId, userId, actor = 'system') {
         || String(u?.username || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
         || String(u?.email || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
       ))
-      const candidateUserIds = Array.from(new Set([
+      const primaryCandidateIds = [
         String(userId || '').trim(),
         String(localUser?.id || '').trim(),
-        String(localUser?.auth_uid || '').trim(),
+        String(localUser?.auth_uid || '').trim()
+      ].filter(Boolean)
+      const aliasCandidateIds = [
         String(localUser?.username || '').trim().toLowerCase(),
         String(localUser?.email || '').trim().toLowerCase()
-      ].filter(Boolean)))
+      ].filter(Boolean)
+      const candidateUserIds = Array.from(new Set(
+        primaryCandidateIds.length > 0 ? primaryCandidateIds : aliasCandidateIds
+      ))
 
       let lastPayload = {}
       let lastStatus = 0
@@ -1764,6 +1774,8 @@ let store = getStore()
 let realtimeListeners = []
 let firebaseBootstrapPromise = null
 let firebaseStoreReady = false
+let lastForcedFirebaseBootstrapAt = 0
+const MIN_FORCED_FIREBASE_BOOTSTRAP_MS = 5000
 
 function ensureTenantStore(tenantId, fallbackEventName = 'Event 1', withMockParticipants = false) {
   if (!store.tenants || typeof store.tenants !== 'object') {
@@ -1959,8 +1971,15 @@ function preserveMissingTenantScopes({ nextTenantRegistry, nextStore, previousTe
 
 export async function bootstrapStoreFromFirebase(force = false) {
   if (!isFirebaseEnabled) return false
+  if (firebaseBootstrapPromise) return firebaseBootstrapPromise
   if (firebaseStoreReady && !force) return true
-  if (firebaseBootstrapPromise && !force) return firebaseBootstrapPromise
+  if (force) {
+    const now = Date.now()
+    if (now - lastForcedFirebaseBootstrapAt < MIN_FORCED_FIREBASE_BOOTSTRAP_MS) {
+      return true
+    }
+    lastForcedFirebaseBootstrapAt = now
+  }
 
   firebaseBootstrapPromise = (async () => {
     const previousTenantRegistry = tenantRegistry

@@ -37,7 +37,7 @@ export default function OpsMonitor() {
     const id = window.setInterval(() => {
       void bootstrapStoreFromFirebase(true)
       setTick(t => t + 1)
-    }, 1500)
+    }, 5000)
     return () => window.clearInterval(id)
   }, [])
 
