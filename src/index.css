@@ -64,6 +64,12 @@
   --shadow-red-lg: 0 12px 36px rgba(232, 64, 64, 0.28);
   --shadow-success: 0 4px 24px rgba(16, 185, 129, 0.3);
 
+  /* iOS-like elevations (softer + layered) */
+  --elev-0: none;
+  --elev-1: 0 1px 0 rgba(15, 23, 42, 0.03), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --elev-2: 0 2px 0 rgba(15, 23, 42, 0.04), 0 14px 36px rgba(15, 23, 42, 0.10);
+  --elev-3: 0 3px 0 rgba(15, 23, 42, 0.05), 0 22px 60px rgba(15, 23, 42, 0.14);
+
   /* Spacing */
   --sidebar-width: 260px;
   --sidebar-collapsed: 72px;
@@ -76,9 +82,44 @@
   --radius-xl: 24px;
   --radius-full: 9999px;
 
+  /* iOS-like radius scale (used mainly on mobile) */
+  --ios-radius-10: 10px;
+  --ios-radius-12: 12px;
+  --ios-radius-16: 16px;
+  --ios-radius-20: 20px;
+
+  /* Spacing scale (mobile-first) */
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+
   /* Typography */
   --font-primary: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
   --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+
+  /* Mobile typography scale */
+  --font-xs: 0.75rem;
+  --font-sm: 0.875rem;
+  --font-md: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.25rem;
+
+  /* Glass blur */
+  --blur-sm: 10px;
+  --blur-md: 16px;
+  --blur-lg: 22px;
+
+  /* Focus ring (iOS-like) */
+  --focus-ring: 0 0 0 4px color-mix(in srgb, var(--scope-accent) 22%, transparent);
+  --focus-ring-strong: 0 0 0 6px color-mix(in srgb, var(--scope-accent) 28%, transparent);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -2160,7 +2201,7 @@ input, select, textarea, button {
 
 .btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 32%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 a:focus-visible,
@@ -2170,7 +2211,7 @@ button:focus-visible,
 .mobile-nav-item:focus-visible,
 .tab:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 28%, transparent);
+  box-shadow: var(--focus-ring);
   border-radius: var(--radius-md);
 }
 
@@ -2211,8 +2252,8 @@ button:focus-visible,
 
 .form-input:focus,
 .form-select:focus {
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px var(--brand-primary-subtle);
+  border-color: color-mix(in srgb, var(--scope-accent) 55%, var(--border-color));
+  box-shadow: var(--focus-ring);
 }
 
 .form-select {
@@ -2309,7 +2350,7 @@ button:focus-visible,
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.52);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(var(--blur-sm));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5183,16 +5224,16 @@ button:focus-visible,
   left: 0;
   right: 0;
   z-index: 200;
-  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--bg-glass-strong) 76%, transparent);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
   border-top: 1px solid var(--border-color);
   display: flex;
   align-items: stretch;
   justify-content: space-around;
   padding: 6px 0;
   padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 -1px 0 rgba(15, 23, 42, 0.04), 0 -12px 36px rgba(15, 23, 42, 0.10);
 }
 
 .mobile-nav-item {
@@ -5212,6 +5253,7 @@ button:focus-visible,
   transition: color var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  min-width: 0;
 }
 
 .mobile-nav-item.active {
@@ -5219,7 +5261,7 @@ button:focus-visible,
 }
 
 .mobile-nav-icon {
-  font-size: 1.35rem;
+  font-size: 1.32rem;
   line-height: 1;
   transition: transform var(--transition-bounce);
 }
@@ -5234,6 +5276,10 @@ button:focus-visible,
   text-transform: uppercase;
   letter-spacing: 0.04em;
   line-height: 1;
+  max-width: 86px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-nav-indicator {
@@ -5393,6 +5439,53 @@ button:focus-visible,
     display: none;
   }
 
+  /* --- iOS-like Mobile UI defaults --- */
+  .btn {
+    border-radius: var(--ios-radius-12);
+    box-shadow: none;
+  }
+
+  .btn-primary {
+    box-shadow: var(--elev-2);
+  }
+
+  .btn-primary:hover {
+    transform: none;
+    box-shadow: var(--elev-3);
+  }
+
+  .btn-secondary {
+    box-shadow: var(--elev-1);
+  }
+
+  .form-input,
+  .form-select {
+    border-radius: var(--ios-radius-12);
+    background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  }
+
+  .modal {
+    border-radius: var(--ios-radius-20);
+    box-shadow: var(--elev-3);
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+  }
+
+  .toast {
+    border-radius: var(--ios-radius-16);
+    box-shadow: var(--elev-2);
+  }
+
   .header-day-badge {
     padding: 4px 10px;
     font-size: 0.72rem;
@@ -5462,7 +5555,8 @@ button:focus-visible,
   /* --- Cards --- */
   .card {
     padding: 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--ios-radius-16);
+    box-shadow: var(--elev-1);
   }
 
   .card-title {
@@ -5478,7 +5572,8 @@ button:focus-visible,
 
   .stat-card {
     padding: 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--ios-radius-16);
+    box-shadow: var(--elev-1);
   }
 
   .stat-card-icon {
@@ -6088,7 +6183,7 @@ button:focus-visible,
   }
   
   .mobile-bottom-nav {
-    padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 }
 

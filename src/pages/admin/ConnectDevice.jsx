@@ -22,9 +22,14 @@ function formatConnectionError(message) {
 
 export default function ConnectDevice() {
   const resolveTenantId = (userValue) => {
+    // admin_client harus selalu terkunci ke tenant miliknya (dari session user),
+    // jangan dipengaruhi activeTenant di store.
+    const fromUser = String(userValue?.tenant?.id || '').trim()
+    if (userValue?.role === 'admin_client' && fromUser) return fromUser
+
     const fromStore = String(getActiveTenant()?.id || '').trim()
     if (fromStore) return fromStore
-    return String(userValue?.tenant?.id || 'tenant-default').trim() || 'tenant-default'
+    return fromUser || 'tenant-default'
   }
   const [waState, setWaState] = useState({ status: 'checking', isReady: false, qrCode: null })
   const [tenantSessions, setTenantSessions] = useState([])
