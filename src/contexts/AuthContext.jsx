@@ -131,11 +131,20 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = useCallback(async (username, password) => {
+  const login = useCallback(async (username, password, options = {}) => {
     if (FIREBASE_AUTH_MODE === 'strict') {
       if (!isFirebaseEnabled || !auth) {
         return { success: false, error: 'Layanan masuk belum diaktifkan. Hubungi administrator.' }
       }
+
+      const preferredTenantId = String(options?.tenantId || '').trim()
+      const scopedOptions = preferredTenantId ? { tenantId: preferredTenantId } : null
+      const loginLocal = (identity, secret) => (
+        scopedOptions ? doLogin(identity, secret, scopedOptions) : doLogin(identity, secret)
+      )
+      const loginIdentity = (identity) => (
+        scopedOptions ? loginByIdentity(identity, scopedOptions) : loginByIdentity(identity)
+      )
 
       // Always refresh latest tenant/user snapshot before credential checks.
       try {
@@ -168,14 +177,14 @@ export function AuthProvider({ children }) {
           // Continue with last known snapshot.
         }
 
-        const identityResult = loginByIdentity(username)
+        const identityResult = loginIdentity(username)
         if (identityResult.success) {
           setUser(identityResult.user)
           void bootstrapWaSessionAfterLogin(identityResult.user)
           return identityResult
         }
 
-        const emailIdentityResult = loginByIdentity(candidateEmail)
+        const emailIdentityResult = loginIdentity(candidateEmail)
         if (emailIdentityResult.success) {
           setUser(emailIdentityResult.user)
           void bootstrapWaSessionAfterLogin(emailIdentityResult.user)
@@ -189,7 +198,7 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
-        const localResult = doLogin(username, password)
+        const localResult = loginLocal(username, password)
         if (localResult.success) {
           try {
             await createUserWithEmailAndPassword(auth, candidateEmail, password)
@@ -212,7 +221,7 @@ export function AuthProvider({ children }) {
       if (candidateEmail) {
         try {
           await signInWithEmailAndPassword(auth, candidateEmail, password)
-          const identityResult = loginByIdentity(username)
+          const identityResult = loginIdentity(username)
           if (identityResult.success) {
             setUser(identityResult.user)
             void bootstrapWaSessionAfterLogin(identityResult.user)
@@ -224,7 +233,10 @@ export function AuthProvider({ children }) {
       }
     }
 
-    const result = doLogin(username, password)
+    const preferredTenantId = String(options?.tenantId || '').trim()
+    const result = preferredTenantId
+      ? doLogin(username, password, { tenantId: preferredTenantId })
+      : doLogin(username, password)
     if (result.success) {
       setUser(result.user)
       void bootstrapWaSessionAfterLogin(result.user)

@@ -27,7 +27,7 @@ export default function ImpersonateView() {
 
   const handleImpersonate = async (targetUser) => {
     if (window.confirm(`Masuk sebagai ${targetUser.username} (${targetUser.role})? Anda akan keluar dari panel pemilik.`)) {
-      const result = await login(targetUser.username, targetUser.password)
+      const result = await login(targetUser.username, targetUser.password, { tenantId: selectedTenantId })
       if (result.success) {
         toast.success('Sukses', `Sekarang Anda masuk sebagai ${targetUser.username}`)
         setTimeout(() => window.location.href = '/admin', 1000)

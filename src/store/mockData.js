@@ -2377,7 +2377,7 @@ function buildSessionForTenantUser(foundUser, foundTenant) {
   }
 }
 
-function findUserByIdentifier(identifier, password, skipPasswordCheck = false) {
+function findUserByIdentifier(identifier, password, skipPasswordCheck = false, preferredTenantId = '') {
   const cleanIdentifier = normalizeLoginIdentifier(identifier)
 
   const globalUser = Object.values(USERS).find(u => {
@@ -2391,10 +2391,24 @@ function findUserByIdentifier(identifier, password, skipPasswordCheck = false) {
     return { scope: 'global', user: globalUser, tenant: null }
   }
 
+  const preferredTenant = preferredTenantId ? tenantRegistry.tenants[preferredTenantId] : null
+  if (preferredTenant) {
+    const scopedUser = asArray(preferredTenant.users).find((u) => {
+      const matchUsername = normalizeLoginIdentifier(u.username) === cleanIdentifier
+      const matchEmail = normalizeLoginIdentifier(u.email) === cleanIdentifier
+      if (!(matchUsername || matchEmail)) return false
+      return skipPasswordCheck ? true : u.password === password
+    })
+    if (scopedUser) {
+      return { scope: 'tenant', user: scopedUser, tenant: preferredTenant }
+    }
+  }
+
   let foundUser = null
   let foundTenant = null
 
   Object.values(tenantRegistry.tenants).forEach(tenant => {
+    if (preferredTenant && tenant.id === preferredTenant.id) return
     const user = asArray(tenant.users).find(u => {
       const matchUsername = normalizeLoginIdentifier(u.username) === cleanIdentifier
       const matchEmail = normalizeLoginIdentifier(u.email) === cleanIdentifier
@@ -2446,13 +2460,15 @@ export function resolveLoginEmail(identifier) {
   return email || null
 }
 
-export function loginByIdentity(identifier) {
-  const resolved = findUserByIdentifier(identifier, null, true)
+export function loginByIdentity(identifier, options = {}) {
+  const preferredTenantId = String(options?.tenantId || '').trim()
+  const resolved = findUserByIdentifier(identifier, null, true, preferredTenantId)
   return signInWithResolvedUser(resolved)
 }
 
-export function login(username, password) {
-  const resolved = findUserByIdentifier(username, password, false)
+export function login(username, password, options = {}) {
+  const preferredTenantId = String(options?.tenantId || '').trim()
+  const resolved = findUserByIdentifier(username, password, false, preferredTenantId)
   return signInWithResolvedUser(resolved)
 }
 
