@@ -2515,9 +2515,11 @@ export function setMaxPendingAttempts(value, actor = 'system') {
   const parsed = Number(value)
   const safe = Number.isInteger(parsed) ? Math.min(20, Math.max(1, parsed)) : DEFAULT_MAX_PENDING_ATTEMPTS
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const previous = getMaxPendingAttempts()
   ev.offlineConfig = { ...(ev.offlineConfig || {}), maxPendingAttempts: safe }
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   if (previous !== safe) {
     logAdminAction('offline_config_update', `Ubah batas retry offline dari ${previous} ke ${safe}`, actor, {
       from: previous,

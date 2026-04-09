@@ -8,6 +8,10 @@ import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
 const BACKUP_AUTO_REFRESH_INTERVAL_KEY = 'ons_backup_auto_refresh_interval'
 
+function normalizeConfirmWord(value) {
+  return String(value || '').trim().toUpperCase()
+}
+
 function getInitialAutoRefreshPreference() {
   try {
     const saved = localStorage.getItem(BACKUP_AUTO_REFRESH_KEY)
@@ -61,6 +65,18 @@ export default function Settings() {
   const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
   const [backupLastRefreshAgeSec, setBackupLastRefreshAgeSec] = useState(0)
   const [isBackupTabVisible, setIsBackupTabVisible] = useState(() => document.visibilityState === 'visible')
+  const clearResetModalState = () => {
+    setShowResetModal(false)
+    setResetInput('')
+    setResetApprovalInput('')
+    setResetReason('')
+  }
+  const clearDeleteModalState = () => {
+    setShowDeleteModal(false)
+    setDeleteInput('')
+    setDeleteApprovalInput('')
+    setDeleteReason('')
+  }
 
   const formatBackupSize = (value) => {
     const size = Number(value || 0)
@@ -227,11 +243,11 @@ export default function Settings() {
 
   const handleResetCheckIn = (e) => {
     e.preventDefault()
-    if (resetInput !== 'HAPUS') {
+    if (normalizeConfirmWord(resetInput) !== 'HAPUS') {
       toast.error('Gagal', 'Kata konfirmasi salah')
       return
     }
-    if (resetApprovalInput !== 'SETUJU') {
+    if (normalizeConfirmWord(resetApprovalInput) !== 'SETUJU') {
       toast.error('Gagal', 'Konfirmasi kedua harus SETUJU')
       return
     }
@@ -250,19 +266,16 @@ export default function Settings() {
       return
     }
     toast.success('Sukses', 'Semua riwayat check-in telah dibersihkan.')
-    setShowResetModal(false)
-    setResetInput('')
-    setResetApprovalInput('')
-    setResetReason('')
+    clearResetModalState()
   }
 
   const handleDeleteAll = (e) => {
     e.preventDefault()
-    if (deleteInput !== 'HAPUS') {
+    if (normalizeConfirmWord(deleteInput) !== 'HAPUS') {
       toast.error('Gagal', 'Kata konfirmasi salah')
       return
     }
-    if (deleteApprovalInput !== 'SETUJU') {
+    if (normalizeConfirmWord(deleteApprovalInput) !== 'SETUJU') {
       toast.error('Gagal', 'Konfirmasi kedua harus SETUJU')
       return
     }
@@ -281,10 +294,7 @@ export default function Settings() {
       return
     }
     toast.success('Sukses', 'Semua data peserta telah dihapus dari sistem.')
-    setShowDeleteModal(false)
-    setDeleteInput('')
-    setDeleteApprovalInput('')
-    setDeleteReason('')
+    clearDeleteModalState()
   }
 
   const handleSaveTemplate = (e) => {
@@ -318,7 +328,7 @@ export default function Settings() {
   const handleArchiveEvent = (event) => {
     const confirmWord = window.prompt(`Arsipkan event "${event.name}"? Ketik SETUJU`, '')
     if (confirmWord === null) return
-    if (confirmWord !== 'SETUJU') return toast.error('Gagal', 'Konfirmasi harus SETUJU')
+    if (normalizeConfirmWord(confirmWord) !== 'SETUJU') return toast.error('Gagal', 'Konfirmasi harus SETUJU')
     const reason = window.prompt('Alasan arsip event (minimal 15 karakter):', '')
     if (reason === null) return
     const res = archiveEvent(event.id, user, reason)
@@ -330,7 +340,7 @@ export default function Settings() {
   const handleDeleteEvent = (event) => {
     const confirmWord = window.prompt(`Hapus event "${event.name}" permanen? Ketik HAPUS`, '')
     if (confirmWord === null) return
-    if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
+    if (normalizeConfirmWord(confirmWord) !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
     const reason = window.prompt('Alasan hapus event (minimal 15 karakter):', '')
     if (reason === null) return
     const res = deleteEvent(event.id, user, reason)
@@ -346,7 +356,7 @@ export default function Settings() {
     }
     const confirmWord = window.prompt('Pemulihan cadangan akan menimpa data aktif. Ketik RESTORE untuk lanjut:', '')
     if (confirmWord === null) return
-    if (confirmWord !== 'RESTORE') return toast.error('Gagal', 'Konfirmasi harus RESTORE')
+    if (normalizeConfirmWord(confirmWord) !== 'RESTORE') return toast.error('Gagal', 'Konfirmasi harus RESTORE')
     const reason = window.prompt('Alasan pemulihan data (minimal 15 karakter):', '')
     if (reason === null) return
 
@@ -380,7 +390,7 @@ export default function Settings() {
   const handleDeleteBackup = (backup) => {
     const confirmWord = window.prompt('Hapus cadangan data ini? Ketik HAPUS untuk lanjut:', '')
     if (confirmWord === null) return
-    if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
+    if (normalizeConfirmWord(confirmWord) !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
     const reason = window.prompt('Alasan hapus cadangan data (minimal 15 karakter):', '')
     if (reason === null) return
 
@@ -398,7 +408,7 @@ export default function Settings() {
     }
     const confirmWord = window.prompt(`Hapus ${invalidBackupCount} backup invalid? Ketik HAPUS untuk lanjut:`, '')
     if (confirmWord === null) return
-    if (confirmWord !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
+    if (normalizeConfirmWord(confirmWord) !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
     const reason = window.prompt('Alasan hapus backup invalid (minimal 15 karakter):', '')
     if (reason === null) return
 
@@ -659,13 +669,13 @@ export default function Settings() {
 
       {/* Reset Check-in Modal */}
       {showResetModal && (
-        <div className="modal-overlay" onClick={() => { setShowResetModal(false); setResetInput(''); setResetApprovalInput(''); setResetReason('') }}>
+        <div className="modal-overlay" onClick={clearResetModalState}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title card-title-inline modal-title-warning">
                 <AlertCircle size={18} /> Konfirmasi Reset Status
               </h3>
-              <button className="modal-close" onClick={() => { setShowResetModal(false); setResetInput(''); setResetApprovalInput(''); setResetReason('') }}>✕</button>
+              <button className="modal-close" onClick={clearResetModalState}>✕</button>
             </div>
             <form onSubmit={handleResetCheckIn}>
               <div className="modal-body">
@@ -707,7 +717,7 @@ export default function Settings() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowResetModal(false)}>Batal</button>
+                <button type="button" className="btn btn-secondary" onClick={clearResetModalState}>Batal</button>
                 <button type="submit" className="btn btn-primary btn-warning">Set Ulang Kehadiran</button>
               </div>
             </form>
@@ -717,13 +727,13 @@ export default function Settings() {
 
       {/* Delete All Modal */}
       {showDeleteModal && (
-        <div className="modal-overlay" onClick={() => { setShowDeleteModal(false); setDeleteInput(''); setDeleteApprovalInput(''); setDeleteReason('') }}>
+        <div className="modal-overlay" onClick={clearDeleteModalState}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title card-title-inline modal-title-danger">
                 <AlertCircle size={18} /> Konfirmasi Hapus Database
               </h3>
-              <button className="modal-close" onClick={() => { setShowDeleteModal(false); setDeleteInput(''); setDeleteApprovalInput(''); setDeleteReason('') }}>✕</button>
+              <button className="modal-close" onClick={clearDeleteModalState}>✕</button>
             </div>
             <form onSubmit={handleDeleteAll}>
               <div className="modal-body">
@@ -764,7 +774,7 @@ export default function Settings() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Batal</button>
+                <button type="button" className="btn btn-secondary" onClick={clearDeleteModalState}>Batal</button>
                 <button type="submit" className="btn btn-danger">Hapus Semua Data</button>
               </div>
             </form>
