@@ -120,6 +120,7 @@ export default function Layout({ children }) {
       return [
         { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
+        { path: '/admin/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
         { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai' }
       ]
     }
