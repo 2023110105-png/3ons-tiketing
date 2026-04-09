@@ -13,6 +13,23 @@ function withSyncGuard(task) {
   })
 }
 
+async function withRetry(task, options = {}) {
+  const maxAttempts = Number(options?.maxAttempts || 1)
+  const baseDelayMs = Number(options?.baseDelayMs || 300)
+  let attempt = 0
+  while (attempt < Math.max(1, maxAttempts)) {
+    attempt += 1
+    try {
+      return await task()
+    } catch (err) {
+      if (attempt >= maxAttempts) throw err
+      const delay = baseDelayMs * attempt
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+  return false
+}
+
 function toPlainValue(value) {
   if (value == null) return value
   if (typeof value?.toDate === 'function') return value.toDate().toISOString()
@@ -256,17 +273,20 @@ export function syncParticipantUpsert({ tenantId, eventId, participant }) {
   if (!tenantId || !eventId || !participant?.id) return noopPromise()
 
   return withSyncGuard(async () => {
-    const ref = doc(db, 'tenants', tenantId, 'events', eventId, 'participants', participant.id)
-    await setDoc(
-      ref,
-      {
-        ...participant,
-        tenant_id: tenantId,
-        event_id: eventId,
-        updated_at: serverTimestamp()
-      },
-      { merge: true }
-    )
+    await withRetry(async () => {
+      const ref = doc(db, 'tenants', tenantId, 'events', eventId, 'participants', participant.id)
+      await setDoc(
+        ref,
+        {
+          ...participant,
+          tenant_id: tenantId,
+          event_id: eventId,
+          updated_at: serverTimestamp()
+        },
+        { merge: true }
+      )
+      return true
+    }, { maxAttempts: 4, baseDelayMs: 250 })
     return true
   })
 }

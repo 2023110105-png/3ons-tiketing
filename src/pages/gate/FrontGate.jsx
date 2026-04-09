@@ -168,7 +168,13 @@ export default function FrontGate() {
       return
     }
 
-    const res = checkIn(qrData)
+    let res = checkIn(qrData)
+    if (!res.success && res.status === 'invalid' && String(res.message || '').toLowerCase().includes('tidak ditemukan')) {
+      // New participants may still be in-flight from admin device sync.
+      // Force a fresh pull and retry once so gate scan works without manual refresh.
+      await bootstrapStoreFromFirebase(true)
+      res = checkIn(qrData)
+    }
     setResult(res)
     setShowResultDetail(false)
 
