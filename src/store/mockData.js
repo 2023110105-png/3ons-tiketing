@@ -3174,6 +3174,13 @@ export function setCurrentDay(day, actor = 'system') {
   }
 }
 
+export function createNewDay(actor = 'system') {
+  const days = getAvailableDays()
+  const nextDay = (days.length > 0 ? Math.max(...days) : 0) + 1
+  setCurrentDay(nextDay, actor)
+  return nextDay
+}
+
 export function resetCheckIns(actor = 'system', reason = '') {
   if (!isStrongReason(reason)) {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }

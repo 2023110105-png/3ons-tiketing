@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
-import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3 } from 'lucide-react'
+import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
@@ -58,6 +58,13 @@ export default function Participants() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const fileInputRef = useRef(null)
   const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
+
+  const handleAddNewDay = () => {
+    const newDay = createNewDay(user)
+    setAvailableDays(getAvailableDays())
+    setDayFilter(newDay)
+    toast.success('Hari Baru Ditambahkan', `Sistem telah menyiapkan Hari ${newDay}. Anda sekarang bisa import peserta untuk hari ini.`)
+  }
 
   useEffect(() => {
     const syncTenantId = () => setTenantId(resolveTenantId(user))
@@ -1128,9 +1135,14 @@ export default function Participants() {
         </div>
 
         <div className="m-filter-chips">
-          <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
-            {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+              {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
+            </select>
+            <button className="btn btn-ghost btn-sm m-filter-select" onClick={handleAddNewDay} title="Tambah Hari" style={{ padding: '0 8px' }}>
+              <Plus size={14} />
+            </button>
+          </div>
           <select className="m-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="all">Semua</option>
             {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -1358,9 +1370,14 @@ export default function Participants() {
           <option value="all">Semua Kategori</option>
           {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
-        <select className="form-select select-sm" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
-          {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
-        </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <select className="form-select select-sm" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+            {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
+          </select>
+          <button className="btn btn-ghost btn-sm" onClick={handleAddNewDay} title="Tambah Hari Baru" style={{ padding: '6px 8px' }}>
+            <Plus size={14} />
+          </button>
+        </div>
         <select className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="all">Semua Status</option>
           <option value="checked">Sudah Check-in</option>
