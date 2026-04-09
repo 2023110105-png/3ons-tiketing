@@ -27,6 +27,13 @@ export function fetchFirebaseWorkspaceSnapshot() {
   return provider().fetchFirebaseWorkspaceSnapshot()
 }
 
+export function subscribeWorkspaceChanges(onChange) {
+  if (typeof provider().subscribeWorkspaceChanges !== 'function') {
+    return () => {}
+  }
+  return provider().subscribeWorkspaceChanges(onChange)
+}
+
 export function syncAuditLog(payload) {
   return provider().syncAuditLog(scopeTenantPayload(payload))
 }

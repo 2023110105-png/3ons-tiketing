@@ -2,6 +2,7 @@ import { isSupabaseEnabled, supabase } from './supabase'
 
 const WORKSPACE_TABLE = 'workspace_state'
 const WORKSPACE_ID = 'default'
+const WORKSPACE_SCHEMA = 'public'
 
 function noopPromise() {
   return Promise.resolve(false)
@@ -119,6 +120,47 @@ export async function fetchFirebaseWorkspaceSnapshot() {
     // eslint-disable-next-line no-console
     console.error('[SupabaseSync] fetch snapshot failed:', err?.message || err)
     return null
+  }
+}
+
+export function subscribeWorkspaceChanges(onChange) {
+  if (!isSupabaseEnabled || !supabase || typeof onChange !== 'function') {
+    return () => {}
+  }
+
+  const channel = supabase
+    .channel(`workspace:${WORKSPACE_ID}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: WORKSPACE_SCHEMA,
+        table: WORKSPACE_TABLE,
+        filter: `id=eq.${WORKSPACE_ID}`
+      },
+      (payload) => {
+        try {
+          onChange(payload)
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('[SupabaseSync] realtime callback failed:', err?.message || err)
+        }
+      }
+    )
+
+  channel.subscribe((status, err) => {
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      // eslint-disable-next-line no-console
+      console.error('[SupabaseSync] realtime subscribe failed:', err?.message || err || status)
+    }
+  })
+
+  return () => {
+    try {
+      supabase.removeChannel(channel)
+    } catch {
+      // no-op
+    }
   }
 }
 
