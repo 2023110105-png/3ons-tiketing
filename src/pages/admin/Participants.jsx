@@ -482,7 +482,9 @@ export default function Participants() {
       setShowWaConnectModal(true)
       return
     }
-    const targetParticipants = visibleParticipants.filter(hasValidWaTarget)
+    const targetParticipants = visibleParticipants
+      .filter((p) => Number(p?.day_number) === Number(dayFilter))
+      .filter(hasValidWaTarget)
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
     const skippedCount = visibleParticipants.length - targetParticipants.length
     if (skippedCount > 0) {

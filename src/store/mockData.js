@@ -1865,12 +1865,27 @@ function salvageLargestParticipantListIntoActiveEvent(nextStore, ...sources) {
   void syncEventSnapshot({ tenantId: tid, event: activeEv })
 }
 
+function preserveMissingTenantScopes({ nextTenantRegistry, nextStore, previousTenantRegistry, previousStore }) {
+  const prevTenants = previousTenantRegistry?.tenants || {}
+  const nextTenants = nextTenantRegistry?.tenants || {}
+  Object.keys(prevTenants).forEach((tenantId) => {
+    if (nextTenants[tenantId]) return
+    nextTenants[tenantId] = prevTenants[tenantId]
+    if (!nextStore?.tenants) nextStore.tenants = {}
+    if (!nextStore.tenants[tenantId] && previousStore?.tenants?.[tenantId]) {
+      nextStore.tenants[tenantId] = previousStore.tenants[tenantId]
+    }
+  })
+}
+
 export async function bootstrapStoreFromFirebase(force = false) {
   if (!isFirebaseEnabled) return false
   if (firebaseStoreReady && !force) return true
   if (firebaseBootstrapPromise && !force) return firebaseBootstrapPromise
 
   firebaseBootstrapPromise = (async () => {
+    const previousTenantRegistry = tenantRegistry
+    const previousStore = cloneStoreForMerge(store)
     const memoryStorePreHydrate = cloneStoreForMerge(store)
     const localRaw = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
     const localSnap = parseStoredJSON(localRaw)
@@ -1881,8 +1896,16 @@ export async function bootstrapStoreFromFirebase(force = false) {
       return false
     }
 
-    tenantRegistry = normalizeHydratedTenantRegistry(snapshot.tenantRegistry)
-    store = normalizeHydratedStore(snapshot.store)
+    const nextTenantRegistry = normalizeHydratedTenantRegistry(snapshot.tenantRegistry)
+    const nextStore = normalizeHydratedStore(snapshot.store)
+    preserveMissingTenantScopes({
+      nextTenantRegistry,
+      nextStore,
+      previousTenantRegistry,
+      previousStore
+    })
+    tenantRegistry = nextTenantRegistry
+    store = nextStore
     mergePersistedLocalParticipantsIntoHydratedStore(store, localSnap)
     if (memoryStorePreHydrate) {
       mergePersistedLocalParticipantsIntoHydratedStore(store, memoryStorePreHydrate)
