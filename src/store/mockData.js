@@ -228,7 +228,9 @@ function getActiveParticipantsFromEvent(ev, dayFilter = null) {
   const hasDeletedMarks = Object.keys(tombstones).length > 0
   const all = Array.isArray(ev?.participants) ? ev.participants : []
   const targetDay = dayFilter == null ? null : Number(dayFilter)
-  const activeTenantId = String(getActiveTenantState()?.id || '').trim()
+  const activeTenant = getActiveTenantState()
+  const activeTenantId = String(activeTenant?.id || '').trim()
+  const activeTicketPrefix = getTenantTicketPrefix(activeTenant)
 
   const belongsToActiveTenant = (participant) => {
     if (!activeTenantId) return true
@@ -239,12 +241,17 @@ function getActiveParticipantsFromEvent(ev, dayFilter = null) {
     try {
       const parsedQr = JSON.parse(rawQr)
       const qrTenantId = String(parsedQr?.t || '').trim()
-      if (!qrTenantId) return true
-      return qrTenantId === activeTenantId
+      if (qrTenantId) return qrTenantId === activeTenantId
     } catch {
-      // Keep legacy participant rows that don't use JSON QR payloads.
-      return true
+      // fall through to ticket prefix fallback
     }
+
+    // Legacy fallback: participants without tenant markers must match ticket prefix
+    // of the active tenant to avoid cross-tenant leaks from stale caches.
+    const ticketId = String(participant?.ticket_id || '').trim().toUpperCase()
+    const prefix = String(activeTicketPrefix || '').trim().toUpperCase()
+    if (!ticketId || !prefix) return false
+    return ticketId.startsWith(`${prefix}-`)
   }
 
   // Fast path: no day filter and no deleted marks.
