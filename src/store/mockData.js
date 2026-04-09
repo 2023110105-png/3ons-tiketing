@@ -3102,6 +3102,29 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   }
 }
 
+function normalizeImportKey(key) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+}
+
+function readImportField(row, aliases = []) {
+  if (!row || typeof row !== 'object') return ''
+  const map = new Map()
+  Object.entries(row).forEach(([k, v]) => {
+    map.set(normalizeImportKey(k), v)
+  })
+  for (const alias of aliases) {
+    const value = map.get(normalizeImportKey(alias))
+    if (value === undefined || value === null) continue
+    const text = String(value).trim()
+    if (text) return text
+  }
+  return ''
+}
+
 export function bulkAddParticipants(rows, dayNumber, actor = 'system', options = {}) {
   const added = []
   const updated = []
@@ -3123,14 +3146,27 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
     let rowDay
     let extras
     try {
-      name = String(row.name || row.nama || row.Name || row.Nama || '').trim()
-      const phoneRaw = String(row.phone || row.telepon || row.Phone || row.Telepon || row.hp || row.HP || '').trim()
+      name = readImportField(row, [
+        'name', 'nama', 'nama_peserta', 'nama_lengkap', 'participant_name', 'peserta', 'full_name'
+      ])
+      const phoneRaw = readImportField(row, [
+        'phone', 'telepon', 'hp', 'no_hp', 'nomor_hp', 'nomor_wa', 'whatsapp', 'wa', 'mobile', 'telp'
+      ])
       phone = normalizeParticipantPhone(phoneRaw)
-      const emailRaw = String(row.email || row.Email || row.email_address || '').trim()
+      const emailRaw = readImportField(row, [
+        'email', 'email_address', 'mail', 'e_mail'
+      ])
       email = normalizeParticipantEmail(emailRaw)
-      const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
+      const category = readImportField(row, [
+        'category', 'kategori', 'jenis_tiket', 'ticket_category', 'type'
+      ]) || 'Regular'
       matchedCat = normalizeParticipantCategory(category)
-      const rawDay = row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
+      const rawDay = (
+        readImportField(row, ['day_number', 'day', 'hari', 'ticket_day', 'day_no', 'event_day'])
+        || row.day_number
+        || row.day
+        || row.hari
+      )
       const parsedDay = parseParticipantDayValue(rawDay)
       rowDay = normalizeParticipantDay(parsedDay, fallbackDay)
       extras = extractParticipantExtras(row)
