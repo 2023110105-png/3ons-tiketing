@@ -868,17 +868,49 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
   // Fullstack path: update via api-server so status/password apply to Firebase Auth.
   if (isFirebaseEnabled) {
     try {
-      const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data || {})
-      })
-      const payload = await res.json().catch(() => ({}))
-      if (!res.ok || payload?.success === false) {
-        return { success: false, error: payload?.error || `HTTP ${res.status}` }
+      const tenantForLookup = tenantRegistry.tenants[tenantId]
+      const localUser = asArray(tenantForLookup?.users).find((u) => (
+        u?.id === userId
+        || String(u?.auth_uid || '').trim() === String(userId || '').trim()
+        || String(u?.username || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
+        || String(u?.email || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
+      ))
+      const candidateUserIds = Array.from(new Set([
+        String(userId || '').trim(),
+        String(localUser?.id || '').trim(),
+        String(localUser?.auth_uid || '').trim(),
+        String(localUser?.username || '').trim().toLowerCase(),
+        String(localUser?.email || '').trim().toLowerCase()
+      ].filter(Boolean)))
+
+      let lastPayload = {}
+      let lastStatus = 0
+      let updatedUser = null
+      let patched = false
+      for (const candidateUserId of candidateUserIds) {
+        const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(candidateUserId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data || {})
+        })
+        const payload = await res.json().catch(() => ({}))
+        lastPayload = payload
+        lastStatus = res.status
+        if (res.ok && payload?.success !== false) {
+          patched = true
+          updatedUser = payload?.user || null
+          break
+        }
+        // Retry with next identifier only for not-found records.
+        if (res.status !== 404) {
+          return { success: false, error: payload?.error || `HTTP ${res.status}` }
+        }
+      }
+      if (!patched) {
+        return { success: false, error: lastPayload?.error || `HTTP ${lastStatus || 404}` }
       }
       await bootstrapStoreFromFirebase(true)
-      return { success: true, user: payload?.user || null }
+      return { success: true, user: updatedUser }
     } catch (err) {
       return {
         success: false,
@@ -910,12 +942,42 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
 export async function deleteTenantUser(tenantId, userId, actor = 'system') {
   if (isFirebaseEnabled) {
     try {
-      const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
-        method: 'DELETE'
-      })
-      const payload = await res.json().catch(() => ({}))
-      if (!res.ok || payload?.success === false) {
-        return { success: false, error: payload?.error || `HTTP ${res.status}` }
+      const tenantForLookup = tenantRegistry.tenants[tenantId]
+      const localUser = asArray(tenantForLookup?.users).find((u) => (
+        u?.id === userId
+        || String(u?.auth_uid || '').trim() === String(userId || '').trim()
+        || String(u?.username || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
+        || String(u?.email || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
+      ))
+      const candidateUserIds = Array.from(new Set([
+        String(userId || '').trim(),
+        String(localUser?.id || '').trim(),
+        String(localUser?.auth_uid || '').trim(),
+        String(localUser?.username || '').trim().toLowerCase(),
+        String(localUser?.email || '').trim().toLowerCase()
+      ].filter(Boolean)))
+
+      let lastPayload = {}
+      let lastStatus = 0
+      let deleted = false
+      for (const candidateUserId of candidateUserIds) {
+        const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(candidateUserId)}`, {
+          method: 'DELETE'
+        })
+        const payload = await res.json().catch(() => ({}))
+        lastPayload = payload
+        lastStatus = res.status
+        if (res.ok && payload?.success !== false) {
+          deleted = true
+          break
+        }
+        // Retry with next identifier only for not-found records.
+        if (res.status !== 404) {
+          return { success: false, error: payload?.error || `HTTP ${res.status}` }
+        }
+      }
+      if (!deleted) {
+        return { success: false, error: lastPayload?.error || `HTTP ${lastStatus || 404}` }
       }
       await bootstrapStoreFromFirebase(true)
       return { success: true }
