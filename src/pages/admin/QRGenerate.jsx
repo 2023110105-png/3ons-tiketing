@@ -492,6 +492,7 @@ export default function QRGenerate() {
                     {p.category}
                   </span>
                   <span className="m-p-ticket">{p.ticket_id}</span>
+                  {p.qr_locked && <span className="badge badge-green">Terkirim</span>}
                 </div>
               </div>
               <button
@@ -598,6 +599,9 @@ export default function QRGenerate() {
             </button>
             {generating && (<div className="qr-toolbar-progress"><div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${generationProgress}%` }}></div></div></div>)}
           </div>
+          <div className="m-empty-subtle" style={{ marginBottom: 14 }}>
+            Tiket yang sudah terkirim via WhatsApp otomatis dikunci agar QR tetap sama dengan yang diterima peserta.
+          </div>
 
           <div className="grid-2">
             <div className="card qr-list-card">
@@ -610,7 +614,14 @@ export default function QRGenerate() {
                   <div key={p.id} onClick={() => generateQR(p)} className={`qr-list-item ${selectedParticipant?.id === p.id ? 'is-selected' : ''}`}>
                     <div>
                       <div className="qr-list-name">{p.name}</div>
-                      <div className="qr-list-meta">{p.ticket_id} · {p.category}</div>
+                      <div className="qr-list-meta">
+                        {p.ticket_id} · {p.category}
+                        {p.qr_locked && (
+                          <span className="badge badge-green" style={{ marginLeft: 8, fontSize: '0.66rem' }}>
+                            Terkirim
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="qr-list-actions">
                       <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
