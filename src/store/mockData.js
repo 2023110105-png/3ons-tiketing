@@ -1645,6 +1645,10 @@ function mergePersistedLocalParticipantsIntoHydratedStore(nextStore, localStore)
         (a, b) => participantMergeTimestamp(a) - participantMergeTimestamp(b)
       )
       nextEv.participants = merged
+      
+      if (typeof localEv.currentDay === 'number' && localEv.currentDay > (nextEv.currentDay || 1)) {
+        nextEv.currentDay = localEv.currentDay
+      }
 
       if (onlyLocal.length > 0) {
         for (const p of onlyLocal) {

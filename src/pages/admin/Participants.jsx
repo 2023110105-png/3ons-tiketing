@@ -413,7 +413,6 @@ export default function Participants() {
     setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false, extraFieldsText: '' })
     setAddExtraRows([])
     setShowModal(false)
-    await refreshData(true)
   }
 
   // --- BOT BROADCAST FEATURES ---
