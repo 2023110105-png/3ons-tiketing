@@ -79,8 +79,8 @@ export function getApiBaseUrl() {
     return envBase
   }
 
-  // Safety net: if Vercel env was not set yet, use the known Railway backend.
-  if (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
+  // Safety net for production-like hosts when env is missing.
+  if (typeof window !== 'undefined' && !isLocalBrowser) {
     return DEFAULT_PROD_API_BASE_URL
   }
 
@@ -106,8 +106,8 @@ export function getPlatformApiBaseUrl() {
     }
   }
 
-  // Production fallback: most deployments host /api and /platform on same backend.
-  return getApiBaseUrl()
+  // Production fallback: default to known backend host.
+  return DEFAULT_PROD_API_BASE_URL
 }
 
 export function buildApiUrl(path) {
