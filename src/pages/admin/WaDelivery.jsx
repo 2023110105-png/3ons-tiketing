@@ -57,7 +57,7 @@ export default function WaDelivery() {
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebouncedValue(query, 180)
-  const [statusFilter, setStatusFilter] = useState('all') // all|success|failed
+  const [statusFilter, setStatusFilter] = useState('all') // all|success|failed|unregistered
   const [expanded, setExpanded] = useState(null)
   const [retryingKey, setRetryingKey] = useState('')
   const waConn = useWaStatus({ tenantId })
@@ -135,7 +135,11 @@ export default function WaDelivery() {
   const filtered = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase()
     return flattened.filter(row => {
-      if (statusFilter !== 'all' && String(row.status || '').toLowerCase() !== statusFilter) return false
+      if (statusFilter === 'unregistered') {
+        if (String(row.error_code || '').toLowerCase() !== 'wa_number_not_registered') return false
+      } else if (statusFilter !== 'all' && String(row.status || '').toLowerCase() !== statusFilter) {
+        return false
+      }
       if (!q) return true
       const hay = `${row.ticket_id} ${row.name} ${row.phone} ${row.category} ${row.day_number} ${row.error || ''} ${row.error_code || ''}`.toLowerCase()
       return hay.includes(q)
@@ -266,6 +270,7 @@ export default function WaDelivery() {
               <option value="all">Semua status</option>
               <option value="success">Sukses</option>
               <option value="failed">Gagal</option>
+              <option value="unregistered">Nomor tidak terdaftar WA</option>
             </select>
             <div className="badge badge-gray" title="Ringkasan filter saat ini">
               Total: {summary.total} · Sukses: {summary.success} · Gagal: {summary.failed}
@@ -392,6 +397,7 @@ export default function WaDelivery() {
             <option value="all">Semua status</option>
             <option value="success">Sukses</option>
             <option value="failed">Gagal</option>
+            <option value="unregistered">Nomor tidak terdaftar WA</option>
           </select>
           <div className="badge badge-gray" title="Ringkasan filter saat ini">
             Total: {summary.total} · Sukses: {summary.success} · Gagal: {summary.failed}
@@ -472,6 +478,11 @@ export default function WaDelivery() {
                               {row.error && (
                                 <div style={{ color: 'var(--danger)', fontWeight: 650 }}>
                                   Alasan gagal: {humanizeUserMessage(row.error, { fallback: String(row.error) })}
+                                </div>
+                              )}
+                              {String(row.error_code || '').toLowerCase() === 'wa_number_not_registered' && (
+                                <div className="badge badge-red text-xs" style={{ width: 'fit-content' }}>
+                                  Nomor tidak terdaftar di WhatsApp
                                 </div>
                               )}
                               <div className="code-muted-sm">

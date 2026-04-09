@@ -999,6 +999,20 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
             const sendTasks = phoneList.map(async (p) => {
                 const waNumber = formatPhoneWA(p);
                 try {
+                    if (typeof session.client.isRegisteredUser === 'function') {
+                        const isRegistered = await withRetry(() => session.client.isRegisteredUser(waNumber), {
+                            retries: 1,
+                            timeoutMs: 10000
+                        });
+                        if (!isRegistered) {
+                            return {
+                                phone: p,
+                                status: 'Failed',
+                                error: 'Nomor tidak terdaftar di WhatsApp.',
+                                error_code: 'wa_number_not_registered'
+                            };
+                        }
+                    }
                     console.log(`[WA SEND] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`);
                     let sendResult;
                     if (waSendMode === 'message_only') {
