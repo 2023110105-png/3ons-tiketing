@@ -32,14 +32,30 @@ function normalizeRole(value) {
   return 'gate_front'
 }
 
+function collectIdentifierValues(user) {
+  return [
+    user?.id,
+    user?.uid,
+    user?.user_id,
+    user?.auth_uid,
+    user?.username,
+    user?.user_name,
+    user?.email,
+    user?.email_login,
+    user?.login_email
+  ]
+    .map((value) => normalizeString(value))
+    .filter(Boolean)
+}
+
 function userMatchesIdentifier(user, rawUserId) {
   const normalized = normalizeString(rawUserId)
   if (!normalized) return false
   const lowered = normalized.toLowerCase()
-  return String(user?.id || '').trim() === normalized
-    || String(user?.auth_uid || '').trim() === normalized
-    || String(user?.username || '').trim().toLowerCase() === lowered
-    || String(user?.email || '').trim().toLowerCase() === lowered
+  const identifiers = collectIdentifierValues(user)
+  return identifiers.some((identifier) => (
+    identifier === normalized || identifier.toLowerCase() === lowered
+  ))
 }
 
 async function resolveTenantUserRef({ tenantId, userId, db }) {
@@ -67,6 +83,15 @@ async function resolveTenantUserRef({ tenantId, userId, db }) {
       return { ref: foundDoc.ref, snap: foundDoc }
     }
   }
+
+  // Fallback for legacy schemas where identifier fields differ.
+  // This only runs for PATCH/DELETE and keeps compatibility with old data.
+  const allUsersSnap = await usersCol.limit(500).get()
+  const matchedDoc = allUsersSnap.docs.find((doc) => {
+    const data = doc.data() || {}
+    return userMatchesIdentifier({ id: doc.id, ...data }, rawUserId)
+  })
+  if (matchedDoc) return { ref: matchedDoc.ref, snap: matchedDoc }
 
   return { ref: null, snap: null }
 }
