@@ -128,7 +128,8 @@ const DEFAULT_TENANT = {
   branding: {
     primaryColor: '#0ea5e9'
   },
-  invoices: []
+  invoices: [],
+  deletedEventIds: {}
 }
 
 const DEFAULT_TENANT_ADMIN_USER = {
@@ -328,7 +329,10 @@ function normalizeSavedTenant(id, raw) {
     quota: raw?.quota || { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
     users: asArray(raw?.users),
     branding: raw?.branding || { primaryColor: '#0ea5e9' },
-    invoices: asArray(raw?.invoices)
+    invoices: asArray(raw?.invoices),
+    deletedEventIds: (raw?.deletedEventIds && typeof raw.deletedEventIds === 'object')
+      ? { ...raw.deletedEventIds }
+      : {}
   })
 }
 
@@ -2399,8 +2403,13 @@ export function deleteEvent(eventId, actor = 'system', reason = '') {
     return { success: false, error: 'Tidak bisa hapus event yang sedang aktif' }
   }
 
+  if (!activeTenant.deletedEventIds || typeof activeTenant.deletedEventIds !== 'object') {
+    activeTenant.deletedEventIds = {}
+  }
+  activeTenant.deletedEventIds[eventId] = new Date().toISOString()
   delete bucket.events[eventId]
   saveStore()
+  void syncTenantUpsert(activeTenant)
   void syncEventDelete({ tenantId: activeTenant.id, eventId })
   logAdminAction('event_delete', `Hapus event: ${event.name}`, actor, {
     event_id: eventId,

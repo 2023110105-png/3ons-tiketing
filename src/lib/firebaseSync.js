@@ -127,8 +127,12 @@ async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
   ])
 
   const events = {}
+  const deletedEventIds = (tenantMeta?.deletedEventIds && typeof tenantMeta.deletedEventIds === 'object')
+    ? tenantMeta.deletedEventIds
+    : {}
 
   for (const event of tenantEvents) {
+    if (event?.id && deletedEventIds[event.id]) continue
     const deletedParticipantIds = (event?.deletedParticipantIds && typeof event.deletedParticipantIds === 'object')
       ? event.deletedParticipantIds
       : {}
@@ -234,7 +238,10 @@ export async function fetchFirebaseWorkspaceSnapshot() {
       quota: tenant.quota || { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
       users: workspace.users,
       branding: tenant.branding || { primaryColor: '#0ea5e9' },
-      invoices: Array.isArray(tenant.invoices) ? tenant.invoices : []
+      invoices: Array.isArray(tenant.invoices) ? tenant.invoices : [],
+      deletedEventIds: (tenant?.deletedEventIds && typeof tenant.deletedEventIds === 'object')
+        ? tenant.deletedEventIds
+        : {}
     }
 
     store.tenants[tenant.id] = {
