@@ -623,55 +623,51 @@ export default function Participants() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const executeImportRows = (rows, invalidDayRows = []) => {
-    if (!rows?.length) return
+  const executeImportRows = (rows, invalidDayRows = [], manualDay = null) => {
+    if (!rows?.length) return;
     if (invalidDayRows.length > 0) {
       toast.info(
         'Hari tidak valid',
         `Nilai hari yang tidak valid akan dipakai sebagai Hari ${dayFilter} (mengikuti default pilihan).`
-      )
+      );
     }
-    let result
+    let result;
     try {
-      console.log('[IMPORT DEBUG] Data rows yang akan diimport:', rows)
+      let finalRows = rows;
+      if (manualDay) {
+        finalRows = rows.map((row) => ({ ...row, day_number: manualDay }));
+      }
+      console.log('[IMPORT DEBUG] Data rows yang akan diimport:', finalRows);
       result = bulkAddParticipants(
-        rows,
-            allNoDay
-          })
-        dayFilter,
-        user,
+        finalRows,
         { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
-            let finalRows = rows
-            if (manualDay) {
-              finalRows = rows.map((row) => ({ ...row, day_number: manualDay }))
-            }
-      )
-      console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result)
+      );
+      console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result);
     } catch (err) {
-      console.error('[import]', err)
-      toast.error('Import gagal', err?.message || 'Terjadi kesalahan saat memproses baris. Coba lagi atau kurangi jumlah baris.')
-      return
+      console.error('[import]', err);
+      toast.error('Import gagal', err?.message || 'Terjadi kesalahan saat memproses baris. Coba lagi atau kurangi jumlah baris.');
+      return;
     }
-    setImportResult(result)
-    const addedCount = result?.added?.length ?? 0
-    const updatedCount = result?.updated?.length ?? 0
-    const errCount = result?.errors?.length ?? 0
-    const touched = [...(result.added || []), ...(result.updated || [])]
+    setImportResult(result);
+    const addedCount = result?.added?.length ?? 0;
+    const updatedCount = result?.updated?.length ?? 0;
+    const errCount = result?.errors?.length ?? 0;
+    const touched = [...(result.added || []), ...(result.updated || [])];
     const dayNums = [
       ...new Set(
         touched
           .map((p) => Number(p.day_number))
           .filter((d) => Number.isInteger(d) && d >= 1)
       )
-    ]
-    let listDay = dayFilter
+    ];
+    let listDay = dayFilter;
     if (dayNums.length) {
-      listDay = Math.min(...dayNums)
-      setDayFilter(listDay)
+      listDay = Math.min(...dayNums);
+      setDayFilter(listDay);
     }
     if (addedCount + updatedCount > 0) {
-      setCategoryFilter('all')
-      setStatusFilter('all')
+      setCategoryFilter('all');
+      setStatusFilter('all');
     }
     if (addedCount + updatedCount === 0 && errCount > 0) {
       toast.error(
@@ -679,23 +675,23 @@ export default function Participants() {
         errCount >= rows.length
           ? 'Semua baris gagal. Lihat detail error di bawah.'
           : `${errCount} baris gagal, tidak ada yang ditambahkan atau diperbarui.`
-      )
+      );
     } else if (addedCount + updatedCount === 0) {
       toast.info(
         'Tidak ada perubahan',
         'Semua baris dilewati (misalnya duplikat dengan opsi Skip) atau tidak valid.'
-      )
+      );
     } else {
       toast.success(
         'Import berhasil',
         updatedCount > 0
           ? `${addedCount} peserta ditambahkan, ${updatedCount} diperbarui. Tampilan: Hari ${listDay} (filter kategori/status direset).`
           : `${addedCount} peserta ditambahkan. Tampilan: Hari ${listDay} (filter kategori/status direset).`
-      )
+      );
     }
     // Jangan paksa pull Firebase langsung setelah bulk write: snapshot remote bisa belum lengkap
     // dan akan menimpa data lokal yang baru diimpor.
-    void refreshData(false, listDay)
+    void refreshData(false, listDay);
   }
 
   const confirmImport = () => {
