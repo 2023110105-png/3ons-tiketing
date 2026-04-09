@@ -106,6 +106,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     if (result.success) {
       await refreshTenantData(selectedTenantId, true)
       toast.success('Update', `Status user ${user.username} diperbarui`)
+      if (result.warning) {
+        toast.warning('Sinkronisasi tertunda', result.warning)
+      }
     } else {
       toast.error('Gagal', result.error || 'Tidak bisa memperbarui status user')
     }
@@ -117,6 +120,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
       if (result.success) {
         await refreshTenantData(selectedTenantId, true)
         toast.success('Dihapus', `User ${user.username} berhasil dihapus`)
+        if (result.warning) {
+          toast.warning('Sinkronisasi tertunda', result.warning)
+        }
       } else {
         toast.error('Gagal', result.error || 'Tidak bisa menghapus user')
       }
@@ -130,6 +136,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
     const result = await updateTenantUser(selectedTenantId, user.id, { password: newPass }, currentUser)
     if (result.success) {
       toast.success('Sukses', `Password ${user.username} berhasil direset`)
+      if (result.warning) {
+        toast.warning('Sinkronisasi tertunda', result.warning)
+      }
     } else {
       toast.error('Gagal', result.error || 'Tidak bisa reset password')
     }

@@ -867,6 +867,7 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
 export async function updateTenantUser(tenantId, userId, data, actor = 'system') {
   // Fullstack path: update via api-server so status/password apply to Firebase Auth.
   let platformSyncUnavailable = false
+  let platformSyncUnavailableReason = ''
   if (isFirebaseEnabled) {
     try {
       const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
@@ -882,12 +883,7 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
       return { success: true, user: payload?.user || null }
     } catch (err) {
       platformSyncUnavailable = true
-      if (FIREBASE_AUTH_MODE === 'strict') {
-        return {
-          success: false,
-          error: `Tidak bisa terhubung ke server akun tenant. ${err?.message || 'Periksa koneksi API lalu coba lagi.'}`
-        }
-      }
+      platformSyncUnavailableReason = err?.message || 'Periksa koneksi API lalu coba lagi.'
     }
   }
 
@@ -910,11 +906,17 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
     tenant_id: tenantId,
     user_id: userId
   })
-  return { success: true }
+  return {
+    success: true,
+    warning: platformSyncUnavailable
+      ? `Perubahan disimpan lokal, sinkronisasi server tertunda: ${platformSyncUnavailableReason}`
+      : ''
+  }
 }
 
 export async function deleteTenantUser(tenantId, userId, actor = 'system') {
   let platformSyncUnavailable = false
+  let platformSyncUnavailableReason = ''
   if (isFirebaseEnabled) {
     try {
       const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
@@ -928,12 +930,7 @@ export async function deleteTenantUser(tenantId, userId, actor = 'system') {
       return { success: true }
     } catch (err) {
       platformSyncUnavailable = true
-      if (FIREBASE_AUTH_MODE === 'strict') {
-        return {
-          success: false,
-          error: `Tidak bisa terhubung ke server akun tenant. ${err?.message || 'Periksa koneksi API lalu coba lagi.'}`
-        }
-      }
+      platformSyncUnavailableReason = err?.message || 'Periksa koneksi API lalu coba lagi.'
     }
   }
 
@@ -956,7 +953,12 @@ export async function deleteTenantUser(tenantId, userId, actor = 'system') {
     tenant_id: tenantId,
     user_id: userId
   })
-  return { success: true }
+  return {
+    success: true,
+    warning: platformSyncUnavailable
+      ? `Penghapusan disimpan lokal, sinkronisasi server tertunda: ${platformSyncUnavailableReason}`
+      : ''
+  }
 }
 
 export function addTenantInvoice(tenantId, invoiceData, actor = 'system') {
