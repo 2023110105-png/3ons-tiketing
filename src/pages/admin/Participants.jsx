@@ -612,12 +612,14 @@ export default function Participants() {
     }
     let result
     try {
+      console.log('[IMPORT DEBUG] Data rows yang akan diimport:', rows)
       result = bulkAddParticipants(
         rows,
         dayFilter,
         user,
         { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
       )
+      console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result)
     } catch (err) {
       console.error('[import]', err)
       toast.error('Import gagal', err?.message || 'Terjadi kesalahan saat memproses baris. Coba lagi atau kurangi jumlah baris.')

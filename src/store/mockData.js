@@ -1021,7 +1021,16 @@ function normalizeParticipantName(value) {
 }
 
 function normalizeParticipantPhone(value) {
-  return String(value || '').trim()
+  let phone = String(value || '').trim()
+  // Hilangkan semua spasi, tanda - dan karakter non-digit kecuali + di depan
+  phone = phone.replace(/[^\d+]/g, '')
+  // Jika diawali +62, ubah ke 62
+  if (phone.startsWith('+62')) phone = '62' + phone.slice(3)
+  // Jika diawali 0, ubah ke 62
+  else if (phone.startsWith('0')) phone = '62' + phone.slice(1)
+  // Jika sudah 62 di depan, biarkan
+  // Jika tidak, biarkan apa adanya (untuk nomor luar negeri)
+  return phone
 }
 
 function normalizeParticipantEmail(value) {
