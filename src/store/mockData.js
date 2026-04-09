@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import {
   syncAuditLog,
   fetchFirebaseWorkspaceSnapshot,
+  subscribeWorkspaceChanges,
   syncCheckInLog,
   syncResetCheckInLogs,
   syncResetAdminLogs,
@@ -450,7 +451,7 @@ function runOneTimeDefaultTenantPurge() {
   if (parsedStore?.tenants && typeof parsedStore.tenants === 'object') {
     const defaultBucket = parsedStore.tenants[DEFAULT_TENANT_ID]
       ? normalizeTenantStoreBucket(parsedStore.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
-      : createTenantStoreBucket('Event Platform 2026', true)
+      : createTenantStoreBucket('Event Platform 2026', false)
     Object.values(defaultBucket.events || {}).forEach((event) => {
       event.participants = []
       event.deletedParticipantIds = {}
@@ -1900,7 +1901,11 @@ let realtimeListeners = []
 let firebaseBootstrapPromise = null
 let firebaseStoreReady = false
 let lastForcedFirebaseBootstrapAt = 0
+let workspaceRealtimeUnsubscribe = null
+let lastRealtimeHydrateAt = 0
+let realtimeHydrateInFlight = false
 const MIN_FORCED_FIREBASE_BOOTSTRAP_MS = 5000
+const MIN_REALTIME_HYDRATE_MS = 1200
 
 function ensureTenantStore(tenantId, fallbackEventName = 'Event 1', withMockParticipants = false) {
   if (!store.tenants || typeof store.tenants !== 'object') {
@@ -2133,6 +2138,7 @@ function preserveMissingTenantScopes({ nextTenantRegistry, nextStore, previousTe
 }
 
 export async function bootstrapStoreFromFirebase(force = false) {
+  ensureWorkspaceRealtimeBridge()
   if (!isWorkspaceSyncEnabled()) return false
   if (firebaseBootstrapPromise) return firebaseBootstrapPromise
   if (firebaseStoreReady && !force) return true
@@ -2243,12 +2249,35 @@ export async function bootstrapStoreFromFirebase(force = false) {
   return firebaseBootstrapPromise
 }
 
+function ensureWorkspaceRealtimeBridge() {
+  if (!isWorkspaceSyncEnabled()) return
+  if (workspaceRealtimeUnsubscribe) return
+
+  workspaceRealtimeUnsubscribe = subscribeWorkspaceChanges(() => {
+    if (realtimeHydrateInFlight) return
+    const now = Date.now()
+    if (now - lastRealtimeHydrateAt < MIN_REALTIME_HYDRATE_MS) return
+
+    lastRealtimeHydrateAt = now
+    realtimeHydrateInFlight = true
+
+    bootstrapStoreFromFirebase(true)
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('[WorkspaceRealtime] hydrate failed:', err?.message || err)
+      })
+      .finally(() => {
+        realtimeHydrateInFlight = false
+      })
+  })
+}
+
 function getActiveEvent() {
   const activeTenant = getActiveTenantState()
   const bucket = ensureTenantStore(
     activeTenant.id,
     activeTenant.eventName || 'Event 1',
-    activeTenant.id === DEFAULT_TENANT_ID
+    false
   )
 
   if (!bucket.events[bucket.activeEventId]) {
@@ -2402,7 +2431,7 @@ export function deleteInvalidStoreBackups(actor = 'system', reason = '') {
 export function getEventsWithOptions(options = {}) {
   const includeArchived = !!options.includeArchived
   const activeTenant = getActiveTenantState()
-  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false)
 
   return Object.values(bucket.events)
     .filter(e => includeArchived || !e.isArchived)
@@ -2412,7 +2441,7 @@ export function getEventsWithOptions(options = {}) {
 
 export function getCurrentEventId() {
   const activeTenant = getActiveTenantState()
-  return ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID).activeEventId
+  return ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false).activeEventId
 }
 
 export function getCurrentEventName() {
@@ -2423,7 +2452,7 @@ export function createEvent(name, actor = 'system') {
   const eventName = String(name || '').trim() || `Event ${getEvents().length + 1}`
   const event = createEmptyEventState(eventName)
   const activeTenant = getActiveTenantState()
-  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false)
   bucket.events[event.id] = event
   bucket.activeEventId = event.id
   activeTenant.activeEventId = bucket.activeEventId
@@ -2436,7 +2465,7 @@ export function createEvent(name, actor = 'system') {
 
 export function renameEvent(eventId, newName, actor = 'system') {
   const activeTenant = getActiveTenantState()
-  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false)
   const event = bucket.events[eventId]
   if (!event) return { success: false, error: 'Event tidak ditemukan' }
   const cleanName = String(newName || '').trim()
@@ -2458,7 +2487,7 @@ export function archiveEvent(eventId, actor = 'system', reason = '') {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
   const activeTenant = getActiveTenantState()
-  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false)
   const event = bucket.events[eventId]
   if (!event) return { success: false, error: 'Event tidak ditemukan' }
   if (event.id === bucket.activeEventId) {
@@ -2480,7 +2509,7 @@ export function deleteEvent(eventId, actor = 'system', reason = '') {
     return { success: false, error: `Alasan minimal ${MIN_HIGH_IMPACT_REASON_LENGTH} karakter` }
   }
   const activeTenant = getActiveTenantState()
-  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false)
   const event = bucket.events[eventId]
   if (!event) return { success: false, error: 'Event tidak ditemukan' }
   if (event.id === bucket.activeEventId) {
@@ -2504,7 +2533,7 @@ export function deleteEvent(eventId, actor = 'system', reason = '') {
 
 export function setCurrentEvent(eventId, actor = 'system') {
   const activeTenant = getActiveTenantState()
-  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', activeTenant.id === DEFAULT_TENANT_ID)
+  const bucket = ensureTenantStore(activeTenant.id, activeTenant.eventName || 'Event 1', false)
   if (!bucket.events[eventId]) return false
   const prev = bucket.activeEventId
   bucket.activeEventId = eventId
@@ -2673,7 +2702,7 @@ function buildSessionForGlobalUser(globalUser) {
   ensureTenantStore(
     activeTenant.id,
     activeTenant.eventName || 'Event 1',
-    activeTenant.id === DEFAULT_TENANT_ID
+    false
   )
   saveStore()
 
@@ -2820,7 +2849,7 @@ export function getSession() {
       ensureTenantStore(
         resolvedGlobalTenant.id,
         resolvedGlobalTenant.eventName || 'Event 1',
-        resolvedGlobalTenant.id === DEFAULT_TENANT_ID
+        false
       )
 
       return {
@@ -2854,7 +2883,7 @@ export function getSession() {
     ensureTenantStore(
       resolvedTenant.id,
       resolvedTenant.eventName || 'Event 1',
-      resolvedTenant.id === DEFAULT_TENANT_ID
+      false
     )
 
     return {
@@ -3397,7 +3426,7 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
       errors.push({ row: index + 1, error: e?.message || 'Gagal menyimpan peserta' })
       return
     }
-    added.push(participant)
+    added.push((participant && participant.participant) ? participant.participant : participant)
   })
 
   if (added.length + updated.length > 0) {
@@ -3662,6 +3691,7 @@ function pushOfflineQueueHistory(type, payload = {}) {
 
 export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source = 'scanner') {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const item = {
     id: generateId(),
     qr_data: qrData,
@@ -3679,11 +3709,13 @@ export function enqueuePendingCheckIn(qrData, scannedBy = 'gate_front', source =
     source
   })
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   return item
 }
 
 export function syncPendingCheckIns(maxItems = 100) {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const maxPendingAttempts = getMaxPendingAttempts()
   const queue = getPendingCheckIns().slice(0, maxItems)
   let synced = 0
@@ -3737,6 +3769,7 @@ export function syncPendingCheckIns(maxItems = 100) {
 
   if (queue.length > 0) {
     saveStore()
+    void syncEventSnapshot({ tenantId: tenant.id, event: ev })
     logAdminAction(
       'offline_sync',
       `Sinkronisasi offline queue: ${synced} berhasil, ${failed} gagal, ${purged} purge`,
@@ -3757,6 +3790,7 @@ export function syncPendingCheckIns(maxItems = 100) {
 
 export function retryPendingCheckIn(itemId) {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const maxPendingAttempts = getMaxPendingAttempts()
   const item = ev.pendingCheckIns.find(q => q.id === itemId)
   if (!item) return { success: false, error: 'Item antrean tidak ditemukan' }
@@ -3766,6 +3800,7 @@ export function retryPendingCheckIn(itemId) {
     ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== itemId)
     pushOfflineQueueHistory('retry_success', { queue_id: itemId, status: res.status || 'valid' })
     saveStore()
+    void syncEventSnapshot({ tenantId: tenant.id, event: ev })
     return { success: true, synced: true, result: res, remaining: ev.pendingCheckIns.length }
   }
 
@@ -3798,27 +3833,32 @@ export function retryPendingCheckIn(itemId) {
   }
 
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   return { success: false, synced: false, result: res, remaining: ev.pendingCheckIns.length }
 }
 
 export function removePendingCheckIn(itemId) {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const before = ev.pendingCheckIns.length
   ev.pendingCheckIns = ev.pendingCheckIns.filter(q => q.id !== itemId)
   const removed = before !== ev.pendingCheckIns.length
   if (removed) {
     pushOfflineQueueHistory('removed_manual', { queue_id: itemId })
     saveStore()
+    void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   }
   return { success: removed, remaining: ev.pendingCheckIns.length }
 }
 
 export function clearPendingCheckIns() {
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const cleared = ev.pendingCheckIns.length
   ev.pendingCheckIns = []
   pushOfflineQueueHistory('cleared_all', { cleared })
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   if (cleared > 0) {
     logAdminAction('offline_queue_clear', `Membersihkan antrean offline (${cleared} item)`, 'system', { cleared })
   }
@@ -3952,6 +3992,7 @@ export function deleteAllParticipants(actor = 'system', reason = '') {
   ev.participants = []
   ev.checkInLogs = []
   saveStore()
+  void syncResetCheckInLogs({ tenantId: tenant.id, eventId: ev.id })
   void syncEventSnapshot({ tenantId: tenant.id, event: ev })
 
   const cleanReason = normalizeReason(reason)
