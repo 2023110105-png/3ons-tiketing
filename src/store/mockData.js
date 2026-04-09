@@ -1022,6 +1022,7 @@ export function updateTenantBranding(tenantId, brandingData, actor = 'system') {
   }
 
   saveTenantRegistry()
+  void syncTenantUpsert(tenant)
   dispatchTenantChangeEvent()
   
   logOwnerAction('tenant_branding_update', `Update branding tenant ${tenant.brandName}`, actor, {
