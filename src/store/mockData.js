@@ -44,6 +44,7 @@ const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_WITH_BARCODE
 const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' ? 'hybrid' : 'strict'
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
+const DEFAULT_TENANT_ONLY_MODE = true
 
 function isAllowedStrictStorageKey(key) {
   return key === SESSION_KEY
@@ -335,6 +336,19 @@ function createDefaultTenantRegistry() {
   }
 }
 
+function enforceDefaultTenantOnlyRegistry(input) {
+  const currentDefaultTenant = input?.tenants?.[DEFAULT_TENANT_ID]
+    ? normalizeSavedTenant(DEFAULT_TENANT_ID, input.tenants[DEFAULT_TENANT_ID])
+    : seedDefaultTenantUsers({ ...DEFAULT_TENANT })
+
+  return {
+    activeTenantId: DEFAULT_TENANT_ID,
+    tenants: {
+      [DEFAULT_TENANT_ID]: currentDefaultTenant
+    }
+  }
+}
+
 function getTenantRegistry() {
   const raw = safeStorageGet(TENANT_REGISTRY_KEY) || safeStorageGet(LEGACY_TENANT_REGISTRY_KEY)
   const parsed = parseStoredJSON(raw)
@@ -352,18 +366,26 @@ function getTenantRegistry() {
     }
 
     const activeTenantId = normalizedTenants[parsed.activeTenantId] ? parsed.activeTenantId : DEFAULT_TENANT_ID
-    return {
+    const normalizedRegistry = {
       activeTenantId,
       tenants: normalizedTenants
     }
+    return DEFAULT_TENANT_ONLY_MODE
+      ? enforceDefaultTenantOnlyRegistry(normalizedRegistry)
+      : normalizedRegistry
   }
 
-  return createDefaultTenantRegistry()
+  return DEFAULT_TENANT_ONLY_MODE
+    ? enforceDefaultTenantOnlyRegistry(createDefaultTenantRegistry())
+    : createDefaultTenantRegistry()
 }
 
 let tenantRegistry = getTenantRegistry()
 
 function saveTenantRegistry() {
+  if (DEFAULT_TENANT_ONLY_MODE) {
+    tenantRegistry = enforceDefaultTenantOnlyRegistry(tenantRegistry)
+  }
   safeStorageSet(TENANT_REGISTRY_KEY, JSON.stringify(tenantRegistry))
   safeStorageRemove(LEGACY_TENANT_REGISTRY_KEY)
 }
@@ -391,6 +413,14 @@ function readSessionSnapshot() {
 }
 
 function syncActiveTenantWithSession() {
+  if (DEFAULT_TENANT_ONLY_MODE) {
+    if (tenantRegistry.activeTenantId !== DEFAULT_TENANT_ID) {
+      tenantRegistry.activeTenantId = DEFAULT_TENANT_ID
+      saveTenantRegistry()
+    }
+    return
+  }
+
   const session = readSessionSnapshot()
   if (!session) return
 
@@ -486,6 +516,9 @@ export function getTenants() {
 }
 
 export function switchActiveTenant(tenantId, actor = 'system') {
+  if (DEFAULT_TENANT_ONLY_MODE && tenantId !== DEFAULT_TENANT_ID) {
+    return { success: false, error: 'Mode tenant default aktif. Hanya tenant default yang digunakan.' }
+  }
   const tenant = tenantRegistry.tenants[tenantId]
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
   if (!canUseTenant(tenant)) return { success: false, error: 'Tenant tidak aktif atau sudah expired' }
@@ -509,6 +542,13 @@ export function switchActiveTenant(tenantId, actor = 'system') {
 }
 
 export async function createTenant(data, actor = 'system') {
+  if (DEFAULT_TENANT_ONLY_MODE) {
+    return {
+      success: false,
+      error: 'Mode tenant default aktif. Pembuatan tenant baru dinonaktifkan.'
+    }
+  }
+
   if (FIREBASE_DATA_MODE === 'strict' && !isFirebaseEnabled) {
     return {
       success: false,
@@ -1754,6 +1794,14 @@ function getStore() {
         normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', true)
       }
 
+      if (DEFAULT_TENANT_ONLY_MODE) {
+        return {
+          tenants: {
+            [DEFAULT_TENANT_ID]: normalizeTenantStoreBucket(normalizedTenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
+          }
+        }
+      }
+
       return { tenants: normalizedTenants }
     }
 
@@ -1791,6 +1839,12 @@ function ensureTenantStore(tenantId, fallbackEventName = 'Event 1', withMockPart
 }
 
 function saveStore() {
+  if (DEFAULT_TENANT_ONLY_MODE) {
+    const defaultBucket = store?.tenants?.[DEFAULT_TENANT_ID]
+      ? normalizeTenantStoreBucket(store.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
+      : createTenantStoreBucket('Event Platform 2026', true)
+    store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
+  }
   const previous = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
   saveStoreBackupSnapshot(previous)
   safeStorageSet(STORE_KEY, JSON.stringify(store))
@@ -1798,6 +1852,16 @@ function saveStore() {
 }
 
 function persistHydratedState() {
+  if (DEFAULT_TENANT_ONLY_MODE) {
+    tenantRegistry = enforceDefaultTenantOnlyRegistry(tenantRegistry)
+    if (!store?.tenants || typeof store.tenants !== 'object') {
+      store = createDefaultStore()
+    }
+    const defaultBucket = store.tenants?.[DEFAULT_TENANT_ID]
+      ? normalizeTenantStoreBucket(store.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
+      : createTenantStoreBucket('Event Platform 2026', true)
+    store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
+  }
   safeStorageSet(TENANT_REGISTRY_KEY, JSON.stringify(tenantRegistry))
   safeStorageSet(STORE_KEY, JSON.stringify(store))
   safeStorageRemove(LEGACY_TENANT_REGISTRY_KEY)
@@ -1822,10 +1886,13 @@ function normalizeHydratedTenantRegistry(snapshot) {
     ? snapshot.activeTenantId
     : Object.keys(normalizedTenants)[0] || DEFAULT_TENANT_ID
 
-  return {
+  const normalizedRegistry = {
     activeTenantId,
     tenants: normalizedTenants
   }
+  return DEFAULT_TENANT_ONLY_MODE
+    ? enforceDefaultTenantOnlyRegistry(normalizedRegistry)
+    : normalizedRegistry
 }
 
 function normalizeHydratedStore(snapshot) {
@@ -1842,6 +1909,13 @@ function normalizeHydratedStore(snapshot) {
 
   if (!normalizedTenants[DEFAULT_TENANT_ID]) {
     normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', true)
+  }
+
+  if (DEFAULT_TENANT_ONLY_MODE) {
+    const defaultBucket = normalizedTenants[DEFAULT_TENANT_ID]
+      ? normalizeTenantStoreBucket(normalizedTenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
+      : createTenantStoreBucket('Event Platform 2026', true)
+    return { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
   }
 
   return { tenants: normalizedTenants }
@@ -1957,6 +2031,7 @@ function salvageLargestParticipantListIntoActiveEvent(nextStore, ...sources) {
 }
 
 function preserveMissingTenantScopes({ nextTenantRegistry, nextStore, previousTenantRegistry, previousStore }) {
+  if (DEFAULT_TENANT_ONLY_MODE) return
   const prevTenants = previousTenantRegistry?.tenants || {}
   const nextTenants = nextTenantRegistry?.tenants || {}
   Object.keys(prevTenants).forEach((tenantId) => {
