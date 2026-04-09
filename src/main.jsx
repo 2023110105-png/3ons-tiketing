@@ -57,10 +57,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 // Register PWA service worker in production-like environments.
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  registerSW({
+  const updateSW = registerSW({
     immediate: true,
     onRegisterError(error) {
       console.error('[PWA] register failed:', error)
     }
   })
+
+  // Poll for updates so active devices pick up fresh release faster.
+  window.setInterval(() => {
+    updateSW(true)
+  }, 60_000)
 }

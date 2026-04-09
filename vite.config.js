@@ -66,8 +66,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    // PWA disabled temporarily to prioritize runtime stability on production devices.
-    // Re-enable after refresh-loop issue is fully resolved.
     ...(ENABLE_PWA ? [VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
@@ -89,7 +87,10 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Avoid stale HTML causing chunk mismatch after deployments.
+        // Reduce stale cache risk after deployments.
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         navigateFallbackDenylist: [/^\/api\//]
       }
     })] : []),
