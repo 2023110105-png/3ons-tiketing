@@ -15,8 +15,9 @@ import {
   syncTenantDelete,
   syncTenantUserDelete,
   syncTenantUserUpsert,
-  syncTenantUpsert
-} from '../lib/firebaseSync'
+  syncTenantUpsert,
+  isWorkspaceSyncEnabled
+} from '../lib/dataSync'
 import { auth, isFirebaseEnabled } from '../lib/firebase'
 
 const generateId = () => crypto.randomUUID()
@@ -2132,7 +2133,7 @@ function preserveMissingTenantScopes({ nextTenantRegistry, nextStore, previousTe
 }
 
 export async function bootstrapStoreFromFirebase(force = false) {
-  if (!isFirebaseEnabled) return false
+  if (!isWorkspaceSyncEnabled()) return false
   if (firebaseBootstrapPromise) return firebaseBootstrapPromise
   if (firebaseStoreReady && !force) return true
   if (force) {
