@@ -87,6 +87,9 @@ async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
   const events = {}
 
   for (const event of tenantEvents) {
+    const deletedParticipantIds = (event?.deletedParticipantIds && typeof event.deletedParticipantIds === 'object')
+      ? event.deletedParticipantIds
+      : {}
     const [participants, checkInLogs, adminLogs] = await Promise.all([
       readCollectionDocs(['tenants', tenantId, 'events', event.id, 'participants']),
       readCollectionDocs(['tenants', tenantId, 'events', event.id, 'checkins']),
@@ -99,7 +102,10 @@ async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
       isArchived: !!event.isArchived,
       created_at: event.created_at || new Date().toISOString(),
       currentDay: Number.isInteger(event.currentDay) && event.currentDay > 0 ? event.currentDay : 1,
-      participants: sortByTimestampAscending(participants),
+      participants: sortByTimestampAscending(
+        participants.filter((participant) => !deletedParticipantIds?.[participant?.id])
+      ),
+      deletedParticipantIds,
       checkInLogs: sortByTimestampDescending(checkInLogs),
       adminLogs: sortByTimestampDescending(adminLogs),
       pendingCheckIns: Array.isArray(event.pendingCheckIns) ? event.pendingCheckIns : [],
@@ -324,6 +330,9 @@ export function syncEventSnapshot({ tenantId, event }) {
         name: event.name,
         currentDay: event.currentDay,
         isArchived: !!event.isArchived,
+        deletedParticipantIds: (event?.deletedParticipantIds && typeof event.deletedParticipantIds === 'object')
+          ? event.deletedParticipantIds
+          : {},
         updated_at: serverTimestamp()
       },
       { merge: true }

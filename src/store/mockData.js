@@ -227,6 +227,9 @@ function getActiveParticipantsFromEvent(ev, dayFilter = null) {
   const tombstones = deletedParticipantTombstones
   const hasDeletedMarks = Object.keys(tombstones).length > 0
   const all = Array.isArray(ev?.participants) ? ev.participants : []
+  const eventDeletedMap = (ev?.deletedParticipantIds && typeof ev.deletedParticipantIds === 'object')
+    ? ev.deletedParticipantIds
+    : {}
   const targetDay = dayFilter == null ? null : Number(dayFilter)
   const activeTenant = getActiveTenantState()
   const activeTenantId = String(activeTenant?.id || '').trim()
@@ -242,6 +245,9 @@ function getActiveParticipantsFromEvent(ev, dayFilter = null) {
       const parsedQr = JSON.parse(rawQr)
       const qrTenantId = String(parsedQr?.t || '').trim()
       if (qrTenantId) return qrTenantId === activeTenantId
+      // Legacy QR JSON payloads (v1/v2) may not carry tenant marker.
+      // Keep them visible within current event scope.
+      return true
     } catch {
       // fall through to ticket prefix fallback
     }
@@ -263,6 +269,7 @@ function getActiveParticipantsFromEvent(ev, dayFilter = null) {
   for (const participant of all) {
     if (targetDay != null && Number(participant?.day_number) !== targetDay) continue
     if (participant?.id && tombstones[participant.id]) continue
+    if (participant?.id && eventDeletedMap[participant.id]) continue
     if (!belongsToActiveTenant(participant)) continue
     result.push(participant)
   }
@@ -1548,6 +1555,7 @@ function createEmptyEventState(name = 'Event Platform') {
     created_at: new Date().toISOString(),
     currentDay: 1,
     participants: [],
+    deletedParticipantIds: {},
     checkInLogs: [],
     adminLogs: [],
     pendingCheckIns: [],
@@ -1603,6 +1611,9 @@ function normalizeSavedEvent(id, raw) {
     created_at: raw?.created_at || new Date().toISOString(),
     currentDay: Number.isInteger(raw?.currentDay) && raw.currentDay > 0 ? raw.currentDay : 1,
     participants: asArray(raw?.participants).map((p, i) => normalizeStoredParticipant(p, i)),
+    deletedParticipantIds: (raw?.deletedParticipantIds && typeof raw.deletedParticipantIds === 'object')
+      ? { ...raw.deletedParticipantIds }
+      : {},
     checkInLogs: asArray(raw?.checkInLogs),
     adminLogs: asArray(raw?.adminLogs),
     pendingCheckIns: asArray(raw?.pendingCheckIns),
@@ -2749,7 +2760,13 @@ export function deleteParticipant(id, actor = 'system', reason = '') {
   const tenant = getActiveTenantState()
   const participant = ev.participants.find(p => p.id === id)
   ev.participants = ev.participants.filter(p => p.id !== id)
-  if (participant?.id) markParticipantDeleted(participant.id)
+  if (participant?.id) {
+    markParticipantDeleted(participant.id)
+    if (!ev.deletedParticipantIds || typeof ev.deletedParticipantIds !== 'object') {
+      ev.deletedParticipantIds = {}
+    }
+    ev.deletedParticipantIds[participant.id] = new Date().toISOString()
+  }
   saveStore()
   void syncEventSnapshot({ tenantId: tenant.id, event: ev })
 
@@ -2782,6 +2799,9 @@ export function updateParticipant(id, actor = 'system', patch = {}, reason = '')
   const tenant = getActiveTenantState()
   const participant = ev.participants.find(p => p.id === id)
   if (!participant) return { success: false, error: 'Peserta tidak ditemukan' }
+  if (participant?.id && ev?.deletedParticipantIds?.[participant.id]) {
+    delete ev.deletedParticipantIds[participant.id]
+  }
 
   // Do not allow dangerous day changes after check-in (keeps audit/verification consistent).
   if (participant.is_checked_in && patch?.day_number !== undefined && patch.day_number !== participant.day_number) {
@@ -3481,10 +3501,15 @@ export function deleteCurrentDay(actor = 'system') {
   ev.participants = ev.participants.filter(p => p.day_number !== dayToDelete)
   
   // Sync deletions
+  if (!ev.deletedParticipantIds || typeof ev.deletedParticipantIds !== 'object') {
+    ev.deletedParticipantIds = {}
+  }
   for (const p of participantsToDelete) {
-    deletedParticipantTombstones[p.id] = true
+    deletedParticipantTombstones[p.id] = Date.now()
+    ev.deletedParticipantIds[p.id] = new Date().toISOString()
     void syncParticipantDelete({ tenantId: tenant.id, eventId: ev.id, participantId: p.id })
   }
+  saveDeletedParticipantTombstones(deletedParticipantTombstones)
   
   // Revert to Day 1 locally
   ev.currentDay = 1
@@ -3525,10 +3550,22 @@ export function deleteAllParticipants(actor = 'system', reason = '') {
   }
 
   const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
   const totalParticipants = ev.participants.length
+  if (!ev.deletedParticipantIds || typeof ev.deletedParticipantIds !== 'object') {
+    ev.deletedParticipantIds = {}
+  }
+  for (const participant of ev.participants) {
+    if (!participant?.id) continue
+    deletedParticipantTombstones[participant.id] = Date.now()
+    ev.deletedParticipantIds[participant.id] = new Date().toISOString()
+    void syncParticipantDelete({ tenantId: tenant.id, eventId: ev.id, participantId: participant.id })
+  }
+  saveDeletedParticipantTombstones(deletedParticipantTombstones)
   ev.participants = []
   ev.checkInLogs = []
   saveStore()
+  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
 
   const cleanReason = normalizeReason(reason)
   const description = cleanReason
