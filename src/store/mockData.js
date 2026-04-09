@@ -37,7 +37,6 @@ const LEGACY_TENANT_REGISTRY_KEY = 'event_tenant_registry'
 const OWNER_AUDIT_LOG_KEY = 'ons_owner_audit_log'
 const OWNER_NOTIFICATIONS_KEY = 'ons_owner_notifications'
 const DELETED_PARTICIPANT_TOMBSTONES_KEY = 'ons_deleted_participant_tombstones'
-const DELETED_PARTICIPANT_TOMBSTONE_TTL_MS = 24 * 60 * 60 * 1000
 const WA_SEND_MODE_MESSAGE_WITH_BARCODE = 'message_with_barcode'
 const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
 const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_WITH_BARCODE
@@ -195,12 +194,16 @@ function saveDeletedParticipantTombstones(mapObj) {
 let deletedParticipantTombstones = readDeletedParticipantTombstones()
 
 function cleanupDeletedParticipantTombstones() {
-  const now = Date.now()
   let changed = false
-  Object.entries(deletedParticipantTombstones).forEach(([id, ts]) => {
-    const t = Number(ts || 0)
-    if (!Number.isFinite(t) || t <= 0 || now - t > DELETED_PARTICIPANT_TOMBSTONE_TTL_MS) {
+  Object.keys(deletedParticipantTombstones).forEach((id) => {
+    if (!id) {
       delete deletedParticipantTombstones[id]
+      changed = true
+      return
+    }
+    const t = Number(deletedParticipantTombstones[id] || 0)
+    if (!Number.isFinite(t) || t <= 0) {
+      deletedParticipantTombstones[id] = Date.now()
       changed = true
     }
   })
