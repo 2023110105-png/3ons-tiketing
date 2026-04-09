@@ -70,9 +70,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['brand-logo.svg', 'icons.svg'],
       manifest: {
-        name: '3oNs Digital - Event Platform',
-        short_name: '3oNs Digital',
-        description: '3oNs Digital - Sistem registrasi, tiket, dan scanner event berbasis project',
+        name: '3ons - Event Platform',
+        short_name: '3ons',
+        description: '3ons - Sistem registrasi, tiket, dan scanner event berbasis project',
         theme_color: '#4da6e8',
         background_color: '#f5f3eb',
         display: 'standalone',

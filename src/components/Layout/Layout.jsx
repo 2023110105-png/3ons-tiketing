@@ -195,7 +195,7 @@ export default function Layout({ children }) {
             </button>
           )}
           <div className={`sidebar-product-mark${isMobile ? ' sidebar-product-mark--mobile' : ''}`}>
-            <span className="sidebar-product-mark-badge">{tenantBranding?.brandName || '3oNs'}</span>
+            <span className="sidebar-product-mark-badge">{tenantBranding?.brandName || '3ons'}</span>
             <span className="sidebar-product-mark-role">{scopeLabels[user?.role] ?? 'Digital'}</span>
           </div>
         </div>
