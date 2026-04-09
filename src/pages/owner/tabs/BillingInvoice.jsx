@@ -11,6 +11,50 @@ function getTenantDisplayName(tenant) {
   return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
 }
 
+function formatCurrency(value) {
+  return `Rp ${Number(value || 0).toLocaleString('id-ID')}`
+}
+
+function formatDate(value) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  })
+}
+
+async function getBrandLogoDataUrl() {
+  try {
+    const response = await fetch('/brand-logo.svg')
+    if (!response.ok) return null
+    const svgText = await response.text()
+    const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' })
+    const blobUrl = URL.createObjectURL(svgBlob)
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+
+    const loaded = await new Promise((resolve, reject) => {
+      image.onload = () => resolve(true)
+      image.onerror = reject
+      image.src = blobUrl
+    })
+
+    if (!loaded) return null
+    const canvas = document.createElement('canvas')
+    const size = 256
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(image, 0, 0, size, size)
+    URL.revokeObjectURL(blobUrl)
+    return canvas.toDataURL('image/png')
+  } catch {
+    return null
+  }
+}
+
 export default function BillingInvoice() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
@@ -111,67 +155,132 @@ export default function BillingInvoice() {
 
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
       const pageW = doc.internal.pageSize.getWidth()
+      const pageH = doc.internal.pageSize.getHeight()
+      const margin = 14
+      const logoDataUrl = await getBrandLogoDataUrl()
 
-      doc.setFillColor(15, 23, 42)
-      doc.rect(0, 0, pageW, 36, 'F')
+      // Background layer
+      doc.setFillColor(255, 253, 214)
+      doc.rect(0, 0, pageW, pageH, 'F')
 
+      // Top banner using logo-inspired palette.
+      doc.setFillColor(77, 166, 232)
+      doc.rect(0, 0, pageW, 44, 'F')
+      doc.setFillColor(46, 171, 110)
+      doc.rect(0, 44, pageW, 5, 'F')
+
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, 'PNG', margin, 8, 18, 18)
+      }
+
+      doc.setFont('helvetica', 'bold')
       doc.setTextColor(255, 255, 255)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(20)
-      doc.text('INVOICE', 14, 16)
+      doc.setFontSize(18)
+      doc.text('INVOICE TAGIHAN RESMI', margin + 24, 17)
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      doc.text('Event Platform • Dokumen tagihan resmi', 14, 23)
+      doc.setFontSize(9.5)
+      doc.text('Studio Digital Event Platform', margin + 24, 23)
+      doc.text('Solusi tiket digital profesional untuk event Anda', margin + 24, 28)
 
+      doc.setFillColor(invoice.status === 'paid' ? 46 : 232, invoice.status === 'paid' ? 171 : 64, invoice.status === 'paid' ? 110 : 64)
+      doc.roundedRect(pageW - 58, 10, 44, 10, 3, 3, 'F')
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.text(`Status: ${statusLabel}`, pageW - 14, 16, { align: 'right' })
+      doc.setFontSize(9)
+      doc.setTextColor(255, 255, 255)
+      doc.text(statusLabel, pageW - 36, 16.6, { align: 'center' })
+
+      // Invoice identity panel
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(margin, 57, pageW - (margin * 2), 40, 4, 4, 'F')
+      doc.setDrawColor(226, 232, 240)
+      doc.roundedRect(margin, 57, pageW - (margin * 2), 40, 4, 4, 'S')
 
       doc.setTextColor(30, 41, 59)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.text(`Invoice ID: #${invoice.id}`, 14, 46)
+      doc.setFontSize(12)
+      doc.text(`Invoice #${invoice.id}`, margin + 4, 67)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Periode: ${invoice.period || '-'}`, 14, 52)
-      doc.text(`Tanggal Terbit: ${issueDate.toLocaleDateString('id-ID')}`, 14, 58)
-      doc.text(`Jatuh Tempo: ${dueDate ? dueDate.toLocaleDateString('id-ID') : '-'}`, 14, 64)
-      doc.text(`Ditagihkan kepada: ${tenantName}`, 14, 70)
-      doc.text(`Tenant ID: ${invoice.tenantId}`, 14, 76)
+      doc.setFontSize(10)
+      doc.text(`Periode: ${invoice.period || '-'}`, margin + 4, 74)
+      doc.text(`Ditagihkan kepada: ${tenantName}`, margin + 4, 81)
+      doc.text(`Tenant ID: ${invoice.tenantId}`, margin + 4, 88)
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('Tanggal terbit', pageW - 76, 67)
+      doc.text('Jatuh tempo', pageW - 76, 77)
+      doc.text('Mata uang', pageW - 76, 87)
+      doc.setFont('helvetica', 'normal')
+      doc.text(formatDate(issueDate), pageW - 44, 67)
+      doc.text(formatDate(dueDate), pageW - 44, 77)
+      doc.text('IDR (Rupiah)', pageW - 44, 87)
 
       autoTable(doc, {
-        startY: 84,
-        head: [['Deskripsi', 'Subtotal', 'PPN 11%', 'Total']],
+        startY: 106,
+        head: [['Deskripsi Layanan', 'Subtotal', 'PPN 11%', 'Total']],
         body: [[
-          `Biaya layanan platform • Periode ${invoice.period || '-'}`,
-          `Rp ${subtotal.toLocaleString('id-ID')}`,
-          `Rp ${tax.toLocaleString('id-ID')}`,
-          `Rp ${amount.toLocaleString('id-ID')}`
+          `Berlangganan platform event digital • Periode ${invoice.period || '-'}`,
+          formatCurrency(subtotal),
+          formatCurrency(tax),
+          formatCurrency(amount)
         ]],
-        styles: { fontSize: 10, cellPadding: 3 },
-        headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85] },
-        alternateRowStyles: { fillColor: [248, 250, 252] }
+        styles: { fontSize: 9.5, cellPadding: 4, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [232, 67, 147], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 88 },
+          1: { halign: 'right' },
+          2: { halign: 'right' },
+          3: { halign: 'right', fontStyle: 'bold' }
+        },
+        alternateRowStyles: { fillColor: [255, 255, 255] },
+        tableLineColor: [226, 232, 240],
+        tableLineWidth: 0.1
       })
 
-      const afterTableY = doc.lastAutoTable?.finalY || 110
+      const afterTableY = (doc.lastAutoTable?.finalY || 150) + 6
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(margin, afterTableY, pageW - (margin * 2), 36, 4, 4, 'F')
+      doc.setDrawColor(226, 232, 240)
+      doc.roundedRect(margin, afterTableY, pageW - (margin * 2), 36, 4, 4, 'S')
+
       doc.setFont('helvetica', 'bold')
-      doc.text('Ringkasan', 14, afterTableY + 10)
+      doc.setTextColor(30, 41, 59)
+      doc.setFontSize(11)
+      doc.text('Ringkasan Pembayaran', margin + 4, afterTableY + 8)
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Subtotal: Rp ${subtotal.toLocaleString('id-ID')}`, 14, afterTableY + 17)
-      doc.text(`PPN 11%: Rp ${tax.toLocaleString('id-ID')}`, 14, afterTableY + 23)
+      doc.text('Subtotal', margin + 4, afterTableY + 17)
+      doc.text(formatCurrency(subtotal), pageW - margin - 4, afterTableY + 17, { align: 'right' })
+      doc.text('PPN 11%', margin + 4, afterTableY + 24)
+      doc.text(formatCurrency(tax), pageW - margin - 4, afterTableY + 24, { align: 'right' })
+      doc.setDrawColor(226, 232, 240)
+      doc.line(margin + 4, afterTableY + 28, pageW - margin - 4, afterTableY + 28)
       doc.setFont('helvetica', 'bold')
-      doc.text(`Total Tagihan: Rp ${amount.toLocaleString('id-ID')}`, 14, afterTableY + 30)
+      doc.setTextColor(232, 67, 147)
+      doc.text('TOTAL TAGIHAN', margin + 4, afterTableY + 34)
+      doc.text(formatCurrency(amount), pageW - margin - 4, afterTableY + 34, { align: 'right' })
 
       if (notes) {
+        const notesY = afterTableY + 48
+        doc.setFillColor(255, 255, 255)
+        doc.roundedRect(margin, notesY, pageW - (margin * 2), 30, 4, 4, 'F')
+        doc.setDrawColor(226, 232, 240)
+        doc.roundedRect(margin, notesY, pageW - (margin * 2), 30, 4, 4, 'S')
         doc.setFont('helvetica', 'bold')
-        doc.text('Catatan', 14, afterTableY + 40)
+        doc.setTextColor(30, 41, 59)
+        doc.text('Catatan Tambahan', margin + 4, notesY + 8)
         doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9.5)
         const noteLines = doc.splitTextToSize(notes, pageW - 28)
-        doc.text(noteLines, 14, afterTableY + 47)
+        doc.text(noteLines, margin + 4, notesY + 15)
       }
 
+      const footerY = pageH - 20
+      doc.setDrawColor(203, 213, 225)
+      doc.line(margin, footerY - 6, pageW - margin, footerY - 6)
       doc.setFontSize(9)
       doc.setTextColor(100, 116, 139)
-      doc.text(`Dibuat otomatis • ${new Date().toLocaleString('id-ID')}`, 14, 287)
+      doc.text('Terima kasih atas kepercayaan Anda bersama Studio Digital.', margin, footerY)
+      doc.text(`Dokumen otomatis • ${new Date().toLocaleString('id-ID')}`, pageW - margin, footerY, { align: 'right' })
 
       doc.save(`Invoice_${invoice.id}.pdf`)
       toast.success('Berhasil', `Invoice #${invoice.id} berhasil diunduh (PDF).`)
