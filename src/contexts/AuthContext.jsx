@@ -28,6 +28,9 @@ function mapFirebaseAuthError(errorCode) {
       return 'Nama pengguna atau kata sandi tidak sesuai'
     case 'auth/too-many-requests':
       return 'Terlalu banyak percobaan masuk, coba lagi sebentar'
+    case 'resource-exhausted':
+    case 'quota-exceeded':
+      return 'Layanan cloud sedang mencapai batas kuota. Sistem masuk mode lokal sementara.'
     default:
       return 'Proses masuk gagal'
   }
@@ -132,6 +135,15 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(async (username, password, options = {}) => {
+    const isQuotaExhaustedError = (errLike) => {
+      const code = String(errLike?.code || '').toLowerCase()
+      const message = String(errLike?.message || '').toLowerCase()
+      return code.includes('resource-exhausted')
+        || code.includes('quota-exceeded')
+        || message.includes('resource-exhausted')
+        || message.includes('quota exceeded')
+    }
+
     if (FIREBASE_AUTH_MODE === 'strict') {
       if (!isFirebaseEnabled || !auth) {
         return { success: false, error: 'Layanan masuk belum diaktifkan. Hubungi administrator.' }
@@ -149,7 +161,15 @@ export function AuthProvider({ children }) {
       // Always refresh latest tenant/user snapshot before credential checks.
       try {
         await bootstrapStoreFromFirebase(true)
-      } catch {
+      } catch (hydrateErr) {
+        if (isQuotaExhaustedError(hydrateErr)) {
+          const localOnly = scopedOptions ? doLogin(username, password, scopedOptions) : doLogin(username, password)
+          if (localOnly.success) {
+            setUser(localOnly.user)
+            void bootstrapWaSessionAfterLogin(localOnly.user)
+            return localOnly
+          }
+        }
         // Continue with current snapshot if refresh fails.
       }
 
@@ -197,6 +217,14 @@ export function AuthProvider({ children }) {
           error: 'Akun valid, tetapi belum terdaftar di sistem tenant'
         }
       } catch (error) {
+        if (isQuotaExhaustedError(error)) {
+          const localOnly = loginLocal(username, password)
+          if (localOnly.success) {
+            setUser(localOnly.user)
+            void bootstrapWaSessionAfterLogin(localOnly.user)
+            return localOnly
+          }
+        }
         // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
         const localResult = loginLocal(username, password)
         if (localResult.success) {
