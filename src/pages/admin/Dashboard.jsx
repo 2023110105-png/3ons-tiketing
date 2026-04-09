@@ -111,7 +111,7 @@ export default function Dashboard() {
     return (
       <div className="page-container">
         {/* Mobile Hero Counter */}
-        <div className="m-hero-card">
+        <div className="m-hero-card dashboard-hero-accent">
           <div className="m-hero-title">HARI {currentDay}</div>
           <div className="m-hero-counter">
             <span className="m-hero-num">{stats.checkedIn}</span>
@@ -141,15 +141,19 @@ export default function Dashboard() {
         </button>
 
         {/* Mobile Activity Feed - THIS IS THE PRIMARY CONTENT */}
-        <div className="m-section">
+        <div className="m-section dashboard-activity-section">
           <div className="m-section-header">
             <span className="m-section-title">Aktivitas Terbaru</span>
-            <span className="badge badge-green dashboard-live-badge">● LANGSUNG</span>
+            <span className="badge badge-green dashboard-live-badge">
+              <span className="dashboard-live-dot" aria-hidden="true"></span>
+              LANGSUNG
+            </span>
           </div>
           {logs.length === 0 ? (
             <div className="m-empty">
               <span className="dashboard-empty-icon"><ClipboardList size={32} /></span>
               <p>Belum ada aktivitas check-in</p>
+              <p className="m-empty-subtle">Tekan tombol simulasi untuk melihat alur data real-time.</p>
             </div>
           ) : (
             <div className="m-activity-list">
@@ -182,7 +186,7 @@ export default function Dashboard() {
   // ===== DESKTOP DASHBOARD (unchanged) =====
   return (
     <div className="page-container">
-      <div className="page-header dashboard-header">
+      <div className="page-header dashboard-header dashboard-header-accent">
         <div>
           <span className="page-kicker">Panel admin</span>
           <h1>Ringkasan</h1>
@@ -247,13 +251,19 @@ export default function Dashboard() {
             <h3 className="card-title">Aktivitas terbaru</h3>
             <p className="card-subtitle-hint">Alur check-in terbaru dari pemindaian di pintu masuk.</p>
           </div>
-          <span className="badge badge-green">Langsung</span>
+          <span className="badge badge-green dashboard-live-badge">
+            <span className="dashboard-live-dot" aria-hidden="true"></span>
+            Langsung
+          </span>
         </div>
         {logs.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon"><ClipboardList size={40} /></div>
             <h3>Belum ada aktivitas</h3>
-              <p>Aktivitas kehadiran akan muncul di sini secara langsung</p>
+            <p>Aktivitas kehadiran akan muncul di sini secara langsung</p>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={handleSimulate}>
+              <Zap size={14} /> Simulasi data dulu
+            </button>
           </div>
         ) : (
           <div className="activity-feed">

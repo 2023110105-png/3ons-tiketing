@@ -975,8 +975,31 @@ input, select, textarea, button {
   gap: 12px;
 }
 
+.dashboard-header-accent {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  background:
+    linear-gradient(120deg, rgba(77, 166, 232, 0.08), rgba(46, 171, 110, 0.08), rgba(232, 67, 147, 0.06)),
+    var(--bg-card);
+}
+
 .dashboard-live-badge {
   font-size: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 40%, transparent);
+  animation: livePulse 1.8s ease-out infinite;
 }
 
 .dashboard-mobile-sim-btn {
@@ -987,6 +1010,25 @@ input, select, textarea, button {
 .dashboard-empty-icon {
   font-size: 2rem;
   opacity: 0.5;
+}
+
+.dashboard-hero-accent {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-hero-accent::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(77, 166, 232, 0.12), transparent 55%),
+    radial-gradient(100% 90% at 100% 0%, rgba(232, 67, 147, 0.1), transparent 55%);
+}
+
+.dashboard-activity-section {
+  border-top: 2px solid color-mix(in srgb, var(--brand-primary) 40%, transparent);
 }
 
 .dashboard-activity-avatar-vip {
@@ -2025,6 +2067,10 @@ input, select, textarea, button {
   box-shadow: var(--shadow-lg);
 }
 
+.stat-card:hover .stat-card-value {
+  transform: scale(1.02);
+}
+
 .stat-card::after {
   content: '';
   position: absolute;
@@ -2065,6 +2111,8 @@ input, select, textarea, button {
   line-height: 1;
   margin-bottom: 4px;
   animation: countUp 0.5s ease-out;
+  transform-origin: left center;
+  transition: transform var(--transition-fast);
 }
 
 .stat-card-label {
@@ -4652,6 +4700,23 @@ button:focus-visible,
 
 .m-empty p {
   font-size: 0.8rem;
+}
+
+.m-empty-subtle {
+  margin-top: 6px;
+  opacity: 0.8;
+}
+
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 35%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, currentColor 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 0%, transparent);
+  }
 }
 
 /* --- Mobile Participant Card List --- */
