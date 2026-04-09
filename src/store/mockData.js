@@ -3043,13 +3043,33 @@ export function searchParticipants(query, dayFilter = null) {
   return list.filter(p => String(p.name || '').toLowerCase().includes(q) || String(p.ticket_id || '').toLowerCase().includes(q))
 }
 
+function parseScanPayload(rawInput) {
+  const raw = String(rawInput || '').trim()
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') return parsed
+  } catch {
+    // try legacy key-value format below
+  }
+
+  const legacy = {}
+  raw.split(';').forEach((pair) => {
+    const [k, ...rest] = pair.split(':')
+    if (!k || rest.length === 0) return
+    legacy[k.trim()] = rest.join(':').trim()
+  })
+  if (Object.keys(legacy).length > 0) return legacy
+
+  return { tid: raw }
+}
+
 export function checkIn(qrData, scannedBy = 'gate_front') {
   const ev = getActiveEvent()
   const activeTenant = getActiveTenantState()
-  let parsed
-  try {
-    parsed = JSON.parse(qrData)
-  } catch {
+  const parsed = parseScanPayload(qrData)
+  if (!parsed) {
     return { success: false, status: 'invalid', message: 'QR Code tidak valid' }
   }
 
