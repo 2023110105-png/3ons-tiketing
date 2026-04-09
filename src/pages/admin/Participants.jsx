@@ -577,6 +577,7 @@ export default function Participants() {
 
       const { invalidDayRows } = validateImportRows(rows)
 
+      setImportResult(null)
       setImportPreview({
         fileName: file.name,
         rows: rows,
@@ -590,6 +591,8 @@ export default function Participants() {
       }
 
       setShowImportModal(true)
+      // Mode launch: langsung proses import setelah file dipilih.
+      executeImportRows(rows, invalidDayRows)
     } catch (err) {
       toast.error('Gagal baca file', 'Pastikan format file Excel (.xlsx/.csv) valid')
       console.error(err)
@@ -599,9 +602,9 @@ export default function Participants() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const confirmImport = () => {
-    if (!importPreview) return
-    if (importPreview.invalidDayRows?.length > 0) {
+  const executeImportRows = (rows, invalidDayRows = []) => {
+    if (!rows?.length) return
+    if (invalidDayRows.length > 0) {
       toast.info(
         'Hari tidak valid',
         `Nilai hari yang tidak valid akan dipakai sebagai Hari ${dayFilter} (mengikuti default pilihan).`
@@ -610,7 +613,7 @@ export default function Participants() {
     let result
     try {
       result = bulkAddParticipants(
-        importPreview.rows,
+        rows,
         dayFilter,
         user,
         { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
@@ -644,7 +647,7 @@ export default function Participants() {
     if (addedCount + updatedCount === 0 && errCount > 0) {
       toast.error(
         'Import tidak menambah data',
-        errCount >= importPreview.rows.length
+        errCount >= rows.length
           ? 'Semua baris gagal. Lihat detail error di bawah.'
           : `${errCount} baris gagal, tidak ada yang ditambahkan atau diperbarui.`
       )
@@ -664,6 +667,11 @@ export default function Participants() {
     // Jangan paksa pull Firebase langsung setelah bulk write: snapshot remote bisa belum lengkap
     // dan akan menimpa data lokal yang baru diimpor.
     void refreshData(false, listDay)
+  }
+
+  const confirmImport = () => {
+    if (!importPreview) return
+    executeImportRows(importPreview.rows, importPreview.invalidDayRows || [])
   }
 
   const fixInvalidDaysToDefault = () => {
