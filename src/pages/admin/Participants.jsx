@@ -594,12 +594,17 @@ export default function Participants() {
       const { invalidDayRows } = validateImportRows(rows)
 
       setImportResult(null)
+      const allNoDay = rows.every((row) => {
+        const dayValue = getRowDayValue(row)
+        return dayValue === undefined || dayValue === null || String(dayValue).trim() === ''
+      })
       setImportPreview({
         fileName: file.name,
         rows: rows,
         columns: Object.keys(rows[0]),
         preview: rows.slice(0, 5),
-        invalidDayRows
+        invalidDayRows,
+        allNoDay
       })
 
       if (invalidDayRows.length > 0) {
