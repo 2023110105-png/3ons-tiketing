@@ -2329,6 +2329,7 @@ export function getParticipant(id) {
 
 export function addParticipant(data) {
   const ev = getActiveEvent()
+  if (!Array.isArray(ev.participants)) ev.participants = []
   const tenant = getActiveTenantState()
   const clean = sanitizeParticipantInput(data, ev.currentDay || 1)
   const name = clean.name || 'Peserta'
@@ -2642,16 +2643,30 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
   const fallbackDay = normalizeParticipantDay(dayNumber, 1)
 
   rows.forEach((row, index) => {
-    const name = String(row.name || row.nama || row.Name || row.Nama || '').trim()
-    const phoneRaw = String(row.phone || row.telepon || row.Phone || row.Telepon || row.hp || row.HP || '').trim()
-    const phone = normalizeParticipantPhone(phoneRaw)
-    const emailRaw = String(row.email || row.Email || row.email_address || '').trim()
-    const email = normalizeParticipantEmail(emailRaw)
-    const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
-    const matchedCat = normalizeParticipantCategory(category)
-    const parsedDay = Number(row.day_number || row.day || row.hari || row.Hari || row.Day || row.Day_Number)
-    const rowDay = normalizeParticipantDay(parsedDay, fallbackDay)
-    const extras = extractParticipantExtras(row)
+    let name
+    let phone
+    let email
+    let matchedCat
+    let rowDay
+    let extras
+    try {
+      name = String(row.name || row.nama || row.Name || row.Nama || '').trim()
+      const phoneRaw = String(row.phone || row.telepon || row.Phone || row.Telepon || row.hp || row.HP || '').trim()
+      phone = normalizeParticipantPhone(phoneRaw)
+      const emailRaw = String(row.email || row.Email || row.email_address || '').trim()
+      email = normalizeParticipantEmail(emailRaw)
+      const category = String(row.category || row.kategori || row.Category || row.Kategori || 'Regular').trim()
+      matchedCat = normalizeParticipantCategory(category)
+      const rawDay = row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
+      const parsedDay = rawDay === undefined || rawDay === null || String(rawDay).trim() === ''
+        ? NaN
+        : Number(String(rawDay).trim().replace(',', '.'))
+      rowDay = normalizeParticipantDay(parsedDay, fallbackDay)
+      extras = extractParticipantExtras(row)
+    } catch (e) {
+      errors.push({ row: index + 1, error: e?.message || 'Gagal membaca baris' })
+      return
+    }
 
     if (!name) {
       errors.push({ row: index + 1, error: 'Nama kosong' })
@@ -2715,16 +2730,22 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
     }
 
     // Default: create a new participant (existing behavior)
-    const participant = addParticipant({
-      ...row,
-      name,
-      phone,
-      email,
-      category: matchedCat,
-      day_number: rowDay,
-      actor,
-      auto_send: false
-    })
+    let participant
+    try {
+      participant = addParticipant({
+        ...row,
+        name,
+        phone,
+        email,
+        category: matchedCat,
+        day_number: rowDay,
+        actor,
+        auto_send: false
+      })
+    } catch (e) {
+      errors.push({ row: index + 1, error: e?.message || 'Gagal menyimpan peserta' })
+      return
+    }
     added.push(participant)
   })
 

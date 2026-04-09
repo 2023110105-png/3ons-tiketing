@@ -10,6 +10,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import * as XLSX from 'xlsx'
 
 export default function Participants() {
   const resolveTenantId = (userValue) => {
@@ -534,6 +535,8 @@ export default function Participants() {
     Object.entries(row).forEach(([k, v]) => {
       const key = String(k || '').replace(/^\ufeff/, '').trim()
       if (!key) return
+      // SheetJS mengisi kolom kosong sebagai __EMPTY / __EMPTY_1 — buang agar tidak ikut ke addParticipant
+      if (key.startsWith('__')) return
       out[key] = v
     })
     return out
@@ -558,14 +561,13 @@ export default function Participants() {
     if (!file) return
 
     try {
-      const XLSX = await import('xlsx')
       const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data)
+      const workbook = XLSX.read(data, { type: 'array' })
       const names = workbook.SheetNames || []
       const preferredIdx = names.findIndex((n) => String(n || '').trim().toLowerCase() === 'template peserta')
       const sheetName = preferredIdx >= 0 ? names[preferredIdx] : names[0]
       const sheet = workbook.Sheets[sheetName]
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, blankrows: false })
       const rows = rawRows.map(sanitizeImportRowKeys).filter((r) => r && Object.keys(r).length > 0)
 
       if (rows.length === 0) {
@@ -605,12 +607,19 @@ export default function Participants() {
         `Nilai hari yang tidak valid akan dipakai sebagai Hari ${dayFilter} (mengikuti default pilihan).`
       )
     }
-    const result = bulkAddParticipants(
-      importPreview.rows,
-      dayFilter,
-      user,
-      { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
-    )
+    let result
+    try {
+      result = bulkAddParticipants(
+        importPreview.rows,
+        dayFilter,
+        user,
+        { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
+      )
+    } catch (err) {
+      console.error('[import]', err)
+      toast.error('Import gagal', err?.message || 'Terjadi kesalahan saat memproses baris. Coba lagi atau kurangi jumlah baris.')
+      return
+    }
     setImportResult(result)
     const addedCount = result?.added?.length ?? 0
     const updatedCount = result?.updated?.length ?? 0
@@ -668,9 +677,8 @@ export default function Participants() {
     setImportPreview({ ...importPreview, rows: nextRows, invalidDayRows: nextInvalid })
   }
 
-  const downloadTemplate = async () => {
+  const downloadTemplate = () => {
     try {
-      const XLSX = await import('xlsx')
       const templateData = [
         { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer', hari: 1, 'Tanggal Lahir': '1990-01-01', Catatan: 'VIP' },
         { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP', hari: 2, 'Tanggal Lahir': '1992-03-10', Catatan: '' },
