@@ -145,7 +145,10 @@ export function AuthProvider({ children }) {
       }
 
       const normalizedIdentity = String(username || '').trim().toLowerCase()
-      const candidateEmail = resolveLoginEmail(username) || (isValidEmail(normalizedIdentity) ? normalizedIdentity : null)
+      const resolvedLoginEmail = resolveLoginEmail(username)
+      const candidateEmail = isValidEmail(resolvedLoginEmail)
+        ? resolvedLoginEmail
+        : (isValidEmail(normalizedIdentity) ? normalizedIdentity : null)
       if (!candidateEmail) {
         // Akun tidak punya email, gunakan fallback local authentication
         const localResult = doLogin(username, password)
