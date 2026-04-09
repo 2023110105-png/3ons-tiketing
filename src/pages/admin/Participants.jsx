@@ -341,6 +341,12 @@ export default function Participants() {
     return data
   }, [participants, debouncedSearch, categoryFilter, statusFilter])
 
+  const dynamicCategories = useMemo(() => {
+    const cats = new Set()
+    participants.forEach(p => { if (p.category) cats.add(p.category) })
+    return [...cats].sort()
+  }, [participants])
+
   useEffect(() => {
     void refreshData(true)
   }, [refreshData])
@@ -612,8 +618,6 @@ export default function Participants() {
       }
 
       setShowImportModal(true)
-      // Mode launch: langsung proses import setelah file dipilih.
-      executeImportRows(rows, invalidDayRows)
     } catch (err) {
       toast.error('Gagal baca file', 'Pastikan format file Excel (.xlsx/.csv) valid')
       console.error(err)
@@ -665,8 +669,12 @@ export default function Participants() {
     let listDay = dayFilter;
     if (dayNums.length) {
       listDay = Math.min(...dayNums);
-      setDayFilter(listDay);
     }
+    // Immediately refresh available days from store so new day tabs appear
+    const freshDays = getAvailableDays();
+    setAvailableDays(freshDays);
+    // Switch day filter to the imported day
+    setDayFilter(listDay);
     if (addedCount + updatedCount > 0) {
       setCategoryFilter('all');
       setStatusFilter('all');
@@ -691,9 +699,8 @@ export default function Participants() {
           : `${addedCount} peserta ditambahkan. Tampilan: Hari ${listDay} (filter kategori/status direset).`
       );
     }
-    // Jangan paksa pull Firebase langsung setelah bulk write: snapshot remote bisa belum lengkap
-    // dan akan menimpa data lokal yang baru diimpor.
-    void refreshData(false, listDay);
+    // Refresh participant list with the correct day
+    setParticipants(getParticipants(listDay));
   }
 
   const confirmImport = () => {
@@ -1126,10 +1133,7 @@ export default function Participants() {
           </select>
           <select className="m-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="all">Semua</option>
-            <option value="VIP">VIP</option>
-            <option value="Dealer">Dealer</option>
-            <option value="Media">Media</option>
-            <option value="Regular">Regular</option>
+            {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
           </select>
           <select className="m-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="all">Semua</option>
@@ -1352,10 +1356,7 @@ export default function Participants() {
         </div>
         <select className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">Semua Kategori</option>
-          <option value="Regular">Regular</option>
-          <option value="VIP">VIP</option>
-          <option value="Dealer">Dealer</option>
-          <option value="Media">Media</option>
+          {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
         <select className="form-select select-sm" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
           {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
