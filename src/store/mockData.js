@@ -52,6 +52,9 @@ function isAllowedStrictStorageKey(key) {
     || key === LEGACY_TENANT_REGISTRY_KEY
     || key === STORE_KEY
     || key === LEGACY_STORE_KEY
+    // Tombstone perlu disimpan juga di strict mode supaya peserta yang dihapus
+    // tidak muncul kembali setelah reload/hydrate.
+    || key === DELETED_PARTICIPANT_TOMBSTONES_KEY
     // Owner utilities (audit trail + notifications) must remain usable
     // even when strict data mode blocks most localStorage keys.
     || key === OWNER_AUDIT_LOG_KEY
