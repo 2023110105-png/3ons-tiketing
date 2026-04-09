@@ -73,21 +73,16 @@ export function getApiBaseUrl() {
   const envBase = getApiBaseEnv()
   const browserHost = typeof window !== 'undefined' ? window.location.hostname : ''
   const isLocalBrowser = browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0'
-  const isVercelHost = browserHost.endsWith('vercel.app')
 
-  // Prevent production clients from trying to call local-only backend URLs.
-  if (envBase && (!isLocalHostLike(envBase) || isLocalBrowser)) {
+  // Explicit env always wins in local development.
+  if (envBase && (isLocalBrowser || !isLocalHostLike(envBase))) {
     return envBase
   }
 
-  // Prefer same-origin on Vercel; vercel.json rewrites route API paths.
-  if (typeof window !== 'undefined' && isVercelHost) {
-    return ''
-  }
-
-  // Safety net for production-like hosts when env is missing.
+  // In browser production, prefer same-origin and let host rewrites/proxy handle routing.
+  // This avoids direct cross-origin calls that often trigger CORS "Failed to fetch".
   if (typeof window !== 'undefined' && !isLocalBrowser) {
-    return DEFAULT_PROD_API_BASE_URL
+    return ''
   }
 
   return ''
@@ -103,7 +98,6 @@ export function getWaBaseUrl() {
 export function getPlatformApiBaseUrl() {
   const envBase = getPlatformApiBaseEnv()
   const browserHost = typeof window !== 'undefined' ? String(window.location.hostname || '').trim() : ''
-  const isVercelHost = browserHost.endsWith('vercel.app')
   if (envBase) return envBase
 
   // Local dev fallback: owner platform endpoints run on api-server (default 3002).
@@ -113,12 +107,12 @@ export function getPlatformApiBaseUrl() {
     }
   }
 
-  // Prefer same-origin on Vercel; vercel.json rewrites route API paths.
-  if (typeof window !== 'undefined' && isVercelHost) {
+  // In browser production, force same-origin so owner API goes through host proxy.
+  if (typeof window !== 'undefined' && browserHost) {
     return ''
   }
 
-  // Production fallback: default to known backend host.
+  // Non-browser fallback (tests/SSR).
   return DEFAULT_PROD_API_BASE_URL
 }
 
