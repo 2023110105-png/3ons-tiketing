@@ -1740,7 +1740,6 @@ function createEmptyEventState(name = 'Event Platform') {
 function createDefaultStore() {
   const defaultEvent = createEmptyEventState('Event Platform 2026')
   defaultEvent.id = DEFAULT_EVENT_ID
-  defaultEvent.participants = generateMockParticipants(DEFAULT_TENANT_ID, defaultEvent.id)
 
   return {
     tenants: {
@@ -1828,9 +1827,6 @@ function migrateLegacyStore(parsed) {
   event.id = DEFAULT_EVENT_ID
   event.currentDay = Number.isInteger(parsed?.currentDay) && parsed.currentDay > 0 ? parsed.currentDay : 1
   event.participants = asArray(parsed?.participants)
-  if (event.participants.length === 0) {
-    event.participants = generateMockParticipants()
-  }
   event.checkInLogs = asArray(parsed?.checkInLogs)
   event.adminLogs = asArray(parsed?.adminLogs)
   event.pendingCheckIns = asArray(parsed?.pendingCheckIns)
@@ -1871,7 +1867,7 @@ function getStore() {
       })
 
       if (!normalizedTenants[DEFAULT_TENANT_ID]) {
-        normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', true)
+        normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', false)
       }
 
       if (DEFAULT_TENANT_ONLY_MODE) {
@@ -1923,7 +1919,7 @@ function saveStore() {
   if (DEFAULT_TENANT_ONLY_MODE) {
     const defaultBucket = store?.tenants?.[DEFAULT_TENANT_ID]
       ? normalizeTenantStoreBucket(store.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
-      : createTenantStoreBucket('Event Platform 2026', true)
+      : createTenantStoreBucket('Event Platform 2026', false)
     store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
   }
   const previous = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
@@ -1940,7 +1936,7 @@ function persistHydratedState() {
     }
     const defaultBucket = store.tenants?.[DEFAULT_TENANT_ID]
       ? normalizeTenantStoreBucket(store.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
-      : createTenantStoreBucket('Event Platform 2026', true)
+      : createTenantStoreBucket('Event Platform 2026', false)
     store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
   }
   safeStorageSet(TENANT_REGISTRY_KEY, JSON.stringify(tenantRegistry))
@@ -1989,13 +1985,13 @@ function normalizeHydratedStore(snapshot) {
   })
 
   if (!normalizedTenants[DEFAULT_TENANT_ID]) {
-    normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', true)
+    normalizedTenants[DEFAULT_TENANT_ID] = createTenantStoreBucket('Event Platform 2026', false)
   }
 
   if (DEFAULT_TENANT_ONLY_MODE) {
     const defaultBucket = normalizedTenants[DEFAULT_TENANT_ID]
       ? normalizeTenantStoreBucket(normalizedTenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
-      : createTenantStoreBucket('Event Platform 2026', true)
+      : createTenantStoreBucket('Event Platform 2026', false)
     return { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
   }
 
