@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
+import { isSupabaseEnabled, supabase } from '../../lib/supabase'
 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
 const BACKUP_AUTO_REFRESH_INTERVAL_KEY = 'ons_backup_auto_refresh_interval'
@@ -65,6 +66,7 @@ export default function Settings() {
   const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
   const [backupLastRefreshAgeSec, setBackupLastRefreshAgeSec] = useState(0)
   const [isBackupTabVisible, setIsBackupTabVisible] = useState(() => document.visibilityState === 'visible')
+  const [supabaseCheckRunning, setSupabaseCheckRunning] = useState(false)
   const clearResetModalState = () => {
     setShowResetModal(false)
     setResetInput('')
@@ -419,6 +421,55 @@ export default function Settings() {
     toast.success('Sukses', `${result.deleted} backup invalid berhasil dihapus`)
   }
 
+  const runSupabaseIntegrationCheck = async () => {
+    if (supabaseCheckRunning) return
+    setSupabaseCheckRunning(true)
+    try {
+      if (!isSupabaseEnabled || !supabase) {
+        toast.error('Supabase belum aktif', 'Periksa VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di environment.')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('workspace_state')
+        .select('id, tenant_registry, store, updated_at')
+        .eq('id', 'default')
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) {
+        toast.error('Workspace tidak ditemukan', 'Row id=default belum ada di tabel workspace_state.')
+        return
+      }
+
+      const probeAt = new Date().toISOString()
+      const nextTenantRegistry = {
+        ...(data.tenant_registry || {}),
+        integration_probe_at: probeAt
+      }
+
+      const { error: writeError } = await supabase
+        .from('workspace_state')
+        .upsert({
+          id: 'default',
+          tenant_registry: nextTenantRegistry,
+          store: data.store || { tenants: {} },
+          updated_at: probeAt
+        })
+
+      if (writeError) throw writeError
+
+      toast.success(
+        'Supabase terhubung',
+        `Read/Write berhasil. Probe tersimpan pada ${new Date(probeAt).toLocaleString('id-ID')}.`
+      )
+    } catch (err) {
+      toast.error('Supabase check gagal', humanizeUserMessage(err?.message || 'Gagal konek ke Supabase.', { fallback: 'Cek RLS policy dan environment variable.' }))
+    } finally {
+      setSupabaseCheckRunning(false)
+    }
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -428,6 +479,18 @@ export default function Settings() {
       </div>
 
       <div className="settings-wrap">
+        <div className="card card-pad">
+          <h3 className="card-title mb-16">Tes Integrasi Supabase</h3>
+          <p className="text-note">
+            Jalankan pengecekan satu klik untuk memastikan koneksi <strong>read + write</strong> ke tabel <code>workspace_state</code> berjalan normal.
+          </p>
+          <div className="actions-right">
+            <button type="button" className="btn btn-primary" onClick={runSupabaseIntegrationCheck} disabled={supabaseCheckRunning}>
+              {supabaseCheckRunning ? 'Mengecek Supabase...' : 'Tes Koneksi Supabase'}
+            </button>
+          </div>
+        </div>
+
         {/* BOT TEMPLATE EDITOR */}
         <div className="card card-pad">
           <h3 className="card-title mb-16 card-title-inline">
