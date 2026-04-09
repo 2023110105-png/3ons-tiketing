@@ -185,6 +185,33 @@ export default function Reports() {
     }
   }
 
+  const handleExcelParticipants = () => {
+    const ok = exportToCSV(participants, dayFilter)
+    if (ok) {
+      toast.success('Unduhan Berhasil', 'Data peserta berhasil diunduh')
+      return
+    }
+    toast.error('Terjadi Kendala', 'Gagal mengunduh file Excel peserta')
+  }
+
+  const handleExcelLogs = () => {
+    const ok = exportLogsToCSV(logs, dayFilter)
+    if (ok) {
+      toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh')
+      return
+    }
+    toast.error('Terjadi Kendala', 'Gagal mengunduh riwayat kehadiran')
+  }
+
+  const handleExcelAudit = () => {
+    const ok = exportAdminLogsToCSV(filteredAdminLogs)
+    if (ok) {
+      toast.success('Unduhan Berhasil', 'Riwayat aktivitas admin berhasil diunduh')
+      return
+    }
+    toast.error('Terjadi Kendala', 'Gagal mengunduh audit admin')
+  }
+
   // Grafik batang - perbandingan kategori
   const barData = {
     labels: Object.keys(stats.byCategory),
@@ -351,21 +378,21 @@ export default function Reports() {
               <div className="m-report-desc">Laporan lengkap untuk presentasi</div>
             </div>
           </button>
-          <button className="m-report-btn" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Unduhan Berhasil', 'File Excel berhasil diunduh') }}>
+          <button className="m-report-btn" onClick={handleExcelParticipants}>
             <div className="m-report-icon green"><FileSpreadsheet size={22} /></div>
             <div className="m-report-content">
               <div className="m-report-title">Unduh Excel</div>
               <div className="m-report-desc">Data peserta format spreadsheet</div>
             </div>
           </button>
-          <button className="m-report-btn" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh') }}>
+          <button className="m-report-btn" onClick={handleExcelLogs}>
             <div className="m-report-icon blue"><ClipboardList size={22} /></div>
             <div className="m-report-content">
               <div className="m-report-title">Unduh Riwayat Kehadiran</div>
               <div className="m-report-desc">Riwayat scan dengan timestamp</div>
             </div>
           </button>
-          <button className="m-report-btn" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Unduhan Berhasil', 'Audit admin berhasil diunduh') }}>
+          <button className="m-report-btn" onClick={handleExcelAudit}>
             <div className="m-report-icon yellow"><ShieldAlert size={22} /></div>
             <div className="m-report-content">
               <div className="m-report-title">Unduh Audit Admin</div>
@@ -469,9 +496,9 @@ export default function Reports() {
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
           <button className="btn btn-primary" onClick={exportPDF}><FileText size={14} /> Unduh PDF</button>
-          <button className="btn btn-secondary" onClick={() => { exportToCSV(participants, dayFilter); toast.success('Unduhan Berhasil', 'Data peserta berhasil diunduh') }}><FileSpreadsheet size={14} /> Unduh Excel</button>
-          <button className="btn btn-secondary" onClick={() => { exportLogsToCSV(logs, dayFilter); toast.success('Unduhan Berhasil', 'Riwayat kehadiran berhasil diunduh') }}><ClipboardList size={14} /> Unduh Riwayat</button>
-          <button className="btn btn-secondary" onClick={() => { exportAdminLogsToCSV(filteredAdminLogs); toast.success('Unduhan Berhasil', 'Riwayat aktivitas admin berhasil diunduh') }}><ShieldAlert size={14} /> Unduh Audit</button>
+          <button className="btn btn-secondary" onClick={handleExcelParticipants}><FileSpreadsheet size={14} /> Unduh Excel</button>
+          <button className="btn btn-secondary" onClick={handleExcelLogs}><ClipboardList size={14} /> Unduh Riwayat</button>
+          <button className="btn btn-secondary" onClick={handleExcelAudit}><ShieldAlert size={14} /> Unduh Audit</button>
           <button className="btn btn-secondary" onClick={exportAuditPDF}><FileText size={14} /> Unduh Audit PDF</button>
         </div>
       </div>

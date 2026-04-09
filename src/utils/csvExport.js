@@ -1,9 +1,10 @@
+import * as XLSX from 'xlsx'
+
 /**
  * Export data to exact Excel file (.xlsx) format
  */
-export async function exportToCSV(participants, dayNumber) {
+export function exportToCSV(participants, dayNumber) {
   try {
-    const XLSX = await import('xlsx')
     const headers = ['No', 'Ticket ID', 'Nama', 'Telepon', 'Kategori', 'Hari', 'Status', 'Waktu Check-in']
 
     const templateData = participants.map((p, i) => ({
@@ -45,9 +46,8 @@ export async function exportToCSV(participants, dayNumber) {
 /**
  * Export check-in logs to actual Excel (.xlsx) file
  */
-export async function exportLogsToCSV(logs, dayNumber) {
+export function exportLogsToCSV(logs, dayNumber) {
   try {
-    const XLSX = await import('xlsx')
     const headers = ['No', 'Waktu', 'Nama Peserta', 'Ticket ID', 'Kategori', 'Aksi', 'Scanned By']
 
     const templateData = logs.map((log, i) => ({
@@ -87,9 +87,8 @@ export async function exportLogsToCSV(logs, dayNumber) {
 /**
  * Export admin audit logs to Excel (.xlsx) file
  */
-export async function exportAdminLogsToCSV(logs) {
+export function exportAdminLogsToCSV(logs) {
   try {
-    const XLSX = await import('xlsx')
     const headers = ['No', 'Waktu', 'Actor', 'Severity', 'Aksi', 'Deskripsi']
 
     const templateData = logs.map((log, i) => ({
@@ -126,10 +125,8 @@ export async function exportAdminLogsToCSV(logs) {
 /**
  * Export offline queue status + history to Excel (.xlsx)
  */
-export async function exportOfflineQueueReportToCSV(pendingItems, historyItems) {
+export function exportOfflineQueueReportToCSV(pendingItems, historyItems) {
   try {
-    const XLSX = await import('xlsx')
-
     const wsPending = XLSX.utils.json_to_sheet(
       pendingItems.map((item, i) => ({
         No: i + 1,

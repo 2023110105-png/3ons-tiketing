@@ -68,19 +68,29 @@ export default defineConfig({
     react(),
     ...(ENABLE_PWA ? [VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['brand-logo.svg', 'icons.svg'],
+      includeAssets: ['brand-logo.svg', 'favicon-brand.svg', 'icons.svg'],
       manifest: {
+        id: '/',
         name: '3ons - Event Platform',
         short_name: '3ons',
         description: '3ons - Sistem registrasi, tiket, dan scanner event berbasis project',
         theme_color: '#4da6e8',
         background_color: '#f5f3eb',
+        start_url: '/',
+        scope: '/',
         display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui', 'browser'],
         orientation: 'portrait',
         icons: [
           {
+            src: '/favicon-brand.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+            purpose: 'any'
+          },
+          {
             src: '/brand-logo.svg',
-            sizes: '192x192 512x512',
+            sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any maskable'
           }
