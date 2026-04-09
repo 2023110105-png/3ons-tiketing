@@ -2186,44 +2186,53 @@ export async function bootstrapStoreFromFirebase(force = false) {
       })
 
       const snapshotDefaultTenant = snapshot?.tenantRegistry?.tenants?.[DEFAULT_TENANT_ID] || {}
-      const snapshotDefaultUsers = Array.isArray(snapshotDefaultTenant?.users) ? snapshotDefaultTenant.users : []
-      snapshotDefaultUsers.forEach((user) => {
-        const username = String(user?.username || '').trim().toLowerCase()
-        if (ALLOWED_DEFAULT_USERNAMES.has(username)) return
-        const userId = String(user?.id || user?.auth_uid || '').trim()
-        if (!userId) return
-        void syncTenantUserDelete({ tenantId: DEFAULT_TENANT_ID, userId })
-      })
+      const hasRemoteLegacyPurgeMarker = !!String(snapshotDefaultTenant?.legacy_data_purged_at || '').trim()
+      if (!hasRemoteLegacyPurgeMarker) {
+        const snapshotDefaultUsers = Array.isArray(snapshotDefaultTenant?.users) ? snapshotDefaultTenant.users : []
+        snapshotDefaultUsers.forEach((user) => {
+          const username = String(user?.username || '').trim().toLowerCase()
+          if (ALLOWED_DEFAULT_USERNAMES.has(username)) return
+          const userId = String(user?.id || user?.auth_uid || '').trim()
+          if (!userId) return
+          void syncTenantUserDelete({ tenantId: DEFAULT_TENANT_ID, userId })
+        })
 
-      const snapshotDefaultBucket = snapshot?.store?.tenants?.[DEFAULT_TENANT_ID]
-      const snapshotEvents = snapshotDefaultBucket?.events && typeof snapshotDefaultBucket.events === 'object'
-        ? Object.values(snapshotDefaultBucket.events)
-        : []
-      snapshotEvents.forEach((event) => {
-        const eventId = String(event?.id || '').trim()
-        if (!eventId) return
-        const participants = Array.isArray(event?.participants) ? event.participants : []
-        participants.forEach((participant) => {
-          const participantId = String(participant?.id || '').trim()
-          if (!participantId) return
-          void syncParticipantDelete({ tenantId: DEFAULT_TENANT_ID, eventId, participantId })
+        const snapshotDefaultBucket = snapshot?.store?.tenants?.[DEFAULT_TENANT_ID]
+        const snapshotEvents = snapshotDefaultBucket?.events && typeof snapshotDefaultBucket.events === 'object'
+          ? Object.values(snapshotDefaultBucket.events)
+          : []
+        snapshotEvents.forEach((event) => {
+          const eventId = String(event?.id || '').trim()
+          if (!eventId) return
+          const participants = Array.isArray(event?.participants) ? event.participants : []
+          participants.forEach((participant) => {
+            const participantId = String(participant?.id || '').trim()
+            if (!participantId) return
+            void syncParticipantDelete({ tenantId: DEFAULT_TENANT_ID, eventId, participantId })
+          })
+          void syncEventSnapshot({
+            tenantId: DEFAULT_TENANT_ID,
+            event: {
+              ...event,
+              participants: [],
+              deletedParticipantIds: {},
+              checkInLogs: [],
+              adminLogs: [],
+              pendingCheckIns: [],
+              offlineQueueHistory: [],
+              currentDay: 1
+            }
+          })
+          void syncResetCheckInLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
+          void syncResetAdminLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
         })
-        void syncEventSnapshot({
-          tenantId: DEFAULT_TENANT_ID,
-          event: {
-            ...event,
-            participants: [],
-            deletedParticipantIds: {},
-            checkInLogs: [],
-            adminLogs: [],
-            pendingCheckIns: [],
-            offlineQueueHistory: [],
-            currentDay: 1
-          }
+
+        void syncTenantUpsert({
+          ...snapshotDefaultTenant,
+          id: DEFAULT_TENANT_ID,
+          legacy_data_purged_at: new Date().toISOString()
         })
-        void syncResetCheckInLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
-        void syncResetAdminLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
-      })
+      }
     }
 
     firebaseStoreReady = true
