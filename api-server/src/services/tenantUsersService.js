@@ -59,6 +59,33 @@ function userMatchesIdentifier(user, rawUserId) {
   ))
 }
 
+async function resolveFirebaseAuthUid({ auth, user }) {
+  const directUid = normalizeString(user?.auth_uid || '')
+  if (directUid) return directUid
+
+  const idAsUid = normalizeString(user?.id || '')
+  if (idAsUid) {
+    try {
+      const record = await auth.getUser(idAsUid)
+      if (record?.uid) return record.uid
+    } catch {
+      // Continue with email lookup.
+    }
+  }
+
+  const email = normalizeEmail(user?.email)
+  if (email) {
+    try {
+      const record = await auth.getUserByEmail(email)
+      if (record?.uid) return record.uid
+    } catch {
+      // No Firebase account found by email.
+    }
+  }
+
+  return null
+}
+
 async function resolveTenantUserRef({ tenantId, userId, db }) {
   const usersCol = db.collection('tenants').doc(tenantId).collection('users')
   const rawUserId = normalizeString(userId)
@@ -173,7 +200,8 @@ export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
     updatedUsers[legacyMatch.index] = next
     await legacyMatch.tenantRef.set({ users: updatedUsers }, { merge: true })
 
-    const legacyAuthUid = normalizeString(next.auth_uid || '') || normalizeString(next.id || '') || null
+    const legacyAuthUid = await resolveFirebaseAuthUid({ auth, user: next })
+    if (legacyAuthUid) next.auth_uid = legacyAuthUid
     if (legacyAuthUid) {
       const authUpdates = {}
       if (payload.email !== undefined) authUpdates.email = next.email
@@ -187,7 +215,7 @@ export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
   }
 
   const current = snap.data() || {}
-  const authUid = normalizeString(current.auth_uid || '') || null
+  const authUid = await resolveFirebaseAuthUid({ auth, user: current })
   const next = { ...current }
   if (payload.username !== undefined) next.username = normalizeString(payload.username).toLowerCase()
   if (payload.email !== undefined) next.email = normalizeEmail(payload.email)
@@ -197,6 +225,7 @@ export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
   next.updated_at = new Date().toISOString()
 
   if (authUid) {
+    next.auth_uid = authUid
     const authUpdates = {}
     if (payload.email !== undefined) authUpdates.email = next.email
     if (payload.name !== undefined) authUpdates.displayName = next.name

@@ -205,7 +205,15 @@ export function AuthProvider({ children }) {
             setUser(localResult.user)
             void bootstrapWaSessionAfterLogin(localResult.user)
             return localResult
-          } catch {
+          } catch (createErr) {
+            const createCode = String(createErr?.code || '').toLowerCase()
+            // If Firebase account already exists (common after password reset desync),
+            // keep tenant operational via local auth instead of hard-blocking login.
+            if (createCode === 'auth/email-already-in-use' || createCode === 'email-already-in-use') {
+              setUser(localResult.user)
+              void bootstrapWaSessionAfterLogin(localResult.user)
+              return localResult
+            }
             return {
               success: false,
               error: 'Pendaftaran ke layanan masuk gagal. Hubungi administrator atau tim pendukung.'
