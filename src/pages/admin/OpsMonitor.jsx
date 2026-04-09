@@ -355,7 +355,7 @@ export default function OpsMonitor() {
                         {String(log.scanned_by || log.gate || '-').replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="ticket-id-code">{log.ticket_id || '-'}</td>
+                    <td className="ticket-id-code">{log.ticket_id || log.participant_ticket || '-'}</td>
                     <td style={{ fontWeight: 650 }}>{log.participant_name || log.name || '-'}</td>
                     <td>
                       <span className={`badge ${String(log.status || '').toLowerCase() === 'duplicate' ? 'badge-yellow' : 'badge-green'} text-xs`}>

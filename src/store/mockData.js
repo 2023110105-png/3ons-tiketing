@@ -3124,6 +3124,7 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
     participant_id: participant.id,
     participant_name: participant.name,
     participant_category: participant.category,
+    ticket_id: participant.ticket_id,
     participant_ticket: participant.ticket_id,
     scanned_by: scannedBy,
     action: 'check_in',
@@ -3483,6 +3484,7 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
     participant_id: participant.id,
     participant_name: participant.name,
     participant_category: participant.category,
+    ticket_id: participant.ticket_id,
     participant_ticket: participant.ticket_id,
     scanned_by: scannedBy,
     action: 'check_in',
@@ -3524,15 +3526,22 @@ export function getStats(day = null) {
 
 export function getCheckInLogs(day = null) {
   const ev = getActiveEvent()
+  const activeParticipants = getActiveParticipantsFromEvent(ev)
+  const activeById = new Map(activeParticipants.map((p) => [p.id, p]))
+
   if (day) {
     return ev.checkInLogs
       .filter(log => {
-        const p = ev.participants.find(pp => pp.id === log.participant_id)
-        return p && p.day_number === day
+        const participant = activeById.get(log.participant_id)
+        if (participant) return participant.day_number === day
+        const fallbackDay = Number(log?.day_number)
+        return Number.isInteger(fallbackDay) && fallbackDay === Number(day)
       })
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   }
-  return [...ev.checkInLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  return ev.checkInLogs
+    .filter((log) => activeById.has(log.participant_id))
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 }
 
 export function getPendingCheckIns() {
