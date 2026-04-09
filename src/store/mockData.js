@@ -45,6 +45,7 @@ const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' 
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
 const DEFAULT_TENANT_ONLY_MODE = true
+const TENANT_MODE_PURGED_FLAG_KEY = 'ons_tenant_mode_purged_v1'
 
 function isAllowedStrictStorageKey(key) {
   return key === SESSION_KEY
@@ -145,16 +146,16 @@ const DEFAULT_TENANT_ADMIN_USER = {
 function seedDefaultTenantUsers(tenant) {
   if (!tenant || tenant.id !== DEFAULT_TENANT_ID) return tenant
 
-  const users = asArray(tenant.users)
-  const hasDefaultAdmin = users.some((user) => user?.id === DEFAULT_TENANT_ADMIN_USER.id || user?.username === DEFAULT_TENANT_ADMIN_USER.username)
-  if (hasDefaultAdmin) {
-    return { ...tenant, users }
-  }
-
+  // Hard enforcement: tenant-default keeps only the canonical admin user.
   return {
     ...tenant,
-    users: [DEFAULT_TENANT_ADMIN_USER, ...users]
+    users: [{ ...DEFAULT_TENANT_ADMIN_USER }]
   }
+}
+
+function purgeTenantScopedUIState() {
+  safeStorageRemove('ons_owner_users_selected_tenant')
+  safeStorageRemove('ons_owner_contract_selected_tenant')
 }
 
 const categories = ['Regular', 'VIP', 'Dealer', 'Media']
@@ -392,6 +393,38 @@ function saveTenantRegistry() {
   }
   safeStorageSet(TENANT_REGISTRY_KEY, JSON.stringify(tenantRegistry))
   safeStorageRemove(LEGACY_TENANT_REGISTRY_KEY)
+}
+
+function runOneTimeDefaultTenantPurge() {
+  if (!DEFAULT_TENANT_ONLY_MODE) return
+  if (safeStorageGet(TENANT_MODE_PURGED_FLAG_KEY) === '1') return
+
+  const rawRegistry = safeStorageGet(TENANT_REGISTRY_KEY) || safeStorageGet(LEGACY_TENANT_REGISTRY_KEY)
+  const parsedRegistry = parseStoredJSON(rawRegistry)
+  if (parsedRegistry?.tenants && typeof parsedRegistry.tenants === 'object') {
+    const defaultTenantRaw = parsedRegistry.tenants[DEFAULT_TENANT_ID] || { ...DEFAULT_TENANT }
+    const nextRegistry = enforceDefaultTenantOnlyRegistry({
+      activeTenantId: DEFAULT_TENANT_ID,
+      tenants: {
+        [DEFAULT_TENANT_ID]: normalizeSavedTenant(DEFAULT_TENANT_ID, defaultTenantRaw)
+      }
+    })
+    tenantRegistry = nextRegistry
+    saveTenantRegistry()
+  }
+
+  const rawStore = safeStorageGet(STORE_KEY) || safeStorageGet(LEGACY_STORE_KEY)
+  const parsedStore = parseStoredJSON(rawStore)
+  if (parsedStore?.tenants && typeof parsedStore.tenants === 'object') {
+    const defaultBucket = parsedStore.tenants[DEFAULT_TENANT_ID]
+      ? normalizeTenantStoreBucket(parsedStore.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
+      : createTenantStoreBucket('Event Platform 2026', true)
+    store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
+    saveStore()
+  }
+
+  purgeTenantScopedUIState()
+  safeStorageSet(TENANT_MODE_PURGED_FLAG_KEY, '1')
 }
 
 function ensureActiveTenant() {
@@ -1823,6 +1856,7 @@ function getStore() {
 }
 
 let store = getStore()
+runOneTimeDefaultTenantPurge()
 let realtimeListeners = []
 let firebaseBootstrapPromise = null
 let firebaseStoreReady = false
@@ -2086,6 +2120,7 @@ export async function bootstrapStoreFromFirebase(force = false) {
 
     const nextTenantRegistry = normalizeHydratedTenantRegistry(snapshot.tenantRegistry)
     const nextStore = normalizeHydratedStore(snapshot.store)
+    const tenantIdsFromSnapshot = Object.keys(snapshot?.tenantRegistry?.tenants || {})
     preserveMissingTenantScopes({
       nextTenantRegistry,
       nextStore,
@@ -2100,6 +2135,14 @@ export async function bootstrapStoreFromFirebase(force = false) {
     }
     salvageLargestParticipantListIntoActiveEvent(store, localSnap, memoryStorePreHydrate)
     persistHydratedState()
+
+    if (DEFAULT_TENANT_ONLY_MODE) {
+      const nonDefaultTenantIds = tenantIdsFromSnapshot.filter((id) => id && id !== DEFAULT_TENANT_ID)
+      nonDefaultTenantIds.forEach((tenantId) => {
+        void syncTenantDelete(tenantId)
+      })
+    }
+
     firebaseStoreReady = true
     return true
   })().catch(err => {
