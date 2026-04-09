@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 
 const RELEASE_MORNING_MODE = true
+const REALTIME_SYNC_INTERVAL_MS = 2500
 const OWNER_RELEASE_VISIBLE_PATHS = new Set([
   '/owner/users',
   '/owner/billing',
@@ -75,7 +76,7 @@ export default function Layout({ children }) {
 
     const id = window.setInterval(() => {
       void pullLatestWorkspace()
-    }, 5000)
+    }, REALTIME_SYNC_INTERVAL_MS)
 
     return () => {
       stopped = true

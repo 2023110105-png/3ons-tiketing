@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, setCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay, deleteCurrentDay } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, setCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay, deleteCurrentDay, markParticipantTicketSent } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus } from 'lucide-react'
@@ -12,6 +12,8 @@ import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import * as XLSX from 'xlsx'
+
+const REALTIME_REFRESH_MS = 2500
 
 export default function Participants() {
   const resolveTenantId = (userValue) => {
@@ -394,7 +396,7 @@ export default function Participants() {
         await refreshData(true)
         updateLocalView()
       }
-    }, 5000)
+    }, REALTIME_REFRESH_MS)
     return () => window.clearInterval(id)
   }, [refreshData, updateLocalView])
 
@@ -473,7 +475,11 @@ export default function Participants() {
   const handleSingleBotSend = async (participant) => {
     toast.info('Mengirim...', `Meneruskan tiket ${participant.name} ke layanan pengiriman`);
     const result = await sendTicketViaBot(participant);
-    if (result?.success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
+    if (result?.success) {
+      markParticipantTicketSent(participant.id, 'message_with_barcode')
+      toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
+      updateLocalView()
+    }
     else toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Layanan pengiriman sedang tidak aktif.' }));
   }
 
@@ -512,6 +518,7 @@ export default function Participants() {
       const result = await sendTicketViaBot(targetParticipants[i]);
       if (result?.success) {
         s++
+        markParticipantTicketSent(targetParticipants[i].id, selectedMode)
       } else {
         f++
         if (failureReasons.length < 3) {
@@ -530,6 +537,7 @@ export default function Participants() {
     } else {
       toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`)
     }
+    updateLocalView()
     setTimeout(() => setIsBroadcasting(false), 3000);
   }
 

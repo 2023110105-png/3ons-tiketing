@@ -4,6 +4,8 @@ import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
+const REALTIME_REFRESH_MS = 2500
+
 export default function BackGate() {
   const currentDay = getCurrentDay()
   const [showLimitInfo, setShowLimitInfo] = useState(false)
@@ -23,7 +25,7 @@ export default function BackGate() {
     const interval = setInterval(() => {
       void bootstrapStoreFromFirebase(true)
       setRefreshKey(k => k + 1)
-    }, 5000)
+    }, REALTIME_REFRESH_MS)
     return () => clearInterval(interval)
   }, [])
 

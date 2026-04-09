@@ -227,6 +227,10 @@ function clearDeletedParticipantMark(participantId) {
   }
 }
 
+function isParticipantTicketLocked(participant) {
+  return !!participant?.qr_locked || !!participant?.wa_sent_at
+}
+
 function getActiveParticipantsFromEvent(ev, dayFilter = null) {
   cleanupDeletedParticipantTombstones()
   const tombstones = deletedParticipantTombstones
@@ -2771,6 +2775,9 @@ export function addParticipant(data) {
       secureRef: security.secure_ref
     }),
     is_checked_in: false,
+    qr_locked: false,
+    wa_sent_at: null,
+    wa_send_mode: null,
     checked_in_at: null,
     checked_in_by: null,
     created_at: new Date().toISOString()
@@ -2812,7 +2819,20 @@ export function addParticipant(data) {
         wa_message,
         wa_send_mode: waSendMode
       })
-    }).catch(e => console.error('Bot Server Offline:', e))
+    })
+      .then(async (res) => {
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok || payload?.success === false) return
+        const latest = getParticipant(participant.id)
+        if (latest) {
+          latest.qr_locked = true
+          latest.wa_sent_at = new Date().toISOString()
+          latest.wa_send_mode = waSendMode
+          saveStore()
+          void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: latest })
+        }
+      })
+      .catch(e => console.error('Bot Server Offline:', e))
   }
 
   return participant
@@ -2828,6 +2848,7 @@ export function regenerateSecureQRTokens(dayFilter = null, actor = 'system') {
   let updated = 0
 
   targets.forEach(participant => {
+    if (isParticipantTicketLocked(participant)) return
     const security = ensureParticipantSecurity(participant)
     const expectedSig = buildQrSignature({
       tenantId: tenant.id,
@@ -2934,6 +2955,17 @@ export function updateParticipant(id, actor = 'system', patch = {}, reason = '')
   const tenant = getActiveTenantState()
   const participant = ev.participants.find(p => p.id === id)
   if (!participant) return { success: false, error: 'Peserta tidak ditemukan' }
+  // Keep barcode immutable after ticket was sent to participant.
+  if (isParticipantTicketLocked(participant)) {
+    const nextName = patch?.name !== undefined ? normalizeParticipantName(patch?.name) : participant.name
+    const nextDay = patch?.day_number !== undefined
+      ? normalizeParticipantDay(patch?.day_number, participant.day_number)
+      : participant.day_number
+    if (nextName !== participant.name || nextDay !== participant.day_number) {
+      return { success: false, error: 'Tiket sudah terkirim. Nama/Hari tidak bisa diubah agar QR tetap sama.' }
+    }
+  }
+
   if (participant?.id && ev?.deletedParticipantIds?.[participant.id]) {
     delete ev.deletedParticipantIds[participant.id]
   }
@@ -2970,16 +3002,18 @@ export function updateParticipant(id, actor = 'system', patch = {}, reason = '')
   participant.day_number = safeDayNumber
   participant.meta = safeMeta
 
-  // Regenerate QR payload so day/name changes reflect in ticket QR verification.
-  participant.qr_data = encodeQrPayload({
-    ticketId: participant.ticket_id,
-    name: participant.name,
-    dayNumber: participant.day_number,
-    tenantId: tenant.id,
-    eventId: ev.id,
-    secureCode: participant.secure_code,
-    secureRef: participant.secure_ref
-  })
+  if (!isParticipantTicketLocked(participant)) {
+    // Regenerate QR payload only while ticket is not locked/sent yet.
+    participant.qr_data = encodeQrPayload({
+      ticketId: participant.ticket_id,
+      name: participant.name,
+      dayNumber: participant.day_number,
+      tenantId: tenant.id,
+      eventId: ev.id,
+      secureCode: participant.secure_code,
+      secureRef: participant.secure_ref
+    })
+  }
 
   saveStore()
   void syncEventSnapshot({ tenantId: tenant.id, event: ev })
@@ -3127,6 +3161,10 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
           errors.push({ row: index + 1, error: `Duplikat ditemukan tapi peserta sudah check-in. Baris dilewati.` })
           return
         }
+        if (isParticipantTicketLocked(existing)) {
+          errors.push({ row: index + 1, error: `Duplikat ditemukan tapi tiket sudah terkirim. Baris dilewati agar QR tidak berubah.` })
+          return
+        }
 
         existing.name = name
         existing.phone = phone
@@ -3187,6 +3225,20 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
   }
 
   return { added, updated, skipped, errors, total: rows.length }
+}
+
+export function markParticipantTicketSent(participantId, waSendMode = 'message_with_barcode') {
+  const ev = getActiveEvent()
+  const tenant = getActiveTenantState()
+  const participant = ev.participants.find((p) => p.id === participantId)
+  if (!participant) return { success: false, error: 'Peserta tidak ditemukan' }
+
+  participant.qr_locked = true
+  participant.wa_sent_at = new Date().toISOString()
+  participant.wa_send_mode = String(waSendMode || '').trim() || 'message_with_barcode'
+  saveStore()
+  void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
+  return { success: true, participant }
 }
 
 export function searchParticipants(query, dayFilter = null) {

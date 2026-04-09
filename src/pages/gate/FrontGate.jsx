@@ -7,6 +7,7 @@ import { apiFetch } from '../../utils/api'
 
 const SAME_QR_DEBOUNCE_MS = 1200
 const VERIFY_TIMEOUT_MS = 2200
+const REALTIME_REFRESH_MS = 2500
 
 export default function FrontGate() {
   const currentDay = getCurrentDay()
@@ -284,7 +285,7 @@ export default function FrontGate() {
       void refreshFromFirebaseIfStale()
       refreshStats()
       refreshPendingState()
-    }, 5000)
+    }, REALTIME_REFRESH_MS)
     return () => window.clearInterval(intervalId)
   }, [refreshFromFirebaseIfStale, refreshPendingState, refreshStats])
 
