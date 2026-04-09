@@ -34,6 +34,7 @@ function normalizeRole(value) {
 
 function collectIdentifierValues(user) {
   return [
+    user?.doc_id,
     user?.id,
     user?.uid,
     user?.user_id,
@@ -89,7 +90,7 @@ async function resolveTenantUserRef({ tenantId, userId, db }) {
   const allUsersSnap = await usersCol.limit(500).get()
   const matchedDoc = allUsersSnap.docs.find((doc) => {
     const data = doc.data() || {}
-    return userMatchesIdentifier({ id: doc.id, ...data }, rawUserId)
+    return userMatchesIdentifier({ ...data, doc_id: doc.id }, rawUserId)
   })
   if (matchedDoc) return { ref: matchedDoc.ref, snap: matchedDoc }
 
