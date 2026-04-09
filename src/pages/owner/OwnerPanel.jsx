@@ -14,11 +14,29 @@ import NotificationCenter from './tabs/NotificationCenter'
 import ImpersonateView from './tabs/ImpersonateView'
 import ServerVerifyTools from './tabs/ServerVerifyTools'
 
+const RELEASE_MORNING_MODE = true
+const OWNER_RELEASE_ALLOWED_TABS = new Set(['users', 'billing', 'audit', 'health', 'notifications'])
+
 export default function OwnerPanel() {
   const { activeTab } = useParams()
   const navigate = useNavigate()
   
   const renderActiveTab = () => {
+    if (RELEASE_MORNING_MODE && activeTab && !OWNER_RELEASE_ALLOWED_TABS.has(activeTab)) {
+      return (
+        <div className="owner-empty-state" style={{ padding: '42px 20px' }}>
+          <div className="owner-empty-icon">🛡️</div>
+          <div className="owner-empty-title">Menu dikunci sementara</div>
+          <p className="owner-empty-message" style={{ maxWidth: 560, margin: '10px auto 18px' }}>
+            Mode rilis pagi aktif. Untuk menjaga sistem tetap stabil saat handover ke user, menu ini dinonaktifkan sementara.
+          </p>
+          <button className="btn btn-primary" onClick={() => navigate('/owner/users')}>
+            Buka Kelola Pengguna
+          </button>
+        </div>
+      )
+    }
+
     switch (activeTab) {
       case 'tenants':
         return <TenantList 
@@ -48,7 +66,7 @@ export default function OwnerPanel() {
       case 'tech-tools':
         return <ServerVerifyTools />
       default:
-        return <TenantList />
+        return RELEASE_MORNING_MODE ? <UserManagement /> : <TenantList />
     }
   }
 

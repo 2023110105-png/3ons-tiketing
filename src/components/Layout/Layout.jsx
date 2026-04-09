@@ -9,6 +9,15 @@ import {
   FileText, Eye, History, Activity, Database, Bell, MessageCircle
 } from 'lucide-react'
 
+const RELEASE_MORNING_MODE = true
+const OWNER_RELEASE_VISIBLE_PATHS = new Set([
+  '/owner/users',
+  '/owner/billing',
+  '/owner/audit',
+  '/owner/health',
+  '/owner/notifications'
+])
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -160,6 +169,9 @@ export default function Layout({ children }) {
     { path: '/owner/notifications', icon: <Bell size={18} />, label: 'Pemberitahuan' },
     { path: '/owner/tech-tools', icon: <ShieldCheck size={18} />, label: 'Alat IT' },
   ]
+  const ownerNavVisible = RELEASE_MORNING_MODE
+    ? ownerNav.filter((item) => OWNER_RELEASE_VISIBLE_PATHS.has(item.path))
+    : ownerNav
 
   const mobileNavItems = getNavItems()
 
@@ -252,7 +264,7 @@ export default function Layout({ children }) {
           {user?.role === 'owner' && (
             <div className="nav-section">
               <div className="nav-section-title">Panel Pemilik</div>
-              {ownerNav.map(item => (
+              {ownerNavVisible.map(item => (
                 <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}
@@ -342,6 +354,22 @@ export default function Layout({ children }) {
         </header>
 
         <div className="page-wrapper">
+          {RELEASE_MORNING_MODE && user?.role === 'owner' && (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                background: 'rgba(251, 191, 36, 0.14)',
+                color: '#7c2d12',
+                fontSize: '0.82rem',
+                fontWeight: 700
+              }}
+            >
+              Mode Rilis Pagi Aktif: menu owner dibatasi ke operasi aman untuk menjaga stabilitas layanan tenant default.
+            </div>
+          )}
           {children}
         </div>
       </main>
