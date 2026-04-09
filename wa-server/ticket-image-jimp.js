@@ -125,7 +125,7 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const fontBody = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK)
   const fontSmall = await Jimp.loadFont(Jimp.FONT_SANS_14_BLACK)
 
-  image.print(fontTitle, leftX + 22, leftY + 20, 'E-TICKET')
+  image.print(fontTitle, leftX + 22, leftY + 20, 'E-ATTENDANCE')
   printClamp(image, fontSmall, eventLabel, leftX + 22, leftY + 62, leftW - 44)
   printClamp(image, fontSmall, brandLabel.toUpperCase(), leftX + 22, leftY + 82, leftW - 44)
 
@@ -143,13 +143,13 @@ async function buildTicketQrImageNode(participant, options = {}) {
   image.print(fontBody, leftX + 22, leftY + 264, String(participant?.day_number || '-'))
 
   await fillRect(image, leftX + 22, leftY + leftH - 76, leftW - 44, 1, '#e2e8f0')
-  image.print(fontSmall, leftX + 22, leftY + leftH - 60, 'Valid untuk 1 orang. Dilarang duplikasi tiket.')
+  image.print(fontSmall, leftX + 22, leftY + leftH - 60, 'Tunjukkan kode qr ini untuk registrasi')
   const dob = getMetaValue(participant, 'Tanggal Lahir')
   image.print(
     fontSmall,
     leftX + 22,
     leftY + leftH - 40,
-    dob ? `Tanggal Lahir: ${dob}` : 'Tunjukkan tiket ini saat registrasi di pintu masuk.'
+    dob ? `Tanggal Lahir: ${dob}` : 'absensi peserta'
   )
 
   image.print(fontBody, qrX + 30, qrY + qrSize + 18, 'Scan QR di pintu masuk')
