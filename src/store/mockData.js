@@ -2967,7 +2967,6 @@ export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   }
   ev.checkInLogs.push(log)
   saveStore()
-  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
   void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
   void syncCheckInLog({ tenantId: tenant.id, eventId: ev.id, log })
 

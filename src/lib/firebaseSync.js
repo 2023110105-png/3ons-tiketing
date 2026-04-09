@@ -1,13 +1,36 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db, isFirebaseEnabled } from './firebase'
 
+let syncCooldownUntil = 0
+const RESOURCE_EXHAUSTED_COOLDOWN_MS = 60_000
+
 function noopPromise() {
   return Promise.resolve(false)
 }
 
+function isResourceExhaustedError(err) {
+  const code = String(err?.code || '').toLowerCase()
+  const message = String(err?.message || '').toLowerCase()
+  return code.includes('resource-exhausted')
+    || message.includes('resource-exhausted')
+    || message.includes('quota exceeded')
+}
+
+function isSyncCoolingDown() {
+  return Date.now() < syncCooldownUntil
+}
+
+function startSyncCooldown() {
+  syncCooldownUntil = Date.now() + RESOURCE_EXHAUSTED_COOLDOWN_MS
+}
+
 function withSyncGuard(task) {
   if (!isFirebaseEnabled || !db) return noopPromise()
+  if (isSyncCoolingDown()) return noopPromise()
   return task().catch((err) => {
+    if (isResourceExhaustedError(err)) {
+      startSyncCooldown()
+    }
     console.error('[FirebaseSync] sync failed:', err?.message || err)
     return false
   })
@@ -22,6 +45,7 @@ async function withRetry(task, options = {}) {
     try {
       return await task()
     } catch (err) {
+      if (isResourceExhaustedError(err)) throw err
       if (attempt >= maxAttempts) throw err
       const delay = baseDelayMs * attempt
       await new Promise((resolve) => setTimeout(resolve, delay))
@@ -47,6 +71,7 @@ function toPlainValue(value) {
 
 async function readCollectionDocs(pathSegments) {
   if (!isFirebaseEnabled || !db) return []
+  if (isSyncCoolingDown()) return []
   const snapshot = await getDocs(collection(db, ...pathSegments))
   return snapshot.docs.map(documentSnapshot => ({
     id: documentSnapshot.id,
@@ -152,12 +177,16 @@ async function readTenantWorkspaceSnapshot(tenantId, tenantMeta = {}) {
 
 export async function fetchFirebaseWorkspaceSnapshot() {
   if (!isFirebaseEnabled || !db) return null
+  if (isSyncCoolingDown()) return null
 
   const scopedTenantId = getScopedTenantIdFromSession()
   let tenantSnapshots = []
   try {
     tenantSnapshots = await readCollectionDocs(['tenants'])
   } catch (err) {
+    if (isResourceExhaustedError(err)) {
+      startSyncCooldown()
+    }
     const message = String(err?.message || err).toLowerCase()
     const permissionDenied = message.includes('permission') || message.includes('insufficient')
     if (!permissionDenied || !scopedTenantId) throw err
@@ -286,7 +315,7 @@ export function syncParticipantUpsert({ tenantId, eventId, participant }) {
         { merge: true }
       )
       return true
-    }, { maxAttempts: 4, baseDelayMs: 250 })
+    }, { maxAttempts: 2, baseDelayMs: 400 })
     return true
   })
 }
