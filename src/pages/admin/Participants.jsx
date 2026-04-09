@@ -527,7 +527,22 @@ export default function Participants() {
     void refreshData(true);
   };
 
-  const getRowDayValue = (row) => row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
+  // Mendukung kolom hari dinamis seperti 'Hari 2', 'Day 2', dst
+  const getRowDayValue = (row) => {
+    // Cek nama kolom standar
+    const std = row.day_number ?? row.day ?? row.hari ?? row.Hari ?? row.Day ?? row.Day_Number
+    if (std !== undefined && std !== null && String(std).trim() !== '') return std
+
+    // Cek kolom yang mengandung kata 'hari' atau 'day' (case-insensitive)
+    for (const key of Object.keys(row)) {
+      const lower = String(key).toLowerCase()
+      if (lower.startsWith('hari') || lower.startsWith('day')) {
+        const val = row[key]
+        if (val !== undefined && val !== null && String(val).trim() !== '') return val
+      }
+    }
+    return undefined
+  }
 
   const sanitizeImportRowKeys = (row) => {
     if (!row || typeof row !== 'object') return row
