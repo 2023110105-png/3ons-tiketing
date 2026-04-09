@@ -368,12 +368,30 @@ function syncActiveTenantWithSession() {
 
   const sessionTenantId = String(session?.tenant?.id || '').trim()
   if (!sessionTenantId) return
-  if (!tenantRegistry.tenants[sessionTenantId]) return
+
+  if (!tenantRegistry.tenants[sessionTenantId]) {
+    // Build a scoped placeholder to keep tenant users isolated
+    // even when Firebase hydrate cannot list all tenants.
+    tenantRegistry.tenants[sessionTenantId] = seedDefaultTenantUsers({
+      id: sessionTenantId,
+      brandName: String(session?.tenant?.brandName || 'Tenant').trim() || 'Tenant',
+      eventName: String(session?.tenant?.eventName || 'Event Platform').trim() || 'Event Platform',
+      status: 'active',
+      expires_at: null,
+      created_at: new Date().toISOString(),
+      activeEventId: null,
+      contract: { package: 'starter', payment_status: 'unpaid' },
+      quota: { maxParticipants: 500, maxGateDevices: 3, maxActiveEvents: 1 },
+      users: [],
+      branding: { primaryColor: '#0ea5e9' },
+      invoices: []
+    })
+  }
 
   if (tenantRegistry.activeTenantId !== sessionTenantId) {
     tenantRegistry.activeTenantId = sessionTenantId
-    saveTenantRegistry()
   }
+  saveTenantRegistry()
 }
 
 function getActiveTenantState() {
@@ -1490,6 +1508,11 @@ function generateMockParticipants(tenantId = DEFAULT_TENANT_ID, eventId = DEFAUL
 }
 
 function createEmptyEventState(name = 'Event Platform') {
+  const globalTemplate = safeStorageGet(WA_TEMPLATE_KEY) || safeStorageGet(LEGACY_WA_TEMPLATE_KEY) || null
+  const globalSendModeRaw = safeStorageGet(WA_SEND_MODE_KEY) || safeStorageGet(LEGACY_WA_SEND_MODE_KEY)
+  const globalSendMode = globalSendModeRaw === WA_SEND_MODE_MESSAGE_ONLY
+    ? WA_SEND_MODE_MESSAGE_ONLY
+    : DEFAULT_WA_SEND_MODE
   return {
     id: generateId(),
     name,
@@ -1502,8 +1525,8 @@ function createEmptyEventState(name = 'Event Platform') {
     pendingCheckIns: [],
     offlineQueueHistory: [],
     offlineConfig: { maxPendingAttempts: DEFAULT_MAX_PENDING_ATTEMPTS },
-    waTemplate: null,
-    waSendMode: DEFAULT_WA_SEND_MODE
+    waTemplate: globalTemplate,
+    waSendMode: globalSendMode
   }
 }
 
@@ -2192,11 +2215,20 @@ export function getWaSendMode() {
 }
 
 export function setWaTemplate(template, actor = 'system') {
-  const ev = getActiveEvent()
-  ev.waTemplate = template
-  safeStorageSet(WA_TEMPLATE_KEY, template)
+  const nextTemplate = String(template || '').trim() || defaultWaTemplate
+  const touched = []
+  Object.entries(store?.tenants || {}).forEach(([tenantId, bucket]) => {
+    Object.values(bucket?.events || {}).forEach((event) => {
+      event.waTemplate = nextTemplate
+      touched.push({ tenantId, event })
+    })
+  })
+  safeStorageSet(WA_TEMPLATE_KEY, nextTemplate)
   safeStorageRemove(LEGACY_WA_TEMPLATE_KEY)
   saveStore()
+  touched.forEach(({ tenantId, event }) => {
+    void syncEventSnapshot({ tenantId, event })
+  })
   logAdminAction('wa_template_update', 'Template pesan WhatsApp diperbarui', actor)
 }
 
@@ -2205,11 +2237,19 @@ export function setWaSendMode(mode, actor = 'system') {
   if (mode === WA_SEND_MODE_MESSAGE_ONLY) nextMode = WA_SEND_MODE_MESSAGE_ONLY;
   else if (mode === WA_SEND_MODE_MESSAGE_WITH_BARCODE) nextMode = WA_SEND_MODE_MESSAGE_WITH_BARCODE;
   else nextMode = DEFAULT_WA_SEND_MODE;
-  const ev = getActiveEvent();
-  ev.waSendMode = nextMode;
+  const touched = []
+  Object.entries(store?.tenants || {}).forEach(([tenantId, bucket]) => {
+    Object.values(bucket?.events || {}).forEach((event) => {
+      event.waSendMode = nextMode
+      touched.push({ tenantId, event })
+    })
+  })
   safeStorageSet(WA_SEND_MODE_KEY, nextMode);
   safeStorageRemove(LEGACY_WA_SEND_MODE_KEY);
   saveStore();
+  touched.forEach(({ tenantId, event }) => {
+    void syncEventSnapshot({ tenantId, event })
+  })
   logAdminAction('wa_send_mode_update', `Mode kirim WhatsApp diubah ke ${nextMode}`, actor, { mode: nextMode });
 }
 
