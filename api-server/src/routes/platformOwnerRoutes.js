@@ -16,16 +16,24 @@ const UserParamsSchema = z.object({
 
 export function createPlatformOwnerRoutes({ platformSecretRequired, writeRateLimit }) {
   const router = Router()
+  const statusFromCode = (code) => {
+    if (code === 'tenant_not_found' || code === 'not_found') return 404
+    if (code === 'invalid_payload') return 400
+    if (code === 'unauthorized') return 401
+    if (code === 'forbidden') return 403
+    return 500
+  }
 
   router.post('/platform/owner/tenants/:tenantId/users', platformSecretRequired, writeRateLimit, async (req, res) => {
     try {
       const { tenantId } = ParamsSchema.parse(req.params)
       const user = await createTenantUser({ tenantId, body: req.body, db: getFirestore(), auth: getAuth() })
-      return res.json({ success: true, user })
+      return res.json({ success: true, user, request_id: req.requestId || null })
     } catch (err) {
-      requestLog(req, 'create_tenant_user_failed', { error_code: safeErrorCode(err) }, 'warn')
+      const errorCode = safeErrorCode(err)
+      requestLog(req, 'create_tenant_user_failed', { error_code: errorCode }, 'warn')
       if (err instanceof z.ZodError) return sendError(res, 400, req, 'invalid_payload')
-      return sendError(res, 500, req, safeErrorCode(err))
+      return sendError(res, statusFromCode(errorCode), req, errorCode)
     }
   })
 
@@ -34,11 +42,12 @@ export function createPlatformOwnerRoutes({ platformSecretRequired, writeRateLim
       const { tenantId, userId } = UserParamsSchema.parse(req.params)
       const user = await patchTenantUser({ tenantId, userId, body: req.body, db: getFirestore(), auth: getAuth() })
       if (!user) return sendError(res, 404, req, 'not_found')
-      return res.json({ success: true, user })
+      return res.json({ success: true, user, request_id: req.requestId || null })
     } catch (err) {
-      requestLog(req, 'patch_tenant_user_failed', { error_code: safeErrorCode(err) }, 'warn')
+      const errorCode = safeErrorCode(err)
+      requestLog(req, 'patch_tenant_user_failed', { error_code: errorCode }, 'warn')
       if (err instanceof z.ZodError) return sendError(res, 400, req, 'invalid_payload')
-      return sendError(res, 500, req, safeErrorCode(err))
+      return sendError(res, statusFromCode(errorCode), req, errorCode)
     }
   })
 
@@ -47,10 +56,11 @@ export function createPlatformOwnerRoutes({ platformSecretRequired, writeRateLim
       const { tenantId, userId } = UserParamsSchema.parse(req.params)
       const deleted = await deleteTenantUser({ tenantId, userId, db: getFirestore(), auth: getAuth() })
       if (!deleted) return sendError(res, 404, req, 'not_found')
-      return res.json({ success: true })
+      return res.json({ success: true, request_id: req.requestId || null })
     } catch (err) {
-      requestLog(req, 'delete_tenant_user_failed', { error_code: safeErrorCode(err) }, 'warn')
-      return sendError(res, 500, req, safeErrorCode(err))
+      const errorCode = safeErrorCode(err)
+      requestLog(req, 'delete_tenant_user_failed', { error_code: errorCode }, 'warn')
+      return sendError(res, statusFromCode(errorCode), req, errorCode)
     }
   })
 

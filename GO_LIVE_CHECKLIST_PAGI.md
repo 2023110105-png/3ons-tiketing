@@ -75,19 +75,33 @@ Kriteria lulus:
 - [ ] Uji kirim single ticket (1 peserta) -> sukses.
 - [ ] Uji broadcast kecil (3-5 peserta) -> mayoritas sukses.
 - [ ] Verifikasi template pesan sesuai dan menyertakan barcode pada mode barcode.
+- [ ] Uji mode `message_only` pada 1 peserta dummy.
 
 Kriteria lulus:
 - Pengiriman tidak error massal.
 - Pesan sesuai mode (`message_with_barcode` / `message_only`).
+- Mode `message_only` tidak mengunci QR (peserta masih bisa diedit nama/hari sebelum kirim barcode).
 
 ## 9) Owner Critical Ops
 
 - [ ] Owner buka Kelola Pengguna.
 - [ ] Hapus 1 user uji (bukan user utama).
 - [ ] Pastikan tidak error CORS/404 untuk operasi utama.
+- [ ] Cek response sukses create/update/delete user mengandung `request_id`.
 
 Kriteria lulus:
 - Operasi owner kritikal berjalan normal di environment deploy.
+- Jika gagal, log error memuat `request_id` untuk memudahkan tracing backend.
+
+## 9b) Platform Routing Health (Production)
+
+- [ ] Jalankan health check dari Owner tools.
+- [ ] Pastikan endpoint runtime WA (`/api/wa/runtime`) lolos.
+- [ ] Uji satu aksi owner user (mis. update nama user) untuk memastikan path `/api/platform/...` berjalan.
+
+Kriteria lulus:
+- Tidak ada fallback ke SPA page HTML saat health check.
+- Jalur API production konsisten via rewrite Vercel.
 
 ## 10) Invoice PDF
 

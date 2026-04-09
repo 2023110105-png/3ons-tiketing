@@ -3089,7 +3089,7 @@ export function updateParticipant(id, actor = 'system', patch = {}, reason = '')
 export function manualCheckIn(participantId, scannedBy = 'gate_front') {
   const ev = getActiveEvent()
   const tenant = getActiveTenantState()
-  const participant = ev.participants.find(p => p.id === participantId)
+  const participant = getActiveParticipantsFromEvent(ev).find((p) => p.id === participantId)
   if (!participant) {
     return { success: false, status: 'invalid', message: 'Peserta tidak ditemukan' }
   }
@@ -3324,9 +3324,11 @@ export function markParticipantTicketSent(participantId, waSendMode = 'message_w
   const participant = ev.participants.find((p) => p.id === participantId)
   if (!participant) return { success: false, error: 'Peserta tidak ditemukan' }
 
-  participant.qr_locked = true
-  participant.wa_sent_at = new Date().toISOString()
-  participant.wa_send_mode = String(waSendMode || '').trim() || 'message_with_barcode'
+  const safeWaSendMode = String(waSendMode || '').trim() || 'message_with_barcode'
+  const sentWithBarcode = safeWaSendMode !== WA_SEND_MODE_MESSAGE_ONLY
+  participant.qr_locked = sentWithBarcode
+  participant.wa_sent_at = sentWithBarcode ? new Date().toISOString() : (participant.wa_sent_at || null)
+  participant.wa_send_mode = safeWaSendMode
   saveStore()
   void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
   return { success: true, participant }
@@ -3504,7 +3506,7 @@ export function checkIn(qrData, scannedBy = 'gate_front') {
 
 export function getStats(day = null) {
   const ev = getActiveEvent()
-  const participants = day ? ev.participants.filter(p => p.day_number === day) : ev.participants
+  const participants = getActiveParticipantsFromEvent(ev, day)
   const total = participants.length
   const checkedIn = participants.filter(p => p.is_checked_in).length
   const notCheckedIn = total - checkedIn

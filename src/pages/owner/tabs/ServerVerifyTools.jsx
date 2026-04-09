@@ -559,13 +559,13 @@ export default function ServerVerifyTools() {
       })
 
       await pushCheck('WA Server Health', async () => {
-        const res = await apiFetch('/health')
+        const res = await apiFetch('/api/wa/runtime')
         const data = await res.json().catch(() => ({}))
-        const healthy = res.ok && (data?.ok === true || data?.status === 'ok')
+        const healthy = res.ok && !!data?.version
         if (!healthy) {
           throw new Error(data?.error || `HTTP ${res.status}`)
         }
-        return 'Endpoint /health responsif'
+        return 'Endpoint /api/wa/runtime responsif'
       })
 
       await pushCheck('WA Status Endpoint', async () => {
@@ -689,15 +689,15 @@ export default function ServerVerifyTools() {
     const tests = [
       {
         key: 'health',
-        label: 'GET /health',
+        label: 'GET /api/wa/runtime',
         run: async () => {
-          const res = await apiFetch('/health')
+          const res = await apiFetch('/api/wa/runtime')
           const data = await res.json().catch(() => ({}))
-          const ok = res.ok && (data?.ok === true || data?.status === 'ok')
+          const ok = res.ok && !!data?.version
           return {
             ok,
             status: res.status,
-            detail: ok ? 'Server health OK' : String(data?.error || 'health response invalid')
+            detail: ok ? 'Runtime endpoint OK' : String(data?.error || 'runtime response invalid')
           }
         }
       },
@@ -835,10 +835,10 @@ export default function ServerVerifyTools() {
         key: 'backend-health',
         label: 'Backend health endpoint',
         run: async () => {
-          const res = await apiFetch('/health')
+          const res = await apiFetch('/api/wa/runtime')
           const data = await res.json().catch(() => ({}))
-          if (!res.ok || data?.ok !== true) return { status: 'fail', detail: data?.error || `HTTP ${res.status}` }
-          return { status: 'pass', detail: 'Backend health OK' }
+          if (!res.ok || !data?.version) return { status: 'fail', detail: data?.error || `HTTP ${res.status}` }
+          return { status: 'pass', detail: 'Backend runtime health OK' }
         }
       },
       {

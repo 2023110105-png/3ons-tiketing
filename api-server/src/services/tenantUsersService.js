@@ -144,6 +144,14 @@ async function resolveTenantUserFromTenantDoc({ tenantId, userId, db }) {
 }
 
 export async function createTenantUser({ tenantId, body, db, auth }) {
+  const tenantRef = db.collection('tenants').doc(tenantId)
+  const tenantSnap = await tenantRef.get()
+  if (!tenantSnap.exists) {
+    const err = new Error('Tenant not found')
+    err.code = 'tenant_not_found'
+    throw err
+  }
+
   const payload = CreateUserSchema.parse({
     ...body,
     email: body?.email ? normalizeEmail(body.email) : null
@@ -177,7 +185,7 @@ export async function createTenantUser({ tenantId, body, db, auth }) {
     updated_at: now
   }
 
-  await db.collection('tenants').doc(tenantId).collection('users').doc(userId).set(userDoc, { merge: true })
+  await tenantRef.collection('users').doc(userId).set(userDoc, { merge: true })
   return userDoc
 }
 

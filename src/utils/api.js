@@ -151,24 +151,28 @@ export function apiFetch(path, options) {
 export async function platformFetch(path, options) {
   const baseUrl = getPlatformApiBaseUrl()
   const cleanPath = String(path || '')
-  const localProxyPath = cleanPath.startsWith('/platform/')
-    ? `/api${cleanPath}`
-    : (cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`)
   const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`
+  const canonicalProxyPath = normalizedPath.startsWith('/platform/')
+    ? `/api${normalizedPath}`
+    : normalizedPath
   const candidateUrls = []
   if (baseUrl) {
-    candidateUrls.push(`${baseUrl.replace(/\/$/, '')}${normalizedPath}`)
+    const directUrl = `${baseUrl.replace(/\/$/, '')}${normalizedPath}`
+    if (normalizedPath.startsWith('/platform/')) {
+      candidateUrls.push(canonicalProxyPath)
+    }
+    candidateUrls.push(directUrl)
     // Local API server is often unavailable in frontend-only sessions.
     // Add resilient fallbacks so owner actions do not get stuck on localhost:3002 only.
     if (isLocalHostLike(baseUrl)) {
-      candidateUrls.push(localProxyPath)
+      candidateUrls.push(canonicalProxyPath)
       if (normalizedPath.startsWith('/platform/')) {
         candidateUrls.push(normalizedPath)
         candidateUrls.push(`${DEFAULT_PROD_API_BASE_URL}${normalizedPath}`)
       }
     }
   } else {
-    candidateUrls.push(localProxyPath)
+    candidateUrls.push(canonicalProxyPath)
     if (normalizedPath.startsWith('/platform/')) {
       candidateUrls.push(normalizedPath)
       candidateUrls.push(`${DEFAULT_PROD_API_BASE_URL}${normalizedPath}`)
@@ -190,14 +194,30 @@ export async function platformFetch(path, options) {
     requestOptions.headers = headers
   }
 
+  const shouldRetryHttpStatus = (status) => [404, 502, 503, 504].includes(Number(status))
   let lastError = null
+  let lastResponse = null
+  let lastUrl = ''
   for (const url of urlsToTry) {
     try {
-      return await fetch(url, requestOptions)
+      const response = await fetch(url, requestOptions)
+      lastResponse = response
+      lastUrl = url
+      if (!response.ok && shouldRetryHttpStatus(response.status) && url !== urlsToTry[urlsToTry.length - 1]) {
+        continue
+      }
+      return response
     } catch (err) {
       lastError = err
+      lastUrl = url
     }
   }
 
-  throw lastError || new Error('Platform API unreachable')
+  if (lastResponse) return lastResponse
+  const error = new Error(
+    `Platform API unreachable after ${urlsToTry.length} attempt(s). Last URL: ${lastUrl || '-'}`
+  )
+  error.cause = lastError || null
+  error.attempted_urls = urlsToTry
+  throw error
 }

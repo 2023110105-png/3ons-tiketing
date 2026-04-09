@@ -40,6 +40,10 @@
   ],
   "rewrites": [
     {
+      "source": "/health",
+      "destination": "https://yamaha-scan-tiketing-production.up.railway.app/health"
+    },
+    {
       "source": "/api/platform/:path*",
       "destination": "https://yamaha-scan-tiketing-production.up.railway.app/platform/:path*"
     },

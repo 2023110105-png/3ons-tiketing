@@ -438,13 +438,12 @@ export default function Participants() {
     return digits.length >= 10
   }
 
-  const sendTicketViaBot = async (participant) => {
+  const sendTicketViaBot = async (participant, selectedMode = 'message_with_barcode') => {
     if (!hasValidWaTarget(participant)) {
       return { success: false, error: 'Nomor WhatsApp peserta kosong atau tidak valid.' }
     }
     const tenantIdNow = resolveTenantId(user)
-    // Force desain tiket WA agar tidak jatuh ke mode QR polos.
-    const waSendMode = 'message_with_barcode';
+    const waSendMode = String(selectedMode || 'message_with_barcode').trim() || 'message_with_barcode'
     const wa_message = generateWaMessage(participant)
     try {
       const res = await apiFetch('/api/send-ticket', {
@@ -474,7 +473,7 @@ export default function Participants() {
 
   const handleSingleBotSend = async (participant) => {
     toast.info('Mengirim...', `Meneruskan tiket ${participant.name} ke layanan pengiriman`);
-    const result = await sendTicketViaBot(participant);
+    const result = await sendTicketViaBot(participant, 'message_with_barcode');
     if (result?.success) {
       markParticipantTicketSent(participant.id, 'message_with_barcode')
       toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
@@ -515,7 +514,7 @@ export default function Participants() {
     const failureReasons = []
     for (let i = 0; i < targetParticipants.length; i++) {
       setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const result = await sendTicketViaBot(targetParticipants[i]);
+      const result = await sendTicketViaBot(targetParticipants[i], selectedMode);
       if (result?.success) {
         s++
         if (selectedMode === 'message_with_barcode') {
