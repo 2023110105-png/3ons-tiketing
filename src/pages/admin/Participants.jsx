@@ -640,6 +640,8 @@ export default function Participants() {
       console.log('[IMPORT DEBUG] Data rows yang akan diimport:', finalRows);
       result = bulkAddParticipants(
         finalRows,
+        dayFilter,
+        user,
         { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
       );
       console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result);
