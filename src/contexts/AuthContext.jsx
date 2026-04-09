@@ -12,6 +12,7 @@ import {
 } from '../store/mockData'
 
 export const AuthContext = createContext(null)
+const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
 const FIREBASE_AUTH_MODE = isFirebaseEnabled && import.meta.env.VITE_FIREBASE_AUTH_MODE !== 'hybrid'
   ? 'strict'
   : 'hybrid'
@@ -112,6 +113,10 @@ export function AuthProvider({ children }) {
       if (cancelled) return
 
       let session = getSession()
+      if (session?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+        doLogout()
+        session = null
+      }
       if (!session && isFirebaseEnabled && auth) {
         await waitForFirebaseAuthReady()
         const firebaseEmail = auth.currentUser?.email
@@ -199,6 +204,11 @@ export function AuthProvider({ children }) {
 
         const identityResult = loginIdentity(username)
         if (identityResult.success) {
+          if (identityResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+            await signOut(auth).catch(() => {})
+            doLogout()
+            return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
+          }
           setUser(identityResult.user)
           void bootstrapWaSessionAfterLogin(identityResult.user)
           return identityResult
@@ -206,6 +216,11 @@ export function AuthProvider({ children }) {
 
         const emailIdentityResult = loginIdentity(candidateEmail)
         if (emailIdentityResult.success) {
+          if (emailIdentityResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+            await signOut(auth).catch(() => {})
+            doLogout()
+            return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
+          }
           setUser(emailIdentityResult.user)
           void bootstrapWaSessionAfterLogin(emailIdentityResult.user)
           return emailIdentityResult
@@ -220,6 +235,10 @@ export function AuthProvider({ children }) {
         if (isQuotaExhaustedError(error)) {
           const localOnly = loginLocal(username, password)
           if (localOnly.success) {
+            if (localOnly.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+              doLogout()
+              return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
+            }
             setUser(localOnly.user)
             void bootstrapWaSessionAfterLogin(localOnly.user)
             return localOnly
@@ -228,6 +247,10 @@ export function AuthProvider({ children }) {
         // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
         const localResult = loginLocal(username, password)
         if (localResult.success) {
+          if (localResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+            doLogout()
+            return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
+          }
           try {
             await createUserWithEmailAndPassword(auth, candidateEmail, password)
             setUser(localResult.user)
@@ -274,6 +297,10 @@ export function AuthProvider({ children }) {
       ? doLogin(username, password, { tenantId: preferredTenantId })
       : doLogin(username, password)
     if (result.success) {
+      if (result.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+        doLogout()
+        return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
+      }
       setUser(result.user)
       void bootstrapWaSessionAfterLogin(result.user)
     }
