@@ -148,6 +148,18 @@
   color: var(--text-primary);
 }
 
+.logo-3ons--image {
+  gap: 0;
+  align-items: center;
+}
+
+.brand-logo-image {
+  height: 44px;
+  width: auto;
+  display: block;
+  border-radius: 10px;
+}
+
 .logo-3ons .l3 { color: #4da6e8; }
 .logo-3ons .lo { color: #2eab6e; }
 .logo-3ons .lN { color: #e84040; }
@@ -164,6 +176,10 @@
 @media (max-width: 768px) {
   .logo-3ons {
     font-size: 1.5rem;
+  }
+
+  .brand-logo-image {
+    height: 36px;
   }
 
   .logo-3ons .digital-tag {
