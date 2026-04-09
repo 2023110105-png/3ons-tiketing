@@ -280,7 +280,8 @@ export function AuthProvider({ children }) {
       if (candidateEmail) {
         try {
           await signInWithEmailAndPassword(auth, candidateEmail, password)
-          const identityResult = loginIdentity(username)
+          const scopedOptions = options?.tenantId ? { tenantId: options.tenantId } : null
+          const identityResult = scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username)
           if (identityResult.success) {
             setUser(identityResult.user)
             void bootstrapWaSessionAfterLogin(identityResult.user)
