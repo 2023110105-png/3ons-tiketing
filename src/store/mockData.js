@@ -45,7 +45,7 @@ const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' 
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
 const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
 const DEFAULT_TENANT_ONLY_MODE = true
-const TENANT_MODE_PURGED_FLAG_KEY = 'ons_tenant_mode_purged_v1'
+const TENANT_MODE_PURGED_FLAG_KEY = 'ons_tenant_mode_purged_v2'
 
 function isAllowedStrictStorageKey(key) {
   return key === SESSION_KEY
@@ -132,25 +132,51 @@ const DEFAULT_TENANT = {
   deletedEventIds: {}
 }
 
-const DEFAULT_TENANT_ADMIN_USER = {
-  id: 'user-event-platform-admin',
-  username: 'admin_eventplatform',
-  email: 'admin.eventplatform@3ons.digital',
-  password: '123456',
-  name: 'Admin Event Platform',
-  role: 'admin_client',
-  tenantId: DEFAULT_TENANT_ID,
-  created_at: new Date().toISOString(),
-  is_active: true
-}
+const DEFAULT_TENANT_CANONICAL_USERS = [
+  {
+    id: 'user-tenant-default-admin',
+    username: 'admin',
+    email: 'admin@ons.local',
+    password: 'admin123',
+    name: 'Admin',
+    role: 'admin_client',
+    tenantId: DEFAULT_TENANT_ID,
+    created_at: new Date().toISOString(),
+    is_active: true
+  },
+  {
+    id: 'user-tenant-default-gate1',
+    username: 'gate1',
+    email: 'gate1@ons.local',
+    password: 'gate123',
+    name: 'Gate 1',
+    role: 'gate_front',
+    tenantId: DEFAULT_TENANT_ID,
+    created_at: new Date().toISOString(),
+    is_active: true
+  },
+  {
+    id: 'user-tenant-default-gate2',
+    username: 'gate2',
+    email: 'gate2@ons.local',
+    password: 'gate123',
+    name: 'Gate 2',
+    role: 'gate_back',
+    tenantId: DEFAULT_TENANT_ID,
+    created_at: new Date().toISOString(),
+    is_active: true
+  }
+]
+
+const ALLOWED_DEFAULT_USERNAMES = new Set(DEFAULT_TENANT_CANONICAL_USERS.map((user) => String(user.username || '').trim().toLowerCase()))
 
 function seedDefaultTenantUsers(tenant) {
   if (!tenant || tenant.id !== DEFAULT_TENANT_ID) return tenant
 
-  // Hard enforcement: tenant-default keeps only the canonical admin user.
+  // Hard enforcement: tenant-default keeps only canonical users (admin, gate1, gate2).
   return {
     ...tenant,
-    users: [{ ...DEFAULT_TENANT_ADMIN_USER }]
+    users: DEFAULT_TENANT_CANONICAL_USERS.map((user) => ({ ...user }))
   }
 }
 
@@ -423,6 +449,14 @@ function runOneTimeDefaultTenantPurge() {
     const defaultBucket = parsedStore.tenants[DEFAULT_TENANT_ID]
       ? normalizeTenantStoreBucket(parsedStore.tenants[DEFAULT_TENANT_ID], 'Event Platform 2026')
       : createTenantStoreBucket('Event Platform 2026', true)
+    Object.values(defaultBucket.events || {}).forEach((event) => {
+      event.participants = []
+      event.deletedParticipantIds = {}
+      event.checkInLogs = []
+      event.pendingCheckIns = []
+      event.offlineQueueHistory = []
+      event.adminLogs = []
+    })
     store = { tenants: { [DEFAULT_TENANT_ID]: defaultBucket } }
     saveStore()
   }
@@ -2144,6 +2178,32 @@ export async function bootstrapStoreFromFirebase(force = false) {
       const nonDefaultTenantIds = tenantIdsFromSnapshot.filter((id) => id && id !== DEFAULT_TENANT_ID)
       nonDefaultTenantIds.forEach((tenantId) => {
         void syncTenantDelete(tenantId)
+      })
+
+      const snapshotDefaultTenant = snapshot?.tenantRegistry?.tenants?.[DEFAULT_TENANT_ID] || {}
+      const snapshotDefaultUsers = Array.isArray(snapshotDefaultTenant?.users) ? snapshotDefaultTenant.users : []
+      snapshotDefaultUsers.forEach((user) => {
+        const username = String(user?.username || '').trim().toLowerCase()
+        if (ALLOWED_DEFAULT_USERNAMES.has(username)) return
+        const userId = String(user?.id || user?.auth_uid || '').trim()
+        if (!userId) return
+        void syncTenantUserDelete({ tenantId: DEFAULT_TENANT_ID, userId })
+      })
+
+      const snapshotDefaultBucket = snapshot?.store?.tenants?.[DEFAULT_TENANT_ID]
+      const snapshotEvents = snapshotDefaultBucket?.events && typeof snapshotDefaultBucket.events === 'object'
+        ? Object.values(snapshotDefaultBucket.events)
+        : []
+      snapshotEvents.forEach((event) => {
+        const eventId = String(event?.id || '').trim()
+        if (!eventId) return
+        const participants = Array.isArray(event?.participants) ? event.participants : []
+        participants.forEach((participant) => {
+          const participantId = String(participant?.id || '').trim()
+          if (!participantId) return
+          void syncParticipantDelete({ tenantId: DEFAULT_TENANT_ID, eventId, participantId })
+        })
+        void syncResetCheckInLogs({ tenantId: DEFAULT_TENANT_ID, eventId })
       })
     }
 
