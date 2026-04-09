@@ -940,6 +940,41 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
 }
 
 export async function deleteTenantUser(tenantId, userId, actor = 'system') {
+  const deleteUserLocally = (candidateIds = []) => {
+    const tenant = tenantRegistry.tenants[tenantId]
+    if (!tenant) return false
+    const users = asArray(tenant.users)
+    const loweredCandidates = candidateIds.map((id) => String(id || '').trim().toLowerCase()).filter(Boolean)
+    const index = users.findIndex((u) => {
+      const values = [
+        String(u?.id || '').trim(),
+        String(u?.auth_uid || '').trim(),
+        String(u?.username || '').trim().toLowerCase(),
+        String(u?.email || '').trim().toLowerCase()
+      ].filter(Boolean)
+      return values.some((v) => loweredCandidates.includes(v.toLowerCase()))
+    })
+    if (index < 0) return false
+
+    const removedUser = users[index] || {}
+    users.splice(index, 1)
+    tenant.users = users
+    saveTenantRegistry()
+    const syncIds = Array.from(new Set([
+      String(removedUser?.id || '').trim(),
+      String(removedUser?.auth_uid || '').trim(),
+      ...candidateIds.map((id) => String(id || '').trim())
+    ].filter(Boolean)))
+    syncIds.forEach((id) => {
+      void syncTenantUserDelete({ tenantId, userId: id })
+    })
+    logOwnerAction('tenant_user_delete', `Hapus user ${removedUser?.username || removedUser?.name || '-'} dari tenant ${tenant.brandName}`, actor, {
+      tenant_id: tenantId,
+      user_id: removedUser?.id || userId
+    })
+    return true
+  }
+
   if (isFirebaseEnabled) {
     try {
       const tenantForLookup = tenantRegistry.tenants[tenantId]
@@ -977,11 +1012,29 @@ export async function deleteTenantUser(tenantId, userId, actor = 'system') {
         }
       }
       if (!deleted) {
+        const fallbackDeleted = deleteUserLocally(candidateUserIds)
+        if (fallbackDeleted) return { success: true }
         return { success: false, error: lastPayload?.error || `HTTP ${lastStatus || 404}` }
       }
       await bootstrapStoreFromFirebase(true)
       return { success: true }
     } catch (err) {
+      const tenantForLookup = tenantRegistry.tenants[tenantId]
+      const localUser = asArray(tenantForLookup?.users).find((u) => (
+        u?.id === userId
+        || String(u?.auth_uid || '').trim() === String(userId || '').trim()
+        || String(u?.username || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
+        || String(u?.email || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase()
+      ))
+      const fallbackCandidateIds = Array.from(new Set([
+        String(userId || '').trim(),
+        String(localUser?.id || '').trim(),
+        String(localUser?.auth_uid || '').trim(),
+        String(localUser?.username || '').trim().toLowerCase(),
+        String(localUser?.email || '').trim().toLowerCase()
+      ].filter(Boolean)))
+      const fallbackDeleted = deleteUserLocally(fallbackCandidateIds)
+      if (fallbackDeleted) return { success: true }
       return {
         success: false,
         error: `Tidak bisa terhubung ke server akun tenant. ${err?.message || 'Periksa koneksi API lalu coba lagi.'}`
