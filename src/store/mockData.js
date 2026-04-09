@@ -222,12 +222,6 @@ function clearDeletedParticipantMark(participantId) {
   }
 }
 
-function isParticipantDeleted(participant) {
-  if (!participant?.id) return false
-  cleanupDeletedParticipantTombstones()
-  return !!deletedParticipantTombstones[participant.id]
-}
-
 function getActiveParticipantsFromEvent(ev, dayFilter = null) {
   cleanupDeletedParticipantTombstones()
   const tombstones = deletedParticipantTombstones
