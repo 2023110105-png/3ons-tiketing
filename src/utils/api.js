@@ -151,9 +151,24 @@ export async function platformFetch(path, options) {
   const localProxyPath = cleanPath.startsWith('/platform/')
     ? `/api${cleanPath}`
     : (cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`)
-  const url = baseUrl
-    ? `${baseUrl.replace(/\/$/, '')}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}`
-    : localProxyPath
+  const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`
+  const candidateUrls = []
+  if (baseUrl) {
+    candidateUrls.push(`${baseUrl.replace(/\/$/, '')}${normalizedPath}`)
+  } else {
+    candidateUrls.push(localProxyPath)
+    if (normalizedPath.startsWith('/platform/')) {
+      candidateUrls.push(normalizedPath)
+      candidateUrls.push(`${DEFAULT_PROD_API_BASE_URL}${normalizedPath}`)
+    }
+  }
+
+  const seen = new Set()
+  const urlsToTry = candidateUrls.filter((url) => {
+    if (!url || seen.has(url)) return false
+    seen.add(url)
+    return true
+  })
 
   const requestOptions = { ...(options || {}) }
   const secret = getPlatformAdminSecret()
@@ -163,5 +178,14 @@ export async function platformFetch(path, options) {
     requestOptions.headers = headers
   }
 
-  return fetch(url, requestOptions)
+  let lastError = null
+  for (const url of urlsToTry) {
+    try {
+      return await fetch(url, requestOptions)
+    } catch (err) {
+      lastError = err
+    }
+  }
+
+  throw lastError || new Error('Platform API unreachable')
 }
