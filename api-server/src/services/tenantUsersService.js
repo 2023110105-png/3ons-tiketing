@@ -32,6 +32,35 @@ function normalizeRole(value) {
   return 'gate_front'
 }
 
+async function resolveTenantUserRef({ tenantId, userId, db }) {
+  const usersCol = db.collection('tenants').doc(tenantId).collection('users')
+  const rawUserId = normalizeString(userId)
+  const loweredUserId = rawUserId.toLowerCase()
+  const emailUserId = normalizeEmail(rawUserId)
+
+  const directRef = usersCol.doc(rawUserId)
+  const directSnap = await directRef.get()
+  if (directSnap.exists) return { ref: directRef, snap: directSnap }
+
+  const candidates = [
+    { field: 'id', value: rawUserId },
+    { field: 'auth_uid', value: rawUserId },
+    { field: 'username', value: loweredUserId },
+    { field: 'email', value: emailUserId }
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate.value) continue
+    const querySnap = await usersCol.where(candidate.field, '==', candidate.value).limit(1).get()
+    if (!querySnap.empty) {
+      const foundDoc = querySnap.docs[0]
+      return { ref: foundDoc.ref, snap: foundDoc }
+    }
+  }
+
+  return { ref: null, snap: null }
+}
+
 export async function createTenantUser({ tenantId, body, db, auth }) {
   const payload = CreateUserSchema.parse({
     ...body,
@@ -72,9 +101,8 @@ export async function createTenantUser({ tenantId, body, db, auth }) {
 
 export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
   const payload = PatchUserSchema.parse(body || {})
-  const ref = db.collection('tenants').doc(tenantId).collection('users').doc(userId)
-  const snap = await ref.get()
-  if (!snap.exists) return null
+  const { ref, snap } = await resolveTenantUserRef({ tenantId, userId, db })
+  if (!ref || !snap || !snap.exists) return null
 
   const current = snap.data() || {}
   const authUid = normalizeString(current.auth_uid || '') || null
@@ -101,9 +129,8 @@ export async function patchTenantUser({ tenantId, userId, body, db, auth }) {
 }
 
 export async function deleteTenantUser({ tenantId, userId, db, auth }) {
-  const ref = db.collection('tenants').doc(tenantId).collection('users').doc(userId)
-  const snap = await ref.get()
-  if (!snap.exists) return false
+  const { ref, snap } = await resolveTenantUserRef({ tenantId, userId, db })
+  if (!ref || !snap || !snap.exists) return false
   const data = snap.data() || {}
   const authUid = normalizeString(data.auth_uid || '') || null
 
