@@ -1067,10 +1067,10 @@ function extractParticipantExtras(raw = {}) {
     'category', 'kategori',
     'day_number', 'day', 'hari',
     'auto_send', 'auto_send_email', 'auto_send_wa',
-    'auto_send_email', 'auto_send',
     'id', 'ticket_id', 'secure_code', 'secure_ref',
     'qr_data', 'is_checked_in', 'checked_in_at', 'checked_in_by',
-    'created_at'
+    'created_at',
+    'actor', 'tenant_id', 'event_id'
   ])
 
   const extras = {}
@@ -1181,13 +1181,17 @@ function normalizeStoredParticipant(raw, index = 0) {
 }
 
 function sanitizeParticipantInput(data, fallbackDay = 1) {
+  // If meta is already provided as an object (e.g. from bulk import), use it directly.
+  const meta = (data?.meta && typeof data.meta === 'object' && !Array.isArray(data.meta) && Object.keys(data.meta).length > 0)
+    ? data.meta
+    : extractParticipantExtras(data)
   return {
     name: normalizeParticipantName(data?.name),
     phone: normalizeParticipantPhone(data?.phone),
     email: normalizeParticipantEmail(data?.email),
     category: normalizeParticipantCategory(data?.category),
     day_number: normalizeParticipantDay(data?.day_number, fallbackDay),
-    meta: extractParticipantExtras(data)
+    meta
   }
 }
 
@@ -2372,9 +2376,14 @@ export function addParticipant(data) {
   }
   clearDeletedParticipantMark(participant.id)
   ev.participants.push(participant)
-  saveStore()
-  void syncEventSnapshot({ tenantId: tenant.id, event: ev })
-  void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
+
+  // Skip save/sync during bulk import to avoid N saves for N participants.
+  // bulkAddParticipants will do a single save at the end.
+  if (!data._skipSave) {
+    saveStore()
+    void syncEventSnapshot({ tenantId: tenant.id, event: ev })
+    void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant })
+  }
 
   logAdminAction('participant_add', `Tambah peserta ${participant.name} (${participant.ticket_id})`, data.actor, {
     participant_id: participant.id,
@@ -2742,14 +2751,15 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
     let participant
     try {
       participant = addParticipant({
-        ...row,
         name,
         phone,
         email,
         category: matchedCat,
         day_number: rowDay,
+        meta: extras,
         actor,
-        auto_send: false
+        auto_send: false,
+        _skipSave: true
       })
     } catch (e) {
       errors.push({ row: index + 1, error: e?.message || 'Gagal menyimpan peserta' })
