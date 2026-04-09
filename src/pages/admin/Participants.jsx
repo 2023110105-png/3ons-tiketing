@@ -33,7 +33,7 @@ export default function Participants() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const [importPreview, setImportPreview] = useState(null)
-  const [importDuplicatePolicy, setImportDuplicatePolicy] = useState('overwrite') // overwrite|skip|block
+  const [importDuplicatePolicy, setImportDuplicatePolicy] = useState('allow') // allow|overwrite|skip|block
   const [showEditModal, setShowEditModal] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [editExtraRows, setEditExtraRows] = useState([])
@@ -767,6 +767,9 @@ export default function Participants() {
 
   const confirmImport = () => {
     if (!importPreview) return
+    if (importDuplicatePolicy === 'allow') {
+      toast.info('Mode duplikat aktif', 'Duplikat diizinkan. Data dengan nomor WA yang sama tetap akan diimport sebagai peserta baru.')
+    }
     executeImportRows(importPreview.rows, importPreview.invalidDayRows || [])
   }
 
@@ -968,6 +971,9 @@ export default function Participants() {
                 <div className="import-preview-title" style={{ marginTop: 18 }}>Aturan duplikat</div>
                 <div className="import-preview-note" style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 13 }}>
                   Duplikat dipadankan berdasarkan <strong>nomor telepon/WA</strong> di hari yang sama.
+                </div>
+                <div className="import-preview-note" style={{ marginTop: 6, color: 'var(--success)' }}>
+                  Rekomendasi saat ini: <strong>Izinkan (boleh nomor WA sama)</strong> agar import tetap lancar walaupun ada data duplikat.
                 </div>
                 <div className="form-group" style={{ marginTop: 10 }}>
                   <label className="form-label" style={{ marginBottom: 6 }}>Tindakan saat duplikat ditemukan</label>
