@@ -73,10 +73,16 @@ export function getApiBaseUrl() {
   const envBase = getApiBaseEnv()
   const browserHost = typeof window !== 'undefined' ? window.location.hostname : ''
   const isLocalBrowser = browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0'
+  const isVercelHost = browserHost.endsWith('vercel.app')
 
   // Prevent production clients from trying to call local-only backend URLs.
   if (envBase && (!isLocalHostLike(envBase) || isLocalBrowser)) {
     return envBase
+  }
+
+  // Prefer same-origin on Vercel; vercel.json rewrites route API paths.
+  if (typeof window !== 'undefined' && isVercelHost) {
+    return ''
   }
 
   // Safety net for production-like hosts when env is missing.
@@ -96,14 +102,20 @@ export function getWaBaseUrl() {
 
 export function getPlatformApiBaseUrl() {
   const envBase = getPlatformApiBaseEnv()
+  const browserHost = typeof window !== 'undefined' ? String(window.location.hostname || '').trim() : ''
+  const isVercelHost = browserHost.endsWith('vercel.app')
   if (envBase) return envBase
 
   // Local dev fallback: owner platform endpoints run on api-server (default 3002).
   if (typeof window !== 'undefined') {
-    const host = String(window.location.hostname || '').trim()
-    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+    if (browserHost === 'localhost' || browserHost === '127.0.0.1' || browserHost === '0.0.0.0') {
       return 'http://127.0.0.1:3002'
     }
+  }
+
+  // Prefer same-origin on Vercel; vercel.json rewrites route API paths.
+  if (typeof window !== 'undefined' && isVercelHost) {
+    return ''
   }
 
   // Production fallback: default to known backend host.
