@@ -8,7 +8,7 @@ Gunakan checklist ini untuk deployment production dengan 2 service backend:
 
 - [ ] Service `api-server` online dan punya URL sendiri.
 - [ ] Service `wa-server` online dan punya URL sendiri.
-- [ ] `wa-server` memakai storage persisten untuk folder `auth_data`.
+- [ ] `wa-server`: volume session WA terpasang dan `WA_AUTH_DATA_PATH` mengarah ke mount path (langkah di bagian **2b**).
 - [ ] Kedua service tidak restart loop.
 
 ## 2) Railway Environment Variables
@@ -25,6 +25,25 @@ Gunakan checklist ini untuk deployment production dengan 2 service backend:
 - [ ] `CORS_ALLOWED_ORIGINS` berisi domain frontend production.
 - [ ] `WA_ADMIN_SECRET` terisi (bukan nilai default).
 - [ ] `TICKET_SIGNING_SECRET` terisi.
+- [ ] `WA_AUTH_DATA_PATH` (opsional) mengarah ke folder persisten jika pakai volume (lihat bagian di bawah).
+
+## 2b) Railway: Volume persisten untuk session WhatsApp (wa-server)
+
+Tanpa volume, folder session WA (`LocalAuth`) ikut hilang saat redeploy/restart container sehingga harus scan QR lagi. Data tenant di Firestore tetap aman; yang hilang hanya session login WA di server.
+
+**Langkah di Railway (service `wa-server` saja):**
+
+1. Buka service **wa-server** → **Settings** → **Volumes** (atau **Add volume** sesuai UI Railway).
+2. Buat volume baru, lalu **mount** ke path di dalam container, misalnya:
+   - **Mount path:** `/data/wa-auth`
+3. Di **Variables** service yang sama, tambahkan:
+   - `WA_AUTH_DATA_PATH=/data/wa-auth`
+4. **Redeploy** service `wa-server`.
+5. Setelah deploy, scan QR sekali per tenant; session akan tersimpan di volume dan **tetap ada setelah redeploy** (selama volume tidak dihapus).
+
+**Cek cepat:** di log startup `wa-server`, cari field `auth_data_path` — harus sama dengan path mount + env di atas.
+
+**Catatan:** Jika tidak pakai volume, jangan set variabel `WA_AUTH_DATA_PATH` (server memakai default folder `auth_data` di working directory; di Railway itu **tidak** persisten antar deploy).
 
 ## 3) Vercel Environment Variables
 

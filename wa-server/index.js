@@ -57,6 +57,7 @@ const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
 const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
 const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
 const TICKET_SIGNING_SECRET = String(process.env.TICKET_SIGNING_SECRET || WA_ADMIN_SECRET || '').trim();
+const WA_AUTH_DATA_PATH = String(process.env.WA_AUTH_DATA_PATH || 'auth_data').trim() || 'auth_data';
 const rateLimitStore = new Map();
 const deliveryMetrics = { waSendSuccess: 0, waSendFailed: 0 };
 
@@ -135,6 +136,27 @@ function shortQrHash(value) {
     const raw = String(value || '');
     if (!raw) return '-';
     return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 12);
+}
+
+function classifyWaSendError(err) {
+    const raw = String(err?.message || err || '').trim();
+    const text = raw.toLowerCase();
+    if (text.includes('not on whatsapp') || text.includes('not registered') || text.includes('invalid wid') || text.includes('wid error')) {
+        return {
+            code: 'wa_number_not_registered',
+            message: 'Nomor tidak terdaftar di WhatsApp.'
+        };
+    }
+    if (text.includes('client not ready')) {
+        return {
+            code: 'wa_client_not_ready',
+            message: 'Perangkat WhatsApp belum siap.'
+        };
+    }
+    return {
+        code: 'wa_send_failed',
+        message: raw || 'Pengiriman WhatsApp gagal.'
+    };
 }
 // Endpoint: Test Kirim Pesan WhatsApp (untuk owner/admin check-up device)
 app.post('/api/wa/test-send', rateLimit, async (req, res) => {
@@ -382,8 +404,9 @@ function rateLimit(req, res, next) {
 }
 
 function createWaClient(tenantId, session) {
+    const tenantAuthPath = path.join(WA_AUTH_DATA_PATH, tenantId);
     const client = new Client({
-        authStrategy: new LocalAuth({ dataPath: `auth_data/${tenantId}` }),
+        authStrategy: new LocalAuth({ dataPath: tenantAuthPath }),
         authTimeoutMs: 120000,
         takeoverOnConflict: true,
         takeoverTimeoutMs: 0,
@@ -438,7 +461,7 @@ function createWaClient(tenantId, session) {
 }
 
 async function clearTenantAuthData(tenantId) {
-    const authPath = `auth_data/${tenantId}`;
+    const authPath = path.join(WA_AUTH_DATA_PATH, tenantId);
     await fs.rm(authPath, { recursive: true, force: true });
 }
 
@@ -926,7 +949,12 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
     // A. PROSES SEND WHATSAPP (Batch/Paralel)
     if (send_wa && phoneList.length > 0) {
         if (!session.isReady || !session.client) {
-            results.wa = phoneList.map(p => ({ phone: p, status: 'Failed', error: 'WA Client Not Ready' }));
+            results.wa = phoneList.map((p) => ({
+                phone: p,
+                status: 'Failed',
+                error: 'Perangkat WhatsApp belum siap.',
+                error_code: 'wa_client_not_ready'
+            }));
         } else {
             const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
             const sendTasks = phoneList.map(async (p) => {
@@ -970,7 +998,13 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                 } catch (err) {
                     console.error(`[WA SEND ERROR] Gagal kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash}):`, err.message);
                     deliveryMetrics.waSendFailed += 1;
-                    return { phone: p, status: 'Failed', error: err.message };
+                    const normalized = classifyWaSendError(err);
+                    return {
+                        phone: p,
+                        status: 'Failed',
+                        error: normalized.message,
+                        error_code: normalized.code
+                    };
                 }
             });
             results.wa = await Promise.all(sendTasks);
@@ -1326,10 +1360,16 @@ app.use((err, req, res, next) => {
 // Start Server
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
+    try {
+        fsSync.mkdirSync(WA_AUTH_DATA_PATH, { recursive: true });
+    } catch {
+        // ignore: directory creation can fail on read-only environments
+    }
     log('info', 'wa_server_started', {
         port: Number(PORT),
         node_env: String(process.env.NODE_ENV || 'development').toLowerCase(),
-        version: waServerPackage.version || 'unknown'
+        version: waServerPackage.version || 'unknown',
+        auth_data_path: WA_AUTH_DATA_PATH
     });
 });
 

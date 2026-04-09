@@ -124,6 +124,7 @@ export default function WaDelivery() {
           phone: r?.phone,
           status: r?.status,
           error: r?.error || null,
+          error_code: r?.error_code || null,
           msgId: r?.msgId || null
         })
       })
@@ -136,7 +137,7 @@ export default function WaDelivery() {
     return flattened.filter(row => {
       if (statusFilter !== 'all' && String(row.status || '').toLowerCase() !== statusFilter) return false
       if (!q) return true
-      const hay = `${row.ticket_id} ${row.name} ${row.phone} ${row.category} ${row.day_number} ${row.error || ''}`.toLowerCase()
+      const hay = `${row.ticket_id} ${row.name} ${row.phone} ${row.category} ${row.day_number} ${row.error || ''} ${row.error_code || ''}`.toLowerCase()
       return hay.includes(q)
     })
   }, [flattened, debouncedQuery, statusFilter])
