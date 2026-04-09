@@ -699,11 +699,13 @@ export default function Participants() {
         finalRows = rows.map((row) => ({ ...row, day_number: manualDay }));
       }
       console.log('[IMPORT DEBUG] Data rows yang akan diimport:', finalRows);
+      const duplicatesPolicy = importDuplicatePolicy === 'allow' ? 'add' : importDuplicatePolicy;
+      const matchBy = importDuplicatePolicy === 'allow' ? 'none' : 'phone';
       result = bulkAddParticipants(
         finalRows,
         dayFilter,
         user,
-        { duplicatesPolicy: importDuplicatePolicy, matchBy: 'phone' }
+        { duplicatesPolicy, matchBy }
       );
       console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result);
     } catch (err) {
@@ -974,7 +976,7 @@ export default function Participants() {
 
                 <div className="import-preview-title" style={{ marginTop: 18 }}>Aturan duplikat</div>
                 <div className="import-preview-note" style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 13 }}>
-                  Duplikat dipadankan berdasarkan <strong>nomor telepon/WA</strong>.
+                  Duplikat dipadankan berdasarkan <strong>nomor telepon/WA</strong> di hari yang sama.
                 </div>
                 <div className="form-group" style={{ marginTop: 10 }}>
                   <label className="form-label" style={{ marginBottom: 6 }}>Tindakan saat duplikat ditemukan</label>
@@ -983,6 +985,7 @@ export default function Participants() {
                     value={importDuplicatePolicy}
                     onChange={(e) => setImportDuplicatePolicy(e.target.value)}
                   >
+                    <option value="allow">Izinkan (boleh nomor WA sama)</option>
                     <option value="overwrite">Overwrite (perbarui data yang sudah ada)</option>
                     <option value="skip">Skip (lewati yang sudah ada)</option>
                     <option value="block">Blokir (batalkan baris duplikat)</option>
