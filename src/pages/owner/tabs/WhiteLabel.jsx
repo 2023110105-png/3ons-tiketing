@@ -50,7 +50,13 @@ export default function WhiteLabel() {
   }
 
   const handleSave = () => {
-    const result = updateTenantBranding(selectedTenantId, branding, currentUser)
+    const normalizedAppName = String(branding.appName || '').trim()
+    const payload = {
+      ...branding,
+      // When owner changes app name, also sync tenant brand label across tabs.
+      ...(normalizedAppName ? { brandName: normalizedAppName } : {})
+    }
+    const result = updateTenantBranding(selectedTenantId, payload, currentUser)
     if (result.success) {
       toast.success('Sukses', 'Branding tenant berhasil diperbarui')
       setTenants(getTenants())

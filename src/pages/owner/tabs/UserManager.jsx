@@ -12,6 +12,11 @@ import { useAuth } from '../../../contexts/useAuth'
 
 const OWNER_USER_SELECTED_TENANT_KEY = 'ons_owner_users_selected_tenant'
 
+function getTenantDisplayName(tenant) {
+  if (!tenant) return '-'
+  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+}
+
 function loadSelectedTenantId(initialTenant) {
   if (initialTenant?.id) return initialTenant.id
   try {
@@ -156,7 +161,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
             >
               <option value="">-- Pilih Akun Brand --</option>
               {tenants.map(t => (
-                <option key={t.id} value={t.id}>{t.brandName} ({t.eventName})</option>
+                <option key={t.id} value={t.id}>{getTenantDisplayName(t)} ({t.eventName})</option>
               ))}
             </select>
           </div>
@@ -170,7 +175,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
       <div className="owner-tab-intro">
         <span className="page-kicker">Akses pengguna</span>
         <h2>Kelola pengguna tenant</h2>
-        <p>User di sini hanya untuk tenant <strong>{selectedTenant?.brandName}</strong>. Tindakan reset sandi sebaiknya disertai verifikasi identitas pengguna.</p>
+        <p>User di sini hanya untuk tenant <strong>{getTenantDisplayName(selectedTenant)}</strong>. Tindakan reset sandi sebaiknya disertai verifikasi identitas pengguna.</p>
       </div>
       <div className="owner-toolbar">
         <button type="button" className="btn btn-ghost p-0" onClick={() => setSelectedTenantId('')}>
@@ -185,7 +190,7 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
         <div className="card-pad p-16 bg-subtle border-bottom">
            <div className="flex justify-between items-center flex-wrap gap-12">
               <div>
-                <h3 className="card-title">{selectedTenant.brandName}</h3>
+                <h3 className="card-title">{getTenantDisplayName(selectedTenant)}</h3>
                 <p className="text-muted text-xs">ID akun: {selectedTenant.id}</p>
                 <p className="card-subtitle-hint" style={{ marginTop: 8 }}>Baris di bawah menampilkan semua login yang terikat ke tenant ini.</p>
               </div>

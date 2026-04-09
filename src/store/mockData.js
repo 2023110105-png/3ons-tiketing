@@ -866,6 +866,7 @@ export async function createTenantUser(tenantId, userData, actor = 'system') {
 
 export async function updateTenantUser(tenantId, userId, data, actor = 'system') {
   // Fullstack path: update via api-server so status/password apply to Firebase Auth.
+  let platformSyncUnavailable = false
   if (isFirebaseEnabled) {
     try {
       const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
@@ -880,7 +881,13 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
       await bootstrapStoreFromFirebase(true)
       return { success: true, user: payload?.user || null }
     } catch (err) {
-      return { success: false, error: err?.message || 'Tidak bisa terhubung ke api-server' }
+      platformSyncUnavailable = true
+      if (FIREBASE_AUTH_MODE === 'strict') {
+        return {
+          success: false,
+          error: `Tidak bisa terhubung ke server akun tenant. ${err?.message || 'Periksa koneksi API lalu coba lagi.'}`
+        }
+      }
     }
   }
 
@@ -896,7 +903,9 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
   }
   Object.assign(user, nextData)
   saveTenantRegistry()
-  void syncTenantUserUpsert({ tenantId, user })
+  if (!platformSyncUnavailable) {
+    void syncTenantUserUpsert({ tenantId, user })
+  }
   logOwnerAction('tenant_user_update', `Update user ${user.username} di tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
     user_id: userId
@@ -905,6 +914,7 @@ export async function updateTenantUser(tenantId, userId, data, actor = 'system')
 }
 
 export async function deleteTenantUser(tenantId, userId, actor = 'system') {
+  let platformSyncUnavailable = false
   if (isFirebaseEnabled) {
     try {
       const res = await platformFetch(`/platform/owner/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`, {
@@ -917,7 +927,13 @@ export async function deleteTenantUser(tenantId, userId, actor = 'system') {
       await bootstrapStoreFromFirebase(true)
       return { success: true }
     } catch (err) {
-      return { success: false, error: err?.message || 'Tidak bisa terhubung ke api-server' }
+      platformSyncUnavailable = true
+      if (FIREBASE_AUTH_MODE === 'strict') {
+        return {
+          success: false,
+          error: `Tidak bisa terhubung ke server akun tenant. ${err?.message || 'Periksa koneksi API lalu coba lagi.'}`
+        }
+      }
     }
   }
 
@@ -932,7 +948,9 @@ export async function deleteTenantUser(tenantId, userId, actor = 'system') {
   users.splice(index, 1)
   tenant.users = users
   saveTenantRegistry()
-  void syncTenantUserDelete({ tenantId, userId })
+  if (!platformSyncUnavailable) {
+    void syncTenantUserDelete({ tenantId, userId })
+  }
   
   logOwnerAction('tenant_user_delete', `Hapus user ${username} dari tenant ${tenant.brandName}`, actor, {
     tenant_id: tenantId,
@@ -989,8 +1007,18 @@ export function updateInvoiceStatus(tenantId, invoiceId, status, actor = 'system
 export function updateTenantBranding(tenantId, brandingData, actor = 'system') {
   const tenant = tenantRegistry.tenants[tenantId]
   if (!tenant) return { success: false, error: 'Tenant tidak ditemukan' }
-  
-  tenant.branding = { ...(tenant.branding || {}), ...brandingData }
+
+  const nextBranding = { ...(tenant.branding || {}), ...(brandingData || {}) }
+  tenant.branding = nextBranding
+
+  // Keep primary tenant label in sync with white-label name updates.
+  const explicitBrandName = String(brandingData?.brandName || '').trim()
+  const appNameAlias = String(brandingData?.appName || '').trim()
+  const nextBrandName = explicitBrandName || appNameAlias
+  if (nextBrandName) {
+    tenant.brandName = nextBrandName
+  }
+
   saveTenantRegistry()
   dispatchTenantChangeEvent()
   
