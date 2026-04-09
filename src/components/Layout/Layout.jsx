@@ -174,6 +174,16 @@ export default function Layout({ children }) {
   const scopeClass = user?.role
     ? `app-scope app-scope--${user.role.replace(/_/g, '-')}`
     : 'app-scope'
+  const supportPhone = '6285800366090'
+  const supportText = encodeURIComponent(
+    `Halo Admin, saya mengalami kendala di aplikasi.\n` +
+    `Nama: ${user?.name || '-'}\n` +
+    `Peran: ${roleLabel[user?.role] || 'Pengguna'}\n` +
+    `Tenant: ${tenantBranding?.brandName || '-'}\n` +
+    `Halaman: ${location.pathname}\n` +
+    `Detail kendala:`
+  )
+  const supportLink = `https://wa.me/${supportPhone}?text=${supportText}`
 
   return (
     <div className={`app-layout ${scopeClass}`}>
@@ -253,6 +263,18 @@ export default function Layout({ children }) {
         </nav>
 
         <div className="sidebar-footer">
+          {user?.role !== 'owner' && (
+            <a
+              href={supportLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-whatsapp btn-sm"
+              style={{ width: '100%', marginBottom: 10 }}
+              title="Lapor kendala ke admin lewat WhatsApp"
+            >
+              <MessageCircle size={14} /> Lapor Admin
+            </a>
+          )}
           <div className="sidebar-user">
             <div className="sidebar-avatar">
               {user?.name?.charAt(0) || 'U'}
