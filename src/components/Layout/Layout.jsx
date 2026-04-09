@@ -120,7 +120,6 @@ export default function Layout({ children }) {
       return [
         { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
-        { path: '/admin/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
         { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai' }
       ]
     }
@@ -339,7 +338,7 @@ export default function Layout({ children }) {
               {isActive(item.path) && <span className="mobile-nav-indicator"></span>}
             </Link>
           ))}
-          {user?.role === 'super_admin' && (
+          {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
             <button className="mobile-nav-item" onClick={() => setSidebarOpen(true)}>
               <span className="mobile-nav-icon"><Menu size={18} /></span>
               <span className="mobile-nav-label">Lainnya</span>
