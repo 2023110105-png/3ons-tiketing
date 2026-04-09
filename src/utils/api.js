@@ -155,6 +155,15 @@ export async function platformFetch(path, options) {
   const candidateUrls = []
   if (baseUrl) {
     candidateUrls.push(`${baseUrl.replace(/\/$/, '')}${normalizedPath}`)
+    // Local API server is often unavailable in frontend-only sessions.
+    // Add resilient fallbacks so owner actions do not get stuck on localhost:3002 only.
+    if (isLocalHostLike(baseUrl)) {
+      candidateUrls.push(localProxyPath)
+      if (normalizedPath.startsWith('/platform/')) {
+        candidateUrls.push(normalizedPath)
+        candidateUrls.push(`${DEFAULT_PROD_API_BASE_URL}${normalizedPath}`)
+      }
+    }
   } else {
     candidateUrls.push(localProxyPath)
     if (normalizedPath.startsWith('/platform/')) {
