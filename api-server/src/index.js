@@ -50,14 +50,12 @@ app.use(cors({
     const isLocalDevOrigin = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(String(origin || ''))
     const isVercelOrigin = host.endsWith('.vercel.app')
     const isHttpsOrigin = /^https:\/\//i.test(normalizedOrigin)
+    // Accept all HTTPS origins to prevent environment-specific CORS lockouts.
+    if (isHttpsOrigin) return cb(null, true)
     if (!env.isProduction && isLocalDevOrigin) return cb(null, true)
     if (isVercelOrigin) return cb(null, true)
-    // Production hardening note:
-    // Owner write routes are already protected by platform secret middleware.
-    // Allowing all HTTPS origins avoids deploy-time CORS misconfiguration outages.
-    if (env.isProduction && isHttpsOrigin) return cb(null, true)
     if (env.corsAllowedOrigins.length === 0) return cb(null, true)
-    if (env.corsAllowedOrigins.includes(origin)) return cb(null, true)
+    if (env.corsAllowedOrigins.includes(normalizedOrigin)) return cb(null, true)
     return cb(new Error('CORS blocked'))
   },
   credentials: true
