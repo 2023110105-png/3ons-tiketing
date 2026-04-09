@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { useToast } from '../../contexts/ToastContext'
 import { exportToCSV, exportLogsToCSV, exportAdminLogsToCSV } from '../../utils/csvExport'
 import { FileText, FileSpreadsheet, ClipboardList, Users, UserCheck, UserX, TrendingUp, CheckCircle, Activity, ShieldAlert, Search } from 'lucide-react'
+import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 
@@ -20,13 +21,6 @@ const RECHARTS_TOOLTIP_ITEM_STYLE = { color: '#fff' }
 const RECHARTS_TOOLTIP_LABEL_STYLE = { color: '#9CA3AF' }
 
 export default function Reports() {
-  const getIsMobileLayout = () => {
-    if (typeof window === 'undefined') return false
-    // Gunakan lebar layar saja supaya klasifikasi mobile konsisten
-    // (jangan bergantung pointer/coarse yang bisa berbeda antar device/browser).
-    return window.innerWidth <= 768
-  }
-
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [auditActorFilter, setAuditActorFilter] = useState('all')
@@ -266,16 +260,7 @@ export default function Reports() {
     }
   }
 
-  const [isMobile, setIsMobile] = useState(getIsMobileLayout)
-  useEffect(() => {
-    const h = () => setIsMobile(getIsMobileLayout())
-    window.addEventListener('resize', h)
-    window.addEventListener('orientationchange', h)
-    return () => {
-      window.removeEventListener('resize', h)
-      window.removeEventListener('orientationchange', h)
-    }
-  }, [])
+  const isMobile = useIsMobileLayout()
 
   useEffect(() => {
     // Setelah navigasi/route mount, beberapa chart butuh "layout pass" tambahan.

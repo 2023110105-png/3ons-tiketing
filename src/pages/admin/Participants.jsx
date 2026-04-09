@@ -10,6 +10,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import * as XLSX from 'xlsx'
 
 export default function Participants() {
@@ -54,7 +55,7 @@ export default function Participants() {
   const toast = useToast()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const isMobile = useIsMobileLayout()
   const fileInputRef = useRef(null)
   const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
 
@@ -331,12 +332,6 @@ export default function Participants() {
     })
     setShowModal(true)
   }
-
-  useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 768)
-    window.addEventListener('resize', h)
-    return () => window.removeEventListener('resize', h)
-  }, [])
 
   // WA status polling handled by useWaStatus()
 

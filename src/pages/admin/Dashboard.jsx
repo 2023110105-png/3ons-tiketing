@@ -3,23 +3,18 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { Line, Doughnut } from 'react-chartjs-2'
 import { getStats, getCheckInLogs, getCurrentDay, simulateCheckIns } from '../../store/mockData'
 import { Users, UserCheck, Clock, TrendingUp, Zap, ClipboardList } from 'lucide-react'
+import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler)
 
 export default function Dashboard() {
   const currentDay = getCurrentDay()
   const [refreshKey, setRefreshKey] = useState(0)
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const isMobile = useIsMobileLayout()
 
   void refreshKey
   const stats = getStats(currentDay)
   const logs = getCheckInLogs(currentDay)
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => setRefreshKey(k => k + 1), 2000)

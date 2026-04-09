@@ -4,6 +4,7 @@ import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding,
 import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
+import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import BarcodeImport from './BarcodeImport'
 
 const CATEGORY_STYLES = {
@@ -33,15 +34,9 @@ export default function QRGenerate() {
   const [regeneratingSecure, setRegeneratingSecure] = useState(false)
   const [activeTab, setActiveTab] = useState('generate') // 'generate' atau 'import'
   const toast = useToast()
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const isMobile = useIsMobileLayout()
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
   const [activeEventName, setActiveEventName] = useState(getCurrentEventName())
-
-  useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 768)
-    window.addEventListener('resize', h)
-    return () => window.removeEventListener('resize', h)
-  }, [])
 
   useEffect(() => {
     const refreshBranding = () => {
