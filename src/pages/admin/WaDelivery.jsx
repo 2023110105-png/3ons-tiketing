@@ -28,6 +28,23 @@ import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
+import { supabase } from '../../lib/supabase'
+
+// Helper untuk fetch peserta langsung dari Supabase
+async function fetchParticipantByTicketId(ticketId) {
+  try {
+    const { data, error } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .single()
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('[fetchParticipantByTicketId] Error:', e)
+    return null
+  }
+}
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { generateWaMessage } from '../../utils/whatsapp'
 
@@ -192,23 +209,31 @@ export default function WaDelivery() {
       toast.error('WhatsApp belum tersambung', 'Sambungkan perangkat dulu agar pengiriman ulang bisa berjalan.')
       return
     }
-    const p = participantIndex.get(String(ticket_id))
+    setRetryingKey(String(ticket_id))
+    // Fetch peserta langsung dari Supabase (real-time, tidak bergantung snapshot)
+    const p = await fetchParticipantByTicketId(ticket_id)
     if (!p) {
       toast.error('Tidak ditemukan', 'Data peserta untuk ticket ID ini tidak ada di sistem.')
+      setRetryingKey('')
       return
     }
     if (!p.qr_data) {
       toast.error('Tidak lengkap', 'QR data peserta tidak tersedia untuk pengiriman ulang.')
+      setRetryingKey('')
       return
     }
     const targetPhone = normalizePhone(phone || p.phone)
     if (!targetPhone) {
       toast.error('Tidak ada nomor', 'Peserta tidak memiliki nomor WhatsApp.')
+      setRetryingKey('')
       return
     }
 
     const key = `${ticket_id}:${targetPhone}`
-    if (retryingKey) return
+    if (retryingKey) {
+      setRetryingKey('')
+      return
+    }
     setRetryingKey(key)
     try {
       const tenantIdNow = resolveTenantId(user)
@@ -254,9 +279,23 @@ export default function WaDelivery() {
     }
     const ok = window.confirm(`Coba ulang ${failedRows.length} pengiriman yang gagal?`)
     if (!ok) return
-    for (const row of failedRows) {
-      await retrySend({ ticket_id: row.ticket_id, phone: row.phone, wa_send_mode: row.wa_send_mode })
+    
+    // Process concurrently with batching for faster delivery
+    const batchSize = 5
+    let processed = 0
+    for (let i = 0; i < failedRows.length; i += batchSize) {
+      const batch = failedRows.slice(i, i + batchSize)
+      await Promise.all(
+        batch.map(row => retrySend({ 
+          ticket_id: row.ticket_id, 
+          phone: row.phone, 
+          wa_send_mode: row.wa_send_mode 
+        }))
+      )
+      processed += batch.length
+      toast.info('Progress', `${processed}/${failedRows.length} pengiriman diproses...`)
     }
+    await loadLogs()
   }
 
   // ===== LAPORAN / LIST MOBILE =====
