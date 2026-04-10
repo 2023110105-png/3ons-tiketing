@@ -680,27 +680,53 @@ export default function Participants() {
     if (!window.confirm(`Perhatian!\nAnda akan mengirim tiket ke ${targetParticipants.length} peserta dengan mode: ${selectedMode === 'message_with_barcode' ? 'Pesan + Barcode' : 'Pesan Saja'}.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
     setIsBroadcasting(true);
     setBroadcastProgress({ current: 0, total: targetParticipants.length, success: 0, failed: 0 });
+    
+    // FAST CHAT SYSTEM: Concurrent batch processing
+    const batchSize = 5; // Kirim 5 pesan secara paralel
+    const delayBetweenBatches = 2000; // 2 detik antar batch (hindari WA ban)
     let s = 0; let f = 0;
-    const failureReasons = []
-    for (let i = 0; i < targetParticipants.length; i++) {
-      setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const result = await sendTicketViaBot(targetParticipants[i]);
-      if (result?.success) {
-        s++
-      } else {
-        f++
-        if (failureReasons.length < 3) {
-          failureReasons.push(humanizeUserMessage(result?.error, { fallback: 'Pengiriman gagal tanpa alasan terinci.' }))
+    const failureReasons = [];
+    
+    for (let i = 0; i < targetParticipants.length; i += batchSize) {
+      const batch = targetParticipants.slice(i, i + batchSize);
+      
+      // Kirim batch secara paralel
+      const batchResults = await Promise.all(
+        batch.map(async (participant) => {
+          try {
+            const result = await sendTicketViaBot(participant);
+            return { success: result?.success, error: result?.error, participant };
+          } catch (err) {
+            return { success: false, error: err?.message, participant };
+          }
+        })
+      );
+      
+      // Proses hasil batch
+      batchResults.forEach((result, idx) => {
+        if (result.success) {
+          s++;
+        } else {
+          f++;
+          if (failureReasons.length < 3) {
+            failureReasons.push(`${result.participant?.name}: ${humanizeUserMessage(result.error, { fallback: 'Gagal' })}`);
+          }
         }
-      }
-      // Artificial delay 2.5 seconds to prevent WA Ban
-      if (i < targetParticipants.length - 1) {
-        await new Promise(r => setTimeout(r, 2500));
+      });
+      
+      // Update progress
+      const processed = Math.min(i + batchSize, targetParticipants.length);
+      setBroadcastProgress({ current: processed, total: targetParticipants.length, success: s, failed: f });
+      
+      // Delay antar batch untuk menghindari WA ban (kecuali batch terakhir)
+      if (i + batchSize < targetParticipants.length) {
+        await new Promise(r => setTimeout(r, delayBetweenBatches));
       }
     }
+    
     setBroadcastProgress(prev => ({ ...prev, success: s, failed: f }));
     if (f > 0) {
-      const reasonText = failureReasons.length > 0 ? ` Alasan utama: ${failureReasons.join(' | ')}` : ''
+      const reasonText = failureReasons.length > 0 ? ` Alasan: ${failureReasons.join(' | ')}` : ''
       toast.warning('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}.${reasonText}`)
     } else {
       toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`)
