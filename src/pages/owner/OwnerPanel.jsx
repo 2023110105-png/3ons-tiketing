@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import TenantList from './tabs/TenantList'
 import ContractManager from './tabs/ContractManager'
 import QuotaManager from './tabs/QuotaManager'
-import UserManagement from './tabs/UserManager'
+
 import AuditLog from './tabs/AuditLog'
 import TenantHealth from './tabs/TenantHealth'
 import BillingInvoice from './tabs/BillingInvoice'
@@ -30,9 +30,9 @@ export default function OwnerPanel() {
           <p className="owner-empty-message" style={{ maxWidth: 560, margin: '10px auto 18px' }}>
             Mode rilis pagi aktif. Untuk menjaga sistem tetap stabil saat handover ke user, menu ini dinonaktifkan sementara.
           </p>
-          <button className="btn btn-primary" onClick={() => navigate('/owner/users')}>
+          {/* <button className="btn btn-primary" onClick={() => navigate('/owner/users')}>
             Buka Kelola Pengguna
-          </button>
+          </button> */}
         </div>
       )
     }
