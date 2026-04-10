@@ -63,8 +63,7 @@ export default function Participants() {
   const handleDayFilterChange = (newDay) => {
     setDayFilter(newDay)
     setCurrentDay(newDay, user)
-    // Synchronize to UI
-    updateLocalView()
+    updateLocalView(newDay)
   }
 
   const handleAddNewDay = () => {
@@ -350,8 +349,12 @@ export default function Participants() {
     // Let dayFilter effect handle participant setting
   }, [])
 
-  const updateLocalView = useCallback(() => {
-    setParticipants(getParticipants(dayFilter))
+  const updateLocalView = useCallback((dayOverride) => {
+    const d =
+      dayOverride !== undefined && dayOverride !== null && Number.isFinite(Number(dayOverride))
+        ? Number(dayOverride)
+        : dayFilter
+    setParticipants(getParticipants(d))
     setAvailableDays(getAvailableDays())
   }, [dayFilter])
 
@@ -391,6 +394,14 @@ export default function Participants() {
   // View dependency on dayFilter
   useEffect(() => {
     updateLocalView()
+  }, [updateLocalView])
+
+  useEffect(() => {
+    const onWorkspaceSynced = () => {
+      updateLocalView()
+    }
+    window.addEventListener('ons-workspace-synced', onWorkspaceSynced)
+    return () => window.removeEventListener('ons-workspace-synced', onWorkspaceSynced)
   }, [updateLocalView])
 
   // Background polling synced with server
@@ -806,8 +817,7 @@ export default function Participants() {
           : `${addedCount} peserta ditambahkan. Tampilan: Hari ${listDay} (filter kategori/status direset).`
       );
     }
-    // Refresh participant list with the correct day
-    setParticipants(getParticipants(listDay));
+    updateLocalView(listDay)
   }
 
   const confirmImport = () => {

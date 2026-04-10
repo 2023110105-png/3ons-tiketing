@@ -40,16 +40,6 @@ export default function Layout({ children }) {
     owner: 'Pemilik Platform'
   }
 
-  useEffect(() => {
-    const refreshTenantBranding = () => setTenantBranding(getTenantBranding())
-    window.addEventListener('ons-tenant-changed', refreshTenantBranding)
-    window.addEventListener('focus', refreshTenantBranding)
-    return () => {
-      window.removeEventListener('ons-tenant-changed', refreshTenantBranding)
-      window.removeEventListener('focus', refreshTenantBranding)
-    }
-  }, [])
-
   const refreshEventState = () => {
     setEvents(getEvents())
     setActiveEventId(getCurrentEventId())
@@ -57,6 +47,22 @@ export default function Layout({ children }) {
     setDay(d)
     setDayInput(String(d))
   }
+
+  useEffect(() => {
+    const refreshTenantBranding = () => setTenantBranding(getTenantBranding())
+    const onWorkspaceSynced = () => {
+      refreshEventState()
+      setTenantBranding(getTenantBranding())
+    }
+    window.addEventListener('ons-tenant-changed', refreshTenantBranding)
+    window.addEventListener('ons-workspace-synced', onWorkspaceSynced)
+    window.addEventListener('focus', refreshTenantBranding)
+    return () => {
+      window.removeEventListener('ons-tenant-changed', refreshTenantBranding)
+      window.removeEventListener('ons-workspace-synced', onWorkspaceSynced)
+      window.removeEventListener('focus', refreshTenantBranding)
+    }
+  }, [])
 
   useEffect(() => {
     if (user?.role === 'owner') return

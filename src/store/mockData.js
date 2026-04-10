@@ -1907,6 +1907,15 @@ let realtimeHydrateInFlight = false
 const MIN_FORCED_FIREBASE_BOOTSTRAP_MS = 5000
 const MIN_REALTIME_HYDRATE_MS = 1200
 
+function dispatchWorkspaceSyncedToUI() {
+  if (typeof window === 'undefined') return
+  try {
+    window.dispatchEvent(new CustomEvent('ons-workspace-synced'))
+  } catch {
+    // ignore
+  }
+}
+
 function ensureTenantStore(tenantId, fallbackEventName = 'Event 1', withMockParticipants = false) {
   if (!store.tenants || typeof store.tenants !== 'object') {
     store.tenants = {}
@@ -2238,6 +2247,7 @@ export async function bootstrapStoreFromFirebase(force = false) {
     }
 
     firebaseStoreReady = true
+    dispatchWorkspaceSyncedToUI()
     return true
   })().catch(err => {
     console.error('[FirebaseBootstrap] hydrate failed:', err?.message || err)
