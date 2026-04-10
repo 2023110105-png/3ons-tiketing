@@ -1614,64 +1614,29 @@ function countEventsInSnapshot(snapshot) {
   return 0
 }
 
+// Integrasi dengan util generateMockParticipants agar data diambil dari CSV
+import { allParticipants as csvParticipants } from '../../api-server/src/utils/generateMockParticipants.js';
+
 function generateMockParticipants(tenantId = DEFAULT_TENANT_ID, eventId = DEFAULT_EVENT_ID) {
-  const tenant = tenantRegistry.tenants[tenantId] || DEFAULT_TENANT
-  const namesDay1 = [
-    'Ahmad Rizki', 'Budi Santoso', 'Citra Dewi', 'Dian Pratama', 'Eko Wahyudi',
-    'Fitri Handayani', 'Gunawan Setiawan', 'Hana Puspita', 'Irfan Maulana', 'Joko Widodo',
-    'Kartika Sari', 'Lukman Hakim', 'Maya Anggraini', 'Nur Hidayat', 'Oki Setiana',
-    'Putri Rahayu', 'Qori Ramadhani', 'Rudi Hermawan', 'Siti Aminah', 'Tono Sucipto',
-    'Umi Kalsum', 'Vina Panduwinata', 'Wahyu Nugroho', 'Xena Maharani', 'Yusuf Ibrahim',
-    'Zahra Fadillah', 'Agus Prayitno', 'Bayu Aji', 'Cahya Utami', 'Deni Kurniawan',
-    'Elsa Natalia', 'Fajar Sidik', 'Gita Pertiwi', 'Hendra Gunawan', 'Indah Permata',
-    'Joni Iskandar', 'Kiki Amelia', 'Lina Marlina', 'Mulyadi Putra', 'Nanda Pratiwi',
-    'Oscar Tanoto', 'Prayoga Ananta', 'Ratna Kumala', 'Surya Dharma', 'Tika Maharani',
-    'Udin Samsudin', 'Vera Fransiska', 'Wawan Setiawan', 'Yoga Pratama', 'Zainal Abidin',
-    'Andi Firman', 'Bella Safitri', 'Chandra Wijaya', 'Devi Anggraeni', 'Edwin Tan',
-    'Farhan Akbar', 'Gina Lestari', 'Helmi Aziz', 'Ira Puspasari', 'Joni Lesmana'
-  ]
-
-  const namesDay2 = [
-    'Adi Nugroho', 'Bambang Tri', 'Caca Handayani', 'Dodo Supriyadi', 'Endah Laras',
-    'Faisal Rahman', 'Galih Prakoso', 'Helena Putri', 'Ibrahim Malik', 'Jessica Tan',
-    'Kusnadi Surya', 'Lestari Dewi', 'Miftah Ulum', 'Niken Larasati', 'Omar Bakri',
-    'Pandu Wibowo', 'Qistina Azzahra', 'Rangga Aditya', 'Siska Melani', 'Teguh Prasetyo',
-    'Utari Kencana', 'Vito Pratama', 'Wulan Sari', 'Xander Malik', 'Yanti Susanti',
-    'Zulfiqar Ali', 'Anisa Rahma', 'Brama Putra', 'Cindy Octavia', 'Danish Ibrahim',
-    'Eva Nurdiana', 'Fahmi Hidayat', 'Gilang Ramadhan', 'Hesti Purnamasari', 'Iwan Fauzi',
-    'Julia Permata', 'Kevin Anggara', 'Lita Wulandari', 'Mahesa Anom', 'Novita Sari',
-    'Ogi Suryaman', 'Priska Tanaya', 'Rizky Aditama', 'Sandy Hermawan', 'Tirta Mandala',
-    'Ulfa Maysaroh', 'Vicky Prasetya', 'Widi Astuti', 'Yolanda Safira', 'Zaki Mubaraq',
-    'Arief Budiman', 'Bunga Citra', 'Cakra Buana', 'Dinda Ayu', 'Eri Susanto',
-    'Fiona Angelica', 'Gery Mahesa', 'Hadi Wibowo', 'Intan Permata', 'Jaka Taruna',
-    'Kartini Lestari', 'Latif Hakim', 'Mala Sari', 'Nabil Putra', 'Olivia Chen',
-    'Putu Bagus', 'Ratih Kumala', 'Satria Agung', 'Tiara Dewi', 'Ucok Siregar',
-    'Valencia Rose', 'Wisnu Wardana', 'Yogi Saputra', 'Zara Adelia', 'Anggit Prabowo',
-    'Berliana Dewi', 'Cahyo Nugroho', 'Dewi Pertiwi', 'Erlangga Putra', 'Fransisca Lie',
-    'Guntur Pamungkas', 'Hasna Ulfah', 'Iqbal Maulana', 'Jasmine Putri', 'Kenji Tanaka',
-    'Lidya Agustin', 'Mulyo Hadi', 'Nayla Zahra', 'Oktavian Dwi', 'Patricia Gunawan',
-    'Rio Ferdinan', 'Silvia Melinda', 'Taufik Ismail', 'Umar Said', 'Vinka Maharani'
-  ]
-
-  const participants = []
-
-  namesDay1.forEach((name, i) => {
-    const ticketId = buildTicketId(1, i + 1, tenant)
-    const security = ensureParticipantSecurity({})
-    participants.push({
+  // Map data CSV ke format peserta yang sesuai
+  return csvParticipants.map((row, idx) => {
+    const name = row.nama || 'Peserta';
+    const ticketId = buildTicketId(Number(row.hari), idx + 1, tenantId);
+    const security = ensureParticipantSecurity({});
+    return {
       id: generateId(),
       ticket_id: ticketId,
       name,
       secure_code: security.secure_code,
       secure_ref: security.secure_ref,
-      phone: `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      category: categories[Math.floor(Math.random() * categories.length)],
-      day_number: 1,
+      phone: row.telepon || '',
+      category: row.kategori || categories[Math.floor(Math.random() * categories.length)],
+      day_number: Number(row.hari) || 1,
       email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
       qr_data: encodeQrPayload({
         ticketId,
         name,
-        dayNumber: 1,
+        dayNumber: Number(row.hari) || 1,
         tenantId,
         eventId,
         secureCode: security.secure_code,
@@ -1681,39 +1646,8 @@ function generateMockParticipants(tenantId = DEFAULT_TENANT_ID, eventId = DEFAUL
       checked_in_at: null,
       checked_in_by: null,
       created_at: new Date().toISOString()
-    })
-  })
-
-  namesDay2.forEach((name, i) => {
-    const ticketId = buildTicketId(2, i + 1, tenant)
-    const security = ensureParticipantSecurity({})
-    participants.push({
-      id: generateId(),
-      ticket_id: ticketId,
-      name,
-      secure_code: security.secure_code,
-      secure_ref: security.secure_ref,
-      phone: `08${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      category: categories[Math.floor(Math.random() * categories.length)],
-      day_number: 2,
-      email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      qr_data: encodeQrPayload({
-        ticketId,
-        name,
-        dayNumber: 2,
-        tenantId,
-        eventId,
-        secureCode: security.secure_code,
-        secureRef: security.secure_ref
-      }),
-      is_checked_in: false,
-      checked_in_at: null,
-      checked_in_by: null,
-      created_at: new Date().toISOString()
-    })
-  })
-
-  return participants
+    };
+  });
 }
 
 function createEmptyEventState(name = 'Event Platform') {
