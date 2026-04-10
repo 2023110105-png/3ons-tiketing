@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
-import { getTenants, getActiveTenant, switchActiveTenant, setTenantStatus, deleteTenant, createTenant, bootstrapStoreFromFirebase } from '../../../store/mockData'
+
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -11,8 +11,8 @@ function getTenantDisplayName(tenant) {
 export default function TenantList({ onManageUsers, onEditContract }) {
   const toast = useToast()
   const { user } = useAuth()
-  const [tenants, setTenants] = useState(getTenants())
-  const [activeTenantId, setActiveTenantId] = useState(getActiveTenant().id)
+  // const [tenants, setTenants] = useState(getTenants())
+  // const [activeTenantId, setActiveTenantId] = useState(getActiveTenant().id)
   
   const [tenantSearch, setTenantSearch] = useState('')
   const [tenantFilter, setTenantFilter] = useState('all')
@@ -22,22 +22,22 @@ export default function TenantList({ onManageUsers, onEditContract }) {
 
   const initialHydrationDoneRef = useRef(false)
 
-  const runFirebaseHydrate = useCallback(async () => {
-    if (typeof bootstrapStoreFromFirebase !== 'function') return
-    try {
-      await bootstrapStoreFromFirebase(true)
-    } catch {
-      // Keep owner UI responsive when Firebase hydrate is unavailable.
-    }
-  }, [])
+  // const runFirebaseHydrate = useCallback(async () => {
+  //   if (typeof bootstrapStoreFromFirebase !== 'function') return
+  //   try {
+  //     await bootstrapStoreFromFirebase(true)
+  //   } catch {
+  //     // Keep owner UI responsive when Firebase hydrate is unavailable.
+  //   }
+  // }, [])
 
-  const refreshTenants = useCallback(async (forceFirebase = true) => {
-    if (forceFirebase) {
-      await runFirebaseHydrate()
-    }
-    setTenants(getTenants())
-    setActiveTenantId(getActiveTenant().id)
-  }, [runFirebaseHydrate])
+  // const refreshTenants = useCallback(async (forceFirebase = true) => {
+  //   if (forceFirebase) {
+  //     await runFirebaseHydrate()
+  //   }
+  //   setTenants(getTenants())
+  //   setActiveTenantId(getActiveTenant().id)
+  // }, [runFirebaseHydrate])
 
   // Only hydrate once on initial mount, not on every render
   useEffect(() => {
