@@ -1,6 +1,7 @@
 // ===== REAL FUNCTIONS FOR DATA SYNC =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
+let _unsubscribeRealtime = null;
 
 async function bootstrapStoreFromFirebase() {
   _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
@@ -24,7 +25,10 @@ function _setCurrentDay() {}
 
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  // Support both field names for backward compatibility
+  const event = _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default'];
+  const logs = event?.checkInLogs || event?.checkin_logs || [];
+  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
 
 function getStats(day) {
@@ -92,6 +96,25 @@ export default function Dashboard() {
       setRefreshKey(k => k + 1);
     }, 2000);
     return () => clearInterval(interval)
+  }, [])
+
+  // Realtime subscription for instant updates
+  useEffect(() => {
+    _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
+      console.log('[Dashboard] Realtime update received:', payload?.eventType);
+      // Refresh workspace snapshot when data changes
+      void bootstrapStoreFromFirebase().then(() => {
+        setRefreshKey(k => k + 1);
+        console.log('[Dashboard] Data refreshed from realtime update');
+      });
+    });
+
+    return () => {
+      if (_unsubscribeRealtime) {
+        _unsubscribeRealtime();
+        _unsubscribeRealtime = null;
+      }
+    };
   }, [])
 
   const handleSimulate = () => simulateCheckIns(5)
