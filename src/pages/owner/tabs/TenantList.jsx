@@ -2,22 +2,6 @@
 export default function TenantList() {
   return null;
 }
-  //   }
-  //   setTenants(getTenants())
-  //   setActiveTenantId(getActiveTenant().id)
-  // }, [runFirebaseHydrate])
-
-  // Only hydrate once on initial mount, not on every render
-  useEffect(() => {
-    if (initialHydrationDoneRef.current) return
-    initialHydrationDoneRef.current = true
-    const timerId = window.setTimeout(() => {
-      void refreshTenants(true)
-    }, 0)
-    return () => window.clearTimeout(timerId)
-  }, [refreshTenants])
-
-  const handleCreate = async (e) => {
     e.preventDefault()
     const result = await createTenant(newTenant, user)
     if (result.success) {
