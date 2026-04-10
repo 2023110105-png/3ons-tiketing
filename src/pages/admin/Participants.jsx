@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, setCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay, deleteCurrentDay } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
@@ -920,18 +921,36 @@ export default function Participants() {
     />
   )
 
-  // Import Modal Component
+  // Import Modal Component (portal ke body: hindari tertutup stacking context / z-index layout)
   const ImportModal = () => {
     if (!showImportModal) return null
 
-    return (
-      <div className="modal-overlay" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}>
-        <div className="modal import-modal" onClick={e => e.stopPropagation()}>
+    const closeImport = () => {
+      setShowImportModal(false)
+      setImportResult(null)
+      setImportPreview(null)
+    }
+
+    return createPortal(
+      <div
+        className="modal-overlay modal-overlay-priority"
+        role="presentation"
+        onClick={closeImport}
+      >
+        <div
+          className="modal import-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="modal-header">
-            <h3 className="modal-title modal-title-inline">
+            <h3 id="import-modal-title" className="modal-title modal-title-inline">
               <FileSpreadsheet size={18} /> Import Peserta
             </h3>
-            <button className="modal-close" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}><X size={14} /></button>
+            <button type="button" className="modal-close" onClick={closeImport} aria-label="Tutup">
+              <X size={14} />
+            </button>
           </div>
           <div className="modal-body">
             {importResult ? (
@@ -1101,21 +1120,30 @@ export default function Participants() {
 
             <div className="modal-footer">
             {importResult ? (
-              <button className="btn btn-primary flex-1" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}>Selesai</button>
+              <button type="button" className="btn btn-primary flex-1" onClick={closeImport}>
+                Selesai
+              </button>
             ) : (
               <>
-                <button className="btn btn-secondary" onClick={() => { setShowImportModal(false); setImportPreview(null) }}>Batal</button>
                 <button
-                  className="btn btn-primary btn-inline-icon"
-                  onClick={confirmImport}
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowImportModal(false)
+                    setImportPreview(null)
+                  }}
                 >
+                  Batal
+                </button>
+                <button type="button" className="btn btn-primary btn-inline-icon" onClick={confirmImport}>
                   <Upload size={14} /> Import {importPreview?.rows.length} Peserta
                 </button>
               </>
             )}
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     )
   }
 
