@@ -1,4 +1,25 @@
 // ===== REAL FUNCTIONS FOR WA DELIVERY =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
+function getActiveTenant() { return { id: 'tenant-default' }; }
+function getCurrentDay() { return 1; }
+function getWaSendMode() { return 'message_only'; }
+
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -11,7 +32,33 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { generateWaMessage } from '../../utils/whatsapp'
 import { supabase } from '../../lib/supabase'
 
-// Helper untuk fetch peserta langsung dari Supabase
+// Load participants dari Supabase dengan filter day
+async function _loadParticipantsFromSupabase(day) {
+  try {
+    let query = supabase.from('participants').select('*').order('nama', { ascending: true });
+    if (typeof day === 'number') {
+      // Cek multiple field names: hari, day, day_number
+      query = query.or(`hari.eq.${day},day.eq.${day},day_number.eq.${day}`);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    // Filter manual untuk memastikan day yang benar
+    if (typeof day === 'number' && data) {
+      return data.filter(p => 
+        Number(p.hari) === day || 
+        Number(p.day) === day || 
+        Number(p.day_number) === day
+      );
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Failed to load from Supabase:', err);
+    return getParticipants(day);
+  }
+}
+
+// Helper untuk fetch peserta langsung dari Supabase by ticket ID
 async function fetchParticipantByTicketId(ticketId) {
   try {
     const { data, error } = await supabase
@@ -31,30 +78,6 @@ async function fetchParticipantByTicketId(ticketId) {
 // Exponential backoff delays: 1s, 2s, 4s, 8s (max 4 retries)
 const RETRY_DELAYS = [1000, 2000, 4000, 8000];
 const MAX_RETRIES = 4;
-
-// Helper function to get active tenant (same as other admin pages)
-function getActiveTenant() { 
-  return { id: 'tenant-default' };
-}
-
-// Missing functions
-async function bootstrapStoreFromFirebase() {
-  // Dummy implementation
-  return {};
-}
-
-async function _loadParticipantsFromSupabase() {
-  // Dummy implementation
-  return [];
-}
-
-function getWaSendMode() {
-  return 'batch';
-}
-
-function getCurrentDay() {
-  return 1;
-}
 
 // Pre-validate participant data before sending
 function validateParticipant(participant) {

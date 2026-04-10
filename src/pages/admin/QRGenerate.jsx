@@ -96,7 +96,7 @@ async function loadParticipantsFromSupabase(day) {
     const { data, error } = await supabase
       .from('workspace_state')
       .select('store')
-      .eq('id', 'ons-workspace-001')
+      .eq('id', 'default')
       .single();
     
     if (error) throw error;
@@ -105,9 +105,12 @@ async function loadParticipantsFromSupabase(day) {
     const store = data?.store;
     const participants = store?.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
     
-    // Filter by day if specified
+    // Filter by day if specified - cek multiple field names
     if (typeof day === 'number') {
-      return participants.filter(p => (p.day_number || p.day || 1) === day);
+      return participants.filter(p => {
+        const pDay = Number(p.day_number || p.day || p.hari || 1);
+        return pDay === day;
+      });
     }
     
     return participants;
@@ -194,6 +197,7 @@ export default function QRGenerate() {
   const currentDay = getCurrentDay()
   const [dayFilter, setDayFilter] = useState(currentDay)
   const [participants, setParticipants] = useState([])
+  const [dayCounts, setDayCounts] = useState({ 1: 0, 2: 0 })
   const [selectedParticipant, setSelectedParticipant] = useState(null)
   const [qrUrl, setQrUrl] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -207,13 +211,41 @@ export default function QRGenerate() {
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
   const [activeEventName, setActiveEventName] = useState(getCurrentEventName())
 
+  // Load day counts from Supabase
+  const loadDayCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('workspace_state')
+        .select('store')
+        .eq('id', 'default')
+        .single();
+      
+      if (error) throw error;
+      
+      const store = data?.store;
+      const allParticipants = store?.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
+      
+      const count1 = allParticipants.filter(p => Number(p.day_number || p.day || p.hari || 1) === 1).length;
+      const count2 = allParticipants.filter(p => Number(p.day_number || p.day || p.hari || 1) === 2).length;
+      
+      setDayCounts({ 1: count1, 2: count2 });
+    } catch (err) {
+      console.error('Failed to load day counts:', err);
+      // Fallback to Firebase counts
+      setDayCounts({ 1: getParticipants(1).length, 2: getParticipants(2).length });
+    }
+  };
+
   // Initial load data dari Supabase (PRIMARY)
   useEffect(() => {
     const load = async () => {
       setGenerating(true);
       try {
         // Load from Supabase first (persistent storage)
-        const dbParticipants = await loadParticipantsFromSupabase(dayFilter);
+        const [dbParticipants] = await Promise.all([
+          loadParticipantsFromSupabase(dayFilter),
+          loadDayCounts()
+        ]);
         setParticipants(dbParticipants);
         
         // Also bootstrap from Firebase/workspace for other data
@@ -877,8 +909,8 @@ export default function QRGenerate() {
         <>
           <div className="qr-toolbar">
             <select className="form-select qr-toolbar-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
-              <option value={1}>Hari 1 ({getParticipants(1).length} peserta)</option>
-              <option value={2}>Hari 2 ({getParticipants(2).length} peserta)</option>
+              <option value={1}>Hari 1 ({dayCounts[1]} peserta)</option>
+              <option value={2}>Hari 2 ({dayCounts[2]} peserta)</option>
             </select>
             <button className="btn btn-primary" onClick={generateAllQR} disabled={generating}>
               {generating ? (<><span className="spinner qr-spinner-sm"></span> Generating {generatedCount}/{participants.length}...</>) : (<><FileDown size={16} /> Download Semua Tiket (PDF)</>)}
