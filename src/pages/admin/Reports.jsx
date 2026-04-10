@@ -1,7 +1,7 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCheckInLogs() { return []; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getStats() { return {}; }
+function getStats() { return { byCategory: {} }; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCurrentDay() { return 1; }
 import { useState, useEffect } from 'react'
