@@ -1,4 +1,6 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getStats() { return {}; }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCurrentDay() { return 1; }
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'

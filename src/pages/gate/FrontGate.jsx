@@ -1,4 +1,6 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getStats() { return {}; }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCurrentDay() { return 1; }
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSound } from '../../hooks/useRealtime'

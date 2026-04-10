@@ -1,4 +1,6 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getStats() { return {}; }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCurrentDay() { return 1; }
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
