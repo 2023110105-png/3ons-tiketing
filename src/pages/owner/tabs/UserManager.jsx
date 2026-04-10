@@ -2,62 +2,6 @@
 export default function UserManager() {
   return null;
 }
-      toast.success('Sukses', `User ${newUser.username} berhasil dibuat`)
-      await refreshTenantData(selectedTenantId, true)
-      setShowAddModal(false)
-      setNewUser({ username: '', email: '', password: '', name: '', role: 'gate_front' })
-    } else {
-      toast.error('Gagal', result.error)
-    }
-  }
-
-  const handleToggleStatus = async (user) => {
-    const result = await updateTenantUser(selectedTenantId, user.id, { is_active: !user.is_active }, currentUser)
-    if (result.success) {
-      await refreshTenantData(selectedTenantId, true)
-      toast.success('Update', `Status user ${user.username} diperbarui`)
-    } else {
-      toast.error('Gagal', result.error || 'Tidak bisa memperbarui status user')
-    }
-  }
-
-  const handleDeleteUser = async (user) => {
-    if (window.confirm(`Hapus user ${user.username}?`)) {
-      const result = await deleteTenantUser(selectedTenantId, user.id, currentUser)
-      if (result.success) {
-        await refreshTenantData(selectedTenantId, true)
-        toast.success('Dihapus', `User ${user.username} berhasil dihapus`)
-      } else {
-        toast.error('Gagal', result.error || 'Tidak bisa menghapus user')
-      }
-    }
-  }
-
-  const handleResetPassword = async (user) => {
-    const newPass = window.prompt(`Masukkan password baru untuk ${user.username}:`, '123456')
-    if (newPass === null) return
-    
-    const result = await updateTenantUser(selectedTenantId, user.id, { password: newPass }, currentUser)
-    if (result.success) {
-      toast.success('Sukses', `Password ${user.username} berhasil direset`)
-    } else {
-      toast.error('Gagal', result.error || 'Tidak bisa reset password')
-    }
-  }
-
-  const filteredUsers = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim()
-    return users.filter(u => 
-      !q || u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)
-    )
-  }, [users, searchQuery])
-
-  const selectedTenant = tenants.find(t => t.id === selectedTenantId)
-
-  if (!selectedTenantId) {
-    return (
-      <div className="owner-empty-state owner-fade-in-up" style={{ padding: '64px 24px' }}>
-        <span className="page-kicker">Akses pengguna</span>
         <div className="owner-empty-icon">👥</div>
         <div className="owner-empty-title">Pilih akun brand</div>
         <p className="text-muted mb-24">Tiap tenant memiliki himpunan penggunanya sendiri (admin acara, gate, dll.). Pilih akun di bawah untuk menambah, menonaktifkan, atau reset sandi.</p>
