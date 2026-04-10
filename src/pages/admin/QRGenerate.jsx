@@ -118,14 +118,35 @@ async function loadParticipantsFromSupabase(day) {
   }
 }
 
-// Save QR data to Supabase
+// Save QR data to Supabase using syncParticipantUpsert
 async function saveQRDataToSupabase(participantId, qrData) {
   try {
-    const { error } = await supabase
-      .from('participants')
-      .update({ qr_data: qrData, updated_at: new Date().toISOString() })
-      .eq('id', participantId);
-    if (error) throw error;
+    // Import syncParticipantUpsert dynamically to avoid circular dependency
+    const { syncParticipantUpsert } = await import('../../lib/dataSync');
+    
+    // Get current participant data from workspace
+    const allParticipants = getParticipants();
+    const participant = allParticipants.find(p => p.id === participantId);
+    
+    if (!participant) {
+      console.error('Participant not found:', participantId);
+      return false;
+    }
+    
+    // Update with new QR data
+    const updatedParticipant = {
+      ...participant,
+      qr_data: qrData,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Sync to Supabase
+    await syncParticipantUpsert({
+      tenantId: 'tenant-default',
+      eventId: 'event-default',
+      participant: updatedParticipant
+    });
+    
     return true;
   } catch (err) {
     console.error('Failed to save QR data:', err);
