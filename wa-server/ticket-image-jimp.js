@@ -131,50 +131,48 @@ async function buildTicketQrImageNode(participant, options = {}) {
   const fontBold = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK)
   const fontLarge = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK)
 
-  // Header - E-TICKET (sama seperti QRGenerate.jsx)
-  image.print(fontLarge, leftX + 22, leftY + 40, 'E-TICKET')
-  printClamp(image, fontBody, eventLabel, leftX + 22, leftY + 80, leftW - 44)
-  printClamp(image, fontSmall, brandLabel.toUpperCase(), leftX + 22, leftY + 102, leftW - 44)
+  // Header - E-Attendance (sama seperti QRGenerate.jsx)
+  image.print(fontLarge, leftX + 22, leftY + 40, 'E-Attendance')
+  printClamp(image, fontBody, eventLabel || 'PALEMBANG VIOLIN COMPETITION', leftX + 22, leftY + 80, leftW - 44)
+  printClamp(image, fontSmall, (brandLabel || 'Official Event').toUpperCase(), leftX + 22, leftY + 102, leftW - 44)
 
-  // Lencana kategori (sama seperti QRGenerate.jsx)
-  await fillRect(image, leftX + 22, leftY + 120, 176, 42, style.soft)
-  await fillRect(image, leftX + 22, leftY + 120, 176, 2, style.accent)  // top border
-  await fillRect(image, leftX + 22, leftY + 160, 176, 2, style.accent)  // bottom border
-  await fillRect(image, leftX + 22, leftY + 120, 2, 42, style.accent)  // left border
-  await fillRect(image, leftX + 196, leftY + 120, 2, 42, style.accent)  // right border
-  printClamp(image, fontBody, categoryLabel, leftX + 42, leftY + 138, 130)
+  // Elegant category badge (sama seperti QRGenerate.jsx)
+  await fillRect(image, leftX + 22, leftY + 120, 160, 38, style.accent)
+  printClamp(image, fontBody, String(categoryLabel).toUpperCase(), leftX + 32, leftY + 142, 140)
 
-  // Participant details (sama seperti QRGenerate.jsx)
+  // Participant name
   printClamp(image, fontTitle, String(participant?.name || '-'), leftX + 22, leftY + 190, leftW - 44)
 
-  // ID TIKET
-  image.print(fontSmall, leftX + 22, leftY + 240, 'ID TIKET')
-  image.print(fontBold, leftX + 22, leftY + 256, String(participant?.ticket_id || '-'))
+  // Info Grid - ID TICKET, DAY, CATEGORY (sama seperti QRGenerate.jsx)
+  const infoY = leftY + 242
+  const colWidth = Math.round((leftW - 44) / 3)
 
-  // HARI
-  image.print(fontSmall, leftX + 22, leftY + 288, 'HARI')
-  image.print(fontBold, leftX + 22, leftY + 304, String(participant?.day_number || '-'))
+  // Labels
+  image.print(fontSmall, leftX + 22, infoY, 'ID TICKET')
+  image.print(fontSmall, leftX + 22 + colWidth, infoY, 'DAY')
+  image.print(fontSmall, leftX + 22 + colWidth * 2, infoY, 'CATEGORY')
 
-  // KATEGORI (tambahan - sama seperti QRGenerate.jsx)
-  image.print(fontSmall, leftX + 22, leftY + 336, 'KATEGORI')
-  printClamp(image, fontBold, String(participant?.category || categoryLabel || '-'), leftX + 22, leftY + 352, leftW - 44)
+  // Values
+  image.print(fontBold, leftX + 22, infoY + 18, String(participant?.ticket_id || '-'))
+  image.print(fontBold, leftX + 22 + colWidth, infoY + 18, String(participant?.day_number || '-'))
+  printClamp(image, fontBold, String(participant?.category || categoryLabel || '-'), leftX + 22 + colWidth * 2, infoY + 18, colWidth - 10)
 
   // Divider before footer
   await fillRect(image, leftX + 22, leftY + leftH - 80, leftW - 44, 2, '#e5e7eb')
 
-  // Footer notes (sama seperti QRGenerate.jsx)
-  image.print(fontBody, leftX + 22, leftY + leftH - 60, 'Valid untuk 1 orang. Dilarang duplikasi tiket.')
+  // Footer instruction (sama seperti QRGenerate.jsx)
+  image.print(fontBody, leftX + 22, leftY + leftH - 60, 'Tunjukkan kode QR ini untuk registrasi absensi peserta')
   const dob = getMetaValue(participant, 'Tanggal Lahir')
   image.print(
     fontSmall,
     leftX + 22,
     leftY + leftH - 40,
-    dob ? `Tanggal Lahir: ${dob}` : 'Tunjukkan tiket ini saat registrasi di pintu masuk.'
+    dob ? `${dob}` : '11 April 2026 - Primavera Production'
   )
 
-  // Scan note (sama seperti QRGenerate.jsx)
-  image.print(fontBody, qrX + 24, qrY + qrSize + 30, 'Scan QR di pintu masuk')
-  image.print(fontSmall, qrX + 24, qrY + qrSize + 50, 'Jaga layar tetap terang untuk scan cepat')
+  // QR Footer (sama seperti QRGenerate.jsx)
+  image.print(fontBody, qrX + 24, qrY + qrSize + 30, 'Scan at entrance')
+  image.print(fontSmall, qrX + 24, qrY + qrSize + 50, 'Keep screen bright for quick scan')
 
   return image.getBufferAsync(Jimp.MIME_PNG)
 }
