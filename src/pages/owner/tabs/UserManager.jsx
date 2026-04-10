@@ -3,10 +3,7 @@ import {
   Users, UserPlus, Key, Trash2, ShieldCheck, 
   Search, ShieldAlert, ArrowLeft, Check, X 
 } from 'lucide-react'
-import { 
-  getTenants, getTenantUsers, createTenantUser, 
-  updateTenantUser, deleteTenantUser, bootstrapStoreFromFirebase
-} from '../../../store/mockData'
+
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
@@ -30,9 +27,9 @@ export default function UserManager({ selectedTenant: initialTenant = null }) {
   const toast = useToast()
   const { user: currentUser } = useAuth()
   
-  const [tenants, setTenants] = useState(getTenants())
+  // const [tenants, setTenants] = useState(getTenants())
   const [selectedTenantId, setSelectedTenantId] = useState(() => loadSelectedTenantId(initialTenant))
-  const [users, setUsers] = useState([])
+  // const [users, setUsers] = useState([])
   
   const [showAddModal, setShowAddModal] = useState(false)
   const [newUser, setNewUser] = useState({ 
