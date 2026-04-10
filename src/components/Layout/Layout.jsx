@@ -77,12 +77,6 @@ function createEvent(name) {
   return newEvent;
 }
 
-let events = getEvents();
-let dayInput = '1';
-let currentDay = 1;
-function setEvents() {}
-function setDay() {}
-function setDayInput() {}
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
@@ -106,15 +100,13 @@ const OWNER_RELEASE_VISIBLE_PATHS = new Set([
 ])
 
 export default function Layout({ children }) {
-  // ===== DUMMY USER AGAR ERROR HILANG =====
-  const user = { role: 'super_admin', name: 'Admin' }
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // const [currentDay, setDay] = useState(getCurrentDay())
-  // const [dayInput, setDayInput] = useState(String(getCurrentDay()))
-  // const [events, setEvents] = useState(getEvents())
+  const [currentDay, setDay] = useState(getCurrentDay())
+  const [dayInput, setDayInput] = useState(String(getCurrentDay()))
+  const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const isMobile = useIsMobileLayout()
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
@@ -128,11 +120,11 @@ export default function Layout({ children }) {
   }
 
   const refreshEventState = () => {
-    // setEvents(getEvents()) // Disabled - state not defined
+    setEvents(getEvents())
     setActiveEventId(getCurrentEventId())
     const d = getCurrentDay()
-    // setDay(d) // Disabled - state not defined
-    // setDayInput(String(d)) // Disabled - state not defined
+    setDay(d)
+    setDayInput(String(d))
   }
 
   useEffect(() => {
@@ -180,8 +172,8 @@ export default function Layout({ children }) {
 
   const handleDayChange = (day) => {
     setCurrentDay(day, user)
-    // setDay(day) // Disabled - state not defined
-    // setDayInput(String(day)) // Disabled - state not defined
+    setDay(day)
+    setDayInput(String(day))
   }
 
   const handleEventChange = (eventId) => {
