@@ -32,6 +32,11 @@ async function fetchParticipantByTicketId(ticketId) {
 const RETRY_DELAYS = [1000, 2000, 4000, 8000];
 const MAX_RETRIES = 4;
 
+// Helper function to get active tenant (same as other admin pages)
+function getActiveTenant() { 
+  return { id: 'tenant-default' };
+}
+
 // Pre-validate participant data before sending
 function validateParticipant(participant) {
   const errors = [];
