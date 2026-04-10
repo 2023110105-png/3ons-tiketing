@@ -1,22 +1,4 @@
-import {
-  addParticipant,
-  addTenantInvoice,
-  bootstrapStoreFromFirebase,
-  bulkAddParticipants,
-  checkIn,
-  deleteParticipant,
-  getActiveTenant,
-  getCurrentDay,
-  getCurrentEventId,
-  getParticipant,
-  getParticipants,
-  getTenants,
-  getStoreBackups,
-  setCurrentEvent,
-  switchActiveTenant,
-  updateInvoiceStatus,
-  updateTenantContract
-} from '../../../store/mockData'
+
 import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/firebaseSync'
 import { apiFetch } from '../../../utils/api'
 
