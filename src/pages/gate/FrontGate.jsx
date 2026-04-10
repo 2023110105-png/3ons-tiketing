@@ -156,9 +156,22 @@ async function syncPendingCheckIns() {
       
       if (item.qr_data) {
         try {
-          const parsed = JSON.parse(item.qr_data);
-          ticketId = parsed.tid || ticketId;
-          day = parsed.d || day;
+          const parsed = parseQRData(item.qr_data);
+          if (parsed && parsed.ticketId) {
+            // Verify signature untuk keamanan
+            const isValid = verifyQRSignature({
+              tenantId: parsed.tenantId,
+              eventId: parsed.eventId,
+              ticketId: parsed.ticketId,
+              dayNumber: parsed.dayNumber,
+              signature: parsed.signature
+            });
+            
+            if (isValid) {
+              ticketId = parsed.ticketId || ticketId;
+              day = parsed.dayNumber || day;
+            }
+          }
         } catch {
           // Gunakan nilai default
         }
@@ -201,6 +214,7 @@ import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 import { apiFetch } from '../../utils/api'
+import { parseQRData, verifyQRSignature } from '../../utils/qrSecurity'
 
 const SAME_QR_DEBOUNCE_MS = 1200
 const VERIFY_TIMEOUT_MS = 2200
@@ -282,16 +296,14 @@ export default function FrontGate() {
   const verifyScanWithServer = useCallback(async (qrData) => {
     void refreshFromFirebaseIfStale()
 
-    let parsed
-    try {
-      parsed = JSON.parse(String(qrData || ''))
-    } catch {
+    const parsed = parseQRData(qrData)
+    if (!parsed) {
       return { valid: false, reason: 'invalid_payload', enforced: true }
     }
 
     const normalizedQr = String(qrData || '').trim()
-    const parsedTicketId = String(parsed?.tid || '').trim()
-    const parsedSecureRef = String(parsed?.r || '').trim()
+    const parsedTicketId = parsed.ticketId
+    const parsedSecureRef = parsed.secureRef
     const participantPool = getParticipants()
     // Cari peserta berdasarkan ticket_id dari QR data (tidak cocokkan qr_data lengkap karena ada timestamp)
     const matched = participantPool.find(p => p.ticket_id === parsedTicketId)
@@ -363,12 +375,12 @@ export default function FrontGate() {
     // Parse QR data untuk mendapatkan ticket_id dan day
     let ticketId = '';
     let day = 1;
-    try {
-      const parsed = JSON.parse(qrData);
-      ticketId = parsed.tid || '';
-      day = parsed.d || 1;
-    } catch {
-      // Jika bukan JSON, gunakan qrData sebagai ticket_id langsung
+    const parsed = parseQRData(qrData);
+    if (parsed && parsed.ticketId) {
+      ticketId = parsed.ticketId;
+      day = parsed.dayNumber || 1;
+    } else {
+      // Jika bukan JSON valid, gunakan qrData sebagai ticket_id langsung
       ticketId = qrData;
     }
     

@@ -1,5 +1,5 @@
 // ===== REAL FUNCTIONS FOR SETTINGS =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, syncEventSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 
 async function bootstrapStoreFromFirebase() {
@@ -108,8 +108,59 @@ function deleteAllParticipants() {
   }
   return { success: false, error: 'Event not found' };
 }
-function setWaTemplate() { return true; }
-function setWaSendMode() { return true; }
+async function setWaTemplate(template, user) {
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
+  if (!current) return false;
+  
+  await syncEventSnapshot({
+    tenantId,
+    event: {
+      id: eventId,
+      name: current.name || 'Event Default',
+      currentDay: current.currentDay || 1,
+      isArchived: current.isArchived || false,
+      waTemplate: template,
+      waSendMode: current.waSendMode || 'message_only',
+      participants: current.participants || [],
+      checkInLogs: current.checkInLogs || [],
+      adminLogs: current.adminLogs || []
+    }
+  });
+  
+  if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+    _workspaceSnapshot.store.tenants[tenantId].events[eventId].waTemplate = template;
+  }
+  return true;
+}
+
+async function setWaSendMode(mode, user) {
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
+  if (!current) return false;
+  
+  await syncEventSnapshot({
+    tenantId,
+    event: {
+      id: eventId,
+      name: current.name || 'Event Default',
+      currentDay: current.currentDay || 1,
+      isArchived: current.isArchived || false,
+      waTemplate: current.waTemplate || '',
+      waSendMode: mode,
+      participants: current.participants || [],
+      checkInLogs: current.checkInLogs || [],
+      adminLogs: current.adminLogs || []
+    }
+  });
+  
+  if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+    _workspaceSnapshot.store.tenants[tenantId].events[eventId].waSendMode = mode;
+  }
+  return true;
+}
 function setMaxPendingAttempts(val) { return val; }
 function renameEvent() { return { success: true }; }
 function archiveEvent() { return { success: true }; }
@@ -419,11 +470,15 @@ export default function Settings() {
     clearDeleteModalState()
   }
 
-  const handleSaveTemplate = (e) => {
+  const handleSaveTemplate = async (e) => {
     e.preventDefault()
-    setWaTemplate(waTemplate, user)
-    setWaSendMode(waSendMode, user)
-    toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
+    try {
+      await setWaTemplate(waTemplate, user)
+      await setWaSendMode(waSendMode, user)
+      toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
+    } catch (err) {
+      toast.error('Gagal', 'Gagal menyimpan template: ' + (err?.message || 'Unknown error'))
+    }
   }
 
   const handleSaveOfflineConfig = (e) => {

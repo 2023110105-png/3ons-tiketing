@@ -32,27 +32,20 @@ function regenerateSecureQRTokens(day, actor) {
 function generateQRDataForParticipant(participant) {
   if (!participant) return null;
   
-  // Jika sudah ada qr_data, gunakan yang ada
+  // Jika sudah ada qr_data valid, gunakan yang ada
   if (participant.qr_data) {
     try {
-      const parsed = JSON.parse(participant.qr_data);
-      return participant.qr_data; // Valid JSON, return as is
+      const parsed = parseQRData(participant.qr_data);
+      if (parsed && parsed.ticketId && parsed.signature) {
+        return participant.qr_data; // Valid QR data, return as is
+      }
     } catch {
-      // Invalid JSON, generate new one
+      // Invalid QR data, generate new one
     }
   }
   
-  // Generate new QR data
-  const qrData = {
-    tid: participant.ticket_id || participant.id || 'UNKNOWN',
-    t: 'tenant-default',
-    e: 'event-default', 
-    d: participant.day_number || participant.day || 1,
-    sig: 'SIG_' + Date.now(),
-    v: 2
-  };
-  
-  return JSON.stringify(qrData);
+  // Generate new QR data dengan format yang konsisten
+  return generateQRData(participant, 'tenant-default', 'event-default');
 }
 
 // Update participants dengan qr_data jika kosong
@@ -82,6 +75,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
+import { generateQRData, parseQRData } from '../../utils/qrSecurity'
 import BarcodeImport from './BarcodeImport'
 
 const CATEGORY_STYLES = {
