@@ -1,5 +1,5 @@
-import * as supabaseSync from './supabaseSync'
-import { isSupabaseEnabled } from './supabase'
+import * as supabaseSync from './supabaseSync.js'
+import { isSupabaseEnabled } from './supabase.js'
 
 const DEFAULT_TENANT_ID = 'tenant-default'
 

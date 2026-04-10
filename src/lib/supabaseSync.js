@@ -1,4 +1,4 @@
-import { isSupabaseEnabled, supabase } from './supabase'
+import { isSupabaseEnabled, supabase } from './supabase.js'
 
 const WORKSPACE_TABLE = 'workspace_state'
 const WORKSPACE_ID = 'default'

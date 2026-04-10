@@ -1,7 +1,7 @@
 // Mock data store - simulates Supabase backend
 // Replace with real Supabase client when ready
 
-import { apiFetch, platformFetch } from '../utils/api'
+import { apiFetch, platformFetch } from '../utils/api.js'
 import { onAuthStateChanged } from 'firebase/auth'
 import {
   syncAuditLog,
@@ -19,8 +19,8 @@ import {
   syncTenantUserUpsert,
   syncTenantUpsert,
   isWorkspaceSyncEnabled
-} from '../lib/dataSync'
-import { auth, isFirebaseEnabled } from '../lib/firebase'
+} from '../lib/dataSync.js'
+import { auth, isFirebaseEnabled } from '../lib/firebase.js'
 
 const generateId = () => crypto.randomUUID()
 const MIN_HIGH_IMPACT_REASON_LENGTH = 15
@@ -44,9 +44,9 @@ const DELETED_PARTICIPANT_TOMBSTONES_KEY = 'ons_deleted_participant_tombstones'
 const WA_SEND_MODE_MESSAGE_WITH_BARCODE = 'message_with_barcode'
 const WA_SEND_MODE_MESSAGE_ONLY = 'message_only'
 const DEFAULT_WA_SEND_MODE = WA_SEND_MODE_MESSAGE_WITH_BARCODE
-const FIREBASE_DATA_MODE = import.meta.env.VITE_FIREBASE_DATA_MODE === 'hybrid' ? 'hybrid' : 'strict'
+const FIREBASE_DATA_MODE = (((import.meta.env && import.meta.env.VITE_FIREBASE_DATA_MODE) || process.env.VITE_FIREBASE_DATA_MODE) === 'hybrid') ? 'hybrid' : 'strict'
 const IS_FIREBASE_STRICT_DATA_MODE = isFirebaseEnabled && FIREBASE_DATA_MODE === 'strict'
-const FIREBASE_AUTH_MODE = import.meta.env.VITE_FIREBASE_AUTH_MODE === 'hybrid' ? 'hybrid' : 'strict'
+const FIREBASE_AUTH_MODE = (((import.meta.env && import.meta.env.VITE_FIREBASE_AUTH_MODE) || process.env.VITE_FIREBASE_AUTH_MODE) === 'hybrid') ? 'hybrid' : 'strict'
 const DEFAULT_TENANT_ONLY_MODE = true
 const TENANT_MODE_PURGED_FLAG_KEY = 'ons_tenant_mode_purged_v2'
 
