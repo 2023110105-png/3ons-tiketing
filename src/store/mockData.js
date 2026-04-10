@@ -3403,7 +3403,6 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
 
         saveStore()
         void syncEventSnapshot({ tenantId: tenant.id, event: ev })
-        void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: existing })
         updated.push(existing)
         return
       }
@@ -3433,12 +3432,6 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
   if (added.length + updated.length > 0) {
     saveStore()
     void syncEventSnapshot({ tenantId: tenant.id, event: ev })
-    for (const p of added) {
-      void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: p })
-    }
-    for (const p of updated) {
-      void syncParticipantUpsert({ tenantId: tenant.id, eventId: ev.id, participant: p })
-    }
   }
 
   return { added, updated, skipped, errors, total: rows.length }

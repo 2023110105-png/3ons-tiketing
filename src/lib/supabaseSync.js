@@ -329,12 +329,24 @@ export function syncEventSnapshot({ tenantId, event }) {
   return mutateWorkspace((snapshot) => {
     const bucket = ensureTenantStoreBucket(snapshot, tenantId)
     const current = ensureEvent(snapshot, tenantId, event.id)
+    const participantsNext = Array.isArray(event?.participants)
+      ? (cloneJson(event.participants) ?? asArray(current.participants))
+      : asArray(current.participants)
+    const checkInLogsNext = Array.isArray(event?.checkInLogs)
+      ? (cloneJson(event.checkInLogs) ?? asArray(current.checkInLogs))
+      : asArray(current.checkInLogs)
+    const adminLogsNext = Array.isArray(event?.adminLogs)
+      ? (cloneJson(event.adminLogs) ?? asArray(current.adminLogs))
+      : asArray(current.adminLogs)
     bucket.events[event.id] = {
       ...current,
       id: event.id,
       name: event.name,
       currentDay: event.currentDay,
       isArchived: !!event.isArchived,
+      participants: participantsNext,
+      checkInLogs: checkInLogsNext,
+      adminLogs: adminLogsNext,
       deletedParticipantIds: (event?.deletedParticipantIds && typeof event.deletedParticipantIds === 'object')
         ? event.deletedParticipantIds
         : (current.deletedParticipantIds || {}),
