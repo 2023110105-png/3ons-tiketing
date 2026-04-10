@@ -84,10 +84,27 @@ echo WA server belum berjalan, akan dijalankan sekarang.
 
 echo.
 echo [5/5] Membersihkan port %PORT% jika masih tertahan...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENING"') do (
-    echo Menutup proses di port %PORT% (PID: %%a)...
+echo   Mencari proses di port %PORT%...
+
+REM Gunakan PowerShell untuk kill proses lebih reliable
+powershell -Command "try { $conns = Get-NetTCPConnection -LocalPort %PORT% -ErrorAction SilentlyContinue; foreach ($conn in $conns) { Write-Host \"  Menutup PID: $($conn.OwningProcess)\"; Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue } } catch {}"
+
+REM Fallback pakai taskkill
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENING" 2^>nul') do (
+    echo   Menutup proses (PID: %%a)...
     taskkill /F /PID %%a >nul 2>&1
-    timeout /t 1 /nobreak >nul
+)
+
+echo   Menunggu port bersih (2 detik)...
+timeout /t 2 /nobreak >nul
+
+REM Verifikasi port sudah bersih
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENING" 2^>nul') do (
+    echo.
+    echo [WARNING] Port %PORT% masih tertahan oleh PID: %%a
+    echo Mencoba paksa mati...
+    taskkill /F /PID %%a >nul 2>&1
+    timeout /t 2 /nobreak >nul
 )
 
 echo.

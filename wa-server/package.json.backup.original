@@ -4,12 +4,9 @@
   "description": "3oNs Digital - Local API server for WhatsApp and Email automations (No Canvas - Windows Compatible)",
   "main": "index.js",
   "scripts": {
-    "prestart": "powershell -Command \"try { Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue; Write-Host ('Killed PID: ' + $_.OwningProcess) } } catch {}\" || echo 'Port cleanup done'",
-    "start": "node index.js",
-    "start:clean": "npm run prestart && npm start"
+    "start": "node index.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "jimp": "^0.22.12",

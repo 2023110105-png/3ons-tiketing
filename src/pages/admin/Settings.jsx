@@ -1,5 +1,5 @@
 // ===== REAL FUNCTIONS FOR SETTINGS =====
-import { fetchFirebaseWorkspaceSnapshot, syncEventSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, syncEventSnapshot, syncResetCheckInLogs } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 
 async function bootstrapStoreFromFirebase() {
@@ -104,27 +104,58 @@ function getStoreBackups() {
   return _workspaceSnapshot.store.tenants?.[tenantId]?.backups || [];
 }
 
-function resetCheckIns() { 
+async function resetCheckIns() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (event) {
-    event.checkin_logs = [];
+    // Clear local data
+    event.checkInLogs = [];
     event.pendingCheckIns = [];
-    return { success: true };
+    // Sync to server (Supabase)
+    try {
+      await syncResetCheckInLogs({ tenantId, eventId });
+      console.log('[resetCheckIns] Synced to server successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('[resetCheckIns] Sync failed:', err);
+      return { success: false, error: 'Gagal sinkron ke server: ' + (err?.message || 'Unknown error') };
+    }
   }
   return { success: false, error: 'Event not found' };
 }
 
-function deleteAllParticipants() { 
+async function deleteAllParticipants() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (event) {
+    // Clear local data
     event.participants = [];
-    return { success: true };
+    event.checkInLogs = []; // Also clear check-in logs since participants are gone
+    event.pendingCheckIns = [];
+    // Sync to server (Supabase)
+    try {
+      await syncEventSnapshot({
+        tenantId,
+        event: {
+          id: eventId,
+          name: event.name || 'Event Default',
+          currentDay: event.currentDay || 1,
+          isArchived: event.isArchived || false,
+          participants: [],
+          checkInLogs: [],
+          adminLogs: event.adminLogs || []
+        }
+      });
+      console.log('[deleteAllParticipants] Synced to server successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('[deleteAllParticipants] Sync failed:', err);
+      return { success: false, error: 'Gagal sinkron ke server: ' + (err?.message || 'Unknown error') };
+    }
   }
   return { success: false, error: 'Event not found' };
 }
@@ -460,7 +491,7 @@ export default function Settings() {
     }
   }
 
-  const handleResetCheckIn = (e) => {
+  const handleResetCheckIn = async (e) => {
     e.preventDefault()
     if (normalizeConfirmWord(resetInput) !== 'HAPUS') {
       toast.error('Gagal', 'Kata konfirmasi salah')
@@ -479,16 +510,19 @@ export default function Settings() {
       return
     }
     
-    const result = resetCheckIns(user, resetReason)
+    toast.info('Memproses...', 'Menyinkronkan reset ke server...')
+    const result = await resetCheckIns(user, resetReason)
     if (!result?.success) {
       toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Validasi alasan gagal.' }))
       return
     }
-    toast.success('Sukses', 'Semua riwayat check-in telah dibersihkan.')
+    // Refresh data from server to ensure local state is synced
+    await bootstrapStoreFromFirebase(true)
+    toast.success('Sukses', 'Semua riwayat check-in telah dibersihkan dan tersinkron ke server.')
     clearResetModalState()
   }
 
-  const handleDeleteAll = (e) => {
+  const handleDeleteAll = async (e) => {
     e.preventDefault()
     if (normalizeConfirmWord(deleteInput) !== 'HAPUS') {
       toast.error('Gagal', 'Kata konfirmasi salah')
@@ -507,12 +541,15 @@ export default function Settings() {
       return
     }
     
-    const result = deleteAllParticipants(user, deleteReason)
+    toast.info('Memproses...', 'Menghapus dan menyinkronkan ke server...')
+    const result = await deleteAllParticipants(user, deleteReason)
     if (!result?.success) {
       toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Validasi alasan gagal.' }))
       return
     }
-    toast.success('Sukses', 'Semua data peserta telah dihapus dari sistem.')
+    // Refresh data from server to ensure local state is synced
+    await bootstrapStoreFromFirebase(true)
+    toast.success('Sukses', 'Semua data peserta telah dihapus dari sistem dan tersinkron ke server.')
     clearDeleteModalState()
   }
 

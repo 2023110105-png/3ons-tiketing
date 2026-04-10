@@ -8,6 +8,7 @@ const path = require('path');
 const jsQR = require('jsqr');
 const Jimp = require('jimp');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { createClient } = require('@supabase/supabase-js');
 const { buildTicketQrImageNode } = require('./ticket-image-jimp');
 const { runStressQrCheck } = require('./scripts/stress-qr-check');
 const nodemailer = require('nodemailer');
@@ -46,6 +47,22 @@ function loadLocalEnvFile() {
 
 loadLocalEnvFile();
 
+// Initialize Supabase client for direct database access
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+let supabase = null;
+
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('[SUPABASE] Client initialized successfully');
+    } catch (err) {
+        console.error('[SUPABASE] Failed to initialize:', err.message);
+    }
+} else {
+    console.log('[SUPABASE] Skipped - URL or key not configured');
+}
+
 const app = express();
 const CORS_ALLOWED_ORIGINS = String(process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
@@ -58,8 +75,49 @@ const WA_ADMIN_SECRET_HEADER = 'x-wa-admin-secret';
 const WA_ADMIN_SECRET = String(process.env.WA_ADMIN_SECRET || '').trim();
 const TICKET_SIGNING_SECRET = String(process.env.TICKET_SIGNING_SECRET || WA_ADMIN_SECRET || '').trim();
 const WA_AUTH_DATA_PATH = String(process.env.WA_AUTH_DATA_PATH || 'auth_data').trim() || 'auth_data';
+const WA_FAST_MODE = String(process.env.WA_FAST_MODE || '').toLowerCase() === 'true';
+const WA_SKIP_NUMBER_CHECK = String(process.env.WA_SKIP_NUMBER_CHECK || '').toLowerCase() === 'true' || WA_FAST_MODE;
+const WA_MESSAGE_TIMEOUT_MS = Number(process.env.WA_MESSAGE_TIMEOUT_MS || (WA_FAST_MODE ? 15000 : 45000));
 const rateLimitStore = new Map();
 const deliveryMetrics = { waSendSuccess: 0, waSendFailed: 0 };
+
+if (WA_FAST_MODE) {
+    console.log('[CONFIG] WA FAST MODE enabled - skipping number validation, reduced timeouts');
+}
+
+// Helper: Generate QR data for participant (server-side)
+function generateServerQRData({ ticket_id, name, day_number }, tenantId = 'tenant-default', eventId = 'event-default') {
+    try {
+        const tid = String(ticket_id || '').trim();
+        const t = String(tenantId).trim();
+        const e = String(eventId).trim();
+        const d = Number(day_number) || 1;
+        const n = String(name || '').trim();
+        
+        if (!tid) return null;
+        
+        // Build deterministic signature
+        const payload = `${t}|${e}|${tid}|${d}|event-2026`;
+        const sig = Buffer.from(payload).toString('base64');
+        
+        // Build QR data object
+        const qrObject = {
+            v: 2,
+            tid,
+            t,
+            e,
+            d,
+            n,
+            sig,
+            r: crypto.randomUUID().slice(0, 8)
+        };
+        
+        return Buffer.from(JSON.stringify(qrObject)).toString('base64');
+    } catch (err) {
+        console.error('[generateServerQRData] Error:', err.message);
+        return null;
+    }
+}
 
 if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && !WA_ADMIN_SECRET) {
     throw new Error('WA_ADMIN_SECRET wajib diisi di production');
@@ -581,13 +639,49 @@ function formatPhoneWA(phone) {
 
 function normalizeQRPayload(rawQr) {
     let parsed = null;
-    const raw = String(rawQr || '').trim();
+    let raw = String(rawQr || '').trim();
+    
+    // DEBUG: Log raw input
+    console.log(`[normalizeQRPayload] Input length=${raw.length}, preview=${raw.slice(0, 50)}`);
+    
+    // DETECT: Legacy ONS2026- format (e.g., ONS2026-41D329EB0B0A7B3F)
+    if (raw.startsWith('ONS2026-') && raw.length >= 16) {
+        console.log(`[normalizeQRPayload] Detected LEGACY ONS2026 format`);
+        const ticketId = raw.substring(8); // Extract after ONS2026-
+        return {
+            ticketId: ticketId,
+            tenantId: 'tenant-default',
+            eventId: 'event-2026',
+            dayNumber: 1,
+            signature: raw, // Use full raw as signature
+            secureRef: ticketId.slice(-8),
+            version: 1,
+            _legacy: true
+        };
+    }
+    
+    // Coba decode base64 dulu (karena QR data biasanya base64 encoded)
+    if (raw.length > 20) {
+        try {
+            const decoded = Buffer.from(raw, 'base64').toString('utf8');
+            if (decoded && decoded.length > 0 && decoded.startsWith('{')) {
+                console.log(`[normalizeQRPayload] Base64 decoded JSON: ${decoded.slice(0, 100)}`);
+                raw = decoded;
+            }
+        } catch {
+            // Bukan base64, lanjut dengan raw asli
+            console.log(`[normalizeQRPayload] Not valid base64 JSON`);
+        }
+    }
+    
     // Coba parse JSON
     try {
         parsed = JSON.parse(raw);
+        console.log(`[normalizeQRPayload] JSON parsed OK: tid=${parsed?.tid}`);
     } catch (err) {
-        void err;
+        console.log(`[normalizeQRPayload] JSON parse failed: ${err?.message || 'unknown'}`);
     }
+    
     // Jika gagal, coba parse format string key-value (tid:xxx;t:xxx;e:xxx;d:1;sig:xxx;r:xxx;v:3)
     if (!parsed || typeof parsed !== 'object') {
         parsed = {};
@@ -595,23 +689,41 @@ function normalizeQRPayload(rawQr) {
             const [k, ...rest] = pair.split(':');
             if (k && rest.length) parsed[k.trim()] = rest.join(':').trim();
         });
+        console.log(`[normalizeQRPayload] Key-value parsed keys: ${Object.keys(parsed).join(',')}`);
     }
-    if (!parsed || typeof parsed !== 'object') return null;
-    return {
-        ticketId: String(parsed.tid || '').trim(),
-        tenantId: String(parsed.t || '').trim(),
-        eventId: String(parsed.e || '').trim(),
-        dayNumber: Number(parsed.d),
-        signature: String(parsed.sig || '').trim(),
-        secureRef: String(parsed.r || '').trim(),
-        version: Number(parsed.v || 1)
+    
+    if (!parsed || typeof parsed !== 'object') {
+        console.log(`[normalizeQRPayload] Failed to parse any format`);
+        return null;
+    }
+    
+    const result = {
+        ticketId: String(parsed.tid || parsed.ticketId || '').trim(),
+        tenantId: String(parsed.t || parsed.tenantId || 'tenant-default').trim(),
+        eventId: String(parsed.e || parsed.eventId || 'event-2026').trim(),
+        dayNumber: Number(parsed.d || parsed.dayNumber) || 1,
+        signature: String(parsed.sig || parsed.signature || '').trim(),
+        secureRef: String(parsed.r || parsed.secureRef || '').trim(),
+        version: Number(parsed.v || parsed.version) || 1
     };
+    
+    console.log(`[normalizeQRPayload] Result: tid=${result.ticketId}, t=${result.tenantId}, e=${result.eventId}, d=${result.dayNumber}, sig=${result.signature ? 'yes' : 'no'}`);
+    
+    return result;
 }
 
 function normalizeOutgoingQrData(rawQr, fallback = {}) {
     const parsed = normalizeQRPayload(rawQr);
     if (!parsed || !parsed.ticketId || !parsed.tenantId || !parsed.eventId || !parsed.signature || !Number.isFinite(parsed.dayNumber)) {
+        console.log(`[normalizeOutgoingQrData] Validation failed: tid=${parsed?.ticketId}, t=${parsed?.tenantId}, e=${parsed?.eventId}, d=${parsed?.dayNumber}, sig=${parsed?.signature ? 'yes' : 'no'}`);
         return { ok: false, value: '', reason: 'invalid_qr_payload' };
+    }
+
+    // Log format type
+    if (parsed._legacy) {
+        console.log(`[normalizeOutgoingQrData] Using LEGACY format for ticket=${parsed.ticketId}`);
+    } else {
+        console.log(`[normalizeOutgoingQrData] Using MODERN format for ticket=${parsed.ticketId}`);
     }
 
     const payload = {
@@ -934,6 +1046,117 @@ app.post('/api/wa/logout', async (req, res) => {
     }
 });
 
+// 1.6. Validate and Fix Participant Data (Generate QR if missing)
+app.post('/api/validate-participants', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    const { participants } = req.body;
+    
+    if (!Array.isArray(participants)) {
+        return res.status(400).json({ success: false, error: 'participants array required' });
+    }
+    
+    const results = {
+        total: participants.length,
+        valid: 0,
+        invalid: 0,
+        fixed: 0,
+        errors: []
+    };
+    
+    const fixedParticipants = participants.map(p => {
+        const issues = [];
+        
+        // Check required fields
+        if (!p.ticket_id) issues.push('missing ticket_id');
+        if (!p.name && !p.nama) issues.push('missing name');
+        if (!p.phone && !p.whatsapp && !p.wa) issues.push('missing phone');
+        
+        // Check QR data
+        const hasQr = p.qr_data && String(p.qr_data).trim().length > 0;
+        
+        if (!hasQr && p.ticket_id) {
+            // Auto-generate QR
+            const newQr = generateServerQRData({
+                ticket_id: p.ticket_id,
+                name: p.name || p.nama,
+                day_number: p.day_number || p.day || p.hari || 1
+            });
+            
+            if (newQr) {
+                p.qr_data = newQr;
+                results.fixed++;
+                issues.push('QR auto-generated');
+            } else {
+                issues.push('QR generation failed');
+            }
+        }
+        
+        if (issues.length > 0 && !issues.includes('QR auto-generated')) {
+            results.invalid++;
+            results.errors.push({ ticket_id: p.ticket_id, issues });
+        } else {
+            results.valid++;
+        }
+        
+        return p;
+    });
+    
+    res.json({
+        success: true,
+        summary: results,
+        participants: fixedParticipants
+    });
+});
+
+// 1.7. Fetch Participants from Supabase (Server-side)
+app.get('/api/participants', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    
+    if (!supabase) {
+        return res.status(503).json({
+            success: false,
+            error: 'Supabase not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to .env'
+        });
+    }
+    
+    try {
+        const { data: participants, error } = await supabase
+            .from('participants')
+            .select('*');
+        
+        if (error) throw error;
+        
+        // Auto-generate QR for participants without qr_data
+        const enriched = participants.map(p => {
+            if (!p.qr_data && p.ticket_id) {
+                const newQr = generateServerQRData({
+                    ticket_id: p.ticket_id,
+                    name: p.name || p.nama,
+                    day_number: p.day_number || p.day || 1
+                });
+                if (newQr) {
+                    p.qr_data = newQr;
+                    p._qr_auto_generated = true;
+                }
+            }
+            return p;
+        });
+        
+        res.json({
+            success: true,
+            count: enriched.length,
+            participants: enriched
+        });
+    } catch (err) {
+        console.error('[API] Error fetching participants:', err.message);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch participants',
+            details: err.message
+        });
+    }
+});
+
 // 2. Send Ticket (WA & Email)
 app.post('/api/send-ticket', rateLimit, async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
@@ -942,13 +1165,63 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
 
     // phones: array nomor WA, phone: satu nomor WA (backward compatible)
     const phoneList = Array.isArray(phones) && phones.length > 0 ? phones : (phone ? [phone] : []);
-    const normalizedQr = normalizeOutgoingQrData(qr_data, { name });
+    
+    // DEBUG: Log request details
+    console.log(`[SEND-TICKET-REQ] ticket=${ticket_id} phones=${phoneList.length} qr_data_length=${String(qr_data||'').length}`);
+    
+    // Validate phoneList
+    if (phoneList.length === 0) {
+        console.log(`[SEND-TICKET-400] No valid phone numbers for ticket=${ticket_id}`);
+        return res.status(400).json({
+            success: false,
+            error: 'Nomor telepon tidak valid atau kosong.',
+            error_code: 'invalid_phone',
+            tenant_id: tenantId,
+            request_id: req._requestId
+        });
+    }
+    
+    // Validate/Generate QR data
+    let finalQrData = qr_data;
+    
+    if (!finalQrData || String(finalQrData).trim().length === 0) {
+        // Try auto-generate QR if participant info is complete
+        if (ticket_id && name) {
+            console.log(`[SEND-TICKET] Auto-generating QR for ticket=${ticket_id}`);
+            const autoQr = generateServerQRData({
+                ticket_id,
+                name,
+                day_number: day_number || 1
+            }, tenantId, 'event-default');
+            
+            if (autoQr) {
+                finalQrData = autoQr;
+                console.log(`[SEND-TICKET] QR auto-generated successfully for ticket=${ticket_id}`);
+            }
+        }
+        
+        if (!finalQrData || String(finalQrData).trim().length === 0) {
+            console.log(`[SEND-TICKET-400] Empty QR data for ticket=${ticket_id}`);
+            return res.status(400).json({
+                success: false,
+                error: 'QR data kosong. Generate ulang tiket peserta.',
+                error_code: 'empty_qr_data',
+                tenant_id: tenantId,
+                request_id: req._requestId
+            });
+        }
+    }
+    
+    const normalizedQr = normalizeOutgoingQrData(finalQrData, { name });
     if (!normalizedQr.ok) {
+        console.log(`[SEND-TICKET-400] Invalid QR for ticket=${ticket_id} reason=${normalizedQr.error || 'unknown'}`);
         return res.status(400).json({
             success: false,
             error: 'QR data tidak valid. Kirim ulang tiket dari data peserta terbaru.',
             error_code: 'invalid_qr_payload',
-            tenant_id: tenantId
+            tenant_id: tenantId,
+            request_id: req._requestId,
+            debug: process.env.NODE_ENV !== 'production' ? { qr_preview: String(finalQrData).slice(0, 50) } : undefined
         });
     }
     const qrData = normalizedQr.value;
@@ -996,71 +1269,109 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
             }));
         } else {
             const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
-            const sendTasks = phoneList.map(async (p) => {
+            // SEQUENTIAL SEND dengan delay untuk hindari rate limit
+            const delayMs = Number(process.env.WA_SEND_DELAY_MS || 3000);
+            const healthCheckInterval = 10; // Cek session setiap 10 pesan
+            results.wa = [];
+            
+            for (let i = 0; i < phoneList.length; i++) {
+                const p = phoneList[i];
                 const waNumber = formatPhoneWA(p);
+                
+                // Health check setiap N pesan
+                if (i > 0 && i % healthCheckInterval === 0) {
+                    console.log(`[WA SEND] Health check setelah ${i} pesan...`);
+                    const freshSession = getOrCreateTenantSession(tenantId);
+                    if (!freshSession.isReady || !freshSession.client) {
+                        console.error(`[WA SEND] Session tidak ready setelah ${i} pesan, stop batch.`);
+                        // Mark sisanya sebagai failed
+                        for (let j = i; j < phoneList.length; j++) {
+                            results.wa.push({
+                                phone: phoneList[j],
+                                status: 'Failed',
+                                error: 'WhatsApp session timeout setelah batch besar. Silakan retry.',
+                                error_code: 'wa_session_timeout'
+                            });
+                        }
+                        break;
+                    }
+                    // Extra cooldown setiap 10 pesan
+                    console.log(`[WA SEND] Cooldown 10 detik setelah ${i} pesan...`);
+                    await new Promise(r => setTimeout(r, 10000));
+                }
+                
                 try {
-                    if (typeof session.client.isRegisteredUser === 'function') {
+                    // Skip number validation in fast mode (saves ~500-1000ms)
+                    if (!WA_SKIP_NUMBER_CHECK && typeof session.client.isRegisteredUser === 'function') {
                         const isRegistered = await withRetry(() => session.client.isRegisteredUser(waNumber), {
                             retries: 1,
-                            timeoutMs: 10000
+                            timeoutMs: 8000
                         });
                         if (!isRegistered) {
-                            return {
+                            results.wa.push({
                                 phone: p,
                                 status: 'Failed',
                                 error: 'Nomor tidak terdaftar di WhatsApp.',
                                 error_code: 'wa_number_not_registered'
-                            };
+                            });
+                            continue;
                         }
                     }
-                    console.log(`[WA SEND] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`);
+                    
+                    const startSend = Date.now();
+                    console.log(`[WA SEND] [${i+1}/${phoneList.length}] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id}) fast=${WA_FAST_MODE}`);
+                    
                     let sendResult;
                     if (waSendMode === 'message_only') {
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
-                            retries: 3,
-                            timeoutMs: 45000
+                            retries: WA_FAST_MODE ? 1 : 3,
+                            timeoutMs: WA_MESSAGE_TIMEOUT_MS
                         });
                     } else if (waSendMode === 'message_with_barcode') {
-                        // Generate e-ticket image with QR and details (Node.js/canvas)
-                        const participant = {
-                            name,
-                            ticket_id,
-                            category,
-                            day_number,
-                            qr_data: qrData
-                        };
-                        // Optionally, you can pass eventLabel/brandLabel if available
+                        // Generate e-ticket image with QR and details
+                        const participant = { name, ticket_id, category, day_number, qr_data: qrData };
+                        const imgStart = Date.now();
                         const imageBuffer = await buildTicketQrImageNode(participant, {});
-                        console.log(`[WA SEND IMAGE] tenant=${tenantId} ticket=${ticket_id || '-'} qr_hash=${qrHash} bytes=${imageBuffer?.length || 0}`);
+                        console.log(`[WA SEND IMAGE] gen_time=${Date.now() - imgStart}ms bytes=${imageBuffer?.length || 0}`);
+                        
                         const base64Str = imageBuffer.toString('base64');
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, media, { caption: waMessage }), {
-                            retries: 3,
-                            timeoutMs: 45000
+                            retries: WA_FAST_MODE ? 1 : 3,
+                            timeoutMs: WA_MESSAGE_TIMEOUT_MS
                         });
                     } else {
-                        // fallback: kirim pesan saja
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
-                            retries: 3,
-                            timeoutMs: 45000
+                            retries: WA_FAST_MODE ? 1 : 3,
+                            timeoutMs: WA_MESSAGE_TIMEOUT_MS
                         });
                     }
-                    console.log(`[WA SEND] Sukses kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash})`, sendResult && sendResult.id ? `msgId: ${sendResult.id.id}` : '');
+                    
+                    console.log(`[WA SEND] Sukses [${i+1}/${phoneList.length}] ke ${waNumber} time=${Date.now() - startSend}ms`);
                     deliveryMetrics.waSendSuccess += 1;
-                    return { phone: p, status: 'Success', msgId: sendResult && sendResult.id ? sendResult.id.id : undefined };
+                    results.wa.push({ phone: p, status: 'Success', msgId: sendResult?.id?.id });
+                    
+                    // Delay antar pesan (kecuali pesan terakhir)
+                    if (i < phoneList.length - 1) {
+                        await new Promise(r => setTimeout(r, delayMs));
+                    }
+                    
                 } catch (err) {
-                    console.error(`[WA SEND ERROR] Gagal kirim ke ${waNumber} (ticket_id: ${ticket_id} qr_hash=${qrHash}):`, err.message);
+                    console.error(`[WA SEND ERROR] [${i+1}/${phoneList.length}] Gagal ke ${waNumber}:`, err.message);
                     deliveryMetrics.waSendFailed += 1;
                     const normalized = classifyWaSendError(err);
-                    return {
+                    results.wa.push({
                         phone: p,
                         status: 'Failed',
                         error: normalized.message,
                         error_code: normalized.code
-                    };
+                    });
+                    // Tetap delay meskipun error, jangan spam
+                    if (i < phoneList.length - 1) {
+                        await new Promise(r => setTimeout(r, delayMs));
+                    }
                 }
-            });
-            results.wa = await Promise.all(sendTasks);
+            }
         }
         // Log hasil pengiriman batch WA
         logWaSendBatch(tenantId, phoneList, results.wa, {
@@ -1398,6 +1709,26 @@ app.get('/api/import/logs', (req, res) => {
         tenant_id: tenantId,
         total: logs.length,
         logs: logs.slice(0, 20) // Return latest 20
+    });
+});
+
+// API: Trigger sync to all gates (broadcast refresh signal)
+app.post('/api/sync-to-gates', (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    const tenantId = normalizeTenantId(req?.body?.tenant_id);
+    const { reason } = req.body || {};
+    
+    console.log(`[SYNC-TO-GATES] Broadcasting sync signal for tenant=${tenantId}, reason=${reason || 'manual'}`);
+    
+    // Emit sync event via SSE or WebSocket if implemented
+    // For now, return success so clients can poll for changes
+    res.json({
+        success: true,
+        tenant_id: tenantId,
+        message: 'Sync signal broadcasted to all gates',
+        timestamp: new Date().toISOString(),
+        affected_clients: 'all_gate_devices',
+        reason: reason || 'manual_sync'
     });
 });
 

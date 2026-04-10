@@ -31,6 +31,7 @@ import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { generateWaMessage } from '../../utils/whatsapp'
 import { supabase } from '../../lib/supabase'
+import { generateQRData } from '../../utils/qrSecurity'
 
 // Load participants dari Supabase dengan filter day
 async function _loadParticipantsFromSupabase(day) {
@@ -92,8 +93,8 @@ function validateParticipant(participant) {
   if (!participant.phone || !normalizePhone(participant.phone)) {
     errors.push('Nomor WhatsApp tidak valid');
   }
-  if (!participant.qr_data) {
-    errors.push('QR data tidak tersedia');
+  if (!participant.qr_data || String(participant.qr_data).trim().length === 0) {
+    errors.push('QR data kosong - generate ulang tiket');
   }
   return { 
     valid: errors.length === 0, 
@@ -147,7 +148,11 @@ function isNonRetryableError(error) {
     'bukan user whatsapp',
     'invalid phone',
     'not a whatsapp user',
-    'qr data tidak tersedia'
+    'qr data tidak tersedia',
+    'qr data kosong',
+    'empty_qr_data',
+    'invalid_qr_payload',
+    'qr data tidak valid'
   ];
   const errLower = String(error).toLowerCase();
   return nonRetryable.some(keyword => errLower.includes(keyword));
@@ -236,6 +241,13 @@ export default function WaDelivery() {
       window.removeEventListener('orientationchange', h)
     }
   }, [])
+
+  const [batchSending, setBatchSending] = useState(false)
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
+  const [lastBatchFailed, setLastBatchFailed] = useState([]) // Simpan hasil gagal dari batch terakhir
+  const [regeneratingQR, setRegeneratingQR] = useState(false)
+  const [qrRegenProgress, setQrRegenProgress] = useState({ current: 0, total: 0 })
+  const [syncingToGates, setSyncingToGates] = useState(false)
 
   const loadLogs = useCallback(async () => {
     setLoading(true)
@@ -371,7 +383,15 @@ export default function WaDelivery() {
         if (!res.ok || data?.success === false) {
           return { success: false, error: data?.error || `HTTP ${res.status}` }
         }
-        return { success: true, data }
+        // Cek hasil sebenarnya dari WA
+        const waResult = data?.results?.wa?.[0]
+        if (waResult?.status !== 'Success') {
+          return { 
+            success: false, 
+            error: waResult?.error || 'Pengiriman gagal' 
+          }
+        }
+        return { success: true, data, msgId: waResult?.msgId }
       })
       
       if (result.success) {
@@ -399,10 +419,12 @@ export default function WaDelivery() {
       return
     }
     const failedRows = filtered.filter(r => String(r.status || '').toLowerCase() === 'failed').slice(0, 30)
+    
     if (failedRows.length === 0) {
-      toast.info('Tidak ada', 'Tidak ada item gagal pada filter saat ini.')
+      toast.info('Tidak ada yang perlu di-retry', 'Semua pengiriman sudah berhasil.')
       return
     }
+    
     const ok = window.confirm(`Coba ulang ${failedRows.length} pengiriman yang gagal?`)
     if (!ok) return
     
@@ -411,6 +433,8 @@ export default function WaDelivery() {
     let processed = 0
     for (let i = 0; i < failedRows.length; i += batchSize) {
       const batch = failedRows.slice(i, i + batchSize)
+      
+      // Process batch concurrently
       await Promise.all(
         batch.map(row => retrySend({ 
           ticket_id: row.ticket_id, 
@@ -418,10 +442,382 @@ export default function WaDelivery() {
           wa_send_mode: row.wa_send_mode 
         }))
       )
+      
+      // Update progress
       processed += batch.length
       toast.info('Progress', `${processed}/${failedRows.length} pengiriman diproses...`)
     }
     await loadLogs()
+  }
+
+  // BATCH SEND ALL - Kirim ke semua peserta yang belum dikirim
+  const sendBatchToAll = async () => {
+    if (!waConn.isReady) {
+      toast.error('WhatsApp belum tersambung', 'Sambungkan perangkat dulu agar pengiriman bisa berjalan.')
+      return
+    }
+
+    // Ambil semua peserta dari Firebase/Supabase
+    const participants = getParticipants(getCurrentDay())
+    
+    if (participants.length === 0) {
+      toast.info('Tidak ada peserta', 'Tidak ditemukan peserta untuk dikirim.')
+      return
+    }
+
+    // Filter hanya yang punya nomor WA valid, QR data, dan BELUM dikirim
+    let skippedPhone = 0, skippedQr = 0, skippedSent = 0
+    const validParticipants = participants.filter(p => {
+      const phone = normalizePhone(p.phone || p.whatsapp || p.wa || '')
+      const hasPhone = phone && phone.length >= 10
+      const hasQrData = p.qr_data && String(p.qr_data).trim().length > 0
+      const alreadySent = p.wa_sent_at && new Date(p.wa_sent_at).getTime() > 0
+      if (!hasPhone) skippedPhone++
+      if (!hasQrData) skippedQr++
+      if (alreadySent) skippedSent++
+      return hasPhone && hasQrData && !alreadySent
+    })
+    
+    console.log(`[sendBatchToAll] Total: ${participants.length}, Valid: ${validParticipants.length}, Filtered out: ${participants.length - validParticipants.length}`)
+    console.log(`[sendBatchToAll] Filtered: noPhone=${skippedPhone}, noQR=${skippedQr}, alreadySent=${skippedSent}`)
+
+    if (validParticipants.length === 0) {
+      toast.error('Tidak ada peserta valid', `Dari ${participants.length} peserta, tidak ada yang memiliki nomor WhatsApp valid dan QR data. Pastikan semua peserta sudah generate tiket.`)
+      return
+    }
+
+    const estTimeMinutes = Math.ceil((validParticipants.length * 7) / 60)
+    const ok = window.confirm(
+      `Kirim tiket ke ${validParticipants.length} peserta?\n\n` +
+      `Estimasi waktu: ~${estTimeMinutes} menit\n` +
+      `• 3 pesan per batch\n` +
+      `• Delay 2 detik antar pesan\n` +
+      `• Delay 5 detik antar batch\n\n` +
+      `Ini untuk menghindari rate limit WhatsApp.`
+    )
+    if (!ok) return
+
+    setBatchSending(true)
+    setBatchProgress({ current: 0, total: validParticipants.length, success: 0, failed: 0 })
+
+    const batchSize = 3
+    const delayBetweenMessages = 2000
+    const delayBetweenBatches = 5000
+    let successCount = 0
+    let failedCount = 0
+    const failedList = [] // Simpan detail yang gagal
+
+    for (let i = 0; i < validParticipants.length; i += batchSize) {
+      const batch = validParticipants.slice(i, i + batchSize)
+      
+      // Process batch sequentially (NOT concurrently) to avoid rate limit
+      for (const p of batch) {
+        try {
+          // Pre-validate
+          const validation = validateParticipant(p)
+          if (!validation.valid) {
+            failedCount++
+            continue
+          }
+          const validated = validation.participant
+
+          // Send with retry
+          const result = await sendWithRetry(async () => {
+            const body = {
+              ...validated,
+              tenant_id: tenantId,
+              phone: validated.phone,
+              send_wa: true,
+              send_email: false,
+              wa_message: buildWaMessage(validated),
+              wa_send_mode: getWaSendMode()
+            }
+            const res = await apiFetch('/api/send-ticket', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok || data?.success === false) {
+              return { success: false, error: data?.error || `HTTP ${res.status}` }
+            }
+            // Cek hasil sebenarnya dari WA - server selalu return success: true
+            // tapi kita harus cek results.wa[0].status untuk tahu berhasil/gagal
+            const waResult = data?.results?.wa?.[0]
+            if (waResult?.status !== 'Success') {
+              return { 
+                success: false, 
+                error: waResult?.error || 'Pengiriman gagal (tidak ada konfirmasi sukses dari WhatsApp)' 
+              }
+            }
+            return { success: true, data, msgId: waResult?.msgId }
+          })
+
+          if (result.success) {
+            successCount++
+            // Update wa_sent_at di Supabase untuk tracking
+            try {
+              await supabase
+                .from('participants')
+                .update({ wa_sent_at: new Date().toISOString() })
+                .eq('ticket_id', p.ticket_id)
+              console.log(`[sendBatchToAll] Marked as sent: ${p.ticket_id}`)
+            } catch (updateErr) {
+              console.error(`[sendBatchToAll] Failed to update wa_sent_at for ${p.ticket_id}:`, updateErr)
+            }
+          } else {
+            failedCount++
+            // Simpan detail yang gagal untuk retry nanti
+            failedList.push({
+              ticket_id: p.ticket_id,
+              phone: p.phone,
+              name: p.name,
+              wa_send_mode: getWaSendMode(),
+              error: result.error || 'Unknown error',
+              timestamp: new Date().toISOString()
+            })
+          }
+          
+          // Update progress
+          const processed = Math.min(i + batch.indexOf(p) + 1, validParticipants.length)
+          setBatchProgress({ current: processed, total: validParticipants.length, success: successCount, failed: failedCount })
+          
+          // Delay antar pesan dalam batch
+          if (batch.indexOf(p) < batch.length - 1) {
+            await new Promise(r => setTimeout(r, delayBetweenMessages))
+          }
+        } catch (err) {
+          failedCount++
+          // Simpan detail yang gagal
+          failedList.push({
+            ticket_id: p.ticket_id,
+            phone: p.phone,
+            name: p.name,
+            wa_send_mode: getWaSendMode(),
+            error: err?.message || 'Network error',
+            timestamp: new Date().toISOString()
+          })
+          console.error('[sendBatchToAll] Error:', err)
+        }
+      }
+
+      toast.info('Progress Pengiriman', `${Math.min(i + batchSize, validParticipants.length)}/${validParticipants.length} diproses (Sukses: ${successCount}, Gagal: ${failedCount})`)
+      
+      // Delay antar batch (kecuali batch terakhir)
+      if (i + batchSize < validParticipants.length) {
+        toast.info('Cooldown', `Menunggu ${delayBetweenBatches/1000} detik untuk menghindari rate limit...`)
+        await new Promise(r => setTimeout(r, delayBetweenBatches))
+      }
+    }
+
+    setBatchSending(false)
+    setLastBatchFailed(failedList) // Simpan ke state untuk ditampilkan
+    await loadLogs()
+
+    // Final summary
+    if (failedCount === 0) {
+      toast.success('Pengiriman Selesai!', `${successCount}/${validParticipants.length} berhasil dikirim.`)
+      setLastBatchFailed([]) // Clear jika semua sukses
+    } else {
+      toast.warning('Pengiriman Selesai Sebagian', `Berhasil: ${successCount}, Gagal: ${failedCount}. Lihat daftar "Yang Gagal di Batch Terakhir" di bawah.`)
+    }
+  }
+
+  // Retry yang gagal dari batch terakhir
+  const retryLastBatchFailed = async () => {
+    if (!waConn.isReady) {
+      toast.error('WhatsApp belum tersambung', 'Sambungkan perangkat dulu.')
+      return
+    }
+    if (lastBatchFailed.length === 0) {
+      toast.info('Tidak ada yang perlu di-retry', 'Tidak ada data gagal dari batch terakhir.')
+      return
+    }
+
+    const ok = window.confirm(`Retry ${lastBatchFailed.length} pengiriman yang gagal dari batch terakhir?`)
+    if (!ok) return
+
+    let newFailedList = []
+    let successCount = 0
+
+    for (const item of lastBatchFailed) {
+      try {
+        const result = await sendWithRetry(async () => {
+          const body = {
+            ticket_id: item.ticket_id,
+            phone: item.phone,
+            tenant_id: tenantId,
+            send_wa: true,
+            send_email: false,
+            wa_message: buildWaMessage({ ticket_id: item.ticket_id, phone: item.phone, name: item.name }),
+            wa_send_mode: item.wa_send_mode || getWaSendMode()
+          }
+          const res = await apiFetch('/api/send-ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok || data?.success === false) {
+            return { success: false, error: data?.error || `HTTP ${res.status}` }
+          }
+          // Cek hasil sebenarnya dari WA
+          const waResult = data?.results?.wa?.[0]
+          if (waResult?.status !== 'Success') {
+            return { 
+              success: false, 
+              error: waResult?.error || 'Pengiriman gagal' 
+            }
+          }
+          return { success: true, data, msgId: waResult?.msgId }
+        })
+
+        if (result.success) successCount++
+        else {
+          newFailedList.push({ ...item, error: result.error, timestamp: new Date().toISOString() })
+        }
+        
+        // Delay antar retry
+        await new Promise(r => setTimeout(r, 2000))
+      } catch (err) {
+        newFailedList.push({ ...item, error: err?.message || 'Network error', timestamp: new Date().toISOString() })
+      }
+    }
+
+    setLastBatchFailed(newFailedList)
+    await loadLogs()
+
+    if (newFailedList.length === 0) {
+      toast.success('Retry Selesai!', `Semua ${successCount} pengiriman berhasil!`)
+    } else {
+      toast.warning('Retry Selesai', `Berhasil: ${successCount}, Masih gagal: ${newFailedList.length}. Coba lagi nanti.`)
+    }
+  }
+
+  // REGENERASI QR MASSAL - Hanya untuk peserta yang QR-nya kosong
+  const regenerateAllQR = async () => {
+    const ok = window.confirm(
+      'Generate QR untuk peserta yang belum punya QR?\n\n' +
+      'Ini akan memeriksa SEMUA peserta dan generate QR untuk yang masih kosong.'
+    )
+    if (!ok) return
+
+    setRegeneratingQR(true)
+    setQrRegenProgress({ current: 0, total: 0 })
+
+    try {
+      // Ambil semua peserta
+      const { data: participants, error } = await supabase
+        .from('participants')
+        .select('*')
+
+      if (error) throw error
+      if (!participants || participants.length === 0) {
+        toast.info('Tidak ada peserta', 'Tidak ditemukan peserta di database')
+        setRegeneratingQR(false)
+        return
+      }
+
+      // Filter hanya yang tidak punya QR data
+      const needQR = participants.filter(p => !p.qr_data || String(p.qr_data).trim().length === 0)
+      
+      if (needQR.length === 0) {
+        toast.success('Semua peserta sudah punya QR', `Dari ${participants.length} peserta, semua sudah memiliki QR data.`)
+        setRegeneratingQR(false)
+        return
+      }
+
+      toast.info('Generate QR Dimulai', `${needQR.length} dari ${participants.length} peserta perlu QR data.`)
+      setQrRegenProgress({ current: 0, total: needQR.length })
+
+      let updated = 0
+      let failed = 0
+      const TENANT_ID = 'tenant-default'
+      const EVENT_ID = 'event-default'
+
+      for (let i = 0; i < needQR.length; i++) {
+        const p = needQR[i]
+        
+        // Generate QR data baru (day default 1 kalau tidak ada)
+        const dayNumber = p.day_number || p.day || p.hari || 1
+        const qrData = generateQRData({
+          ticket_id: p.ticket_id,
+          name: p.nama || p.name,
+          day_number: dayNumber
+        }, TENANT_ID, EVENT_ID)
+
+        if (!qrData) {
+          console.error(`[regenerateAllQR] Gagal generate QR untuk ${p.ticket_id}`)
+          failed++
+          setQrRegenProgress({ current: i + 1, total: needQR.length })
+          continue
+        }
+
+        // Update ke database
+        const { error: updateError } = await supabase
+          .from('participants')
+          .update({ 
+            qr_data: qrData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('ticket_id', p.ticket_id)
+
+        if (updateError) {
+          console.error(`[regenerateAllQR] Gagal update ${p.ticket_id}:`, updateError)
+          failed++
+        } else {
+          updated++
+        }
+
+        setQrRegenProgress({ current: i + 1, total: needQR.length })
+        
+        // Delay kecil untuk menghindari rate limit
+        if (i % 10 === 0) {
+          await new Promise(r => setTimeout(r, 100))
+        }
+      }
+
+      toast.success(
+        'Regenerasi QR Selesai!',
+        `Berhasil: ${updated}, Gagal: ${failed}. Sekarang bisa kirim WA ke semua peserta.`
+      )
+      
+      // Refresh participants data
+      await bootstrapStoreFromFirebase()
+    } catch (err) {
+      toast.error('Gagal regenerasi QR', err?.message || 'Terjadi kesalahan saat regenerasi QR')
+    } finally {
+      setRegeneratingQR(false)
+    }
+  }
+
+  // SYNC TO GATES - Memaksa sinkronisasi data ke semua gate
+  const syncToGates = async () => {
+    setSyncingToGates(true)
+    try {
+      const res = await apiFetch('/api/sync-to-gates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          reason: 'manual_sync_from_admin'
+        })
+      })
+      const data = await res.json().catch(() => ({}))
+      
+      if (res.ok && data?.success) {
+        toast.success(
+          'Sync ke Gate Berhasil!',
+          `Data admin telah disinkronkan ke ${data.affected_clients || 'semua gate'}. Gate akan auto-refresh dalam 2-3 detik.`
+        )
+      } else {
+        toast.error('Sync Gagal', data?.error || 'Gagal mengirim sinyal sync ke gate')
+      }
+    } catch (err) {
+      toast.error('Sync Error', err?.message || 'Terjadi kesalahan saat sync ke gate')
+    } finally {
+      setSyncingToGates(false)
+    }
   }
 
   // ===== LAPORAN / LIST MOBILE =====
@@ -437,11 +833,32 @@ export default function WaDelivery() {
             <p>Pantau hasil kirim tiket via WhatsApp, lihat alasan gagal, dan lakukan pengiriman ulang.</p>
           </div>
           <div className="admin-actions-wrap">
+            <button type="button" className="btn btn-primary" onClick={sendBatchToAll} disabled={batchSending || !waConn.isReady}>
+              {batchSending ? (
+                <><RefreshCw size={16} className="spinner" /> {batchProgress.current}/{batchProgress.total}</>
+              ) : (
+                <><Send size={16} /> Kirim ke Semua</>
+              )}
+            </button>
             <button type="button" className="btn btn-secondary" onClick={loadLogs} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'spinner' : ''} /> Muat ulang
             </button>
             <button type="button" className="btn btn-ghost" onClick={retryBatchFailed} disabled={loading || retryingKey}>
               <RotateCcw size={16} /> Retry yang gagal
+            </button>
+            <button type="button" className="btn btn-warning" onClick={regenerateAllQR} disabled={regeneratingQR}>
+              {regeneratingQR ? (
+                <><RefreshCw size={16} className="spinner" /> QR {qrRegenProgress.current}/{qrRegenProgress.total}</>
+              ) : (
+                <><AlertTriangle size={16} /> Regenerasi QR</>
+              )}
+            </button>
+            <button type="button" className="btn btn-info" onClick={syncToGates} disabled={syncingToGates}>
+              {syncingToGates ? (
+                <><RefreshCw size={16} className="spinner" /> Syncing...</>
+              ) : (
+                <><Send size={16} /> Sync ke Gate</>
+              )}
             </button>
           </div>
         </div>
@@ -451,6 +868,162 @@ export default function WaDelivery() {
             wa={waConn}
             title="WhatsApp belum siap"
           />
+        )}
+
+        {/* Progress bar untuk regenerasi QR */}
+        {regeneratingQR && (
+          <div className="card" style={{ marginBottom: 12, borderLeft: '4px solid var(--warning)' }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontWeight: 600 }}>Regenerasi QR Data...</span>
+                <span>{qrRegenProgress.current}/{qrRegenProgress.total}</span>
+              </div>
+              <div className="progress-bar" style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                <div 
+                  className="progress-bar-fill" 
+                  style={{ 
+                    width: `${qrRegenProgress.total > 0 ? (qrRegenProgress.current / qrRegenProgress.total) * 100 : 0}%`,
+                    background: 'var(--warning)',
+                    height: '100%',
+                    transition: 'width 0.3s ease'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Ringkasan Status Pengiriman - Tampilkan sebelum batch send */}
+        {!batchSending && (
+          <div className="card" style={{ marginBottom: 12, background: 'var(--bg-elevated)' }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  Status Pengiriman Tiket
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={sendBatchToAll}
+                  disabled={!waConn.isReady}
+                >
+                  <Send size={14} style={{ marginRight: 6 }} />
+                  Kirim ke Yang Belum
+                </button>
+              </div>
+              {(() => {
+                const all = getParticipants(getCurrentDay())
+                const sent = all.filter(p => p.wa_sent_at && new Date(p.wa_sent_at).getTime() > 0)
+                const unsent = all.filter(p => !p.wa_sent_at || !new Date(p.wa_sent_at).getTime())
+                const withQr = unsent.filter(p => p.qr_data && String(p.qr_data).trim().length > 0)
+                const withPhone = withQr.filter(p => {
+                  const phone = normalizePhone(p.phone || p.whatsapp || p.wa || '')
+                  return phone && phone.length >= 10
+                })
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                    <div style={{ textAlign: 'center', padding: '12px 8px', background: 'var(--bg-primary)', borderRadius: 8 }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--brand-primary)' }}>{all.length}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Peserta</div>
+                    </div>
+                    <div style={{ textAlign: 'center', padding: '12px 8px', background: 'var(--success-soft)', borderRadius: 8 }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--success)' }}>{sent.length}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sudah Dikirim ✅</div>
+                    </div>
+                    <div style={{ textAlign: 'center', padding: '12px 8px', background: 'var(--warning-soft)', borderRadius: 8 }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning)' }}>{withPhone.length}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Siap Kirim 📤</div>
+                    </div>
+                    <div style={{ textAlign: 'center', padding: '12px 8px', background: 'var(--danger-soft)', borderRadius: 8 }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--danger)' }}>{unsent.length - withPhone.length}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Belum Siap ⚠️</div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Progress bar untuk batch sending */}
+        {batchSending && (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontWeight: 600 }}>Mengirim pesan massal...</span>
+                <span>{batchProgress.current}/{batchProgress.total}</span>
+              </div>
+              <div className="progress-bar" style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                <div 
+                  className="progress-bar-fill" 
+                  style={{ 
+                    width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%`,
+                    background: 'var(--brand-primary)',
+                    height: '100%',
+                    transition: 'width 0.3s ease'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: '0.85rem' }}>
+                <span className="badge badge-green text-xs">Sukses: {batchProgress.success}</span>
+                <span className="badge badge-red text-xs">Gagal: {batchProgress.failed}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Daftar yang gagal dari batch terakhir - Mobile */}
+        {!batchSending && lastBatchFailed.length > 0 && (
+          <div className="card" style={{ marginBottom: 12, borderLeft: '4px solid var(--danger)' }}>
+            <div className="card-header" style={{ background: 'var(--danger-soft)', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', width: '100%' }}>
+                <div>
+                  <h3 className="card-title" style={{ color: 'var(--danger)', margin: 0, fontSize: '0.9rem' }}>
+                    <AlertTriangle size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+                    Gagal di Batch Terakhir ({lastBatchFailed.length})
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={retryLastBatchFailed}
+                  disabled={!waConn.isReady}
+                >
+                  <RotateCcw size={14} /> Retry Semua
+                </button>
+              </div>
+            </div>
+            <div style={{ maxHeight: 250, overflow: 'auto', padding: 8 }}>
+              {lastBatchFailed.map((item, idx) => (
+                <div key={idx} style={{ 
+                  padding: '10px 12px', 
+                  borderBottom: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 2 }}>{item.name || '-'}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {item.ticket_id} • {item.phone}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: 4 }}>
+                      {item.error}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => retrySend({ ticket_id: item.ticket_id, phone: item.phone, wa_send_mode: item.wa_send_mode })}
+                    disabled={!!retryingKey || !waConn.isReady}
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="admin-toolbar">
@@ -564,11 +1137,32 @@ export default function WaDelivery() {
           <p>Pantau hasil kirim tiket via WhatsApp, lihat alasan gagal, dan lakukan pengiriman ulang tanpa harus membuka daftar peserta satu per satu.</p>
         </div>
         <div className="admin-actions-wrap">
+          <button type="button" className="btn btn-primary" onClick={sendBatchToAll} disabled={batchSending || !waConn.isReady}>
+            {batchSending ? (
+              <><RefreshCw size={16} className="spinner" /> {batchProgress.current}/{batchProgress.total}</>
+            ) : (
+              <><Send size={16} /> Kirim ke Semua</>
+            )}
+          </button>
           <button type="button" className="btn btn-secondary" onClick={loadLogs} disabled={loading}>
             <RefreshCw size={16} className={loading ? 'spinner' : ''} /> Muat ulang
           </button>
           <button type="button" className="btn btn-ghost" onClick={retryBatchFailed} disabled={loading || retryingKey}>
             <RotateCcw size={16} /> Retry yang gagal
+          </button>
+          <button type="button" className="btn btn-warning" onClick={regenerateAllQR} disabled={regeneratingQR}>
+            {regeneratingQR ? (
+              <><RefreshCw size={16} className="spinner" /> QR {qrRegenProgress.current}/{qrRegenProgress.total}</>
+            ) : (
+              <><AlertTriangle size={16} /> Regenerasi QR</>
+            )}
+          </button>
+          <button type="button" className="btn btn-info" onClick={syncToGates} disabled={syncingToGates}>
+            {syncingToGates ? (
+              <><RefreshCw size={16} className="spinner" /> Syncing...</>
+            ) : (
+              <><Send size={16} /> Sync ke Gate</>
+            )}
           </button>
         </div>
       </div>
@@ -578,6 +1172,113 @@ export default function WaDelivery() {
           wa={waConn}
           title="WhatsApp belum siap"
         />
+      )}
+
+      {/* Progress bar untuk regenerasi QR */}
+      {regeneratingQR && (
+        <div className="card" style={{ marginBottom: 12, borderLeft: '4px solid var(--warning)' }}>
+          <div style={{ padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontWeight: 600 }}>Regenerasi QR Data...</span>
+              <span>{qrRegenProgress.current}/{qrRegenProgress.total}</span>
+            </div>
+            <div className="progress-bar" style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+              <div 
+                className="progress-bar-fill" 
+                style={{ 
+                  width: `${qrRegenProgress.total > 0 ? (qrRegenProgress.current / qrRegenProgress.total) * 100 : 0}%`,
+                  background: 'var(--warning)',
+                  height: '100%',
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress bar untuk batch sending */}
+      {batchSending && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontWeight: 600 }}>Mengirim pesan massal...</span>
+              <span>{batchProgress.current}/{batchProgress.total}</span>
+            </div>
+            <div className="progress-bar" style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+              <div 
+                className="progress-bar-fill" 
+                style={{ 
+                  width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%`,
+                  background: 'var(--brand-primary)',
+                  height: '100%',
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: '0.85rem' }}>
+              <span className="badge badge-green text-xs">Sukses: {batchProgress.success}</span>
+              <span className="badge badge-red text-xs">Gagal: {batchProgress.failed}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daftar yang gagal dari batch terakhir */}
+      {!batchSending && lastBatchFailed.length > 0 && (
+        <div className="card" style={{ marginBottom: 12, borderLeft: '4px solid var(--danger)' }}>
+          <div className="card-header" style={{ background: 'var(--danger-soft)', borderBottom: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', width: '100%' }}>
+              <div>
+                <h3 className="card-title" style={{ color: 'var(--danger)', margin: 0 }}>
+                  <AlertTriangle size={18} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+                  Yang Gagal di Batch Terakhir ({lastBatchFailed.length} peserta)
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={retryLastBatchFailed}
+                disabled={!waConn.isReady}
+              >
+                <RotateCcw size={14} /> Retry Semua
+              </button>
+            </div>
+          </div>
+          <div style={{ maxHeight: 300, overflow: 'auto' }}>
+            <table className="data-table" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Ticket ID</th>
+                  <th>Nomor</th>
+                  <th>Alasan Gagal</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastBatchFailed.map((item, idx) => (
+                  <tr key={idx}>
+                    <td style={{ fontWeight: 600 }}>{item.name || '-'}</td>
+                    <td className="ticket-id-code">{item.ticket_id}</td>
+                    <td>{item.phone}</td>
+                    <td style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{item.error}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => retrySend({ ticket_id: item.ticket_id, phone: item.phone, wa_send_mode: item.wa_send_mode })}
+                        disabled={!!retryingKey || !waConn.isReady}
+                      >
+                        <Send size={14} /> Retry
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       <div className="admin-toolbar">

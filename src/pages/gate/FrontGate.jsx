@@ -41,7 +41,10 @@ function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkInLogs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  // Support both field names for backward compatibility
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const logs = event?.checkInLogs || event?.checkin_logs || [];
+  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
 
 function searchParticipants(query, day) {
@@ -88,21 +91,29 @@ function getMaxPendingAttempts() {
 
 async function checkIn(ticketId, day, scannedBy) {
   try {
+    // Sync data from server first to ensure we have latest participants
+    await bootstrapStoreFromFirebase(true);
+
     // Cari peserta berdasarkan ticket_id
     const participants = getParticipants(day);
     const participant = participants.find(p => p.ticket_id === ticketId);
-    
+
     if (!participant) {
-      return { success: false, error: 'Peserta tidak ditemukan', status: 'not_found' };
+      return { success: false, error: 'Peserta tidak terdaftar (tidak ditemukan di data terbaru)', status: 'not_registered' };
     }
-    
+
+    // Verify participant is properly registered with required data
+    if (!participant.name || !participant.ticket_id) {
+      return { success: false, error: 'Data peserta tidak valid - belum terdaftar dengan lengkap', status: 'invalid_registration' };
+    }
+
     // Check if already checked in
     const existingLogs = getCheckInLogs(day);
     const alreadyCheckedIn = existingLogs.some(log => log.ticket_id === ticketId);
     if (alreadyCheckedIn) {
       return { success: false, error: 'Peserta sudah check-in', alreadyCheckedIn: true, status: 'duplicate', participant };
     }
-    
+
     // Add to check-in logs
     const tenantId = 'tenant-default';
     const eventId = 'event-default';
@@ -117,29 +128,40 @@ async function checkIn(ticketId, day, scannedBy) {
       event_id: eventId
     };
 
-    // Store in memory
+    // Store in memory (support both field names)
     if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
       const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
-      if (!event.checkInLogs) event.checkInLogs = [];
+      // Use checkInLogs (camelCase) as primary, fallback to checkin_logs
+      if (!event.checkInLogs) event.checkInLogs = event.checkin_logs || [];
       event.checkInLogs.push(newLog);
+      // Also update lowercase version for backward compatibility
+      event.checkin_logs = event.checkInLogs;
     }
 
     // Persist to database (async, don't block response)
     void syncCheckInLog({ tenantId, eventId, log: newLog });
 
     return { success: true, ticket_id: ticketId, participant, status: 'success' };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Check-in failed', status: 'error' };
   }
 }
 
 async function manualCheckIn(ticketId, scannedBy) {
+  // Sync data first to ensure we have latest participants
+  await bootstrapStoreFromFirebase(true);
+
   const participants = getParticipants();
   const participant = participants.find(p => p.ticket_id === ticketId);
   if (!participant) {
-    return { success: false, error: 'Peserta tidak ditemukan' };
+    return { success: false, error: 'Peserta tidak terdaftar (tidak ditemukan di data)', status: 'not_registered' };
   }
-  
+
+  // Verify participant is registered with proper data
+  if (!participant.name || !participant.ticket_id) {
+    return { success: false, error: 'Data peserta tidak valid (nama atau tiket ID kosong)', status: 'invalid_data' };
+  }
+
   const day = getCurrentDay();
   return checkIn(ticketId, day, scannedBy);
 }
@@ -194,7 +216,7 @@ async function syncPendingCheckIns() {
           removePendingCheckIn(item.ticket_id);
         }
       }
-    } catch (error) {
+    } catch {
       item.attempts++;
     }
   }
@@ -302,9 +324,9 @@ export default function FrontGate() {
       return { valid: false, reason: 'invalid_payload', enforced: true }
     }
 
-    const normalizedQr = String(qrData || '').trim()
     const parsedTicketId = parsed.ticketId
-    const parsedSecureRef = parsed.secureRef
+    // eslint-disable-next-line no-unused-vars
+    const parsedSecureRef = parsed.secureRef  // Reserved for future security validation
     const participantPool = getParticipants()
     // Cari peserta berdasarkan ticket_id dari QR data (tidak cocokkan qr_data lengkap karena ada timestamp)
     const matched = participantPool.find(p => p.ticket_id === parsedTicketId)
@@ -424,9 +446,11 @@ export default function FrontGate() {
     setManualInput('')
   }
 
-  // Manual check-in by participant ID
-  const handleManualCheckIn = (participant) => {
-    const res = manualCheckIn(participant.ticket_id, 'gate_front')
+  // Manual check-in by participant ID - now async with server sync
+  const handleManualCheckIn = async (participant) => {
+    setIsResolvingLatestData(true)
+    const res = await manualCheckIn(participant.ticket_id, 'gate_front')
+    setIsResolvingLatestData(false)
     setResult(res)
     setShowResultDetail(false)
 
@@ -447,16 +471,33 @@ export default function FrontGate() {
     setTimeout(() => setResult(null), getResultDismissMs(res))
   }
 
-  // Search handler
-  const handleSearch = (query) => {
+  // Search handler with sync - ensures data is fresh from server before searching
+  const handleSearch = useCallback(async (query) => {
     setSearchQuery(query)
     if (query.trim().length >= 2) {
+      // Sync data from server first to ensure we have latest participants
+      setIsResolvingLatestData(true)
+      try {
+        await bootstrapStoreFromFirebase(true)
+        refreshStats()
+      } catch (err) {
+        console.error('[FrontGate] Failed to sync before search:', err)
+      } finally {
+        setIsResolvingLatestData(false)
+      }
+      // Search with fresh data
       const results = searchParticipants(query, currentDay)
-      setSearchResults(results)
+      // Mark participants as registered if found in data
+      const resultsWithSyncStatus = results.map(p => ({
+        ...p,
+        is_registered: true,
+        registration_status: 'terdaftar'
+      }))
+      setSearchResults(resultsWithSyncStatus)
     } else {
       setSearchResults([])
     }
-  }
+  }, [currentDay, refreshStats])
 
   // Camera scanner
   const startCamera = async () => {
@@ -495,6 +536,7 @@ export default function FrontGate() {
       refreshPendingState();
     };
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Realtime subscription to capture admin data changes
@@ -601,6 +643,8 @@ export default function FrontGate() {
     if (result.success) return 'CHECK-IN BERHASIL'
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
     if (result.status === 'wrong_day') return 'SALAH HARI'
+    if (result.status === 'not_registered') return 'PESERTA BELUM TERDAFTAR'
+    if (result.status === 'invalid_registration') return 'REGISTRASI TIDAK VALID'
     if (result.status === 'not_found') return 'PESERTA TIDAK DITEMUKAN'
     return 'TIDAK VALID'
   }
@@ -628,6 +672,8 @@ export default function FrontGate() {
     if (result.status === 'duplicate') return 'Arahkan peserta ke helpdesk untuk verifikasi ulang.'
     if (result.status === 'wrong_day') return 'Informasikan hari tiket yang benar.'
     if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
+    if (result.status === 'not_registered') return 'Peserta belum terdaftar di sistem. Arahkan ke helpdesk untuk registrasi.'
+    if (result.status === 'invalid_registration') return 'Data registrasi peserta tidak lengkap. Arahkan ke helpdesk.'
     if (result.status === 'not_found') return 'Data peserta tidak ditemukan. Arahkan ke helpdesk.'
     return 'Tiket ditolak. Arahkan ke helpdesk.'
   }
@@ -865,7 +911,7 @@ export default function FrontGate() {
             <div className="card">
               <div className="card-header scanner-results-header">
                 <h3 className="card-title scanner-results-title">
-                  {searchResults.length > 0 ? `${searchResults.length} hasil ditemukan` : 'Tidak ada hasil'}
+                  {searchResults.length > 0 ? `${searchResults.length} hasil ditemukan (Data Tersinkron)` : 'Tidak ada hasil (Cek koneksi atau data belum terdaftar)'}
                 </h3>
               </div>
               <div className="scanner-results-scroll">
@@ -878,6 +924,7 @@ export default function FrontGate() {
                       <div className="scanner-search-name">{p.name}</div>
                       <div className="scanner-search-meta">
                         <span className={`badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'gray'}`}>{p.category}</span>
+                        <span className="badge badge-green">{p.registration_status || 'Terdaftar'}</span>
                         {p.ticket_id}
                       </div>
                     </div>

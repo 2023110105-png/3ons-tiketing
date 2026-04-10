@@ -1,6 +1,7 @@
 // ===== REAL FUNCTIONS FOR OPS MONITOR =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
+let _unsubscribeRealtime = null;
 async function bootstrapStoreFromFirebase() {
   _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
   return _workspaceSnapshot;
@@ -42,7 +43,10 @@ function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  // Support both field names for backward compatibility
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const logs = event?.checkInLogs || event?.checkin_logs || [];
+  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
 function getStats(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
@@ -109,6 +113,25 @@ export default function OpsMonitor() {
       setTick(t => t + 1)
     }, 5000)
     return () => window.clearInterval(id)
+  }, [])
+
+  // Realtime subscription for instant updates
+  useEffect(() => {
+    _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
+      console.log('[OpsMonitor] Realtime update received:', payload?.eventType);
+      // Refresh workspace snapshot when data changes
+      void bootstrapStoreFromFirebase().then(() => {
+        setTick(t => t + 1);
+        console.log('[OpsMonitor] Data refreshed from realtime update');
+      });
+    });
+
+    return () => {
+      if (_unsubscribeRealtime) {
+        _unsubscribeRealtime();
+        _unsubscribeRealtime = null;
+      }
+    };
   }, [])
 
   const stats = getStats(dayFilter)

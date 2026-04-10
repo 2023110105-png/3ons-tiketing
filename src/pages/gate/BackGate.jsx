@@ -1,6 +1,7 @@
 // ===== REAL FUNCTIONS FOR BACKGATE =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
+let _unsubscribeRealtime = null;
 
 async function bootstrapStoreFromFirebase() {
   _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
@@ -13,7 +14,10 @@ function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  // Support both field names for backward compatibility
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const logs = event?.checkInLogs || event?.checkin_logs || [];
+  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
 
 function getStats(day) {
@@ -90,6 +94,25 @@ export default function BackGate() {
       setRefreshKey(k => k + 1)
     }, REALTIME_REFRESH_MS)
     return () => clearInterval(interval)
+  }, [])
+
+  // Realtime subscription to capture check-ins from FrontGate
+  useEffect(() => {
+    _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
+      console.log('[BackGate] Realtime update received:', payload?.eventType);
+      // Refresh workspace snapshot when data changes
+      void bootstrapStoreFromFirebase().then(() => {
+        setRefreshKey(k => k + 1);
+        console.log('[BackGate] Data refreshed from realtime update');
+      });
+    });
+
+    return () => {
+      if (_unsubscribeRealtime) {
+        _unsubscribeRealtime();
+        _unsubscribeRealtime = null;
+      }
+    };
   }, [])
 
   useEffect(() => {
