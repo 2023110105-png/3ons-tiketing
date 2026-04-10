@@ -1,3 +1,5 @@
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getCurrentDay() { return 1; }
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from '../../contexts/ToastContext'

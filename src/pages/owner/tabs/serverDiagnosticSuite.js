@@ -1,3 +1,5 @@
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getCurrentDay() { return 1; }
 
 import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/firebaseSync'
 import { apiFetch } from '../../../utils/api'

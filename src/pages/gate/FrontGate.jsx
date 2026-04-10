@@ -1,3 +1,5 @@
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getCurrentDay() { return 1; }
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'

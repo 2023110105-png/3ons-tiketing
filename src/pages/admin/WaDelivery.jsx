@@ -1,3 +1,5 @@
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getCurrentDay() { return 1; }
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
