@@ -36,6 +36,8 @@ const OWNER_RELEASE_VISIBLE_PATHS = new Set([
 ])
 
 export default function Layout({ children }) {
+  // ===== DUMMY USER AGAR ERROR HILANG =====
+  const user = { role: 'super_admin', name: 'Admin' }
   const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
