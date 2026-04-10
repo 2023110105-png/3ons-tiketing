@@ -23,7 +23,7 @@ import {
   getParticipants,
   getTenantHealth,
   getTenants
-} from '../../../store/mockData'
+
 import { useToast } from '../../../contexts/ToastContext'
 import {
   ALERT_RULE_PRESETS,

@@ -3,7 +3,7 @@ import {
   FileText, History, DollarSign, Printer,
   Search, CheckCircle, Clock, Plus, Filter 
 } from 'lucide-react'
-import { getTenants, addTenantInvoice, updateInvoiceStatus, bootstrapStoreFromFirebase } from '../../../store/mockData'
+
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 

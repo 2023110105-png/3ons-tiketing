@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Search, Download, Clock, User, Info } from 'lucide-react'
-import { getOwnerAuditLog } from '../../../store/mockData'
+
 
 function formatMetaForViewer(meta) {
   try {

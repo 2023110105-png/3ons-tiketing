@@ -3,7 +3,7 @@ import {
   BarChart3, Users, Smartphone, LayoutGrid, 
   Search, AlertTriangle, AlertCircle, Save 
 } from 'lucide-react'
-import { getTenants, updateTenantQuota, getTenantHealth, bootstrapStoreFromFirebase } from '../../../store/mockData'
+
 import { humanizeUserMessage } from '../../../utils/userFriendlyMessage'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'

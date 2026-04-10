@@ -3,7 +3,7 @@ import {
   Activity, Users, CheckCircle, XCircle, 
   Clock, AlertTriangle, RefreshCw, BarChart 
 } from 'lucide-react'
-import { getTenantHealth, bootstrapStoreFromFirebase } from '../../../store/mockData'
+
 
 function getTenantDisplayName(health) {
   return String(health?.branding?.appName || health?.brandName || '-').trim() || '-'

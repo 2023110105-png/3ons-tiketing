@@ -3,7 +3,7 @@ import {
   FileText, Calendar, DollarSign, Clock, 
   Search, CheckCircle, AlertCircle, Plus 
 } from 'lucide-react'
-import { getTenants, updateTenantContract, bootstrapStoreFromFirebase } from '../../../store/mockData'
+
 import { humanizeUserMessage } from '../../../utils/userFriendlyMessage'
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'

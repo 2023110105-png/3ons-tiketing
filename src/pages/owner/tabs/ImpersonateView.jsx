@@ -3,7 +3,7 @@ import {
   Eye, CornerRightUp, ShieldCheck, 
   ArrowRight, Search, Users, ShieldAlert 
 } from 'lucide-react'
-import { getTenants, getTenantUsers } from '../../../store/mockData'
+
 import { useToast } from '../../../contexts/ToastContext'
 import { useAuth } from '../../../contexts/useAuth'
 
