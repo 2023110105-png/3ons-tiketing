@@ -1,5 +1,6 @@
 // ===== REAL FUNCTIONS FOR PARTICIPANTS =====
 import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { generateQRData } from '../../utils/qrSecurity';
 let _workspaceSnapshot = null;
 async function bootstrapStoreFromFirebase() {
   _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
@@ -61,14 +62,12 @@ function addParticipant(participantData) {
     email: participantData.email || '',
     category: participantData.category || 'Regular',
     day_number: participantData.day_number || 1,
-    qr_data: participantData.qr_data || JSON.stringify({
-      tid: participantData.ticket_id || 'T' + Date.now(),
-      t: 'tenant-default',
-      e: 'event-default',
-      d: participantData.day_number || 1,
-      sig: 'SIG_' + Date.now(),
-      v: 2
-    }),
+    qr_data: participantData.qr_data || generateQRData({
+      ticket_id: participantData.ticket_id || 'T' + Date.now(),
+      name: participantData.name,
+      day_number: participantData.day_number || 1,
+      category: participantData.category
+    }, 'tenant-default', 'event-default'),
     created_at: new Date().toISOString()
   };
   
@@ -569,6 +568,10 @@ export default function Participants() {
     })
     if (newParticipant.auto_send) {
       toast.success('Peserta ditambahkan', `${p.name} — sedang dikirim lewat WhatsApp…`)
+      // Actually send the ticket via WA bot
+      setTimeout(() => {
+        handleSingleBotSend(p)
+      }, 500)
     } else {
       toast.success('Peserta ditambahkan', `${p.name} (${p.ticket_id})`)
     }
