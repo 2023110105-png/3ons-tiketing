@@ -1,24 +1,4 @@
 // ===== REAL FUNCTIONS FOR WA DELIVERY =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
-let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-function getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getCurrentDay() { return 1; }
-function getWaSendMode() { return 'message_only'; }
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -27,6 +7,8 @@ import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { generateWaMessage } from '../../utils/whatsapp'
 import { supabase } from '../../lib/supabase'
 
 // Helper untuk fetch peserta langsung dari Supabase
@@ -42,25 +24,6 @@ async function fetchParticipantByTicketId(ticketId) {
   } catch (e) {
     console.error('[fetchParticipantByTicketId] Error:', e)
     return null
-  }
-}
-import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { generateWaMessage } from '../../utils/whatsapp'
-import { supabase } from '../../lib/supabase'
-
-// Load participants from Supabase (persistent storage)
-async function loadParticipantsFromSupabase(day) {
-  try {
-    let query = supabase.from('participants').select('*').order('nama', { ascending: true });
-    if (typeof day === 'number') {
-      query = query.eq('hari', day);
-    }
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
-  } catch (err) {
-    console.error('Failed to load from Supabase:', err);
-    return getParticipants(day);
   }
 }
 
