@@ -613,38 +613,67 @@ export default function Participants() {
     return digits.length >= 10
   }
 
+  // ===== SMART RETRY SYSTEM untuk Ultra-Reliable Bot =====
+  const RETRY_DELAYS = [1000, 2000, 4000, 8000]; // Exponential backoff
+  const MAX_RETRIES = 4;
+  
+  // Check if error is non-retryable (permanent)
+  const isNonRetryableError = (error) => {
+    const nonRetryable = ['nomor tidak valid', 'tidak terdaftar', 'bukan user whatsapp', 'invalid phone'];
+    return nonRetryable.some(k => String(error).toLowerCase().includes(k));
+  };
+  
+  // Smart retry dengan exponential backoff
+  const sendWithRetry = async (sendFn, maxRetries = MAX_RETRIES) => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await sendFn();
+        if (result?.success) return { success: true, attempts: attempt + 1 };
+        if (isNonRetryableError(result?.error)) return { success: false, attempts: attempt + 1, error: result.error };
+        lastError = result?.error || 'Unknown';
+      } catch (err) {
+        lastError = err?.message || 'Network error';
+      }
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)]));
+      }
+    }
+    return { success: false, attempts: maxRetries + 1, error: lastError };
+  };
+
   const sendTicketViaBot = async (participant) => {
     if (!hasValidWaTarget(participant)) {
       return { success: false, error: 'Nomor WhatsApp peserta kosong atau tidak valid.' }
     }
     const tenantIdNow = resolveTenantId(user)
-    // Force desain tiket WA agar tidak jatuh ke mode QR polos.
     const waSendMode = 'message_with_barcode';
     const wa_message = generateWaMessage(participant)
-    try {
-      const res = await apiFetch('/api/send-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...participant,
-          tenant_id: tenantIdNow,
-          send_wa: !!participant.phone,
-          send_email: !!participant.email,
-          wa_message,
-          wa_send_mode: waSendMode
-        })
-      });
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data?.success === false) {
-        const serverError = data?.error || `HTTP ${res.status}`
-        console.error('Broadcast send-ticket failed:', { tenant_id: tenantIdNow, ticket_id: participant?.ticket_id, serverError })
-        return { success: false, error: serverError }
+    
+    // Smart Retry: Coba kirim dengan exponential backoff
+    return await sendWithRetry(async () => {
+      try {
+        const res = await apiFetch('/api/send-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...participant,
+            tenant_id: tenantIdNow,
+            send_wa: !!participant.phone,
+            send_email: !!participant.email,
+            wa_message,
+            wa_send_mode: waSendMode
+          })
+        });
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || data?.success === false) {
+          return { success: false, error: data?.error || `HTTP ${res.status}` }
+        }
+        return { success: true, error: null }
+      } catch (e) {
+        return { success: false, error: e?.message || 'Network error' }
       }
-      return { success: true, error: null }
-    } catch (e) {
-      console.error('Layanan pengiriman sedang tidak aktif:', e);
-      return { success: false, error: e?.message || 'Tidak bisa terhubung ke layanan pengiriman' }
-    }
+    });
   }
 
   const handleSingleBotSend = async (participant) => {

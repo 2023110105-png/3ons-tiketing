@@ -27,6 +27,99 @@ async function fetchParticipantByTicketId(ticketId) {
   }
 }
 
+// ===== ULTRA-RELIABLE BOT SYSTEM =====
+// Exponential backoff delays: 1s, 2s, 4s, 8s (max 4 retries)
+const RETRY_DELAYS = [1000, 2000, 4000, 8000];
+const MAX_RETRIES = 4;
+
+// Pre-validate participant data before sending
+function validateParticipant(participant) {
+  const errors = [];
+  if (!participant) {
+    errors.push('Peserta tidak ditemukan');
+    return { valid: false, errors };
+  }
+  if (!participant.ticket_id) {
+    errors.push('Ticket ID kosong');
+  }
+  if (!participant.phone || !normalizePhone(participant.phone)) {
+    errors.push('Nomor WhatsApp tidak valid');
+  }
+  if (!participant.qr_data) {
+    errors.push('QR data tidak tersedia');
+  }
+  return { 
+    valid: errors.length === 0, 
+    errors,
+    participant: {
+      ...participant,
+      phone: normalizePhone(participant.phone)
+    }
+  };
+}
+
+// Smart retry dengan exponential backoff
+async function sendWithRetry(sendFn, maxRetries = MAX_RETRIES) {
+  let lastError = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await sendFn();
+      if (result?.success) {
+        return { success: true, attempts: attempt + 1, result };
+      }
+      // Jika error tidak bisa di-retry (misal nomor tidak valid), langsung return
+      if (result?.error && isNonRetryableError(result.error)) {
+        return { success: false, attempts: attempt + 1, error: result.error, result };
+      }
+      lastError = result?.error || 'Unknown error';
+    } catch (err) {
+      lastError = err?.message || 'Network error';
+      // Jika network error yang spesifik, retry
+      if (!isNetworkError(lastError)) {
+        return { success: false, attempts: attempt + 1, error: lastError };
+      }
+    }
+    
+    // Delay sebelum retry (kecuali attempt terakhir)
+    if (attempt < maxRetries) {
+      const delay = RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)];
+      console.log(`[Retry ${attempt + 1}/${maxRetries}] Waiting ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  
+  return { success: false, attempts: maxRetries + 1, error: lastError };
+}
+
+// Error yang tidak perlu di-retry (permanent error)
+function isNonRetryableError(error) {
+  const nonRetryable = [
+    'nomor tidak valid',
+    'tidak terdaftar',
+    'bukan user whatsapp',
+    'invalid phone',
+    'not a whatsapp user',
+    'qr data tidak tersedia'
+  ];
+  const errLower = String(error).toLowerCase();
+  return nonRetryable.some(keyword => errLower.includes(keyword));
+}
+
+// Error network yang bisa di-retry
+function isNetworkError(error) {
+  const networkErrors = [
+    'timeout',
+    'network',
+    'connection',
+    'econnrefused',
+    'fetch failed',
+    'aborted'
+  ];
+  const errLower = String(error).toLowerCase();
+  return networkErrors.some(keyword => errLower.includes(keyword));
+}
+
 function formatTime(value) {
   try { return new Date(value).toLocaleString('id-ID') } catch { return '-' }
 }
@@ -199,56 +292,70 @@ export default function WaDelivery() {
       return
     }
     setRetryingKey(String(ticket_id))
+    
     // Fetch peserta langsung dari Supabase (real-time, tidak bergantung snapshot)
     const p = await fetchParticipantByTicketId(ticket_id)
-    if (!p) {
-      toast.error('Tidak ditemukan', 'Data peserta untuk ticket ID ini tidak ada di sistem.')
+    
+    // Pre-validate sebelum kirim (hindari error di tengah jalan)
+    const validation = validateParticipant(p)
+    if (!validation.valid) {
+      toast.error('Validasi gagal', validation.errors.join(', '))
       setRetryingKey('')
       return
     }
-    if (!p.qr_data) {
-      toast.error('Tidak lengkap', 'QR data peserta tidak tersedia untuk pengiriman ulang.')
-      setRetryingKey('')
-      return
-    }
-    const targetPhone = normalizePhone(phone || p.phone)
-    if (!targetPhone) {
-      toast.error('Tidak ada nomor', 'Peserta tidak memiliki nomor WhatsApp.')
-      setRetryingKey('')
-      return
-    }
-
+    
+    const validatedParticipant = validation.participant
+    const targetPhone = phone ? normalizePhone(phone) : validatedParticipant.phone
     const key = `${ticket_id}:${targetPhone}`
+    
     if (retryingKey) {
       setRetryingKey('')
       return
     }
     setRetryingKey(key)
+    
     try {
       const tenantIdNow = resolveTenantId(user)
-      const body = {
-        ...p,
-        tenant_id: tenantIdNow,
-        phone: targetPhone,
-        send_wa: true,
-        send_email: false,
-        wa_message: buildWaMessage(p),
-        wa_send_mode: (wa_send_mode === 'message_with_barcode' || wa_send_mode === 'message_only')
-          ? wa_send_mode
-          : getWaSendMode()
-      }
-
-      const res = await apiFetch('/api/send-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+      
+      // Kirim dengan Smart Retry System (exponential backoff)
+      const result = await sendWithRetry(async () => {
+        const body = {
+          ...validatedParticipant,
+          tenant_id: tenantIdNow,
+          phone: targetPhone,
+          send_wa: true,
+          send_email: false,
+          wa_message: buildWaMessage(validatedParticipant),
+          wa_send_mode: (wa_send_mode === 'message_with_barcode' || wa_send_mode === 'message_only')
+            ? wa_send_mode
+            : getWaSendMode()
+        }
+        
+        const res = await apiFetch('/api/send-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+        const data = await res.json().catch(() => ({}))
+        
+        if (!res.ok || data?.success === false) {
+          return { success: false, error: data?.error || `HTTP ${res.status}` }
+        }
+        return { success: true, data }
       })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data?.success === false) {
-        throw new Error(data?.error || `HTTP ${res.status}`)
+      
+      if (result.success) {
+        toast.success(
+          'Terkirim!', 
+          `${p.name || ticket_id} berhasil (attempt ${result.attempts})`
+        )
+        await loadLogs()
+      } else {
+        toast.error(
+          'Gagal mengirim', 
+          `${p.name || ticket_id}: ${humanizeUserMessage(result.error, { fallback: 'Gagal setelah ' + result.attempts + ' percobaan' })}`
+        )
       }
-      toast.success('Terkirim', `Pengiriman ulang diproses untuk ${p.name || p.ticket_id}.`)
-      await loadLogs()
     } catch (err) {
       toast.error('Gagal mengirim ulang', humanizeUserMessage(err?.message, { fallback: 'Pengiriman ulang gagal.' }))
     } finally {
