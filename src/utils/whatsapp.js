@@ -12,23 +12,27 @@ function normalizeTokenKey(key) {
 
 // Fallback getWaTemplate jika tidak ada global
 function getWaTemplate() {
-  return `🎻 E-TICKET: PALEMBANG VIOLIN COMPETITION
-PARTICIPANT DETAILS
-──────────────────────────
-👤 Name : {{nama}}
-🆔 QR ID : Violin-{{tiket}}
-🎼 Class : {{kategori}}
-──────────────────────────
+  return `📋 *E-ATTENDANCE*
+🏛️ PALEMBANG VIOLIN COMPETITION
 
-EVENT SCHEDULE
-📅 Date : Saturday, 11th April 2026
-🏢 By : Primavera Production
+╭────────────────────────╮
+  👤 *{{nama}}*
+  � {{kategori}}
+  📱 Violin-{{tiket}}
+╰────────────────────────╯
 
-INSTRUCTION
-Please show the barcode of this ticket to our registration officer for check-in.
+📅 Event : 11 April 2026
+🏢 Venue : Primavera Production
 
-Thank you and good luck! 🎶
-──────────────────────────`;
+✨ *PETUNJUK REGISTRASI*
+Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
+
+⚠️ *Ketentuan:*
+• Valid untuk 1 (satu) orang peserta
+• Wajib menunjukkan QR asli, tidak boleh screenshot
+• Harap hadir 30 menit sebelum jadwal tampil
+
+Terima kasih & semoga sukses! 🎻🎶`;
 }
 
 export const generateWaMessage = (participant) => {
