@@ -41,7 +41,23 @@ function setCurrentDay(day) {
 }
 
 function getWaTemplate() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return '';
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return `🎻 E-TICKET: PALEMBANG VIOLIN COMPETITION
+PARTICIPANT DETAILS
+──────────────────────────
+👤 Name : {{nama}}
+🆔 QR ID : Violin-{{tiket}}
+🎼 Class : {{kategori}}
+──────────────────────────
+
+EVENT SCHEDULE
+📅 Date : Saturday, 11th April 2026
+🏢 By : Primavera Production
+
+INSTRUCTION
+Please show the barcode of this ticket to our registration officer for check-in.
+
+Thank you and good luck! 🎶
+──────────────────────────`;
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
@@ -276,6 +292,24 @@ export default function Settings() {
     return () => window.clearInterval(id)
   }, [])
 
+  // Bootstrap data and update waTemplate state after load
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      await bootstrapStoreFromFirebase()
+      if (mounted) {
+        const template = getWaTemplate()
+        setWaTemplateState(template)
+        // Expose to window for whatsapp.js generateWaMessage
+        if (typeof window !== 'undefined') {
+          window.getWaTemplate = getWaTemplate
+        }
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
   useEffect(() => {
     try {
       localStorage.setItem(BACKUP_AUTO_REFRESH_KEY, backupAutoRefreshEnabled ? '1' : '0')
@@ -475,6 +509,10 @@ export default function Settings() {
     try {
       await setWaTemplate(waTemplate, user)
       await setWaSendMode(waSendMode, user)
+      // Update window.getWaTemplate so generateWaMessage uses latest template
+      if (typeof window !== 'undefined') {
+        window.getWaTemplate = () => waTemplate
+      }
       toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
     } catch (err) {
       toast.error('Gagal', 'Gagal menyimpan template: ' + (err?.message || 'Unknown error'))

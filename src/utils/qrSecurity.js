@@ -4,6 +4,8 @@
 /**
  * Build QR payload data yang konsisten
  * Format: { tid, t, e, d, sig, v }
+ * NOTE: Signature is DETERMINISTIC - same input = same signature
+ * This ensures QR code never changes for the same ticket
  */
 export function buildQRPayload({ ticketId, tenantId, eventId, dayNumber, name = '' }) {
   const tid = String(ticketId || '').trim();
@@ -12,7 +14,8 @@ export function buildQRPayload({ ticketId, tenantId, eventId, dayNumber, name = 
   const d = Number(dayNumber) || 1;
   const n = String(name || '').trim();
   
-  // Build signature menggunakan format yang sama dengan WA server
+  // Build DETERMINISTIC signature - no timestamp, no random values
+  // Same ticket_id + tenant + event + day = same signature always
   const payloadString = `${t}|${e}|${tid}|${d}|event-2026`;
   const sig = typeof window !== 'undefined' 
     ? btoa(payloadString)  // Browser
@@ -24,7 +27,7 @@ export function buildQRPayload({ ticketId, tenantId, eventId, dayNumber, name = 
     e,
     d,
     n,
-    sig,
+    sig,  // This will be identical for same ticket every time
     v: 2
   };
 }

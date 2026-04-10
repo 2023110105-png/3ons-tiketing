@@ -54,20 +54,27 @@ async function addParticipant(participantData) {
   
   if (!event.participants) event.participants = [];
   
+  // Generate ticket_id first to ensure consistency
+  const finalTicketId = participantData.ticket_id || 'T' + Date.now();
+  const finalDay = participantData.day_number || 1;
+  
+  // Generate qr_data deterministically (same ticket = same qr_data always)
+  const qrData = participantData.qr_data || generateQRData({
+    ticket_id: finalTicketId,
+    name: participantData.name,
+    day_number: finalDay,
+    category: participantData.category
+  }, 'tenant-default', 'event-default');
+  
   const newParticipant = {
     id: participantData.id || 'p_' + Date.now(),
-    ticket_id: participantData.ticket_id || 'T' + Date.now(),
+    ticket_id: finalTicketId,
     name: participantData.name || '',
     phone: participantData.phone || '',
     email: participantData.email || '',
     category: participantData.category || 'Regular',
-    day_number: participantData.day_number || 1,
-    qr_data: participantData.qr_data || generateQRData({
-      ticket_id: participantData.ticket_id || 'T' + Date.now(),
-      name: participantData.name,
-      day_number: participantData.day_number || 1,
-      category: participantData.category
-    }, 'tenant-default', 'event-default'),
+    day_number: finalDay,
+    qr_data: qrData,  // This will be permanent and never change
     created_at: new Date().toISOString()
   };
   
@@ -77,6 +84,7 @@ async function addParticipant(participantData) {
   // Sync to backend
   try {
     await syncParticipantUpsert({ tenantId, eventId, participant: newParticipant });
+    console.log(`[addParticipant] Saved participant ${finalTicketId} with qr_data`);
   } catch (err) {
     console.error('[addParticipant] Sync failed:', err);
     // Continue even if sync fails - data is in local state
@@ -97,12 +105,12 @@ function deleteParticipant(participantId) {
   return { success: event.participants.length < initialLength };
 }
 
-function bulkAddParticipants(participantsData) { 
+async function bulkAddParticipants(participantsData) { 
   const results = { added: [], updated: [], skipped: [], errors: [] };
   
   for (const data of participantsData) {
     try {
-      const result = addParticipant(data);
+      const result = await addParticipant(data);
       if (result.success) {
         results.added.push(result.participant);
       } else {
@@ -944,7 +952,7 @@ export default function Participants() {
       console.log('[IMPORT DEBUG] Data rows yang akan diimport:', finalRows);
       const duplicatesPolicy = importDuplicatePolicy === 'allow' ? 'add' : importDuplicatePolicy;
       const matchBy = importDuplicatePolicy === 'allow' ? 'none' : 'phone';
-      result = bulkAddParticipants(
+      result = await bulkAddParticipants(
         finalRows,
         dayFilter,
         user,
