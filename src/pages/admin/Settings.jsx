@@ -276,6 +276,24 @@ export default function Settings() {
     return () => window.clearInterval(id)
   }, [])
 
+  // Bootstrap data and update waTemplate state after load
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      await bootstrapStoreFromFirebase()
+      if (mounted) {
+        const template = getWaTemplate()
+        setWaTemplateState(template)
+        // Expose to window for whatsapp.js generateWaMessage
+        if (typeof window !== 'undefined') {
+          window.getWaTemplate = getWaTemplate
+        }
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
   useEffect(() => {
     try {
       localStorage.setItem(BACKUP_AUTO_REFRESH_KEY, backupAutoRefreshEnabled ? '1' : '0')
@@ -475,6 +493,10 @@ export default function Settings() {
     try {
       await setWaTemplate(waTemplate, user)
       await setWaSendMode(waSendMode, user)
+      // Update window.getWaTemplate so generateWaMessage uses latest template
+      if (typeof window !== 'undefined') {
+        window.getWaTemplate = () => waTemplate
+      }
       toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
     } catch (err) {
       toast.error('Gagal', 'Gagal menyimpan template: ' + (err?.message || 'Unknown error'))
