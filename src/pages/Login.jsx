@@ -14,8 +14,17 @@ export default function Login() {
   const getFriendlyLoginError = (message) => {
     const text = String(message || '').toLowerCase()
     if (!text) return 'Proses masuk gagal. Silakan coba lagi.'
-    if (text.includes('invalid credentials') || text.includes('kredensial tidak cocok')) {
+    if (text.includes('invalid credentials') || text.includes('kredensial tidak cocok') || text.includes('username atau password salah')) {
       return 'Nama pengguna atau kata sandi tidak sesuai.'
+    }
+    if (text.includes('tidak aktif') || text.includes('nonaktif') || text.includes('disabled')) {
+      return 'Akun tidak aktif. Hubungi administrator untuk mengaktifkan akun.'
+    }
+    if (text.includes('tidak memiliki peran') || text.includes('role')) {
+      return 'Akun tidak memiliki akses yang valid. Hubungi administrator.'
+    }
+    if (text.includes('tidak ditemukan') || text.includes('not found')) {
+      return 'Akun tidak ditemukan. Pastikan username/email benar.'
     }
     if (text.includes('too many requests')) {
       return 'Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.'
@@ -31,18 +40,24 @@ export default function Login() {
     setError('')
     setLoading(true)
 
-    await new Promise(resolve => setTimeout(resolve, 250))
-    const result = await login(username, password)
-    if (result.success) {
-      const role = result.user.role
-      if (role === 'owner') navigate('/owner')
-      else if (role === 'super_admin' || role === 'admin_client') navigate('/admin')
-      else if (role === 'gate_front') navigate('/gate/scan')
-      else if (role === 'gate_back') navigate('/gate/monitor')
-    } else {
-      setError(getFriendlyLoginError(result.error))
+    try {
+      const result = await login(username, password)
+      if (result.success) {
+        const role = result.user.role
+        // Immediate navigation - no delay
+        if (role === 'owner') navigate('/owner')
+        else if (role === 'super_admin' || role === 'admin_client') navigate('/admin')
+        else if (role === 'gate_front') navigate('/gate/scan')
+        else if (role === 'gate_back') navigate('/gate/monitor')
+        else navigate('/admin') // Default fallback
+      } else {
+        setError(getFriendlyLoginError(result.error))
+        setLoading(false)
+      }
+    } catch (err) {
+      setError('Terjadi kesalahan. Silakan coba lagi.')
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

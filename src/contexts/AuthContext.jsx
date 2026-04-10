@@ -446,7 +446,7 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         if (isQuotaExhaustedError(error)) {
-          const localOnly = loginLocal(username, password)
+          const localOnly = await loginLocal(username, password)
           if (localOnly.success) {
             if (localOnly.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
               doLogout()
@@ -459,7 +459,7 @@ export function AuthProvider({ children }) {
           }
         }
         // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
-        const localResult = loginLocal(username, password)
+        const localResult = await loginLocal(username, password)
         if (localResult.success) {
           if (localResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
             doLogout()
@@ -492,12 +492,12 @@ export function AuthProvider({ children }) {
     }
 
     if (isFirebaseEnabled && auth) {
-      const candidateEmail = resolveLoginEmail(username)
+      const candidateEmail = await resolveLoginEmail(username)
       if (candidateEmail) {
         try {
           await signInWithEmailAndPassword(auth, candidateEmail, password)
           const scopedOptions = options?.tenantId ? { tenantId: options.tenantId } : null
-          const identityResult = scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username)
+          const identityResult = await (scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username))
           if (identityResult.success) {
             setUser(identityResult.user)
             saveUserSession(identityResult.user) // Save to localStorage for persistence
@@ -511,9 +511,9 @@ export function AuthProvider({ children }) {
     }
 
     const preferredTenantId = String(options?.tenantId || '').trim()
-    const result = preferredTenantId
+    const result = await (preferredTenantId
       ? doLogin(username, password, { tenantId: preferredTenantId })
-      : doLogin(username, password)
+      : doLogin(username, password))
     if (result.success) {
       if (result.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
         doLogout()
