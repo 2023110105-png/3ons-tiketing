@@ -1,4 +1,6 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getCheckInLogs() { return []; }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getStats() { return {}; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCurrentDay() { return 1; }
