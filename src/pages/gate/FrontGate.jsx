@@ -1,6 +1,7 @@
 // ===== REAL FUNCTIONS FOR GATE SCAN =====
-import { fetchFirebaseWorkspaceSnapshot, syncCheckInLog } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
+let _unsubscribeRealtime = null;
 let _pendingCheckIns = [];
 let _offlineQueueHistory = [];
 
@@ -495,6 +496,27 @@ export default function FrontGate() {
     };
     loadData();
   }, [])
+
+  // Realtime subscription to capture admin data changes
+  useEffect(() => {
+    // Subscribe to realtime changes from Supabase
+    _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
+      console.log('[FrontGate] Realtime update received:', payload?.eventType);
+      // Refresh workspace snapshot when data changes
+      void bootstrapStoreFromFirebase().then(() => {
+        refreshStats();
+        refreshPendingState();
+        console.log('[FrontGate] Data refreshed from realtime update');
+      });
+    });
+
+    return () => {
+      if (_unsubscribeRealtime) {
+        _unsubscribeRealtime();
+        _unsubscribeRealtime = null;
+      }
+    };
+  }, [refreshStats, refreshPendingState])
 
   useEffect(() => {
     return () => { stopCamera() }
