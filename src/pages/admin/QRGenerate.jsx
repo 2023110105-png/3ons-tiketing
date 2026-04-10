@@ -73,11 +73,12 @@ function getCurrentEventName() {
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { useToast } from '../../contexts/ToastContext'
-import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
+import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload, Send } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import { generateQRData, parseQRData } from '../../utils/qrSecurity'
 import BarcodeImport from './BarcodeImport'
+import ManualSendModal from '../../components/ManualSendModal'
 import { supabase } from '../../lib/supabase'
 
 const CATEGORY_STYLES = {
@@ -88,16 +89,28 @@ const CATEGORY_STYLES = {
 }
 
 // ===== SUPABASE DATA FUNCTIONS =====
-// Load participants from Supabase (primary source)
+// Load participants from Supabase workspace_state (primary source)
 async function loadParticipantsFromSupabase(day) {
   try {
-    let query = supabase.from('participants').select('*').order('nama', { ascending: true });
-    if (typeof day === 'number') {
-      query = query.eq('hari', day);
-    }
-    const { data, error } = await query;
+    // Get participants from workspace_state (where data is actually stored)
+    const { data, error } = await supabase
+      .from('workspace_state')
+      .select('store')
+      .eq('id', 'ons-workspace-001')
+      .single();
+    
     if (error) throw error;
-    return data || [];
+    
+    // Extract participants from workspace store structure
+    const store = data?.store;
+    const participants = store?.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
+    
+    // Filter by day if specified
+    if (typeof day === 'number') {
+      return participants.filter(p => (p.day_number || p.day || 1) === day);
+    }
+    
+    return participants;
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
     // Fallback to workspace snapshot
@@ -166,6 +179,8 @@ export default function QRGenerate() {
   const [generatedCount, setGeneratedCount] = useState(0)
   const [regeneratingSecure, setRegeneratingSecure] = useState(false)
   const [activeTab, setActiveTab] = useState('generate') // 'generate' atau 'import'
+  const [manualSendParticipant, setManualSendParticipant] = useState(null)
+  const [isManualSendOpen, setIsManualSendOpen] = useState(false)
   const toast = useToast()
   const isMobile = useIsMobileLayout()
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -542,6 +557,42 @@ export default function QRGenerate() {
     toast.success('WhatsApp', 'Membuka WhatsApp')
   }
 
+  // Open manual send modal with participant
+  const openManualSend = async (participant) => {
+    // Ensure QR data exists
+    const participantWithQR = await ensureParticipantQRData(participant);
+    if (!participantWithQR) {
+      toast.error('Gagal', 'Tidak bisa generate QR untuk peserta ini');
+      return;
+    }
+    
+    // Generate QR image for preview
+    try {
+      const url = await buildTicketQrImage(participantWithQR, { width: 900, height: 540, qrSize: 320 })
+      setQrUrl(url)
+      setManualSendParticipant(participantWithQR)
+      setIsManualSendOpen(true)
+    } catch (err) {
+      toast.error('Gagal', 'Tidak bisa membuat preview tiket')
+    }
+  }
+
+  // Handle successful manual send
+  const handleManualSendSuccess = ({ participant, phone, attempts }) => {
+    // Mark participant as sent (update local state)
+    setParticipants(prev => prev.map(p => 
+      p.id === participant.id 
+        ? { ...p, qr_locked: true, last_sent_at: new Date().toISOString() }
+        : p
+    ))
+    
+    // Close modal after short delay
+    setTimeout(() => {
+      setIsManualSendOpen(false)
+      setManualSendParticipant(null)
+    }, 1500)
+  }
+
   const generateAllQR = async () => {
     if (participants.length === 0) {
       toast.error('Tidak ada data', 'Tidak ada peserta untuk dibuatkan QR')
@@ -692,6 +743,13 @@ export default function QRGenerate() {
                 </div>
               </div>
               <button
+                className="btn btn-ghost btn-sm qr-icon-btn qr-manual-btn"
+                onClick={(e) => { e.stopPropagation(); openManualSend(p) }}
+                title="Kirim Manual"
+              >
+                <Send size={16} />
+              </button>
+              <button
                 className="btn btn-ghost btn-sm qr-icon-btn qr-whatsapp-btn"
                 onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}
                 title="Share via WhatsApp"
@@ -738,10 +796,26 @@ export default function QRGenerate() {
                 >
                   <MessageCircle size={16} /> WhatsApp
                 </button>
+                <button
+                  className="btn btn-primary qr-modal-action"
+                  onClick={() => openManualSend(selectedParticipant)}
+                >
+                  <Send size={16} /> Kirim
+                </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Manual Send Modal */}
+        <ManualSendModal
+          isOpen={isManualSendOpen}
+          onClose={() => { setIsManualSendOpen(false); setManualSendParticipant(null); }}
+          participant={manualSendParticipant}
+          qrImageUrl={qrUrl}
+          onSendSuccess={handleManualSendSuccess}
+          tenantId="tenant-default"
+        />
       </div>
     )
   }
@@ -820,8 +894,9 @@ export default function QRGenerate() {
                       </div>
                     </div>
                     <div className="qr-list-actions">
-                      <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
-                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }}><Download size={14} /></button>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openManualSend(p) }} title="Kirim Manual"><Send size={14} /></button>
+                      <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }} title="Share via WhatsApp"><MessageCircle size={14} /></button>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }} title="Download tiket"><Download size={14} /></button>
                     </div>
                   </div>
                 ))}
@@ -846,6 +921,13 @@ export default function QRGenerate() {
                     >
                       <MessageCircle size={14} /> Share via WA
                     </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => openManualSend(selectedParticipant)}
+                      title="Kirim tiket manual dengan nomor WhatsApp"
+                    >
+                      <Send size={14} /> Kirim Manual
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -866,6 +948,16 @@ export default function QRGenerate() {
           <BarcodeImport />
         </>
       )}
+
+      {/* Manual Send Modal */}
+      <ManualSendModal
+        isOpen={isManualSendOpen}
+        onClose={() => { setIsManualSendOpen(false); setManualSendParticipant(null); }}
+        participant={manualSendParticipant}
+        qrImageUrl={qrUrl}
+        onSendSuccess={handleManualSendSuccess}
+        tenantId="tenant-default"
+      />
     </div>
   )
 }

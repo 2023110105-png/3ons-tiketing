@@ -13,6 +13,7 @@ import { createPlatformOwnerRoutes } from './routes/platformOwnerRoutes.js'
 import { createTenantRoutes } from './routes/tenantRoutes.js'
 import { createTicketRoutes } from './routes/ticketRoutes.js'
 import { createWhatsAppRoutes } from './routes/whatsappRoutes.js'
+import { createAdminRoutes } from './routes/adminRoutes.js'
 import { log } from './utils/logger.js'
 
 const env = readEnv()
@@ -68,6 +69,10 @@ app.use(createPlatformOwnerRoutes({ platformSecretRequired: platformAuth, writeR
 app.use(createTenantRoutes({ platformSecretRequired: platformAuth }))
 app.use(createTicketRoutes({ writeRateLimit }))
 app.use(createWhatsAppRoutes({ writeRateLimit }))
+app.use(createAdminRoutes({ 
+  supabaseUrl: env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+  supabaseKey: env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY 
+}))
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
