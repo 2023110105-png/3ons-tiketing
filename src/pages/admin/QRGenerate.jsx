@@ -96,7 +96,7 @@ async function loadParticipantsFromSupabase(day) {
     const { data, error } = await supabase
       .from('workspace_state')
       .select('store')
-      .eq('id', 'ons-workspace-001')
+      .eq('id', 'default')
       .single();
     
     if (error) throw error;
@@ -217,7 +217,7 @@ export default function QRGenerate() {
       const { data, error } = await supabase
         .from('workspace_state')
         .select('store')
-        .eq('id', 'ons-workspace-001')
+        .eq('id', 'default')
         .single();
       
       if (error) throw error;

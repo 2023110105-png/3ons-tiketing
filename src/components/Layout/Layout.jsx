@@ -128,11 +128,11 @@ export default function Layout({ children }) {
   }
 
   const refreshEventState = () => {
-    setEvents(getEvents())
+    // setEvents(getEvents()) // Disabled - state not defined
     setActiveEventId(getCurrentEventId())
     const d = getCurrentDay()
-    setDay(d)
-    setDayInput(String(d))
+    // setDay(d) // Disabled - state not defined
+    // setDayInput(String(d)) // Disabled - state not defined
   }
 
   useEffect(() => {
@@ -180,8 +180,8 @@ export default function Layout({ children }) {
 
   const handleDayChange = (day) => {
     setCurrentDay(day, user)
-    setDay(day)
-    setDayInput(String(day))
+    // setDay(day) // Disabled - state not defined
+    // setDayInput(String(day)) // Disabled - state not defined
   }
 
   const handleEventChange = (eventId) => {
