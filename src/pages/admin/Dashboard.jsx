@@ -1,4 +1,6 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function simulateCheckIns() { alert('Simulasi check-in dijalankan (dummy).'); }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCheckInLogs() { return []; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getStats() { return { byCategory: {} }; }
