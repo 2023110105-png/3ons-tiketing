@@ -182,6 +182,18 @@ export default function OpsMonitor() {
     return out
   }, [checkInLogs])
 
+  const participantNameMap = useMemo(() => {
+    const participants = _getParticipants(dayFilter)
+    const map = new Map()
+    participants.forEach(p => {
+      const ticketId = p.ticket_id || p.ticketId || p.participant_ticket
+      if (ticketId) {
+        map.set(String(ticketId).toLowerCase(), p.name || p.participant_name || '-')
+      }
+    })
+    return map
+  }, [dayFilter])
+
   const gateOfflineHints = useMemo(() => {
     const out = { gate_front: null, gate_back: null }
     offlineHistory.forEach(item => {
@@ -449,7 +461,7 @@ export default function OpsMonitor() {
                       </span>
                     </td>
                     <td className="ticket-id-code">{log.ticket_id || log.participant_ticket || '-'}</td>
-                    <td style={{ fontWeight: 650 }}>{log.participant_name || log.name || '-'}</td>
+                    <td style={{ fontWeight: 650 }}>{participantNameMap.get(String(log.ticket_id || log.participant_ticket || '').toLowerCase()) || log.participant_name || log.name || '-'}</td>
                     <td>
                       <span className={`badge ${String(log.status || '').toLowerCase() === 'duplicate' ? 'badge-yellow' : 'badge-green'} text-xs`}>
                         {String(log.status || 'valid').toUpperCase()}

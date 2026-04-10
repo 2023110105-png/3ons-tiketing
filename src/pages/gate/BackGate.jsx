@@ -57,6 +57,28 @@ function getParticipants(day) {
 function getPendingCheckIns() { return []; }
 function getMaxPendingAttempts() { return 5; }
 function getOfflineQueueHistory() { return []; }
+
+// Enrich check-in logs with participant data if missing
+function enrichLogsWithParticipantData(logs) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return logs;
+  const participants = getParticipants();
+  return logs.map(log => {
+    if (log.participant_name && log.participant_category && log.participant_ticket) {
+      return log; // Already has all data
+    }
+    // Look up participant by ticket_id
+    const participant = participants.find(p => p.ticket_id === log.ticket_id);
+    if (participant) {
+      return {
+        ...log,
+        participant_name: log.participant_name || participant.name || participant.nama || 'Unknown',
+        participant_category: log.participant_category || participant.category || participant.kategori || 'Regular',
+        participant_ticket: log.participant_ticket || log.ticket_id || '-'
+      };
+    }
+    return log;
+  });
+}
 import { useState, useEffect } from 'react'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
@@ -75,7 +97,8 @@ export default function BackGate() {
 
   void refreshKey
   const stats = getStats(currentDay)
-  const logs = getCheckInLogs(currentDay)
+  const rawLogs = getCheckInLogs(currentDay)
+  const logs = enrichLogsWithParticipantData(rawLogs)
   const pendingItems = getPendingCheckIns()
 
   // Initial data load
@@ -245,25 +268,25 @@ export default function BackGate() {
           </div>
         ) : (
           <div className="monitor-feed">
-            {logs.map((log) => (
+            {logs.map((log, index) => (
               <div
-                key={log.id}
+                key={log.id || `${log.ticket_id}-${index}`}
                 className={`monitor-feed-item ${lastEvent?.log?.id === log.id ? 'new' : ''}`}
               >
                 <div className="monitor-feed-item-avatar">
-                  {getInitials(log.participant_name)}
+                  {getInitials(log.participant_name || log.ticket_id)}
                 </div>
                 <div className="monitor-feed-item-info">
-                  <div className="monitor-feed-item-name">{log.participant_name}</div>
+                  <div className="monitor-feed-item-name">{log.participant_name || 'Peserta Tidak Dikenal'}</div>
                   <div className="monitor-feed-item-meta">
                     <span className={`badge ${
                       log.participant_category === 'VIP' ? 'badge-red' :
                       log.participant_category === 'Dealer' ? 'badge-blue' :
                       log.participant_category === 'Media' ? 'badge-yellow' : 'badge-gray'
                     } monitor-meta-badge`}>
-                      {log.participant_category}
+                      {log.participant_category || 'Regular'}
                     </span>
-                    {log.participant_ticket}
+                    <span className="monitor-ticket-badge">{log.participant_ticket || log.ticket_id || '-'}</span>
                   </div>
                 </div>
                 <div className="monitor-feed-item-time">
