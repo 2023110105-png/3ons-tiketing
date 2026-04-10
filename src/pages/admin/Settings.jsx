@@ -3,7 +3,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
-import { isSupabaseEnabled, supabase } from '../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
 const BACKUP_AUTO_REFRESH_INTERVAL_KEY = 'ons_backup_auto_refresh_interval'
