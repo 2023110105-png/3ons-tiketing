@@ -110,7 +110,8 @@ async function fastLoginSupabase(username, password) {
 }
 
 // Login by identity (email/username) - untuk auto-recovery session
-async function loginByIdentity(identity, options = {}) {
+async function loginByIdentity(identity, _options = {}) {
+  void _options;
   if (!identity) {
     return { success: false, error: 'Identity tidak valid' };
   }
@@ -152,7 +153,8 @@ async function loginByIdentity(identity, options = {}) {
 }
 
 // Local login dengan validasi penuh
-async function doLogin(username, password, options = {}) {
+async function doLogin(username, password, _options = {}) {
+  void _options;
   // Gunakan fastLoginSupabase yang sudah ada validasi lengkap
   return fastLoginSupabase(username, password);
 }

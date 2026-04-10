@@ -5,7 +5,7 @@ async function bootstrapStoreFromFirebase() {
   _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
-function getParticipants(day) {
+function _getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
@@ -16,11 +16,11 @@ function getParticipants(day) {
   }
   return participants;
 }
-function getActiveTenant() { 
+function _getActiveTenant() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
   return _workspaceSnapshot.store.tenants?.['tenant-default'] || { id: 'tenant-default' };
 }
-function getAvailableDays() { 
+function _getAvailableDays() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
@@ -33,7 +33,7 @@ function getCurrentDay() {
   const tenantId = 'tenant-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
 }
-function setCurrentDay(day) {
+function _setCurrentDay(day) {
   if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
     _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
   }
@@ -46,9 +46,8 @@ function getCheckInLogs(day) {
 }
 function getStats(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || {};
+  void day;
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.stats || {};
 }
 function getPendingCheckIns() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];

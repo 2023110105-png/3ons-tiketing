@@ -17,7 +17,7 @@ function getCheckInLogs(day) {
 }
 
 function getStats(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0, byCategory: {} };
   const participants = getParticipants(day);
   const checkInLogs = getCheckInLogs(day);
   const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
@@ -25,7 +25,17 @@ function getStats(day) {
   const checkedIn = checkedInTicketIds.size;
   const notCheckedIn = total - checkedIn;
   const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
-  return { total, checkedIn, notCheckedIn, percentage };
+  
+  // Build byCategory stats
+  const byCategory = {};
+  participants.forEach(p => {
+    const cat = p.category || 'Regular';
+    if (!byCategory[cat]) byCategory[cat] = { total: 0, checkedIn: 0 };
+    byCategory[cat].total++;
+    if (checkedInTicketIds.has(p.ticket_id)) byCategory[cat].checkedIn++;
+  });
+  
+  return { total, checkedIn, notCheckedIn, percentage, byCategory };
 }
 
 function getParticipants(day) {
@@ -171,7 +181,7 @@ export default function BackGate() {
 
       {/* Category Stats */}
       <div className="stats-grid mb-24">
-        {Object.entries(stats.byCategory).map(([cat, data]) => (
+        {Object.entries(stats.byCategory || {}).map(([cat, data]) => (
           <div key={cat} className="stat-card">
             <div className="stat-card-label monitor-stat-label">{cat}</div>
             <div className="stat-card-value monitor-stat-value">

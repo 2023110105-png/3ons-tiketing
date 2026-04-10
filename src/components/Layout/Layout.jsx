@@ -106,9 +106,7 @@ const OWNER_RELEASE_VISIBLE_PATHS = new Set([
 ])
 
 export default function Layout({ children }) {
-  // ===== DUMMY USER AGAR ERROR HILANG =====
-  const user = { role: 'super_admin', name: 'Admin' }
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -215,7 +213,7 @@ export default function Layout({ children }) {
   const isActive = (path) => location.pathname === path
 
   const getNavItems = () => {
-    if (user?.role === 'super_admin' || user?.role === 'admin_client') {
+    if (user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') {
       return [
         { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
@@ -313,7 +311,7 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
+          {(user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') && (
             <>
               <div className="nav-section">
                 <div className="nav-section-title">Panel Admin</div>
@@ -409,7 +407,7 @@ export default function Layout({ children }) {
             </Link>
           </div>
           <div className="header-right">
-            {user?.role === 'super_admin' && (
+            {(user?.role === 'super_admin' || user?.role === 'admin') && (
               <>
                 <select
                   className="form-select header-event-select"
@@ -478,7 +476,7 @@ export default function Layout({ children }) {
               {isActive(item.path) && <span className="mobile-nav-indicator"></span>}
             </Link>
           ))}
-          {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
+          {(user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') && (
             <button className="mobile-nav-item" onClick={() => setSidebarOpen(true)}>
               <span className="mobile-nav-icon"><Menu size={18} /></span>
               <span className="mobile-nav-label">Lainnya</span>

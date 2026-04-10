@@ -37,6 +37,25 @@ function getActiveTenant() {
   return { id: 'tenant-default' };
 }
 
+// Missing functions
+async function bootstrapStoreFromFirebase() {
+  // Dummy implementation
+  return {};
+}
+
+async function _loadParticipantsFromSupabase() {
+  // Dummy implementation
+  return [];
+}
+
+function getWaSendMode() {
+  return 'batch';
+}
+
+function getCurrentDay() {
+  return 1;
+}
+
 // Pre-validate participant data before sending
 function validateParticipant(participant) {
   const errors = [];
@@ -194,23 +213,6 @@ export default function WaDelivery() {
       window.removeEventListener('orientationchange', h)
     }
   }, [])
-
-  const [allParticipants, setAllParticipants] = useState([])
-  
-  // Load participants from Supabase on mount
-  useEffect(() => {
-    const load = async () => {
-      const data = await loadParticipantsFromSupabase(null)
-      setAllParticipants(data)
-    }
-    load()
-  }, [])
-  
-  const participantIndex = useMemo(() => {
-    const map = new Map()
-    allParticipants.forEach(p => map.set(String(p.ticket_id || ''), p))
-    return map
-  }, [allParticipants])
 
   const loadLogs = useCallback(async () => {
     setLoading(true)

@@ -16,10 +16,10 @@ function getParticipants(day) {
   }
   return participants;
 }
-function getActiveTenant() { return { id: 'tenant-default' }; }
+function _getActiveTenant() { return { id: 'tenant-default' }; }
 function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function setCurrentDay() {}
+function _setCurrentDay() {}
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
@@ -28,9 +28,8 @@ function getCheckInLogs(day) {
 }
 function getStats(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {} };
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || { byCategory: {} };
+  void day;
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.stats || { byCategory: {} };
 }
 function getAdminLogs(limit) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
@@ -41,9 +40,8 @@ function getAdminLogs(limit) {
 }
 function getPeakHours(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.peak_hours || [];
+  void day;
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.peak_hours || [];
 }
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'

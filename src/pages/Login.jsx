@@ -46,7 +46,7 @@ export default function Login() {
         const role = result.user.role
         // Immediate navigation - no delay
         if (role === 'owner') navigate('/owner')
-        else if (role === 'super_admin' || role === 'admin_client') navigate('/admin')
+        else if (role === 'super_admin' || role === 'admin_client' || role === 'admin') navigate('/admin')
         else if (role === 'gate_front') navigate('/gate/scan')
         else if (role === 'gate_back') navigate('/gate/monitor')
         else navigate('/admin') // Default fallback

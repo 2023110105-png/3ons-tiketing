@@ -732,7 +732,7 @@ export default function Participants() {
       );
       
       // Proses hasil batch
-      batchResults.forEach((result, idx) => {
+      batchResults.forEach((result) => {
         if (result.success) {
           s++;
         } else {

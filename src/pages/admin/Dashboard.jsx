@@ -9,32 +9,26 @@ async function bootstrapStoreFromFirebase() {
 
 function getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
   const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+    _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
   if (typeof day === 'number') {
     return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
   }
   return participants;
 }
 
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
+function _getActiveTenant() { return { id: 'tenant-default' }; }
+function _getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function setCurrentDay() {}
+function _setCurrentDay() {}
 
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
 }
 
 function getStats(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {}, total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
   const participants = getParticipants(day);
   const checkInLogs = getCheckInLogs(day);
   const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
