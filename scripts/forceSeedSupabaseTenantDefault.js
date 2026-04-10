@@ -1,4 +1,5 @@
 import { supabase } from '../src/lib/supabase.js';
+import process from 'process';
 
 const WORKSPACE_TABLE = 'workspace_state';
 const WORKSPACE_ID = 'default';

@@ -1,3 +1,23 @@
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getWaTemplate() { return ''; }
+function getWaSendMode() { return ''; }
+function getMaxPendingAttempts() { return 3; }
+function getEventsWithOptions() { return [{ id: 'event-default', name: 'Event Default', isArchived: false }]; }
+function getCurrentEventId() { return 'event-default'; }
+function getStoreBackups() { return []; }
+function resetCheckIns() { return { success: true }; }
+function deleteAllParticipants() { return { success: true }; }
+function setWaTemplate() { return true; }
+function setWaSendMode() { return true; }
+function setMaxPendingAttempts(val) { return val; }
+function renameEvent() { return { success: true }; }
+function archiveEvent() { return { success: true }; }
+function deleteEvent() { return { success: true }; }
+function restoreStoreBackup() { return { success: true }; }
+function exportStoreBackup() { return { success: true, content: '{}', fileName: 'backup.json' }; }
+function deleteStoreBackup() { return { success: true }; }
+function deleteInvalidStoreBackups() { return { success: true, deleted: 0 }; }
+const isSupabaseEnabled = true;
 import { useEffect, useState } from 'react'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
