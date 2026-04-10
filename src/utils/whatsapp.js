@@ -12,7 +12,23 @@ function normalizeTokenKey(key) {
 
 // Fallback getWaTemplate jika tidak ada global
 function getWaTemplate() {
-  return 'Halo {{nama}}, tiket Anda: {{tiket}} (Hari {{hari}}, Kategori: {{kategori}})';
+  return `🎻 E-TICKET: PALEMBANG VIOLIN COMPETITION
+PARTICIPANT DETAILS
+──────────────────────────
+👤 Name : {{nama}}
+🆔 QR ID : Violin-{{tiket}}
+🎼 Class : {{kategori}}
+──────────────────────────
+
+EVENT SCHEDULE
+📅 Date : Saturday, 11th April 2026
+🏢 By : Primavera Production
+
+INSTRUCTION
+Please show the barcode of this ticket to our registration officer for check-in.
+
+Thank you and good luck! 🎶
+──────────────────────────`;
 }
 
 export const generateWaMessage = (participant) => {
