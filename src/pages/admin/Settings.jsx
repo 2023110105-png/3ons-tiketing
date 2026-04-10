@@ -7,19 +7,19 @@ async function bootstrapStoreFromFirebase() {
   return _workspaceSnapshot;
 }
 
-function getParticipants() {
+function _getParticipants() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
 }
 
-function getActiveTenant() { 
+function _getActiveTenant() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
   return _workspaceSnapshot.store.tenants?.['tenant-default'] || { id: 'tenant-default' };
 }
 
-function getAvailableDays() { 
+function _getAvailableDays() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
@@ -28,13 +28,13 @@ function getAvailableDays() {
   return days.length > 0 ? days.sort((a, b) => a - b) : [1];
 }
 
-function getCurrentDay() { 
+function _getCurrentDay() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
   const tenantId = 'tenant-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
 }
 
-function setCurrentDay(day) {
+function _setCurrentDay(day) {
   if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
     _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
   }
@@ -128,7 +128,8 @@ function deleteAllParticipants() {
   }
   return { success: false, error: 'Event not found' };
 }
-async function setWaTemplate(template, user) {
+// eslint-disable-next-line no-unused-vars
+async function setWaTemplate(template, _user) {
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
@@ -155,7 +156,8 @@ async function setWaTemplate(template, user) {
   return true;
 }
 
-async function setWaSendMode(mode, user) {
+// eslint-disable-next-line no-unused-vars
+async function setWaSendMode(mode, _user) {
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];

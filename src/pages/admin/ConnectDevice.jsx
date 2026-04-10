@@ -16,6 +16,43 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
+import { supabase } from '../../lib/supabase'
+
+// Load tenant WA connection status from Supabase (siap pakai untuk integrasi)
+async function _loadTenantWASettings(tenantId) {
+  try {
+    const { data, error } = await supabase
+      .from('tenant_settings')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  } catch (err) {
+    console.error('Failed to load WA settings:', err);
+    return null;
+  }
+}
+
+// Save tenant WA connection status to Supabase (siap pakai untuk integrasi)
+async function _saveTenantWASettings(tenantId, settings) {
+  try {
+    const { error } = await supabase
+      .from('tenant_settings')
+      .upsert({
+        tenant_id: tenantId,
+        wa_connection_status: settings.status || 'disconnected',
+        wa_enabled: settings.enabled !== false,
+        updated_at: new Date().toISOString(),
+        ...settings
+      }, { onConflict: 'tenant_id' });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Failed to save WA settings:', err);
+    return false;
+  }
+}
 
 function formatConnectionError(message) {
   const text = String(message || '').trim()

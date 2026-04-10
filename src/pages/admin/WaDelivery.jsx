@@ -17,9 +17,8 @@ function getParticipants(day) {
   return participants;
 }
 function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function setCurrentDay() {}
+function getWaSendMode() { return 'message_only'; }
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -47,6 +46,23 @@ async function fetchParticipantByTicketId(ticketId) {
 }
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { generateWaMessage } from '../../utils/whatsapp'
+import { supabase } from '../../lib/supabase'
+
+// Load participants from Supabase (persistent storage)
+async function loadParticipantsFromSupabase(day) {
+  try {
+    let query = supabase.from('participants').select('*').order('nama', { ascending: true });
+    if (typeof day === 'number') {
+      query = query.eq('hari', day);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Failed to load from Supabase:', err);
+    return getParticipants(day);
+  }
+}
 
 function formatTime(value) {
   try { return new Date(value).toLocaleString('id-ID') } catch { return '-' }
@@ -118,12 +134,22 @@ export default function WaDelivery() {
     }
   }, [])
 
-  const participantIndex = useMemo(() => {
-    const all = getParticipants(null)
-    const map = new Map()
-    all.forEach(p => map.set(String(p.ticket_id || ''), p))
-    return map
+  const [allParticipants, setAllParticipants] = useState([])
+  
+  // Load participants from Supabase on mount
+  useEffect(() => {
+    const load = async () => {
+      const data = await loadParticipantsFromSupabase(null)
+      setAllParticipants(data)
+    }
+    load()
   }, [])
+  
+  const participantIndex = useMemo(() => {
+    const map = new Map()
+    allParticipants.forEach(p => map.set(String(p.ticket_id || ''), p))
+    return map
+  }, [allParticipants])
 
   const loadLogs = useCallback(async () => {
     setLoading(true)
