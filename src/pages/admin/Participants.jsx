@@ -1,6 +1,21 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
 function createNewDay() { return 2; }
 function deleteCurrentDay() { return { success: true }; }
 function updateParticipant() { return { success: true, participant: { name: 'Dummy', ticket_id: 'DUMMY' } }; }
@@ -396,19 +411,17 @@ export default function Participants() {
   }, [participants])
 
   // Initial load
+
+  // Initial load & refresh on dayFilter change
   useEffect(() => {
     const load = async () => {
-      await refreshData(true)
-      updateLocalView()
-    }
-    void load()
+      await bootstrapStoreFromFirebase();
+      setParticipants(getParticipants(dayFilter));
+      setAvailableDays(getAvailableDays());
+    };
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // View dependency on dayFilter
-  useEffect(() => {
-    updateLocalView()
-  }, [updateLocalView])
+  }, [dayFilter]);
 
   useEffect(() => {
     const onWorkspaceSynced = () => {
