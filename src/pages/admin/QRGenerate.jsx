@@ -307,7 +307,7 @@ export default function QRGenerate() {
     // Teks header
     ctx.fillStyle = '#0f172a'
     ctx.font = '900 40px "Arial"'
-    ctx.fillText('E-TICKET', leftX + 22, leftY + 74)
+    ctx.fillText('E-Attendance', leftX + 22, leftY + 74)
 
     ctx.fillStyle = '#475569'
     ctx.font = '700 19px "Arial"'
@@ -355,7 +355,7 @@ export default function QRGenerate() {
     // Footer notes
     ctx.fillStyle = '#334155'
     ctx.font = '700 14px "Arial"'
-    ctx.fillText('Valid untuk 1 orang. Dilarang duplikasi tiket.', leftX + 22, leftY + leftH - 64)
+    ctx.fillText('Tunjukkan kode QR ini untuk registrasi absensi peserta.', leftX + 22, leftY + leftH - 64)
     ctx.fillStyle = '#64748b'
     ctx.font = '600 13px "Arial"'
     const tl = getMetaValue(participant, 'Tanggal Lahir')
