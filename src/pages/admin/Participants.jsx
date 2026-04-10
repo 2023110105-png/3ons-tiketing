@@ -1,4 +1,6 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function setCurrentDay() {}
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getActiveTenant() { return { id: 'tenant-default' }; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getAvailableDays() { return [1]; }
