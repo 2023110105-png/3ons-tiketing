@@ -93,10 +93,20 @@ async function loadParticipantsFromSupabase(day) {
   try {
     let query = supabase.from('participants').select('*').order('nama', { ascending: true });
     if (typeof day === 'number') {
-      query = query.eq('hari', day);
+      // Cek multiple field names: hari, day, day_number
+      query = query.or(`hari.eq.${day},day.eq.${day},day_number.eq.${day}`);
     }
     const { data, error } = await query;
     if (error) throw error;
+    
+    // Filter manual untuk memastikan day yang benar
+    if (typeof day === 'number' && data) {
+      return data.filter(p => 
+        Number(p.hari) === day || 
+        Number(p.day) === day || 
+        Number(p.day_number) === day
+      );
+    }
     return data || [];
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
