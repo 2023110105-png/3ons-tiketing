@@ -125,7 +125,11 @@ async function checkIn(ticketId, day, scannedBy) {
       day: day,
       day_number: day,
       tenant_id: tenantId,
-      event_id: eventId
+      event_id: eventId,
+      // Participant info for BackGate/Monitor compatibility
+      participant_name: participant?.name || participant?.nama || 'Unknown',
+      participant_category: participant?.category || participant?.kategori || 'Regular',
+      participant_ticket: ticketId
     };
 
     // Store in memory (support both field names)

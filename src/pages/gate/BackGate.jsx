@@ -152,11 +152,15 @@ export default function BackGate() {
   }
 
   const getInitials = (name) => {
+    if (!name || typeof name !== 'string') return '--';
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
   }
 
   const timeSince = (timestamp) => {
-    const diff = Math.floor((nowTs - new Date(timestamp).getTime()) / 1000)
+    if (!timestamp) return '-';
+    const ts = new Date(timestamp).getTime();
+    if (isNaN(ts)) return '-';
+    const diff = Math.floor((nowTs - ts) / 1000)
     if (diff < 5) return 'Baru saja'
     if (diff < 60) return `${diff} detik lalu`
     if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`
