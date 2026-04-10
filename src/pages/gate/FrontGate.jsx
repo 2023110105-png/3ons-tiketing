@@ -1,5 +1,5 @@
 // ===== REAL FUNCTIONS FOR GATE SCAN =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, syncCheckInLog } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 let _pendingCheckIns = [];
 let _offlineQueueHistory = [];
@@ -103,23 +103,29 @@ async function checkIn(ticketId, day, scannedBy) {
     }
     
     // Add to check-in logs
+    const tenantId = 'tenant-default';
+    const eventId = 'event-default';
     const newLog = {
+      id: `${ticketId}_${Date.now()}`,
       ticket_id: ticketId,
       scanned_by: scannedBy,
       timestamp: new Date().toISOString(),
       day: day,
-      day_number: day
+      day_number: day,
+      tenant_id: tenantId,
+      event_id: eventId
     };
-    
+
     // Store in memory
-    const tenantId = 'tenant-default';
-    const eventId = 'event-default';
     if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
       const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
       if (!event.checkin_logs) event.checkin_logs = [];
       event.checkin_logs.push(newLog);
     }
-    
+
+    // Persist to database (async, don't block response)
+    void syncCheckInLog({ tenantId, eventId, log: newLog });
+
     return { success: true, ticket_id: ticketId, participant, status: 'success' };
   } catch (error) {
     return { success: false, error: 'Check-in failed', status: 'error' };
