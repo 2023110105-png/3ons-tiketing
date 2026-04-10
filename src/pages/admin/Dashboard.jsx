@@ -1,15 +1,72 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+// ===== REAL FUNCTIONS FOR DATA SYNC =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
+
+function getActiveTenant() { return { id: 'tenant-default' }; }
+function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function _getParticipants() { return []; }
-function _getActiveTenant() { return { id: 'tenant-default' }; }
-function _getAvailableDays() { return [1]; }
-function _getCurrentDay() { return 1; }
-function _setCurrentDay() {}
-function _bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function simulateCheckIns() { alert('Simulasi check-in dijalankan (dummy).'); }
-function getCheckInLogs() { return []; }
-function getStats() { return { byCategory: {} }; }
+function setCurrentDay() {}
+
+function getCheckInLogs(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+}
+
+function getStats(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {}, total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants = getParticipants(day);
+  const checkInLogs = getCheckInLogs(day);
+  const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
+  
+  const byCategory = {
+    VIP: { total: 0, checkedIn: 0 },
+    Dealer: { total: 0, checkedIn: 0 },
+    Media: { total: 0, checkedIn: 0 },
+    Regular: { total: 0, checkedIn: 0 }
+  };
+  
+  participants.forEach(p => {
+    const category = p.category || 'Regular';
+    if (byCategory[category]) {
+      byCategory[category].total++;
+      if (checkedInTicketIds.has(p.ticket_id)) {
+        byCategory[category].checkedIn++;
+      }
+    }
+  });
+  
+  const total = participants.length;
+  const checkedIn = checkedInTicketIds.size;
+  const notCheckedIn = total - checkedIn;
+  const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+  
+  return { byCategory, total, checkedIn, notCheckedIn, percentage };
+}
+
+function simulateCheckIns() { 
+  alert('Simulasi check-in dijalankan.'); 
+}
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
@@ -28,7 +85,18 @@ export default function Dashboard() {
   const logs = getCheckInLogs(currentDay)
 
   useEffect(() => {
-    const interval = setInterval(() => setRefreshKey(k => k + 1), 2000)
+    // Initial data load
+    const loadData = async () => {
+      await bootstrapStoreFromFirebase();
+      setRefreshKey(k => k + 1); // Trigger re-render
+    };
+    loadData();
+    
+    // Auto-refresh every 2 seconds
+    const interval = setInterval(async () => {
+      await bootstrapStoreFromFirebase();
+      setRefreshKey(k => k + 1);
+    }, 2000);
     return () => clearInterval(interval)
   }, [])
 

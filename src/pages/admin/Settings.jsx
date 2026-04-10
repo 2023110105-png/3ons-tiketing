@@ -1,18 +1,113 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function _getParticipants() { return []; }
-function _getActiveTenant() { return { id: 'tenant-default' }; }
-function _getAvailableDays() { return [1]; }
-function _getCurrentDay() { return 1; }
-function _setCurrentDay() {}
-function _bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function getWaTemplate() { return ''; }
-function getWaSendMode() { return ''; }
-function getMaxPendingAttempts() { return 3; }
-function getEventsWithOptions() { return [{ id: 'event-default', name: 'Event Default', isArchived: false }]; }
-function getCurrentEventId() { return 'event-default'; }
-function getStoreBackups() { return []; }
-function resetCheckIns() { return { success: true }; }
-function deleteAllParticipants() { return { success: true }; }
+// ===== REAL FUNCTIONS FOR SETTINGS =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+
+function getParticipants() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+}
+
+function getActiveTenant() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
+  return _workspaceSnapshot.store.tenants?.['tenant-default'] || { id: 'tenant-default' };
+}
+
+function getAvailableDays() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
+  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
+}
+
+function getCurrentDay() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
+}
+
+function setCurrentDay(day) {
+  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
+    _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
+  }
+}
+
+function getWaTemplate() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return '';
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
+}
+
+function getWaSendMode() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'message_only';
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waSendMode || 'message_only';
+}
+
+function getMaxPendingAttempts() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 3;
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offlineConfig?.maxPendingAttempts || 3;
+}
+
+function getEventsWithOptions(options = {}) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [{ id: 'event-default', name: 'Event Default', isArchived: false }];
+  const tenantId = 'tenant-default';
+  const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
+  const eventList = Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
+  if (!options.includeArchived) {
+    return eventList.filter(e => !e.isArchived);
+  }
+  return eventList;
+}
+
+function getCurrentEventId() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.activeEventId || 'event-default';
+}
+
+function getStoreBackups() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.backups || [];
+}
+
+function resetCheckIns() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  if (event) {
+    event.checkin_logs = [];
+    event.pendingCheckIns = [];
+    return { success: true };
+  }
+  return { success: false, error: 'Event not found' };
+}
+
+function deleteAllParticipants() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  if (event) {
+    event.participants = [];
+    return { success: true };
+  }
+  return { success: false, error: 'Event not found' };
+}
 function setWaTemplate() { return true; }
 function setWaSendMode() { return true; }
 function setMaxPendingAttempts(val) { return val; }

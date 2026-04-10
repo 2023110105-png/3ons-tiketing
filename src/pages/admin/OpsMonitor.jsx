@@ -1,14 +1,68 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
-function getCurrentDay() { return 1; }
-function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function getCheckInLogs() { return []; }
-function getStats() { return {}; }
-function getPendingCheckIns() { return []; }
-function getOfflineQueueHistory() { return []; }
+// ===== REAL FUNCTIONS FOR OPS MONITOR =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
+function getActiveTenant() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
+  return _workspaceSnapshot.store.tenants?.['tenant-default'] || { id: 'tenant-default' };
+}
+function getAvailableDays() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
+  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
+}
+function getCurrentDay() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
+}
+function setCurrentDay(day) {
+  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
+    _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
+  }
+}
+function getCheckInLogs(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+}
+function getStats(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || {};
+}
+function getPendingCheckIns() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.pending_checkins || [];
+}
+function getOfflineQueueHistory(limit) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const arr = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offline_queue_history || [];
+  return typeof limit === 'number' ? arr.slice(0, limit) : arr;
+}
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Clock, RefreshCw, Signal, WifiOff } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -37,6 +91,13 @@ function getLogKind(log) {
 }
 
 export default function OpsMonitor() {
+    // Initial load data dari Supabase
+    useEffect(() => {
+      const load = async () => {
+        await bootstrapStoreFromFirebase();
+      };
+      load();
+    }, []);
   const toast = useToast()
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
   const [isRefreshing, setIsRefreshing] = useState(false)

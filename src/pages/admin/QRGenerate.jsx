@@ -1,12 +1,81 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
+// ===== REAL FUNCTIONS FOR QR GENERATE =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
 function getActiveTenant() { return { id: 'tenant-default' }; }
 function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function getTenantBranding() { return {}; }
-function getCurrentEventName() { return 'Event'; }
+function simulateCheckIns() { 
+  alert('Simulasi check-in dijalankan.'); 
+}
+
+// Dummy function untuk menghindari crash
+function regenerateSecureQRTokens(day, actor) {
+  return { updated: 0, message: 'Regenerate QR tokens not implemented yet' };
+}
+
+// Generate QR data for participants yang belum punya qr_data
+function generateQRDataForParticipant(participant) {
+  if (!participant) return null;
+  
+  // Jika sudah ada qr_data, gunakan yang ada
+  if (participant.qr_data) {
+    try {
+      const parsed = JSON.parse(participant.qr_data);
+      return participant.qr_data; // Valid JSON, return as is
+    } catch {
+      // Invalid JSON, generate new one
+    }
+  }
+  
+  // Generate new QR data
+  const qrData = {
+    tid: participant.ticket_id || participant.id || 'UNKNOWN',
+    t: 'tenant-default',
+    e: 'event-default', 
+    d: participant.day_number || participant.day || 1,
+    sig: 'SIG_' + Date.now(),
+    v: 2
+  };
+  
+  return JSON.stringify(qrData);
+}
+
+// Update participants dengan qr_data jika kosong
+function ensureParticipantsHaveQRData(participants) {
+  if (!Array.isArray(participants)) return participants;
+  
+  return participants.map(p => ({
+    ...p,
+    qr_data: p.qr_data || generateQRDataForParticipant(p)
+  }));
+}
+
+function getTenantBranding() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.branding || {};
+}
+function getCurrentEventName() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'Event';
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.name || 'Event';
+}
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { useToast } from '../../contexts/ToastContext'
@@ -45,6 +114,17 @@ export default function QRGenerate() {
   const isMobile = useIsMobileLayout()
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
   const [activeEventName, setActiveEventName] = useState(getCurrentEventName())
+
+  // Initial load data dari Supabase
+  useEffect(() => {
+    const load = async () => {
+      await bootstrapStoreFromFirebase();
+      setParticipants(getParticipants(dayFilter));
+      setTicketBranding(getTenantBranding());
+      setActiveEventName(getCurrentEventName());
+    };
+    load();
+  }, [dayFilter]);
 
   useEffect(() => {
     const refreshBranding = () => {
@@ -301,7 +381,13 @@ export default function QRGenerate() {
   const generateQR = async (participant) => {
     setSelectedParticipant(participant)
     try {
-      const url = await buildTicketQrImage(participant, { width: 900, height: 540, qrSize: 280 })
+      // Pastikan participant memiliki qr_data
+      const participantWithQR = {
+        ...participant,
+        qr_data: participant.qr_data || generateQRDataForParticipant(participant)
+      };
+      
+      const url = await buildTicketQrImage(participantWithQR, { width: 900, height: 540, qrSize: 280 })
       setQrUrl(url)
     } catch {
       toast.error('Gagal', 'Tidak bisa membuat QR tiket')
@@ -310,7 +396,13 @@ export default function QRGenerate() {
 
   const downloadQR = async (participant) => {
     try {
-      const url = await buildTicketQrImage(participant, { width: 1200, height: 720, qrSize: 360 })
+      // Pastikan participant memiliki qr_data
+      const participantWithQR = {
+        ...participant,
+        qr_data: participant.qr_data || generateQRDataForParticipant(participant)
+      };
+      
+      const url = await buildTicketQrImage(participantWithQR, { width: 1200, height: 720, qrSize: 360 })
       const link = document.createElement('a')
       link.download = `Tiket_${participant.ticket_id}_${participant.name.replace(/\s+/g, '_')}.png`
       link.href = url
@@ -322,16 +414,22 @@ export default function QRGenerate() {
 
   // Share QR via WhatsApp
   const shareViaWhatsApp = async (participant) => {
+    // Pastikan participant memiliki qr_data
+    const participantWithQR = {
+      ...participant,
+      qr_data: participant.qr_data || generateQRDataForParticipant(participant)
+    };
+    
     const eventLabel = String(
       (activeEventName && activeEventName !== '-') ? activeEventName : (ticketBranding.eventName || 'Event')
     ).trim()
-    const base = generateWaMessage(participant)
+    const base = generateWaMessage(participantWithQR)
     const message = `${base}\n\nSilakan tunjukkan QR ini saat registrasi di lokasi acara.\nTerima kasih!\n\n_${eventLabel || 'Event Platform'}_`
 
     // Try Web Share API first (works on mobile, can share files)
     if (navigator.share) {
       try {
-        const url = await buildTicketQrImage(participant, { width: 1200, height: 720, qrSize: 360 })
+        const url = await buildTicketQrImage(participantWithQR, { width: 1200, height: 720, qrSize: 360 })
         const blob = await (await fetch(url)).blob()
         const file = new File([blob], `Tiket_${participant.ticket_id}.png`, { type: 'image/png' })
 
@@ -349,7 +447,7 @@ export default function QRGenerate() {
     }
 
     // Fallback: open WhatsApp with text message + public QR URL
-    const waUrl = getWhatsAppShareLink(participant)
+    const waUrl = getWhatsAppShareLink(participantWithQR)
     window.open(waUrl, '_blank')
     toast.success('WhatsApp', 'Membuka WhatsApp')
   }

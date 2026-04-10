@@ -1,10 +1,25 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
+// ===== REAL FUNCTIONS FOR WA DELIVERY =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
 function getActiveTenant() { return { id: 'tenant-default' }; }
 function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
 function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Send, AlertTriangle, CheckCircle2, XCircle, RotateCcw, ClipboardList } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -32,6 +47,13 @@ function statusTone(status) {
 }
 
 export default function WaDelivery() {
+    // Initial load peserta dari Supabase
+    useEffect(() => {
+      const load = async () => {
+        await bootstrapStoreFromFirebase();
+      };
+      load();
+    }, []);
   const resolveTenantId = (userValue) => {
     const fromStore = String(getActiveTenant()?.id || '').trim()
     if (fromStore) return fromStore

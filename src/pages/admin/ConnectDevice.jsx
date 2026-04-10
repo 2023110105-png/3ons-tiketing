@@ -1,10 +1,15 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
-function getCurrentDay() { return 1; }
-function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+// ===== REAL FUNCTIONS FOR CONNECT DEVICE =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getActiveTenant() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
+  const activeTenantId = _workspaceSnapshot.tenantRegistry?.activeTenantId || 'tenant-default';
+  return { id: activeTenantId };
+}
 import { useState, useEffect } from 'react'
 import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -27,6 +32,13 @@ function formatConnectionError(message) {
 }
 
 export default function ConnectDevice() {
+    // Initial load tenant dari Supabase
+    useEffect(() => {
+      const load = async () => {
+        await bootstrapStoreFromFirebase();
+      };
+      load();
+    }, []);
   const resolveTenantId = (userValue) => {
     // admin_client harus selalu terkunci ke tenant miliknya (dari session user),
     // jangan dipengaruhi activeTenant di store.

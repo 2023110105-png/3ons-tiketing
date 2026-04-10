@@ -1,9 +1,34 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCheckInLogs() { return []; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getStats() { return {}; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCurrentDay() { return 1; }
+// ===== REAL FUNCTIONS FOR SERVER VERIFY =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() { 
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot; 
+}
+
+function getCheckInLogs(day) { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day)) || [];
+}
+
+function getStats(day) { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0 };
+  const participants = _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
+  const checkInLogs = getCheckInLogs(day);
+  const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
+  return {
+    total: participants.length,
+    checkedIn: checkedInTicketIds.size,
+    notCheckedIn: participants.length - checkedInTicketIds.size
+  };
+}
+
+function getCurrentDay() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.currentDay || 1;
+}
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'

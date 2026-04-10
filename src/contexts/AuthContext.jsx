@@ -109,25 +109,44 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Save user session to localStorage
+  const saveUserSession = (userData) => {
+    try {
+      if (userData) {
+        localStorage.setItem('yamaha_scan_user', JSON.stringify(userData))
+      } else {
+        localStorage.removeItem('yamaha_scan_user')
+      }
+    } catch (error) {
+      console.warn('Failed to save user session:', error)
+    }
+  }
+
+  // Load user session from localStorage
+  const loadUserSession = () => {
+    try {
+      const saved = localStorage.getItem('yamaha_scan_user')
+      if (saved) {
+        const userData = JSON.parse(saved)
+        return userData
+      }
+    } catch (error) {
+      console.warn('Failed to load user session:', error)
+      localStorage.removeItem('yamaha_scan_user')
+    }
+    return null
+  }
+
   useEffect(() => {
     let cancelled = false
 
     const hydrate = async () => {
-      // bootstrapStoreFromFirebase dihapus (mockData.js sudah tidak ada)
-      // try {
-      //     await bootstrapStoreFromFirebase()
-      // } catch {
-      //     // Keep local fallback available even if Firebase hydration fails.
-      // }
-
       if (cancelled) return
 
-      // getSession, doLogout dihapus (mockData.js sudah tidak ada)
-      let session = null
-      // if (session?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
-      //     doLogout()
-      //     session = null
-      // }
+      // Try to restore session from localStorage first
+      let session = loadUserSession()
+      
+      // If no local session, try Firebase auth
       if (!session && isFirebaseEnabled && auth) {
         await waitForFirebaseAuthReady()
         const firebaseEmail = auth.currentUser?.email
@@ -135,6 +154,7 @@ export function AuthProvider({ children }) {
           const recovered = loginByIdentity(firebaseEmail)
           if (recovered.success) {
             session = recovered.user
+            saveUserSession(session) // Save to localStorage
           }
         }
       }
@@ -155,6 +175,7 @@ export function AuthProvider({ children }) {
     const fastResult = await fastLoginSupabase(username, password);
     if (fastResult.success) {
       setUser(fastResult.user);
+      saveUserSession(fastResult.user); // Save to localStorage for persistence
       void bootstrapWaSessionAfterLogin(fastResult.user);
       return fastResult;
     }
@@ -189,6 +210,7 @@ export function AuthProvider({ children }) {
           const localOnly = scopedOptions ? doLogin(username, password, scopedOptions) : doLogin(username, password)
           if (localOnly.success) {
             setUser(localOnly.user)
+            saveUserSession(localOnly.user) // Save to localStorage for persistence
             void bootstrapWaSessionAfterLogin(localOnly.user)
             return localOnly
           }
@@ -206,6 +228,7 @@ export function AuthProvider({ children }) {
         const localResult = doLogin(username, password)
         if (localResult.success) {
           setUser(localResult.user)
+          saveUserSession(localResult.user) // Save to localStorage for persistence
           return localResult
         }
         // Return local auth error jika username/password salah
@@ -228,6 +251,7 @@ export function AuthProvider({ children }) {
             return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
           }
           setUser(identityResult.user)
+          saveUserSession(identityResult.user) // Save to localStorage for persistence
           void bootstrapWaSessionAfterLogin(identityResult.user)
           return identityResult
         }
@@ -240,6 +264,7 @@ export function AuthProvider({ children }) {
             return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
           }
           setUser(emailIdentityResult.user)
+          saveUserSession(emailIdentityResult.user) // Save to localStorage for persistence
           void bootstrapWaSessionAfterLogin(emailIdentityResult.user)
           return emailIdentityResult
         }
@@ -258,6 +283,7 @@ export function AuthProvider({ children }) {
               return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
             }
             setUser(localOnly.user)
+            saveUserSession(localOnly.user) // Save to localStorage for persistence
             void bootstrapWaSessionAfterLogin(localOnly.user)
             return localOnly
           }
@@ -272,6 +298,7 @@ export function AuthProvider({ children }) {
           try {
             await createUserWithEmailAndPassword(auth, candidateEmail, password)
             setUser(localResult.user)
+            saveUserSession(localResult.user) // Save to localStorage for persistence
             void bootstrapWaSessionAfterLogin(localResult.user)
             return localResult
           } catch (createErr) {
@@ -280,6 +307,7 @@ export function AuthProvider({ children }) {
             // keep tenant operational via local auth instead of hard-blocking login.
             if (createCode === 'auth/email-already-in-use' || createCode === 'email-already-in-use') {
               setUser(localResult.user)
+              saveUserSession(localResult.user) // Save to localStorage for persistence
               void bootstrapWaSessionAfterLogin(localResult.user)
               return localResult
             }
@@ -302,6 +330,7 @@ export function AuthProvider({ children }) {
           const identityResult = scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username)
           if (identityResult.success) {
             setUser(identityResult.user)
+            saveUserSession(identityResult.user) // Save to localStorage for persistence
             void bootstrapWaSessionAfterLogin(identityResult.user)
             return identityResult
           }
@@ -321,6 +350,7 @@ export function AuthProvider({ children }) {
         return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
       }
       setUser(result.user)
+      saveUserSession(result.user) // Save to localStorage for persistence
       void bootstrapWaSessionAfterLogin(result.user)
     }
     return result
@@ -334,7 +364,7 @@ export function AuthProvider({ children }) {
         // Keep local logout path as source of truth.
       }
     }
-    doLogout()
+    saveUserSession(null); // Clear session from localStorage
     setUser(null)
   }, [])
 

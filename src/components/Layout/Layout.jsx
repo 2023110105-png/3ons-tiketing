@@ -1,15 +1,82 @@
-// ===== DUMMY FUNGSI & STATE AGAR ERROR HILANG =====
-function _getParticipants() { return []; }
-function _getActiveTenant() { return { id: 'tenant-default' }; }
-function _getAvailableDays() { return [1]; }
-function getCurrentDay() { return 1; }
-function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function getCurrentEventId() { return 'event-default'; }
-function getTenantBranding() { return { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' }; }
-function getEvents() { return [{ id: 'event-default', name: 'Event Default', isArchived: false }]; }
-function setCurrentEvent() {}
-function createEvent(name) { return { id: 'event-default', name }; }
+// ===== REAL FUNCTIONS FOR LAYOUT =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+
+function _getParticipants() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+}
+
+function _getActiveTenant() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
+  return _workspaceSnapshot.store.tenants?.['tenant-default'] || { id: 'tenant-default' };
+}
+
+function _getAvailableDays() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
+  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
+}
+
+function getCurrentDay() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
+}
+
+function setCurrentDay(day) {
+  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
+    _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
+  }
+}
+
+function getCurrentEventId() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.activeEventId || 'event-default';
+}
+
+function getTenantBranding() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.branding || { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
+}
+
+function getEvents() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [{ id: 'event-default', name: 'Event Default', isArchived: false }];
+  const tenantId = 'tenant-default';
+  const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
+  return Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
+}
+
+function setCurrentEvent(eventId) {
+  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
+    _workspaceSnapshot.store.tenants['tenant-default'].activeEventId = eventId;
+  }
+}
+
+function createEvent(name) { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'event-default', name };
+  const tenantId = 'tenant-default';
+  const newEventId = 'event-' + Date.now();
+  const newEvent = { id: newEventId, name, isArchived: false, participants: [], checkin_logs: [], created_at: new Date().toISOString() };
+  if (!_workspaceSnapshot.store.tenants[tenantId].events) {
+    _workspaceSnapshot.store.tenants[tenantId].events = {};
+  }
+  _workspaceSnapshot.store.tenants[tenantId].events[newEventId] = newEvent;
+  return newEvent;
+}
+
 let events = getEvents();
 let dayInput = '1';
 let currentDay = 1;

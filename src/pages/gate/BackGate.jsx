@@ -1,14 +1,48 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+// ===== REAL FUNCTIONS FOR BACKGATE =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+
+function getCurrentDay() { return 1; }
+
+function getCheckInLogs(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+}
+
+function getStats(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
+  const participants = getParticipants(day);
+  const checkInLogs = getCheckInLogs(day);
+  const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
+  const total = participants.length;
+  const checkedIn = checkedInTicketIds.size;
+  const notCheckedIn = total - checkedIn;
+  const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+  return { total, checkedIn, notCheckedIn, percentage };
+}
+
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
+
 function getPendingCheckIns() { return []; }
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
 function getMaxPendingAttempts() { return 5; }
 function getOfflineQueueHistory() { return []; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCheckInLogs() { return []; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getStats() { return {}; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCurrentDay() { return 1; }
 import { useState, useEffect } from 'react'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
@@ -30,10 +64,19 @@ export default function BackGate() {
   const logs = getCheckInLogs(currentDay)
   const pendingItems = getPendingCheckIns()
 
+  // Initial data load
+  useEffect(() => {
+    const loadData = async () => {
+      await bootstrapStoreFromFirebase();
+      setRefreshKey(k => k + 1);
+    };
+    loadData();
+  }, [])
+
   // Refresh stats periodically
   useEffect(() => {
     const interval = setInterval(() => {
-      void bootstrapStoreFromFirebase(true)
+      void bootstrapStoreFromFirebase();
       setRefreshKey(k => k + 1)
     }, REALTIME_REFRESH_MS)
     return () => clearInterval(interval)

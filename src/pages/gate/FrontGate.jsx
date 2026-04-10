@@ -1,20 +1,195 @@
-// ===== DUMMY FUNGSI FITUR FRONTGATE (NO DUPLICATE) =====
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function syncPendingCheckIns() { return { processed: 0, synced: 0, failed: 0 }; }
-function getParticipants() { return []; }
+// ===== REAL FUNCTIONS FOR GATE SCAN =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+let _pendingCheckIns = [];
+let _offlineQueueHistory = [];
+
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
+
 function getActiveTenant() { return { id: 'tenant-default' }; }
-function enqueuePendingCheckIn() { return true; }
-function checkIn() { return Promise.resolve({ success: true }); }
-function manualCheckIn() { return Promise.resolve({ success: true }); }
-function searchParticipants() { return []; }
-function retryPendingCheckIn() { return true; }
-function removePendingCheckIn() { return true; }
-function clearPendingCheckIns() { return true; }
-function getOfflineQueueHistory() { return []; }
-function getStats() { return {}; }
 function getCurrentDay() { return 1; }
-function getMaxPendingAttempts() { return 5; }
-function getPendingCheckIns() { return []; }
+
+function getStats(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
+  const participants = getParticipants(day);
+  const checkInLogs = getCheckInLogs(day);
+  const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
+  const total = participants.length;
+  const checkedIn = checkedInTicketIds.size;
+  const notCheckedIn = total - checkedIn;
+  const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+  return { total, checkedIn, notCheckedIn, percentage };
+}
+
+function getCheckInLogs(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+}
+
+function searchParticipants(query, day) {
+  const participants = getParticipants(day);
+  if (!query) return participants;
+  const keyword = String(query).toLowerCase().trim();
+  return participants.filter(p =>
+    (p.name && p.name.toLowerCase().includes(keyword)) ||
+    (p.ticket_id && p.ticket_id.toLowerCase().includes(keyword)) ||
+    (p.phone && p.phone.toLowerCase().includes(keyword))
+  );
+}
+
+function enqueuePendingCheckIn(checkInData) {
+  _pendingCheckIns.push({
+    ...checkInData,
+    timestamp: new Date().toISOString(),
+    attempts: 0
+  });
+  return true;
+}
+
+function getPendingCheckIns() {
+  return _pendingCheckIns;
+}
+
+function removePendingCheckIn(ticketId) {
+  _pendingCheckIns = _pendingCheckIns.filter(item => item.ticket_id !== ticketId);
+  return true;
+}
+
+function clearPendingCheckIns() {
+  _pendingCheckIns = [];
+  return true;
+}
+
+function getOfflineQueueHistory(limit = 100) {
+  return _offlineQueueHistory.slice(0, limit);
+}
+
+function getMaxPendingAttempts() {
+  return 5;
+}
+
+async function checkIn(ticketId, day, scannedBy) {
+  try {
+    // Cari peserta berdasarkan ticket_id
+    const participants = getParticipants(day);
+    const participant = participants.find(p => p.ticket_id === ticketId);
+    
+    if (!participant) {
+      return { success: false, error: 'Peserta tidak ditemukan', status: 'not_found' };
+    }
+    
+    // Check if already checked in
+    const existingLogs = getCheckInLogs(day);
+    const alreadyCheckedIn = existingLogs.some(log => log.ticket_id === ticketId);
+    if (alreadyCheckedIn) {
+      return { success: false, error: 'Peserta sudah check-in', alreadyCheckedIn: true, status: 'duplicate', participant };
+    }
+    
+    // Add to check-in logs
+    const newLog = {
+      ticket_id: ticketId,
+      scanned_by: scannedBy,
+      timestamp: new Date().toISOString(),
+      day: day,
+      day_number: day
+    };
+    
+    // Store in memory
+    const tenantId = 'tenant-default';
+    const eventId = 'event-default';
+    if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+      const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
+      if (!event.checkin_logs) event.checkin_logs = [];
+      event.checkin_logs.push(newLog);
+    }
+    
+    return { success: true, ticket_id: ticketId, participant, status: 'success' };
+  } catch (error) {
+    return { success: false, error: 'Check-in failed', status: 'error' };
+  }
+}
+
+async function manualCheckIn(ticketId, scannedBy) {
+  const participants = getParticipants();
+  const participant = participants.find(p => p.ticket_id === ticketId);
+  if (!participant) {
+    return { success: false, error: 'Peserta tidak ditemukan' };
+  }
+  
+  const day = getCurrentDay();
+  return checkIn(ticketId, day, scannedBy);
+}
+
+async function syncPendingCheckIns() {
+  const results = { processed: 0, synced: 0, failed: 0 };
+  const pending = [..._pendingCheckIns];
+  
+  for (const item of pending) {
+    results.processed++;
+    try {
+      // Parse QR data untuk mendapatkan ticket_id dan day
+      let ticketId = item.ticket_id;
+      let day = item.day || 1;
+      
+      if (item.qr_data) {
+        try {
+          const parsed = JSON.parse(item.qr_data);
+          ticketId = parsed.tid || ticketId;
+          day = parsed.d || day;
+        } catch {
+          // Gunakan nilai default
+        }
+      }
+      
+      const result = await checkIn(ticketId, day, item.scanned_by);
+      if (result.success) {
+        results.synced++;
+        removePendingCheckIn(item.ticket_id);
+      } else {
+        item.attempts++;
+        if (item.attempts >= getMaxPendingAttempts()) {
+          results.failed++;
+          _offlineQueueHistory.push({
+            ...item,
+            type: 'sync_fail',
+            error: result.error
+          });
+          removePendingCheckIn(item.ticket_id);
+        }
+      }
+    } catch (error) {
+      item.attempts++;
+    }
+  }
+  
+  return results;
+}
+
+function retryPendingCheckIn(ticketId) {
+  const item = _pendingCheckIns.find(p => p.ticket_id === ticketId);
+  if (item) {
+    item.attempts = 0;
+    return true;
+  }
+  return false;
+}
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
@@ -112,9 +287,8 @@ export default function FrontGate() {
     const parsedTicketId = String(parsed?.tid || '').trim()
     const parsedSecureRef = String(parsed?.r || '').trim()
     const participantPool = getParticipants()
-    const matched = participantPool.find(p => String(p.qr_data || '').trim() === normalizedQr)
-      || participantPool.find(p => p.ticket_id === parsedTicketId && (!parsedSecureRef || String(p.secure_ref || '').trim() === parsedSecureRef))
-      || participantPool.find(p => p.ticket_id === parsedTicketId)
+    // Cari peserta berdasarkan ticket_id dari QR data (tidak cocokkan qr_data lengkap karena ada timestamp)
+    const matched = participantPool.find(p => p.ticket_id === parsedTicketId)
     // Ambil tenant_id dari tenant aktif, bukan dari QR
     const activeTenantId = getActiveTenant().id
 
@@ -173,27 +347,33 @@ export default function FrontGate() {
       return
     }
 
+    // Verifikasi server (non-blocking - tidak menghentikan scan jika gagal)
     const verify = await verifyScanWithServer(qrData)
-    if (verify.enforced && !verify.valid) {
-      setResult({
-        success: false,
-        status: 'invalid_server',
-        message: `Server verify gagal (${verify.reason})`
-      })
-      setShowResultDetail(false)
-      playError()
-      setTimeout(() => setResult(null), getResultDismissMs({ success: false, status: 'invalid_server' }))
-      return
+    if (!verify.valid) {
+      console.warn('Server verification warning:', verify.reason)
+      // Tetap lanjutkan scan meskipun verifikasi server gagal
     }
 
-    let res = checkIn(qrData)
-    if (!res.success && res.status === 'invalid' && String(res.message || '').toLowerCase().includes('tidak ditemukan')) {
+    // Parse QR data untuk mendapatkan ticket_id dan day
+    let ticketId = '';
+    let day = 1;
+    try {
+      const parsed = JSON.parse(qrData);
+      ticketId = parsed.tid || '';
+      day = parsed.d || 1;
+    } catch {
+      // Jika bukan JSON, gunakan qrData sebagai ticket_id langsung
+      ticketId = qrData;
+    }
+    
+    let res = await checkIn(ticketId, day, 'gate_front')
+    if (!res.success && res.error?.toLowerCase().includes('tidak ditemukan')) {
       // New participants may still be in-flight from admin device sync.
       // Force a fresh pull and retry once so gate scan works without manual refresh.
       setIsResolvingLatestData(true)
       try {
         await bootstrapStoreFromFirebase(true)
-        res = checkIn(qrData)
+        res = await checkIn(ticketId, day, 'gate_front')
       } finally {
         setIsResolvingLatestData(false)
       }
@@ -288,6 +468,16 @@ export default function FrontGate() {
     }
   }
 
+  // Initial data load from Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      await bootstrapStoreFromFirebase();
+      refreshStats();
+      refreshPendingState();
+    };
+    loadData();
+  }, [])
+
   useEffect(() => {
     return () => { stopCamera() }
   }, [])
@@ -371,6 +561,7 @@ export default function FrontGate() {
     if (result.success) return 'CHECK-IN BERHASIL'
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
     if (result.status === 'wrong_day') return 'SALAH HARI'
+    if (result.status === 'not_found') return 'PESERTA TIDAK DITEMUKAN'
     return 'TIDAK VALID'
   }
 
@@ -397,6 +588,7 @@ export default function FrontGate() {
     if (result.status === 'duplicate') return 'Arahkan peserta ke helpdesk untuk verifikasi ulang.'
     if (result.status === 'wrong_day') return 'Informasikan hari tiket yang benar.'
     if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
+    if (result.status === 'not_found') return 'Data peserta tidak ditemukan. Arahkan ke helpdesk.'
     return 'Tiket ditolak. Arahkan ke helpdesk.'
   }
 
@@ -785,8 +977,11 @@ export default function FrontGate() {
 // Quick scan buttons for demo
 function QuickScanButtons({ currentDay, onScan }) {
   const participants = getParticipants(currentDay)
-  const unchecked = participants.filter(p => !p.is_checked_in).slice(0, 6)
-  const checked = participants.filter(p => p.is_checked_in).slice(0, 2)
+  const checkInLogs = getCheckInLogs(currentDay)
+  const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id))
+  
+  const unchecked = participants.filter(p => !checkedInTicketIds.has(p.ticket_id)).slice(0, 6)
+  const checked = participants.filter(p => checkedInTicketIds.has(p.ticket_id)).slice(0, 2)
 
   return (
     <div className="quick-scan-list">

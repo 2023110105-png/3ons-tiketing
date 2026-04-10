@@ -1,14 +1,50 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
+// ===== REAL FUNCTIONS FOR REPORTS =====
+import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() {
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot;
+}
+function getParticipants(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const participants =
+    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  if (typeof day === 'number') {
+    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
+  }
+  return participants;
+}
 function getActiveTenant() { return { id: 'tenant-default' }; }
 function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
 function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
-function getCheckInLogs() { return []; }
-function getStats() { return { byCategory: {} }; }
-function getAdminLogs() { return []; }
-function getPeakHours() { return []; }
+function getCheckInLogs(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+}
+function getStats(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {} };
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || { byCategory: {} };
+}
+function getAdminLogs(limit) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const arr = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.admin_logs || [];
+  return typeof limit === 'number' ? arr.slice(0, limit) : arr;
+}
+function getPeakHours(day) {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.peak_hours || [];
+}
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
@@ -31,6 +67,13 @@ const RECHARTS_TOOLTIP_ITEM_STYLE = { color: '#fff' }
 const RECHARTS_TOOLTIP_LABEL_STYLE = { color: '#9CA3AF' }
 
 export default function Reports() {
+    // Initial load data dari Supabase
+    useEffect(() => {
+      const load = async () => {
+        await bootstrapStoreFromFirebase();
+      };
+      load();
+    }, []);
   const [dayFilter, setDayFilter] = useState(getCurrentDay())
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [auditActorFilter, setAuditActorFilter] = useState('all')

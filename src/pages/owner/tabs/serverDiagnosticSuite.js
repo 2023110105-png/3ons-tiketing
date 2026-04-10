@@ -1,7 +1,16 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCurrentDay() { return 1; }
-
+// ===== REAL FUNCTIONS FOR DIAGNOSTIC SUITE =====
 import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/firebaseSync'
+
+let _workspaceSnapshot = null;
+async function bootstrapStoreFromFirebase() { 
+  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+  return _workspaceSnapshot; 
+}
+
+function getCurrentDay() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.currentDay || 1;
+}
 import { apiFetch } from '../../../utils/api'
 
 const STORE_KEYS = ['ons_event_data', 'event_data']
