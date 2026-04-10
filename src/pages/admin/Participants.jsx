@@ -1,6 +1,12 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants(day) { return []; }
+function getParticipants() { return []; }
 function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+function createNewDay() { return 2; }
+function deleteCurrentDay() { return { success: true }; }
+function updateParticipant() { return { success: true, participant: { name: 'Dummy', ticket_id: 'DUMMY' } }; }
+function addParticipant() { return { name: 'Dummy', ticket_id: 'DUMMY' }; }
+function deleteParticipant() { return { success: true }; }
+function bulkAddParticipants() { return { added: [], updated: [], skipped: [], errors: [], syncPromise: Promise.resolve(true) }; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getActiveTenant() { return { id: 'tenant-default' }; }
 function setCurrentDay() {}

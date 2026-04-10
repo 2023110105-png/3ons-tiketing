@@ -1,10 +1,12 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getParticipants() { return []; }
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function setCurrentDay() {}
-function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function _getParticipants() { return []; }
+function _getActiveTenant() { return { id: 'tenant-default' }; }
+function _getAvailableDays() { return [1]; }
+function _getCurrentDay() { return 1; }
+function _setCurrentDay() {}
+function _bootstrapStoreFromFirebase() { return Promise.resolve(); }
 function simulateCheckIns() { alert('Simulasi check-in dijalankan (dummy).'); }
 function getCheckInLogs() { return []; }
 function getStats() { return { byCategory: {} }; }

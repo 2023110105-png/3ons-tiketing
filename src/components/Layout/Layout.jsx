@@ -1,7 +1,7 @@
 // ===== DUMMY FUNGSI & STATE AGAR ERROR HILANG =====
-function getParticipants() { return []; }
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
+function _getParticipants() { return []; }
+function _getActiveTenant() { return { id: 'tenant-default' }; }
+function _getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
 function setCurrentDay() {}
 function bootstrapStoreFromFirebase() { return Promise.resolve(); }
