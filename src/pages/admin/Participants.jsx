@@ -1,10 +1,7 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function setCurrentDay() {}
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getActiveTenant() { return { id: 'tenant-default' }; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function setCurrentDay() {}
 function getAvailableDays() { return [1]; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCurrentDay() { return 1; }
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
