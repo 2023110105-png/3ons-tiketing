@@ -40,7 +40,7 @@ function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkInLogs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
 }
 
 function searchParticipants(query, day) {
@@ -119,8 +119,8 @@ async function checkIn(ticketId, day, scannedBy) {
     // Store in memory
     if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
       const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
-      if (!event.checkin_logs) event.checkin_logs = [];
-      event.checkin_logs.push(newLog);
+      if (!event.checkInLogs) event.checkInLogs = [];
+      event.checkInLogs.push(newLog);
     }
 
     // Persist to database (async, don't block response)
