@@ -1,43 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import { 
-  Users, UserPlus, Key, Trash2, ShieldCheck, 
-  Search, ShieldAlert, ArrowLeft, Check, X 
-} from 'lucide-react'
 
-import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/useAuth'
-
-const OWNER_USER_SELECTED_TENANT_KEY = 'ons_owner_users_selected_tenant'
-
-function getTenantDisplayName(tenant) {
-  if (!tenant) return '-'
-  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
+// Komponen UserManager dinonaktifkan sementara (fokus ke tenant only, owner diputus)
+export default function UserManager() {
+  return null;
 }
-
-function loadSelectedTenantId(initialTenant) {
-  if (initialTenant?.id) return initialTenant.id
-  try {
-    return window.sessionStorage.getItem(OWNER_USER_SELECTED_TENANT_KEY) || ''
-  } catch {
-    return ''
-  }
-}
-
-export default function UserManager({ selectedTenant: initialTenant = null }) {
-  const toast = useToast()
-  const { user: currentUser } = useAuth()
-  
-  // const [tenants, setTenants] = useState(getTenants())
-  const [selectedTenantId, setSelectedTenantId] = useState(() => loadSelectedTenantId(initialTenant))
-  // const [users, setUsers] = useState([])
-  
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newUser, setNewUser] = useState({ 
-    username: '', 
-    email: '',
-    password: '', 
-    name: '', 
-    role: 'gate_front' 
   })
 
   const [searchQuery, setSearchQuery] = useState('')

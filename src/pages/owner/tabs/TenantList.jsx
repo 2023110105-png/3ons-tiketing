@@ -1,3 +1,7 @@
+// Komponen TenantList dinonaktifkan sementara (fokus ke tenant only, owner diputus)
+export default function TenantList() {
+  return null;
+}
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
 
