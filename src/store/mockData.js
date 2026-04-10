@@ -1382,6 +1382,8 @@ function normalizeParticipantPhone(value) {
   if (phone.startsWith('+62')) phone = '62' + phone.slice(3)
   // Jika diawali 0, ubah ke 62
   else if (phone.startsWith('0')) phone = '62' + phone.slice(1)
+  // Excel sering menghilangkan 0 depan: 81234567890 → 6281234567890 (format ID)
+  else if (/^8[1-9]\d{7,11}$/.test(phone)) phone = `62${phone}`
   // Jika sudah 62 di depan, biarkan
   // Jika tidak, biarkan apa adanya (untuk nomor luar negeri)
   return phone
@@ -3304,6 +3306,78 @@ function readImportField(row, aliases = []) {
   return ''
 }
 
+/** Header Excel bervariasi; cocokkan nama kolom fleksibel (undangan, tamu, dll.). */
+function readImportName(row) {
+  const direct = readImportField(row, [
+    'name', 'nama', 'nama_peserta', 'nama_lengkap', 'participant_name', 'peserta', 'full_name',
+    'nama_tamu', 'nama_undangan', 'nama_pengunjung', 'nama_delegasi', 'guest_name', 'visitor_name',
+    'guest', 'visitor', 'delegasi', 'undangan'
+  ])
+  if (direct) return direct
+  const keyHints = ['nama', 'name', 'peserta', 'participant', 'tamu', 'undangan', 'guest', 'visitor', 'delegasi', 'pengunjung', 'lengkap', 'fullname']
+  for (const [k, v] of Object.entries(row || {})) {
+    if (String(k).startsWith('__')) continue
+    const nk = normalizeImportKey(k)
+    if (!nk) continue
+    if (keyHints.some((h) => nk === h || nk.includes(h))) {
+      const text = String(v ?? '').trim()
+      if (text) return text
+    }
+  }
+  const skipKeys = new Set([
+    'kategori', 'category', 'type', 'jenis', 'hari', 'day', 'day_number', 'email', 'mail',
+    'telepon', 'telpon', 'phone', 'hp', 'wa', 'whatsapp', 'telp', 'mobile', 'nomor', 'status',
+    'tiket', 'ticket', 'id', 'nomor_tiket'
+  ])
+  for (const [k, v] of Object.entries(row || {})) {
+    if (String(k).startsWith('__')) continue
+    const nk = normalizeImportKey(k)
+    if (skipKeys.has(nk)) continue
+    if ([...skipKeys].some((s) => nk.startsWith(`${s}_`))) continue
+    if (rowKeyLooksLikePhoneColumn(nk)) continue
+    const text = String(v ?? '').trim()
+    if (text.length < 2) continue
+    if (/^\d+([.,]\d+)?$/.test(text.replace(/\s/g, ''))) continue
+    if (/[a-zA-Z\u0080-\uFFFF]/.test(text)) return text
+  }
+  return ''
+}
+
+function rowKeyLooksLikePhoneColumn(nk) {
+  if (!nk) return false
+  if (nk.includes('nama')) return false
+  if (nk.includes('email')) return false
+  if (nk.includes('kategori') || nk === 'category' || nk.includes('hari') || nk.includes('tiket')) return false
+  return (
+    nk.includes('tel') ||
+    nk.includes('phone') ||
+    nk.includes('hp') ||
+    nk.includes('wa') ||
+    nk.includes('whatsapp') ||
+    nk.includes('ponsel') ||
+    nk.includes('mobile') ||
+    (nk.includes('nomor') && (nk.includes('hp') || nk.includes('wa') || nk.includes('tel') || nk.includes('pon')))
+  )
+}
+
+/** Header telepon di file user sering beda; deteksi kolom + normalisasi. */
+function readImportPhone(row) {
+  const raw = readImportField(row, [
+    'phone', 'telepon', 'telpon', 'hp', 'no_hp', 'nomor_hp', 'nomor_wa', 'whatsapp', 'wa', 'mobile', 'telp',
+    'no_telp', 'notelp', 'nomor_telepon', 'nomor_handphone', 'phonenumber', 'phone_number', 'wa_number',
+    'no_wa', 'nowa', 'nohp', 'no_hp_1', 'no_hp_2'
+  ])
+  if (raw) return normalizeParticipantPhone(raw)
+  for (const [k, v] of Object.entries(row || {})) {
+    if (String(k).startsWith('__')) continue
+    const nk = normalizeImportKey(k)
+    if (!rowKeyLooksLikePhoneColumn(nk)) continue
+    const text = String(v ?? '').trim()
+    if (text) return normalizeParticipantPhone(text)
+  }
+  return ''
+}
+
 export function bulkAddParticipants(rows, dayNumber, actor = 'system', options = {}) {
   const added = []
   const updated = []
@@ -3325,13 +3399,8 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
     let rowDay
     let extras
     try {
-      name = readImportField(row, [
-        'name', 'nama', 'nama_peserta', 'nama_lengkap', 'participant_name', 'peserta', 'full_name'
-      ])
-      const phoneRaw = readImportField(row, [
-        'phone', 'telepon', 'hp', 'no_hp', 'nomor_hp', 'nomor_wa', 'whatsapp', 'wa', 'mobile', 'telp'
-      ])
-      phone = normalizeParticipantPhone(phoneRaw)
+      name = readImportName(row)
+      phone = readImportPhone(row)
       const emailRaw = readImportField(row, [
         'email', 'email_address', 'mail', 'e_mail'
       ])
@@ -3439,12 +3508,13 @@ export function bulkAddParticipants(rows, dayNumber, actor = 'system', options =
     added.push(participant)
   })
 
+  let syncPromise = null
   if (added.length + updated.length > 0) {
     saveStore()
-    void syncEventSnapshot({ tenantId: tenant.id, event: ev })
+    syncPromise = syncEventSnapshot({ tenantId: tenant.id, event: ev })
   }
 
-  return { added, updated, skipped, errors, total: rows.length }
+  return { added, updated, skipped, errors, total: rows.length, syncPromise }
 }
 
 export function markParticipantTicketSent(participantId, waSendMode = 'message_with_barcode') {

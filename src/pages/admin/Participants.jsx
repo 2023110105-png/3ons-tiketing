@@ -706,14 +706,43 @@ export default function Participants() {
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array' })
       const names = workbook.SheetNames || []
+      if (!names.length) {
+        toast.error('File tidak valid', 'Workbook tidak memiliki sheet.')
+        return
+      }
+
+      const loadRowsFromSheet = (sheetName) => {
+        const sheet = workbook.Sheets[sheetName]
+        if (!sheet) return []
+        const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, blankrows: false })
+        return rawRows.map(sanitizeImportRowKeys).filter((r) => r && Object.keys(r).length > 0)
+      }
+
       const preferredIdx = names.findIndex((n) => String(n || '').trim().toLowerCase() === 'template peserta')
-      const sheetName = preferredIdx >= 0 ? names[preferredIdx] : names[0]
-      const sheet = workbook.Sheets[sheetName]
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, blankrows: false })
-      const rows = rawRows.map(sanitizeImportRowKeys).filter((r) => r && Object.keys(r).length > 0)
+      let sheetName = preferredIdx >= 0 ? names[preferredIdx] : names[0]
+      let rows = loadRowsFromSheet(sheetName)
 
       if (rows.length === 0) {
-        toast.error('File kosong', 'Tidak ada data di file Excel')
+        let best = ''
+        let bestLen = 0
+        for (const n of names) {
+          const r = loadRowsFromSheet(n)
+          if (r.length > bestLen) {
+            bestLen = r.length
+            best = n
+          }
+        }
+        if (bestLen > 0) {
+          sheetName = best
+          rows = loadRowsFromSheet(sheetName)
+        }
+      }
+
+      if (rows.length === 0) {
+        toast.error(
+          'File kosong',
+          'Tidak ada baris data di semua sheet. Pastikan baris pertama berisi judul kolom (nama, telepon, …) dan data di bawahnya.'
+        )
         return
       }
 
@@ -726,6 +755,7 @@ export default function Participants() {
       })
       setImportPreview({
         fileName: file.name,
+        sheetUsed: sheetName,
         rows: rows,
         columns: Object.keys(rows[0]),
         preview: rows.slice(0, 5),
@@ -747,7 +777,7 @@ export default function Participants() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const executeImportRows = (rows, invalidDayRows = [], manualDay = null) => {
+  const executeImportRows = async (rows, invalidDayRows = [], manualDay = null) => {
     if (!rows?.length) return;
     if (invalidDayRows.length > 0) {
       toast.info(
@@ -776,7 +806,27 @@ export default function Participants() {
       toast.error('Import gagal', err?.message || 'Terjadi kesalahan saat memproses baris. Coba lagi atau kurangi jumlah baris.');
       return;
     }
-    setImportResult(result);
+
+    if (result?.syncPromise && typeof result.syncPromise.then === 'function') {
+      try {
+        const ok = await result.syncPromise
+        if (ok === false) {
+          toast.error(
+            'Sinkron cloud gagal',
+            'Peserta sudah tersimpan di perangkat ini, tetapi gagal disimpan ke server (Supabase). Cek internet, env VITE_SUPABASE_*, dan Pengaturan → Tes Supabase.'
+          )
+        }
+      } catch (err) {
+        console.error('[import sync]', err)
+        toast.error(
+          'Sinkron cloud gagal',
+          'Peserta tersimpan lokal; server menolak atau error. Periksa koneksi dan kebijakan RLS Supabase.'
+        )
+      }
+    }
+
+    const { syncPromise: _syncIgnored, ...importSummary } = result
+    setImportResult(importSummary);
     const addedCount = result?.added?.length ?? 0;
     const updatedCount = result?.updated?.length ?? 0;
     const errCount = result?.errors?.length ?? 0;
@@ -829,7 +879,7 @@ export default function Participants() {
       setShowDuplicateConfirm(true)
       return
     }
-    executeImportRows(importPreview.rows, importPreview.invalidDayRows || [])
+    void executeImportRows(importPreview.rows, importPreview.invalidDayRows || [])
   }
 
   const fixInvalidDaysToDefault = () => {
@@ -1004,7 +1054,14 @@ export default function Participants() {
                   <FileSpreadsheet size={20} className="import-preview-file-icon" />
                   <div className="import-preview-file-meta">
                     <div className="import-preview-file-name">{importPreview.fileName}</div>
-                    <div className="import-preview-file-count">{importPreview.rows.length} baris data</div>
+                    <div className="import-preview-file-count">
+                      {importPreview.rows.length} baris data
+                      {importPreview.sheetUsed ? (
+                        <span className="text-muted" style={{ display: 'block', fontWeight: 500, marginTop: 2 }}>
+                          Sheet: {importPreview.sheetUsed}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
@@ -1080,9 +1137,9 @@ export default function Participants() {
                   </table>
                 </div>
                 <p className="import-preview-help">
-                  Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong>, <strong>hari/day/day_number</strong>. <strong>Kategori bebas</strong> (contoh: VIP, Dealer, Kelas A, Premium, dll).
+                  Kolom <strong>nama</strong> dan <strong>telepon</strong> dikenali fleksibel (mis. <em>Nama Tamu</em>, <em>Undangan</em>, <em>No. HP</em>, <em>WhatsApp</em>). Nomor tanpa angka 0 di depan (format Excel) tetap dibaca.
                   <br />
-                    Gunakan hanya kolom pada template: <strong>nama, telepon, kategori, hari</strong>. Jika file Anda memiliki kolom lain, akan disimpan sebagai Data Tambahan, namun disarankan pakai template resmi.
+                  Juga didukung: <strong>kategori</strong>, <strong>hari</strong>. Kolom lain masuk sebagai data tambahan. Disarankan pakai template unduhan.
                 </p>
               </>
             ) : null}
@@ -1112,8 +1169,8 @@ export default function Participants() {
                 )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   <button className="btn btn-ghost" onClick={() => setShowDuplicateConfirm(false)}>Batal</button>
-                  <button className="btn btn-secondary" onClick={() => { setImportDuplicatePolicy('skip'); setShowDuplicateConfirm(false); executeImportRows(importPreview.rows, importPreview.invalidDayRows || []) }}>Skip Duplikat</button>
-                  <button className="btn btn-primary" onClick={() => { setImportDuplicatePolicy('allow'); setShowDuplicateConfirm(false); executeImportRows(importPreview.rows, importPreview.invalidDayRows || []) }}>Lanjutkan (Tambahkan Semua)</button>
+                  <button className="btn btn-secondary" onClick={() => { setImportDuplicatePolicy('skip'); setShowDuplicateConfirm(false); void executeImportRows(importPreview.rows, importPreview.invalidDayRows || []) }}>Skip Duplikat</button>
+                  <button className="btn btn-primary" onClick={() => { setImportDuplicatePolicy('allow'); setShowDuplicateConfirm(false); void executeImportRows(importPreview.rows, importPreview.invalidDayRows || []) }}>Lanjutkan (Tambahkan Semua)</button>
                 </div>
               </div>
             )}
