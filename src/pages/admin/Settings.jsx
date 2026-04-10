@@ -260,6 +260,12 @@ export default function Settings() {
   const [backupLastRefreshAgeSec, setBackupLastRefreshAgeSec] = useState(0)
   const [isBackupTabVisible, setIsBackupTabVisible] = useState(() => document.visibilityState === 'visible')
   const [supabaseCheckRunning, setSupabaseCheckRunning] = useState(false)
+  
+  // State for Cleanup
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cleanupCount, setCleanupCount] = useState(0)
+  const [cleanupResult, setCleanupResult] = useState('')
+  
   const clearResetModalState = () => {
     setShowResetModal(false)
     setResetInput('')
@@ -622,6 +628,55 @@ export default function Settings() {
     toast.success('Sukses', 'Cadangan data berhasil dihapus')
   }
 
+  // Handler untuk Cleanup Database
+  const handlePreviewCleanup = async () => {
+    setCleanupLoading(true)
+    try {
+      const res = await fetch('/api/admin/cleanup-preview')
+      const data = await res.json()
+      
+      if (data.success) {
+        setCleanupCount(data.invalid)
+        toast.info('Preview', `Total: ${data.total}, Valid: ${data.valid}, Invalid: ${data.invalid}`)
+      } else {
+        toast.error('Error', data.error)
+      }
+    } catch (err) {
+      toast.error('Error', err.message)
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
+
+  const handleCleanupInvalid = async () => {
+    if (cleanupCount === 0) {
+      toast.error('Info', 'Tidak ada data invalid untuk dihapus')
+      return
+    }
+    
+    if (!window.confirm(`Hapus ${cleanupCount} peserta invalid? Data akan dihapus permanen.`)) {
+      return
+    }
+    
+    setCleanupLoading(true)
+    try {
+      const res = await fetch('/api/admin/cleanup-participants', { method: 'POST' })
+      const data = await res.json()
+      
+      if (data.success) {
+        setCleanupResult(data.message)
+        toast.success('Sukses', data.message)
+        setCleanupCount(0)
+      } else {
+        toast.error('Error', data.error)
+      }
+    } catch (err) {
+      toast.error('Error', err.message)
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
+
   const handleDeleteInvalidBackups = () => {
     if (invalidBackupCount === 0) {
       toast.error('Info', 'Tidak ada cadangan tidak valid untuk dihapus')
@@ -800,6 +855,36 @@ export default function Settings() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="card card-pad">
+          <h3 className="card-title mb-16 card-title-inline">
+            <Trash2 size={18} /> Bersihkan Database
+          </h3>
+          <p className="text-note">
+            Hapus peserta dengan nomor tiket invalid. Hanya menyimpan: Day 1 (1-62), Day 2 (1-152).
+          </p>
+          <div className="actions-left" style={{ marginTop: 16 }}>
+            <button 
+              className="btn btn-ghost btn-sm" 
+              onClick={handlePreviewCleanup}
+              disabled={cleanupLoading}
+            >
+              {cleanupLoading ? 'Loading...' : 'Lihat Preview'}
+            </button>
+            <button 
+              className="btn btn-danger btn-sm" 
+              onClick={handleCleanupInvalid}
+              disabled={cleanupLoading || cleanupCount === 0}
+            >
+              {cleanupLoading ? 'Processing...' : `Hapus Data Invalid (${cleanupCount})`}
+            </button>
+          </div>
+          {cleanupResult && (
+            <div className="admin-note" style={{ marginTop: 16 }}>
+              <strong>Hasil:</strong> {cleanupResult}
+            </div>
+          )}
         </div>
 
         <div className="card card-pad">

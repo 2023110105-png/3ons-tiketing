@@ -1,0 +1,7 @@
+[build]
+# Increase memory limit
+buildCommand = "npm install --production"
+
+[deploy]
+# Set memory limit for runtime
+memory = 1024

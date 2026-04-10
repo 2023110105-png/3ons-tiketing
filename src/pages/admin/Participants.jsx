@@ -613,38 +613,67 @@ export default function Participants() {
     return digits.length >= 10
   }
 
+  // ===== SMART RETRY SYSTEM untuk Ultra-Reliable Bot =====
+  const RETRY_DELAYS = [1000, 2000, 4000, 8000]; // Exponential backoff
+  const MAX_RETRIES = 4;
+  
+  // Check if error is non-retryable (permanent)
+  const isNonRetryableError = (error) => {
+    const nonRetryable = ['nomor tidak valid', 'tidak terdaftar', 'bukan user whatsapp', 'invalid phone'];
+    return nonRetryable.some(k => String(error).toLowerCase().includes(k));
+  };
+  
+  // Smart retry dengan exponential backoff
+  const sendWithRetry = async (sendFn, maxRetries = MAX_RETRIES) => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await sendFn();
+        if (result?.success) return { success: true, attempts: attempt + 1 };
+        if (isNonRetryableError(result?.error)) return { success: false, attempts: attempt + 1, error: result.error };
+        lastError = result?.error || 'Unknown';
+      } catch (err) {
+        lastError = err?.message || 'Network error';
+      }
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)]));
+      }
+    }
+    return { success: false, attempts: maxRetries + 1, error: lastError };
+  };
+
   const sendTicketViaBot = async (participant) => {
     if (!hasValidWaTarget(participant)) {
       return { success: false, error: 'Nomor WhatsApp peserta kosong atau tidak valid.' }
     }
     const tenantIdNow = resolveTenantId(user)
-    // Force desain tiket WA agar tidak jatuh ke mode QR polos.
     const waSendMode = 'message_with_barcode';
     const wa_message = generateWaMessage(participant)
-    try {
-      const res = await apiFetch('/api/send-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...participant,
-          tenant_id: tenantIdNow,
-          send_wa: !!participant.phone,
-          send_email: !!participant.email,
-          wa_message,
-          wa_send_mode: waSendMode
-        })
-      });
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data?.success === false) {
-        const serverError = data?.error || `HTTP ${res.status}`
-        console.error('Broadcast send-ticket failed:', { tenant_id: tenantIdNow, ticket_id: participant?.ticket_id, serverError })
-        return { success: false, error: serverError }
+    
+    // Smart Retry: Coba kirim dengan exponential backoff
+    return await sendWithRetry(async () => {
+      try {
+        const res = await apiFetch('/api/send-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...participant,
+            tenant_id: tenantIdNow,
+            send_wa: !!participant.phone,
+            send_email: !!participant.email,
+            wa_message,
+            wa_send_mode: waSendMode
+          })
+        });
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || data?.success === false) {
+          return { success: false, error: data?.error || `HTTP ${res.status}` }
+        }
+        return { success: true, error: null }
+      } catch (e) {
+        return { success: false, error: e?.message || 'Network error' }
       }
-      return { success: true, error: null }
-    } catch (e) {
-      console.error('Layanan pengiriman sedang tidak aktif:', e);
-      return { success: false, error: e?.message || 'Tidak bisa terhubung ke layanan pengiriman' }
-    }
+    });
   }
 
   const handleSingleBotSend = async (participant) => {
@@ -680,27 +709,53 @@ export default function Participants() {
     if (!window.confirm(`Perhatian!\nAnda akan mengirim tiket ke ${targetParticipants.length} peserta dengan mode: ${selectedMode === 'message_with_barcode' ? 'Pesan + Barcode' : 'Pesan Saja'}.\nPastikan WhatsApp sudah tersambung dan internet stabil.\nLanjutkan?`)) return;
     setIsBroadcasting(true);
     setBroadcastProgress({ current: 0, total: targetParticipants.length, success: 0, failed: 0 });
+    
+    // FAST CHAT SYSTEM: Concurrent batch processing
+    const batchSize = 5; // Kirim 5 pesan secara paralel
+    const delayBetweenBatches = 2000; // 2 detik antar batch (hindari WA ban)
     let s = 0; let f = 0;
-    const failureReasons = []
-    for (let i = 0; i < targetParticipants.length; i++) {
-      setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const result = await sendTicketViaBot(targetParticipants[i]);
-      if (result?.success) {
-        s++
-      } else {
-        f++
-        if (failureReasons.length < 3) {
-          failureReasons.push(humanizeUserMessage(result?.error, { fallback: 'Pengiriman gagal tanpa alasan terinci.' }))
+    const failureReasons = [];
+    
+    for (let i = 0; i < targetParticipants.length; i += batchSize) {
+      const batch = targetParticipants.slice(i, i + batchSize);
+      
+      // Kirim batch secara paralel
+      const batchResults = await Promise.all(
+        batch.map(async (participant) => {
+          try {
+            const result = await sendTicketViaBot(participant);
+            return { success: result?.success, error: result?.error, participant };
+          } catch (err) {
+            return { success: false, error: err?.message, participant };
+          }
+        })
+      );
+      
+      // Proses hasil batch
+      batchResults.forEach((result, idx) => {
+        if (result.success) {
+          s++;
+        } else {
+          f++;
+          if (failureReasons.length < 3) {
+            failureReasons.push(`${result.participant?.name}: ${humanizeUserMessage(result.error, { fallback: 'Gagal' })}`);
+          }
         }
-      }
-      // Artificial delay 2.5 seconds to prevent WA Ban
-      if (i < targetParticipants.length - 1) {
-        await new Promise(r => setTimeout(r, 2500));
+      });
+      
+      // Update progress
+      const processed = Math.min(i + batchSize, targetParticipants.length);
+      setBroadcastProgress({ current: processed, total: targetParticipants.length, success: s, failed: f });
+      
+      // Delay antar batch untuk menghindari WA ban (kecuali batch terakhir)
+      if (i + batchSize < targetParticipants.length) {
+        await new Promise(r => setTimeout(r, delayBetweenBatches));
       }
     }
+    
     setBroadcastProgress(prev => ({ ...prev, success: s, failed: f }));
     if (f > 0) {
-      const reasonText = failureReasons.length > 0 ? ` Alasan utama: ${failureReasons.join(' | ')}` : ''
+      const reasonText = failureReasons.length > 0 ? ` Alasan: ${failureReasons.join(' | ')}` : ''
       toast.warning('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}.${reasonText}`)
     } else {
       toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`)

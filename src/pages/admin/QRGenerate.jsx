@@ -73,11 +73,12 @@ function getCurrentEventName() {
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { useToast } from '../../contexts/ToastContext'
-import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
+import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload, Send } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import { generateQRData, parseQRData } from '../../utils/qrSecurity'
 import BarcodeImport from './BarcodeImport'
+import ManualSendModal from '../../components/ManualSendModal'
 import { supabase } from '../../lib/supabase'
 
 const CATEGORY_STYLES = {
@@ -88,26 +89,31 @@ const CATEGORY_STYLES = {
 }
 
 // ===== SUPABASE DATA FUNCTIONS =====
-// Load participants from Supabase (primary source)
+// Load participants from Supabase workspace_state (primary source)
 async function loadParticipantsFromSupabase(day) {
   try {
-    let query = supabase.from('participants').select('*').order('nama', { ascending: true });
-    if (typeof day === 'number') {
-      // Cek multiple field names: hari, day, day_number
-      query = query.or(`hari.eq.${day},day.eq.${day},day_number.eq.${day}`);
-    }
-    const { data, error } = await query;
+    // Get participants from workspace_state (where data is actually stored)
+    const { data, error } = await supabase
+      .from('workspace_state')
+      .select('store')
+      .eq('id', 'ons-workspace-001')
+      .single();
+    
     if (error) throw error;
     
-    // Filter manual untuk memastikan day yang benar
-    if (typeof day === 'number' && data) {
-      return data.filter(p => 
-        Number(p.hari) === day || 
-        Number(p.day) === day || 
-        Number(p.day_number) === day
-      );
+    // Extract participants from workspace store structure
+    const store = data?.store;
+    const participants = store?.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
+    
+    // Filter by day if specified - cek multiple field names
+    if (typeof day === 'number') {
+      return participants.filter(p => {
+        const pDay = Number(p.day_number || p.day || p.hari || 1);
+        return pDay === day;
+      });
     }
-    return data || [];
+    
+    return participants;
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
     // Fallback to workspace snapshot
@@ -115,14 +121,35 @@ async function loadParticipantsFromSupabase(day) {
   }
 }
 
-// Save QR data to Supabase
+// Save QR data to Supabase using syncParticipantUpsert
 async function saveQRDataToSupabase(participantId, qrData) {
   try {
-    const { error } = await supabase
-      .from('participants')
-      .update({ qr_data: qrData, updated_at: new Date().toISOString() })
-      .eq('id', participantId);
-    if (error) throw error;
+    // Import syncParticipantUpsert dynamically to avoid circular dependency
+    const { syncParticipantUpsert } = await import('../../lib/dataSync');
+    
+    // Get current participant data from workspace
+    const allParticipants = getParticipants();
+    const participant = allParticipants.find(p => p.id === participantId);
+    
+    if (!participant) {
+      console.error('Participant not found:', participantId);
+      return false;
+    }
+    
+    // Update with new QR data
+    const updatedParticipant = {
+      ...participant,
+      qr_data: qrData,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Sync to Supabase
+    await syncParticipantUpsert({
+      tenantId: 'tenant-default',
+      eventId: 'event-default',
+      participant: updatedParticipant
+    });
+    
     return true;
   } catch (err) {
     console.error('Failed to save QR data:', err);
@@ -176,6 +203,8 @@ export default function QRGenerate() {
   const [generatedCount, setGeneratedCount] = useState(0)
   const [regeneratingSecure, setRegeneratingSecure] = useState(false)
   const [activeTab, setActiveTab] = useState('generate') // 'generate' atau 'import'
+  const [manualSendParticipant, setManualSendParticipant] = useState(null)
+  const [isManualSendOpen, setIsManualSendOpen] = useState(false)
   const toast = useToast()
   const isMobile = useIsMobileLayout()
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -319,94 +348,76 @@ export default function QRGenerate() {
       ctx.stroke()
     }
 
-    // === BACKGROUND GRADIENT ELEGANT ===
-    const bg = ctx.createLinearGradient(0, 0, width, height)
-    bg.addColorStop(0, '#faf8f5')
-    bg.addColorStop(0.5, '#f5f0e8')
-    bg.addColorStop(1, '#faf8f5')
-    ctx.fillStyle = bg
+    // === BACKGROUND (sama seperti WA bot) ===
+    ctx.fillStyle = '#f3f6fb'
     ctx.fillRect(0, 0, width, height)
 
-    // === SHADOW ELEVATION ===
+    // === OUTER CARD WITH SHADOW ===
     ctx.save()
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)'
-    ctx.shadowBlur = 40
-    ctx.shadowOffsetY = 16
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
+    ctx.shadowBlur = 20
+    ctx.shadowOffsetY = 8
     ctx.shadowOffsetX = 0
     fillRoundedRect(safeX, safeY, safeW, safeH, radius, '#ffffff')
     ctx.restore()
 
-    // === INNER BORDER ===
-    strokeRoundedRect(safeX + 8, safeY + 8, safeW - 16, safeH - 16, Math.max(12, radius - 8), '#f0ebe3', 2)
+    // === OUTER BORDER ===
+    strokeRoundedRect(safeX, safeY, safeW, safeH, radius, '#dfe6ef', 2)
+    fillRoundedRect(safeX + 10, safeY + 10, safeW - 20, safeH - 20, Math.max(8, radius - 4), '#ffffff')
 
-    // === TOP GRADIENT BAR ===
-    const topGrad = ctx.createLinearGradient(safeX, safeY, safeX + safeW, safeY)
-    topGrad.addColorStop(0, '#667eea')
-    topGrad.addColorStop(0.5, '#764ba2')
-    topGrad.addColorStop(1, '#f093fb')
-    ctx.save()
-    ctx.beginPath()
-    ctx.moveTo(safeX + radius, safeY)
-    ctx.lineTo(safeX + safeW - radius, safeY)
-    ctx.arcTo(safeX + safeW, safeY, safeX + safeW, safeY + 28, radius)
-    ctx.lineTo(safeX + safeW, safeY + 28)
-    ctx.lineTo(safeX, safeY + 28)
-    ctx.lineTo(safeX, safeY + radius)
-    ctx.arcTo(safeX, safeY, safeX + radius, safeY, radius)
-    ctx.closePath()
-    ctx.fillStyle = topGrad
-    ctx.fill()
-    ctx.restore()
+    // === TOP STRIP (kategori color based - sama seperti WA bot) ===
+    const stripH = 24
+    const stripY = safeY + 8
+    const stripX = safeX + 8
+    const stripW = safeW - 16
+    
+    // Strip 1: Kategori color (50%)
+    ctx.fillStyle = style.accent
+    ctx.fillRect(stripX, stripY, stripW * 0.5, stripH)
+    
+    // Strip 2: Blue (35%)
+    ctx.fillStyle = '#4da6e8'
+    ctx.fillRect(stripX + stripW * 0.5, stripY, stripW * 0.35, stripH)
+    
+    // Strip 3: Pink (15%)
+    ctx.fillStyle = '#e84393'
+    ctx.fillRect(stripX + stripW * 0.85, stripY, stripW * 0.15, stripH)
 
-    // === DECORATIVE CORNER ACCENT ===
-    ctx.save()
-    ctx.fillStyle = `${style.accent}15`
-    ctx.beginPath()
-    ctx.moveTo(safeX + safeW - 140, safeY + 16)
-    ctx.lineTo(safeX + safeW - 16, safeY + 16)
-    ctx.lineTo(safeX + safeW - 16, safeY + 100)
-    ctx.closePath()
-    ctx.fill()
-    ctx.restore()
+    // === DECORATIVE RIBBON (sama seperti WA bot) ===
+    ctx.fillStyle = style.soft
+    ctx.fillRect(safeX + safeW - 190, safeY + 14, 170, 78)
 
-    const qrX = safeX + safeW - qrSize - 60
-    const qrY = safeY + 100
-    const leftX = safeX + 24
-    const leftY = safeY + 44
-    const leftW = qrX - leftX - 24
-    const leftH = safeY + safeH - leftY - 24
+    const qrX = safeX + safeW - qrSize - 56
+    const qrY = safeY + 88
+    const leftX = safeX + 20
+    const leftY = safeY + 34
+    const leftW = qrX - leftX - 18
+    const leftH = safeY + safeH - leftY - 20
 
-    // === INFO PANEL WITH SOFT SHADOW ===
-    ctx.save()
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
-    ctx.shadowBlur = 16
-    ctx.shadowOffsetY = 8
-    fillRoundedRect(leftX, leftY, leftW, leftH, Math.max(16, radius - 8), '#ffffff')
-    ctx.restore()
-    strokeRoundedRect(leftX, leftY, leftW, leftH, Math.max(16, radius - 8), '#e8e0d5', 1)
+    // === INFO PANEL (sama seperti WA bot) ===
+    fillRoundedRect(leftX, leftY, leftW, leftH, Math.max(12, radius - 6), '#ffffff')
+    strokeRoundedRect(leftX, leftY, leftW, leftH, Math.max(12, radius - 6), '#edf0f6', 2)
 
-    // === QR PANEL ===
-    ctx.save()
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
-    ctx.shadowBlur = 20
-    ctx.shadowOffsetY = 10
-    fillRoundedRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 20, '#ffffff')
-    ctx.restore()
-    strokeRoundedRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 20, style.accent, 3)
+    // === QR PANEL (sama seperti WA bot) ===
+    fillRoundedRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 16, '#ffffff')
+    
+    // Top border
+    ctx.fillStyle = style.accent
+    ctx.fillRect(qrX - 18, qrY - 18, qrSize + 36, 4)
+    // Bottom border
+    ctx.fillRect(qrX - 18, qrY + qrSize + 14, qrSize + 36, 4)
+    // Left border
+    ctx.fillRect(qrX - 18, qrY - 16, 4, qrSize + 32)
+    // Right border
+    ctx.fillRect(qrX + qrSize + 14, qrY - 16, 4, qrSize + 32)
+    
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-    // === ELEGANT PERFORATION LINE ===
-    const perfX = qrX - 40
-    ctx.save()
-    ctx.strokeStyle = '#d4c8b8'
-    ctx.lineWidth = 2
-    ctx.setLineDash([4, 10])
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(perfX, safeY + 64)
-    ctx.lineTo(perfX, safeY + safeH - 32)
-    ctx.stroke()
-    ctx.restore()
+    // === PERFORATION LINE (sama seperti WA bot) ===
+    ctx.fillStyle = '#e5e7eb'
+    for (let i = safeY + 56; i < safeY + safeH - 28; i += 12) {
+      ctx.fillRect(qrX - 32, i, 2, 4)
+    }
 
     // === SUBTLE WATERMARK ===
     ctx.save()
@@ -418,91 +429,77 @@ export default function QRGenerate() {
     ctx.fillText(String(brandLabel || 'Violin').toUpperCase(), 0, 0)
     ctx.restore()
 
-    // === HEADER TITLE ===
-    ctx.fillStyle = '#2d3748'
-    ctx.font = '900 36px "Arial"'
-    ctx.fillText('E-Attendance', leftX + 24, leftY + 68)
+    // === HEADER (sama seperti WA bot) ===
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 32px "Arial"'
+    ctx.fillText('E-Attendance', leftX + 22, leftY + 40)
 
     // Subtitle
-    ctx.fillStyle = '#718096'
-    ctx.font = '600 16px "Arial"'
-    drawClampText(eventLabel || 'PALEMBANG VIOLIN COMPETITION', leftX + 24, leftY + 94, leftW - 48)
+    ctx.fillStyle = '#666666'
+    ctx.font = '16px "Arial"'
+    drawClampText(eventLabel || 'PALEMBANG VIOLIN COMPETITION', leftX + 22, leftY + 80, leftW - 44)
 
     // Brand label
-    ctx.fillStyle = '#a0aec0'
-    ctx.font = '700 11px "Arial"'
-    drawClampText((brandLabel || 'Official Event').toUpperCase(), leftX + 24, leftY + 114, leftW - 48)
+    ctx.fillStyle = '#888888'
+    ctx.font = 'bold 11px "Arial"'
+    drawClampText((brandLabel || 'Official Event').toUpperCase(), leftX + 22, leftY + 102, leftW - 44)
 
-    // === ELEGANT CATEGORY BADGE ===
-    const badgeY = leftY + 132
-    ctx.save()
-    ctx.shadowColor = 'rgba(102, 126, 234, 0.25)'
-    ctx.shadowBlur = 12
-    ctx.shadowOffsetY = 4
-    fillRoundedRect(leftX + 24, badgeY, 160, 38, 19, style.accent)
-    ctx.restore()
+    // === CATEGORY BADGE (sama seperti WA bot) ===
+    ctx.fillStyle = style.accent
+    ctx.fillRect(leftX + 22, leftY + 120, 160, 38)
     ctx.fillStyle = '#ffffff'
-    ctx.font = '800 15px "Arial"'
+    ctx.font = 'bold 15px "Arial"'
     ctx.textAlign = 'center'
-    ctx.fillText(String(participant.category || style.label || '-').toUpperCase(), leftX + 24 + 80, badgeY + 25)
+    ctx.fillText(String(categoryLabel).toUpperCase(), leftX + 22 + 80, leftY + 142)
     ctx.textAlign = 'left'
 
     // === PARTICIPANT NAME ===
-    ctx.fillStyle = '#1a202c'
-    ctx.font = '900 28px "Arial"'
-    drawClampText(participant.name || '-', leftX + 24, leftY + 210, leftW - 48)
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 28px "Arial"'
+    drawClampText(participant.name || '-', leftX + 22, leftY + 190, leftW - 44)
 
-    // === INFO GRID ===
+    // === INFO GRID (sama seperti WA bot) ===
     const infoY = leftY + 242
-    const colWidth = (leftW - 48) / 3
+    const colWidth = Math.round((leftW - 44) / 3)
 
     // Labels
-    ctx.fillStyle = '#a0aec0'
-    ctx.font = '600 12px "Arial"'
-    ctx.fillText('ID TICKET', leftX + 24, infoY)
-    ctx.fillText('DAY', leftX + 24 + colWidth, infoY)
-    ctx.fillText('CATEGORY', leftX + 24 + colWidth * 2, infoY)
+    ctx.fillStyle = '#888888'
+    ctx.font = '14px "Arial"'
+    ctx.fillText('ID TICKET', leftX + 22, infoY)
+    ctx.fillText('DAY', leftX + 22 + colWidth, infoY)
+    ctx.fillText('CATEGORY', leftX + 22 + colWidth * 2, infoY)
 
     // Values
-    ctx.fillStyle = '#2d3748'
-    ctx.font = '800 20px "Arial"'
-    ctx.fillText(String(participant.ticket_id || '-'), leftX + 24, infoY + 26)
-    ctx.font = '800 20px "Arial"'
-    ctx.fillText(String(participant.day_number || '-'), leftX + 24 + colWidth, infoY + 26)
-    ctx.font = '700 18px "Arial"'
-    ctx.fillText(String(participant.category || '-'), leftX + 24 + colWidth * 2, infoY + 26)
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 16px "Arial"'
+    ctx.fillText(String(participant.ticket_id || '-'), leftX + 22, infoY + 18)
+    ctx.font = 'bold 16px "Arial"'
+    ctx.fillText(String(participant.day_number || '-'), leftX + 22 + colWidth, infoY + 18)
+    ctx.font = 'bold 16px "Arial"'
+    drawClampText(String(participant.category || categoryLabel || '-'), leftX + 22 + colWidth * 2, infoY + 18, colWidth - 10)
 
-    // === ELEGANT DIVIDER ===
-    const dividerY = leftY + leftH - 80
-    const gradDiv = ctx.createLinearGradient(leftX + 24, 0, leftX + leftW - 24, 0)
-    gradDiv.addColorStop(0, 'transparent')
-    gradDiv.addColorStop(0.5, '#e2d5c5')
-    gradDiv.addColorStop(1, 'transparent')
-    ctx.strokeStyle = gradDiv
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(leftX + 24, dividerY)
-    ctx.lineTo(leftX + leftW - 24, dividerY)
-    ctx.stroke()
+    // === DIVIDER ===
+    ctx.fillStyle = '#e5e7eb'
+    ctx.fillRect(leftX + 22, leftY + leftH - 80, leftW - 44, 2)
 
-    // === FOOTER INSTRUCTION ===
-    ctx.fillStyle = '#4a5568'
-    ctx.font = '600 13px "Arial"'
-    ctx.fillText('📱 Tunjukkan kode QR ini untuk registrasi absensi peserta', leftX + 24, leftY + leftH - 54)
+    // === FOOTER (sama seperti WA bot) ===
+    ctx.fillStyle = '#444444'
+    ctx.font = '16px "Arial"'
+    ctx.fillText('Tunjukkan kode QR ini untuk registrasi absensi peserta', leftX + 22, leftY + leftH - 60)
 
     // Date/Time info
     const tl = getMetaValue(participant, 'Tanggal Lahir')
-    ctx.fillStyle = '#718096'
-    ctx.font = '500 12px "Arial"'
-    ctx.fillText(tl ? `🎂 ${tl}` : '📅 11 April 2026 • Primavera Production', leftX + 24, leftY + leftH - 34)
+    ctx.fillStyle = '#666666'
+    ctx.font = '14px "Arial"'
+    ctx.fillText(tl ? `${tl}` : '11 April 2026 - Primavera Production', leftX + 22, leftY + leftH - 40)
 
-    // === QR FOOTER ===
-    ctx.fillStyle = '#2d3748'
-    ctx.font = '700 13px "Arial"'
-    ctx.fillText('🔍 Scan at entrance', qrX + 12, qrY + qrSize + 48)
-    ctx.fillStyle = '#a0aec0'
-    ctx.font = '500 11px "Arial"'
-    ctx.fillText('Keep screen bright for quick scan', qrX + 12, qrY + qrSize + 66)
+    // === QR FOOTER (sama seperti WA bot) ===
+    ctx.fillStyle = '#333333'
+    ctx.font = 'bold 16px "Arial"'
+    ctx.fillText('Scan at entrance', qrX + 24, qrY + qrSize + 30)
+    ctx.fillStyle = '#888888'
+    ctx.font = '14px "Arial"'
+    ctx.fillText('Keep screen bright for quick scan', qrX + 24, qrY + qrSize + 50)
 
     return canvas.toDataURL('image/png', 1)
   }
@@ -582,6 +579,42 @@ export default function QRGenerate() {
     const waUrl = getWhatsAppShareLink(participantWithQR)
     window.open(waUrl, '_blank')
     toast.success('WhatsApp', 'Membuka WhatsApp')
+  }
+
+  // Open manual send modal with participant
+  const openManualSend = async (participant) => {
+    // Ensure QR data exists
+    const participantWithQR = await ensureParticipantQRData(participant);
+    if (!participantWithQR) {
+      toast.error('Gagal', 'Tidak bisa generate QR untuk peserta ini');
+      return;
+    }
+    
+    // Generate QR image for preview
+    try {
+      const url = await buildTicketQrImage(participantWithQR, { width: 900, height: 540, qrSize: 320 })
+      setQrUrl(url)
+      setManualSendParticipant(participantWithQR)
+      setIsManualSendOpen(true)
+    } catch (err) {
+      toast.error('Gagal', 'Tidak bisa membuat preview tiket')
+    }
+  }
+
+  // Handle successful manual send
+  const handleManualSendSuccess = ({ participant, phone, attempts }) => {
+    // Mark participant as sent (update local state)
+    setParticipants(prev => prev.map(p => 
+      p.id === participant.id 
+        ? { ...p, qr_locked: true, last_sent_at: new Date().toISOString() }
+        : p
+    ))
+    
+    // Close modal after short delay
+    setTimeout(() => {
+      setIsManualSendOpen(false)
+      setManualSendParticipant(null)
+    }, 1500)
   }
 
   const generateAllQR = async () => {
@@ -734,6 +767,13 @@ export default function QRGenerate() {
                 </div>
               </div>
               <button
+                className="btn btn-ghost btn-sm qr-icon-btn qr-manual-btn"
+                onClick={(e) => { e.stopPropagation(); openManualSend(p) }}
+                title="Kirim Manual"
+              >
+                <Send size={16} />
+              </button>
+              <button
                 className="btn btn-ghost btn-sm qr-icon-btn qr-whatsapp-btn"
                 onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}
                 title="Share via WhatsApp"
@@ -780,10 +820,26 @@ export default function QRGenerate() {
                 >
                   <MessageCircle size={16} /> WhatsApp
                 </button>
+                <button
+                  className="btn btn-primary qr-modal-action"
+                  onClick={() => openManualSend(selectedParticipant)}
+                >
+                  <Send size={16} /> Kirim
+                </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Manual Send Modal */}
+        <ManualSendModal
+          isOpen={isManualSendOpen}
+          onClose={() => { setIsManualSendOpen(false); setManualSendParticipant(null); }}
+          participant={manualSendParticipant}
+          qrImageUrl={qrUrl}
+          onSendSuccess={handleManualSendSuccess}
+          tenantId="tenant-default"
+        />
       </div>
     )
   }
@@ -862,8 +918,9 @@ export default function QRGenerate() {
                       </div>
                     </div>
                     <div className="qr-list-actions">
-                      <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}><MessageCircle size={14} /></button>
-                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }}><Download size={14} /></button>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openManualSend(p) }} title="Kirim Manual"><Send size={14} /></button>
+                      <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }} title="Share via WhatsApp"><MessageCircle size={14} /></button>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }} title="Download tiket"><Download size={14} /></button>
                     </div>
                   </div>
                 ))}
@@ -888,6 +945,13 @@ export default function QRGenerate() {
                     >
                       <MessageCircle size={14} /> Share via WA
                     </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => openManualSend(selectedParticipant)}
+                      title="Kirim tiket manual dengan nomor WhatsApp"
+                    >
+                      <Send size={14} /> Kirim Manual
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -908,6 +972,16 @@ export default function QRGenerate() {
           <BarcodeImport />
         </>
       )}
+
+      {/* Manual Send Modal */}
+      <ManualSendModal
+        isOpen={isManualSendOpen}
+        onClose={() => { setIsManualSendOpen(false); setManualSendParticipant(null); }}
+        participant={manualSendParticipant}
+        qrImageUrl={qrUrl}
+        onSendSuccess={handleManualSendSuccess}
+        tenantId="tenant-default"
+      />
     </div>
   )
 }

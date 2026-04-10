@@ -1,20 +1,190 @@
 // ===== FAST LOGIN SUPABASE =====
 import { supabase } from '../lib/supabase'
+
+// Cache untuk workspace users (expire setelah 5 menit)
+let workspaceUsersCache = null;
+let workspaceUsersCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 menit
+
+// Ambil data users dari Supabase workspace_state dengan caching
+async function getWorkspaceUsersFromSupabase() {
+  const now = Date.now();
+  if (workspaceUsersCache && (now - workspaceUsersCacheTime) < CACHE_TTL) {
+    return { success: true, users: workspaceUsersCache, fromCache: true };
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('workspace_state')
+      .select('tenant_registry')
+      .eq('id', 'default')
+      .maybeSingle();
+    
+    if (error) {
+      console.error('[getWorkspaceUsers] Supabase error:', error);
+      return { success: false, error: 'Gagal akses data pengguna' };
+    }
+    
+    if (!data || !data.tenant_registry) {
+      return { success: false, error: 'Data workspace tidak ditemukan' };
+    }
+    
+    const tenants = data.tenant_registry?.tenants || {};
+    const tenant = tenants['tenant-default'] || Object.values(tenants)[0];
+    
+    if (!tenant) {
+      return { success: false, error: 'Tenant tidak ditemukan' };
+    }
+    
+    const users = Array.isArray(tenant.users) ? tenant.users : [];
+    
+    // Validasi: pastikan users memiliki field yang required
+    const validUsers = users.filter(u => 
+      u && 
+      (u.username || u.email || u.id) && 
+      u.password &&
+      u.role
+    );
+    
+    // Update cache
+    workspaceUsersCache = validUsers;
+    workspaceUsersCacheTime = now;
+    
+    return { success: true, users: validUsers, tenant };
+  } catch (err) {
+    console.error('[getWorkspaceUsers] Error:', err);
+    return { success: false, error: 'Terjadi kesalahan sistem' };
+  }
+}
+
 // Fungsi login lokal langsung ke Supabase workspace_state
 async function fastLoginSupabase(username, password) {
-  // Ambil data workspace_state
-  const { data, error } = await supabase
-    .from('workspace_state')
-    .select('tenant_registry')
-    .eq('id', 'default')
-    .maybeSingle();
-  if (error || !data) return { success: false, error: 'Gagal akses data Supabase' };
-  const tenants = data.tenant_registry?.tenants || data.tenant_registry?.tenants || {};
-  const tenant = tenants['tenant-default'] || Object.values(tenants)[0];
-  if (!tenant || !Array.isArray(tenant.users)) return { success: false, error: 'User admin tidak ditemukan' };
-  const user = tenant.users.find(u => (u.username === username || u.id === username) && u.password === password);
-  if (!user) return { success: false, error: 'Username atau password salah' };
-  return { success: true, user };
+  if (!username || !password) {
+    return { success: false, error: 'Username dan password wajib diisi' };
+  }
+  
+  const result = await getWorkspaceUsersFromSupabase();
+  if (!result.success) {
+    return result;
+  }
+  
+  const normalizedUsername = String(username).trim().toLowerCase();
+  const normalizedPassword = String(password);
+  
+  // Cari user dengan username atau email yang cocok
+  const user = result.users.find(u => {
+    const userUsername = String(u.username || '').trim().toLowerCase();
+    const userEmail = String(u.email || '').trim().toLowerCase();
+    const userId = String(u.id || '').trim().toLowerCase();
+    
+    return (userUsername === normalizedUsername || 
+            userEmail === normalizedUsername || 
+            userId === normalizedUsername) && 
+           u.password === normalizedPassword;
+  });
+  
+  if (!user) {
+    return { success: false, error: 'Username atau password salah' };
+  }
+  
+  // Validasi: pastikan user aktif
+  if (user.is_active === false || user.active === false || user.disabled === true) {
+    return { success: false, error: 'Akun tidak aktif. Hubungi administrator.' };
+  }
+  
+  // Validasi: pastikan role valid
+  const validRoles = ['owner', 'super_admin', 'admin_client', 'gate_front', 'gate_back', 'admin'];
+  const userRole = String(user.role || '').trim().toLowerCase();
+  if (!validRoles.includes(userRole)) {
+    return { success: false, error: 'Akun tidak memiliki peran yang valid' };
+  }
+  
+  return { 
+    success: true, 
+    user: {
+      ...user,
+      tenant_id: user.tenant_id || user.tenant?.id || 'tenant-default',
+      tenant: user.tenant || { id: 'tenant-default', name: 'Default' }
+    }
+  };
+}
+
+// Login by identity (email/username) - untuk auto-recovery session
+async function loginByIdentity(identity, options = {}) {
+  if (!identity) {
+    return { success: false, error: 'Identity tidak valid' };
+  }
+  
+  const result = await getWorkspaceUsersFromSupabase();
+  if (!result.success) {
+    return result;
+  }
+  
+  const normalizedIdentity = String(identity).trim().toLowerCase();
+  
+  const user = result.users.find(u => {
+    const userUsername = String(u.username || '').trim().toLowerCase();
+    const userEmail = String(u.email || '').trim().toLowerCase();
+    const userId = String(u.id || '').trim().toLowerCase();
+    
+    return userUsername === normalizedIdentity || 
+           userEmail === normalizedIdentity || 
+           userId === normalizedIdentity;
+  });
+  
+  if (!user) {
+    return { success: false, error: 'Pengguna tidak ditemukan' };
+  }
+  
+  // Validasi: pastikan user aktif
+  if (user.is_active === false || user.active === false || user.disabled === true) {
+    return { success: false, error: 'Akun tidak aktif' };
+  }
+  
+  return { 
+    success: true, 
+    user: {
+      ...user,
+      tenant_id: user.tenant_id || user.tenant?.id || 'tenant-default',
+      tenant: user.tenant || { id: 'tenant-default', name: 'Default' }
+    }
+  };
+}
+
+// Local login dengan validasi penuh
+async function doLogin(username, password, options = {}) {
+  // Gunakan fastLoginSupabase yang sudah ada validasi lengkap
+  return fastLoginSupabase(username, password);
+}
+
+// Logout helper
+function doLogout() {
+  // Clear cache saat logout
+  workspaceUsersCache = null;
+  workspaceUsersCacheTime = 0;
+}
+
+// Resolve login email dari username dengan lookup ke Supabase
+async function resolveLoginEmail(username) {
+  const normalized = String(username || '').trim().toLowerCase();
+  if (!normalized) return null;
+  
+  // Jika sudah format email, return as-is
+  if (normalized.includes('@')) {
+    return normalized;
+  }
+  
+  // Coba cari user dengan username tersebut dan return email-nya
+  const result = await getWorkspaceUsersFromSupabase();
+  if (!result.success) return null;
+  
+  const user = result.users.find(u => {
+    const userUsername = String(u.username || '').trim().toLowerCase();
+    const userId = String(u.id || '').trim().toLowerCase();
+    return userUsername === normalized || userId === normalized;
+  });
+  
+  return user?.email || null;
 }
 import { createContext, useEffect, useState, useCallback } from 'react'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
@@ -151,7 +321,7 @@ export function AuthProvider({ children }) {
         await waitForFirebaseAuthReady()
         const firebaseEmail = auth.currentUser?.email
         if (firebaseEmail) {
-          const recovered = loginByIdentity(firebaseEmail)
+          const recovered = await loginByIdentity(firebaseEmail)
           if (recovered.success) {
             session = recovered.user
             saveUserSession(session) // Save to localStorage
@@ -219,13 +389,13 @@ export function AuthProvider({ children }) {
       }
 
       const normalizedIdentity = String(username || '').trim().toLowerCase()
-      const resolvedLoginEmail = resolveLoginEmail(username)
-      const candidateEmail = isValidEmail(resolvedLoginEmail)
-        ? resolvedLoginEmail
+      const resolvedEmail = await resolveLoginEmail(username)
+      const candidateEmail = isValidEmail(resolvedEmail)
+        ? resolvedEmail
         : (isValidEmail(normalizedIdentity) ? normalizedIdentity : null)
       if (!candidateEmail) {
         // Akun tidak punya email, gunakan fallback local authentication
-        const localResult = doLogin(username, password)
+        const localResult = await doLogin(username, password)
         if (localResult.success) {
           setUser(localResult.user)
           saveUserSession(localResult.user) // Save to localStorage for persistence
@@ -243,7 +413,7 @@ export function AuthProvider({ children }) {
           // Continue with last known snapshot.
         }
 
-        const identityResult = loginIdentity(username)
+        const identityResult = await loginIdentity(username)
         if (identityResult.success) {
           if (identityResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
             await signOut(auth).catch(() => {})
@@ -256,7 +426,7 @@ export function AuthProvider({ children }) {
           return identityResult
         }
 
-        const emailIdentityResult = loginIdentity(candidateEmail)
+        const emailIdentityResult = await loginIdentity(candidateEmail)
         if (emailIdentityResult.success) {
           if (emailIdentityResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
             await signOut(auth).catch(() => {})
@@ -276,7 +446,7 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         if (isQuotaExhaustedError(error)) {
-          const localOnly = loginLocal(username, password)
+          const localOnly = await loginLocal(username, password)
           if (localOnly.success) {
             if (localOnly.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
               doLogout()
@@ -289,7 +459,7 @@ export function AuthProvider({ children }) {
           }
         }
         // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
-        const localResult = loginLocal(username, password)
+        const localResult = await loginLocal(username, password)
         if (localResult.success) {
           if (localResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
             doLogout()
@@ -322,12 +492,12 @@ export function AuthProvider({ children }) {
     }
 
     if (isFirebaseEnabled && auth) {
-      const candidateEmail = resolveLoginEmail(username)
+      const candidateEmail = await resolveLoginEmail(username)
       if (candidateEmail) {
         try {
           await signInWithEmailAndPassword(auth, candidateEmail, password)
           const scopedOptions = options?.tenantId ? { tenantId: options.tenantId } : null
-          const identityResult = scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username)
+          const identityResult = await (scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username))
           if (identityResult.success) {
             setUser(identityResult.user)
             saveUserSession(identityResult.user) // Save to localStorage for persistence
@@ -341,9 +511,9 @@ export function AuthProvider({ children }) {
     }
 
     const preferredTenantId = String(options?.tenantId || '').trim()
-    const result = preferredTenantId
+    const result = await (preferredTenantId
       ? doLogin(username, password, { tenantId: preferredTenantId })
-      : doLogin(username, password)
+      : doLogin(username, password))
     if (result.success) {
       if (result.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
         doLogout()

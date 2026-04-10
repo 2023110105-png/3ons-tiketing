@@ -6318,3 +6318,183 @@ button:focus-visible,
     opacity: 0;
   }
 }
+
+/* =============================================
+   MANUAL SEND MODAL - Manual WhatsApp Send
+   ============================================= */
+
+.manual-send-modal {
+  max-width: 480px;
+  width: 90%;
+}
+
+.manual-send-preview {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.manual-send-preview-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.manual-send-ticket {
+  max-width: 360px;
+  margin: 0 auto;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.manual-send-ticket img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.manual-send-ticket-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+}
+
+.manual-send-ticket-info strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.manual-send-ticket-info span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.manual-send-form {
+  margin-top: 20px;
+}
+
+.manual-send-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.manual-send-input {
+  width: 100%;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
+}
+
+.manual-send-input.is-error {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.manual-send-error {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.manual-send-hint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.manual-send-hint strong {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.manual-send-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.manual-send-status.success {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.manual-send-status.failed {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.qr-placeholder {
+  padding: 60px 40px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Mobile adjustments for ManualSendModal */
+@media (max-width: 640px) {
+  .manual-send-modal {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  
+  .manual-send-ticket {
+    max-width: 280px;
+  }
+  
+  .manual-send-ticket-info strong {
+    font-size: 0.95rem;
+  }
+  
+  .manual-send-ticket-info span {
+    font-size: 0.8rem;
+  }
+  
+  .manual-send-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Animation for spinner */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Manual Send button in QR list */
+.qr-manual-btn {
+  color: var(--brand-primary);
+}
+
+.qr-manual-btn:hover {
+  background: var(--brand-primary-subtle);
+  color: var(--brand-primary-dark);
+}
+
+/* QR list actions gap */
+.qr-list-actions {
+  display: flex;
+  gap: 6px;
+}
