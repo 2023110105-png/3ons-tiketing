@@ -1,5 +1,18 @@
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+// ===== DUMMY FUNGSI & STATE AGAR ERROR HILANG =====
 function getCurrentEventId() { return 'event-default'; }
+function getTenantBranding() { return { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' }; }
+function getEvents() { return [{ id: 'event-default', name: 'Event Default', isArchived: false }]; }
+function getCurrentDay() { return 1; }
+function setCurrentDay() {}
+function setCurrentEvent() {}
+function createEvent(name, user) { return { id: 'event-default', name }; }
+function bootstrapStoreFromFirebase() { return Promise.resolve(false); }
+let events = getEvents();
+let dayInput = '1';
+let currentDay = 1;
+function setEvents() {}
+function setDay() {}
+function setDayInput() {}
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
