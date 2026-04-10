@@ -1,4 +1,7 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getParticipants(day) { return []; }
+function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getActiveTenant() { return { id: 'tenant-default' }; }
 function setCurrentDay() {}
 function getAvailableDays() { return [1]; }
