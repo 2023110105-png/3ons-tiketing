@@ -2,27 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileDown, RefreshCw, Server, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
 import { apiFetch } from '../../../utils/api'
 import { getDiagnosticActionHint, runDiagnosticSuite } from './serverDiagnosticSuite'
-import {
-  bootstrapStoreFromFirebase,
-  getActiveTenant,
-  getCheckInLogs,
-  getCurrentDay,
-  getCurrentEventId,
-  getEvents,
-  getEventsWithOptions,
-  getAvailableDays,
-  getAdminLogs,
-  getStats,
-  getPeakHours,
-  getWaTemplate,
-  getWaSendMode,
-  getMaxPendingAttempts,
-  getStoreBackups,
-  getOwnerAuditLog,
-  getOwnerNotifications,
-  getParticipants,
-  getTenantHealth,
-  getTenants
+
 
 import { useToast } from '../../../contexts/ToastContext'
 import {
