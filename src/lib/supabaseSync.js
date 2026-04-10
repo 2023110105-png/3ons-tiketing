@@ -111,14 +111,19 @@ async function mutateWorkspace(mutator) {
 }
 
 export async function fetchFirebaseWorkspaceSnapshot() {
-  if (!isSupabaseEnabled || !supabase) return null
+  if (!supabase) {
+    console.error('[SupabaseSync] Supabase client not available')
+    return null
+  }
   try {
     const snapshot = await readWorkspaceRow()
-    if (!snapshot?.tenantRegistry || !snapshot?.store) return null
+    if (!snapshot?.tenantRegistry || !snapshot?.store) {
+      console.error('[SupabaseSync] Snapshot missing tenantRegistry or store:', snapshot)
+      return null
+    }
     return snapshot
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] fetch snapshot failed:', err?.message || err)
+    console.error('[SupabaseSync] fetch snapshot failed:', err?.message || err, err)
     return null
   }
 }
