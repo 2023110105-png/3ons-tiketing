@@ -41,7 +41,23 @@ function setCurrentDay(day) {
 }
 
 function getWaTemplate() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return '';
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return `🎻 E-TICKET: PALEMBANG VIOLIN COMPETITION
+PARTICIPANT DETAILS
+──────────────────────────
+👤 Name : {{nama}}
+🆔 QR ID : Violin-{{tiket}}
+🎼 Class : {{kategori}}
+──────────────────────────
+
+EVENT SCHEDULE
+📅 Date : Saturday, 11th April 2026
+🏢 By : Primavera Production
+
+INSTRUCTION
+Please show the barcode of this ticket to our registration officer for check-in.
+
+Thank you and good luck! 🎶
+──────────────────────────`;
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
