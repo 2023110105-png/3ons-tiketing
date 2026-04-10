@@ -43,6 +43,26 @@ async function main() {
               role: 'admin_client',
               tenantId: 'tenant-default',
               is_active: true
+            },
+            {
+              id: 'gate_front_001',
+              username: 'gate_depan',
+              email: 'gatefront@platform.com',
+              password: 'gate123',
+              name: 'Petugas Pintu Depan',
+              role: 'gate_front',
+              tenantId: 'tenant-default',
+              is_active: true
+            },
+            {
+              id: 'gate_back_001',
+              username: 'gate_belakang',
+              email: 'gateback@platform.com',
+              password: 'gate123',
+              name: 'Petugas Pintu Belakang',
+              role: 'gate_back',
+              tenantId: 'tenant-default',
+              is_active: true
             }
           ],
           branding: { primaryColor: '#0ea5e9' },
