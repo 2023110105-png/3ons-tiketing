@@ -1,5 +1,5 @@
 // ===== REAL FUNCTIONS FOR PARTICIPANTS =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchFirebaseWorkspaceSnapshot, syncParticipantUpsert } from '../../lib/dataSync';
 import { generateQRData } from '../../utils/qrSecurity';
 let _workspaceSnapshot = null;
 async function bootstrapStoreFromFirebase() {
@@ -45,7 +45,7 @@ function updateParticipant(participantId, updates) {
   return { success: false, error: 'Participant not found' };
 }
 
-function addParticipant(participantData) { 
+async function addParticipant(participantData) { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
@@ -71,7 +71,17 @@ function addParticipant(participantData) {
     created_at: new Date().toISOString()
   };
   
+  // Add to local state
   event.participants.push(newParticipant);
+  
+  // Sync to backend
+  try {
+    await syncParticipantUpsert({ tenantId, eventId, participant: newParticipant });
+  } catch (err) {
+    console.error('[addParticipant] Sync failed:', err);
+    // Continue even if sync fails - data is in local state
+  }
+  
   return { success: true, participant: newParticipant };
 }
 
@@ -556,7 +566,7 @@ export default function Participants() {
     }
 
     const extras = parseExtraFieldsText(newParticipant.extraFieldsText)
-    const p = addParticipant({
+    const result = await addParticipant({
       name: newParticipant.name,
       phone: newParticipant.phone,
       email: newParticipant.email,
@@ -566,12 +576,19 @@ export default function Participants() {
       actor: user,
       ...extras
     })
+    
+    if (!result.success) {
+      toast.error('Gagal menambahkan', result.error || 'Terjadi kesalahan')
+      return
+    }
+    
+    const p = result.participant
     if (newParticipant.auto_send) {
       toast.success('Peserta ditambahkan', `${p.name} — sedang dikirim lewat WhatsApp…`)
-      // Actually send the ticket via WA bot
+      // Actually send the ticket via WA bot (wait for sync to complete)
       setTimeout(() => {
         handleSingleBotSend(p)
-      }, 500)
+      }, 800)
     } else {
       toast.success('Peserta ditambahkan', `${p.name} (${p.ticket_id})`)
     }
