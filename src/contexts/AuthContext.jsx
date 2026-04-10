@@ -1,3 +1,21 @@
+// ===== FAST LOGIN SUPABASE =====
+import { supabase } from '../lib/supabase'
+// Fungsi login lokal langsung ke Supabase workspace_state
+async function fastLoginSupabase(username, password) {
+  // Ambil data workspace_state
+  const { data, error } = await supabase
+    .from('workspace_state')
+    .select('tenant_registry')
+    .eq('id', 'default')
+    .maybeSingle();
+  if (error || !data) return { success: false, error: 'Gagal akses data Supabase' };
+  const tenants = data.tenant_registry?.tenants || data.tenant_registry?.tenants || {};
+  const tenant = tenants['tenant-default'] || Object.values(tenants)[0];
+  if (!tenant || !Array.isArray(tenant.users)) return { success: false, error: 'User admin tidak ditemukan' };
+  const user = tenant.users.find(u => (u.username === username || u.id === username) && u.password === password);
+  if (!user) return { success: false, error: 'Username atau password salah' };
+  return { success: true, user };
+}
 import { createContext, useEffect, useState, useCallback } from 'react'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, isFirebaseEnabled } from '../lib/firebase'
@@ -133,6 +151,13 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(async (username, password, options = {}) => {
+    // Fast login Supabase
+    const fastResult = await fastLoginSupabase(username, password);
+    if (fastResult.success) {
+      setUser(fastResult.user);
+      void bootstrapWaSessionAfterLogin(fastResult.user);
+      return fastResult;
+    }
     const isQuotaExhaustedError = (errLike) => {
       const code = String(errLike?.code || '').toLowerCase()
       const message = String(errLike?.message || '').toLowerCase()
