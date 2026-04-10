@@ -9,7 +9,6 @@ import {
   loginByIdentity,
   logout as doLogout,
   resolveLoginEmail
-} from '../store/mockData'
 
 export const AuthContext = createContext(null)
 const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'

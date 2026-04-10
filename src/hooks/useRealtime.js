@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { subscribeToCheckIns } from '../store/mockData'
 
 export function useRealtime() {
   const [events, setEvents] = useState([])

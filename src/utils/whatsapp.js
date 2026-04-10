@@ -1,4 +1,3 @@
-import { getWaTemplate } from '../store/mockData'
 
 function normalizeTokenKey(key) {
   return String(key || '')

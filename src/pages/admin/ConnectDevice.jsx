@@ -4,7 +4,6 @@ import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
-import { getActiveTenant } from '../../store/mockData'
 
 function formatConnectionError(message) {
   const text = String(message || '').trim()

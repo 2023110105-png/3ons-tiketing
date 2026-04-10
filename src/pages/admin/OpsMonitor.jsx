@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Clock, RefreshCw, Signal, WifiOff } from 'lucide-react'
-import { getStats, getCheckInLogs, getPendingCheckIns, getOfflineQueueHistory, getCurrentDay, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 
 const STALE_SCAN_WARN_MINUTES = 6

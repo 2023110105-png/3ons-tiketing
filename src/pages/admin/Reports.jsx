@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
-import { getStats, getCheckInLogs, getParticipants, getCurrentDay, getPeakHours, getAvailableDays, getAdminLogs } from '../../store/mockData'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 import { useToast } from '../../contexts/ToastContext'
 import { exportToCSV, exportLogsToCSV, exportAdminLogsToCSV } from '../../utils/csvExport'

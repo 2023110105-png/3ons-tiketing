@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
-import { getStats, getCheckInLogs, getCurrentDay, simulateCheckIns } from '../../store/mockData'
 import { Users, UserCheck, Clock, TrendingUp, Zap, ClipboardList } from 'lucide-react'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 

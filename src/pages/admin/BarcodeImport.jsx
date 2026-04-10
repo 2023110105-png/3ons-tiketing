@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { apiFetch } from '../../utils/api';
 import { useAuth } from '../../contexts/useAuth';
-import { getParticipants, getActiveTenant } from '../../store/mockData';
 import './BarcodeImport.css';
 
 function mapImportError(message = '', reason = '') {

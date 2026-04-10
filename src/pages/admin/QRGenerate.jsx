@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
-import { getParticipants, getCurrentDay, getCurrentEventName, getTenantBranding, regenerateSecureQRTokens } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { FileDown, Download, QrCode, ShieldCheck, MessageCircle, X, Upload } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'

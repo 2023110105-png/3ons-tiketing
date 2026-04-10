@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { checkIn, getStats, getCurrentDay, getParticipants, getActiveTenant, manualCheckIn, searchParticipants, enqueuePendingCheckIn, syncPendingCheckIns, getPendingCheckIns, retryPendingCheckIn, removePendingCheckIn, clearPendingCheckIns, getOfflineQueueHistory, getMaxPendingAttempts, bootstrapStoreFromFirebase } from '../../store/mockData'
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
