@@ -9,8 +9,14 @@ function normalizeTokenKey(key) {
 
 // Helper function to replace {{nama}}, {{tiket}}, etc in the template
 // + Supports extra placeholders from participant.meta (e.g. {{tanggal_lahir}}, {{catatan}})
+
+// Fallback getWaTemplate jika tidak ada global
+function getWaTemplate() {
+  return 'Halo {{nama}}, tiket Anda: {{tiket}} (Hari {{hari}}, Kategori: {{kategori}})';
+}
+
 export const generateWaMessage = (participant) => {
-  const template = String(getWaTemplate() || '')
+  const template = String((typeof window !== 'undefined' && typeof window.getWaTemplate === 'function') ? window.getWaTemplate() : getWaTemplate())
   const p = participant || {}
 
   let message = template
