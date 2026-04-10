@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
-import { getCurrentDay, setCurrentDay, getEvents, getCurrentEventId, setCurrentEvent, createEvent, getTenantBranding, bootstrapStoreFromFirebase } from '../../store/mockData'
+
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
@@ -25,9 +25,9 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [currentDay, setDay] = useState(getCurrentDay())
-  const [dayInput, setDayInput] = useState(String(getCurrentDay()))
-  const [events, setEvents] = useState(getEvents())
+  // const [currentDay, setDay] = useState(getCurrentDay())
+  // const [dayInput, setDayInput] = useState(String(getCurrentDay()))
+  // const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const isMobile = useIsMobileLayout()
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())

@@ -2,14 +2,6 @@ import { createContext, useEffect, useState, useCallback } from 'react'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, isFirebaseEnabled } from '../lib/firebase'
 import { apiFetch } from '../utils/api'
-import {
-  bootstrapStoreFromFirebase,
-  getSession,
-  login as doLogin,
-  loginByIdentity,
-  logout as doLogout,
-  resolveLoginEmail
-
 export const AuthContext = createContext(null)
 const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
 const FIREBASE_AUTH_MODE = isFirebaseEnabled && import.meta.env.VITE_FIREBASE_AUTH_MODE !== 'hybrid'
@@ -103,19 +95,21 @@ export function AuthProvider({ children }) {
     let cancelled = false
 
     const hydrate = async () => {
-      try {
-        await bootstrapStoreFromFirebase()
-      } catch {
-        // Keep local fallback available even if Firebase hydration fails.
-      }
+      // bootstrapStoreFromFirebase dihapus (mockData.js sudah tidak ada)
+      // try {
+      //     await bootstrapStoreFromFirebase()
+      // } catch {
+      //     // Keep local fallback available even if Firebase hydration fails.
+      // }
 
       if (cancelled) return
 
-      let session = getSession()
-      if (session?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
-        doLogout()
-        session = null
-      }
+      // getSession, doLogout dihapus (mockData.js sudah tidak ada)
+      let session = null
+      // if (session?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
+      //     doLogout()
+      //     session = null
+      // }
       if (!session && isFirebaseEnabled && auth) {
         await waitForFirebaseAuthReady()
         const firebaseEmail = auth.currentUser?.email
@@ -164,7 +158,7 @@ export function AuthProvider({ children }) {
 
       // Always refresh latest tenant/user snapshot before credential checks.
       try {
-        await bootstrapStoreFromFirebase(true)
+        // await bootstrapStoreFromFirebase(true) // dihapus (mockData.js sudah tidak ada)
       } catch (hydrateErr) {
         if (isQuotaExhaustedError(hydrateErr)) {
           const localOnly = scopedOptions ? doLogin(username, password, scopedOptions) : doLogin(username, password)
@@ -196,7 +190,7 @@ export function AuthProvider({ children }) {
       try {
         await signInWithEmailAndPassword(auth, candidateEmail, password)
         try {
-          await bootstrapStoreFromFirebase(true)
+          // await bootstrapStoreFromFirebase(true) // dihapus (mockData.js sudah tidak ada)
         } catch {
           // Continue with last known snapshot.
         }
