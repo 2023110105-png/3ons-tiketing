@@ -407,7 +407,7 @@ export default function FrontGate() {
 
   // Manual check-in by participant ID
   const handleManualCheckIn = (participant) => {
-    const res = manualCheckIn(participant.id, 'gate_front')
+    const res = manualCheckIn(participant.ticket_id, 'gate_front')
     setResult(res)
     setShowResultDetail(false)
 
@@ -418,7 +418,7 @@ export default function FrontGate() {
         playSuccess()
       }
       setSearchResults(prev => prev.map(p =>
-        p.id === participant.id ? { ...p, is_checked_in: true } : p
+        p.ticket_id === participant.ticket_id ? { ...p, is_checked_in: true } : p
       ))
     } else {
       playError()
