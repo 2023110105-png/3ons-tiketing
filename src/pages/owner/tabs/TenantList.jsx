@@ -2,42 +2,6 @@
 export default function TenantList() {
   return null;
 }
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { Search, Plus, UserPlus, FileEdit, Trash2, Smartphone, Users, X } from 'lucide-react'
-
-import { useToast } from '../../../contexts/ToastContext'
-import { useAuth } from '../../../contexts/useAuth'
-
-function getTenantDisplayName(tenant) {
-  return String(tenant?.branding?.appName || tenant?.brandName || '-').trim() || '-'
-}
-
-export default function TenantList({ onManageUsers, onEditContract }) {
-  const toast = useToast()
-  const { user } = useAuth()
-  // const [tenants, setTenants] = useState(getTenants())
-  // const [activeTenantId, setActiveTenantId] = useState(getActiveTenant().id)
-  
-  const [tenantSearch, setTenantSearch] = useState('')
-  const [tenantFilter, setTenantFilter] = useState('all')
-
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newTenant, setNewTenant] = useState({ brandName: '', eventName: '', expiresAt: '' })
-
-  const initialHydrationDoneRef = useRef(false)
-
-  // const runFirebaseHydrate = useCallback(async () => {
-  //   if (typeof bootstrapStoreFromFirebase !== 'function') return
-  //   try {
-  //     await bootstrapStoreFromFirebase(true)
-  //   } catch {
-  //     // Keep owner UI responsive when Firebase hydrate is unavailable.
-  //   }
-  // }, [])
-
-  // const refreshTenants = useCallback(async (forceFirebase = true) => {
-  //   if (forceFirebase) {
-  //     await runFirebaseHydrate()
   //   }
   //   setTenants(getTenants())
   //   setActiveTenantId(getActiveTenant().id)
