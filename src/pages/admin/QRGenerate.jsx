@@ -16,20 +16,21 @@ function getParticipants(day) {
   }
   return participants;
 }
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
+function _getActiveTenant() { return { id: 'tenant-default' }; }
+function _getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function simulateCheckIns() { 
+function _simulateCheckIns() { 
   alert('Simulasi check-in dijalankan.'); 
 }
 
 // Dummy function untuk menghindari crash
-function regenerateSecureQRTokens(day, actor) {
+// eslint-disable-next-line no-unused-vars
+function regenerateSecureQRTokens(_day, _actor) {
   return { updated: 0, message: 'Regenerate QR tokens not implemented yet' };
 }
 
 // Generate QR data for participants yang belum punya qr_data
-function generateQRDataForParticipant(participant) {
+function _generateQRDataForParticipant(participant) {
   if (!participant) return null;
   
   // Jika sudah ada qr_data valid, gunakan yang ada
@@ -37,7 +38,7 @@ function generateQRDataForParticipant(participant) {
     try {
       const parsed = parseQRData(participant.qr_data);
       if (parsed && parsed.ticketId && parsed.signature) {
-        return participant.qr_data; // Valid QR data, return as is
+        return participant.qr_data;
       }
     } catch {
       // Invalid QR data, generate new one
@@ -49,12 +50,12 @@ function generateQRDataForParticipant(participant) {
 }
 
 // Update participants dengan qr_data jika kosong
-function ensureParticipantsHaveQRData(participants) {
+function _ensureParticipantsHaveQRData(participants) {
   if (!Array.isArray(participants)) return participants;
   
   return participants.map(p => ({
     ...p,
-    qr_data: p.qr_data || generateQRDataForParticipant(p)
+    qr_data: p.qr_data || _generateQRDataForParticipant(p)
   }));
 }
 
@@ -77,12 +78,73 @@ import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import { generateQRData, parseQRData } from '../../utils/qrSecurity'
 import BarcodeImport from './BarcodeImport'
+import { supabase } from '../../lib/supabase'
 
 const CATEGORY_STYLES = {
   VIP: { accent: '#b91c1c', soft: '#fdecea', dark: '#7f1d1d', label: 'VIP' },
   Dealer: { accent: '#1d4ed8', soft: '#e8f1ff', dark: '#1e3a8a', label: 'DEALER' },
   Media: { accent: '#ca8a04', soft: '#fff8e1', dark: '#854d0e', label: 'MEDIA' },
   Regular: { accent: '#15803d', soft: '#eaf7ee', dark: '#14532d', label: 'REGULAR' }
+}
+
+// ===== SUPABASE DATA FUNCTIONS =====
+// Load participants from Supabase (primary source)
+async function loadParticipantsFromSupabase(day) {
+  try {
+    let query = supabase.from('participants').select('*').order('nama', { ascending: true });
+    if (typeof day === 'number') {
+      query = query.eq('hari', day);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Failed to load from Supabase:', err);
+    // Fallback to workspace snapshot
+    return getParticipants(day);
+  }
+}
+
+// Save QR data to Supabase
+async function saveQRDataToSupabase(participantId, qrData) {
+  try {
+    const { error } = await supabase
+      .from('participants')
+      .update({ qr_data: qrData, updated_at: new Date().toISOString() })
+      .eq('id', participantId);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Failed to save QR data:', err);
+    return false;
+  }
+}
+
+// Ensure participant has QR data (generate if missing and save to DB)
+async function ensureParticipantQRData(participant) {
+  if (!participant) return null;
+  
+  // If already has valid qr_data, return as-is
+  if (participant.qr_data) {
+    try {
+      const parsed = parseQRData(participant.qr_data);
+      if (parsed && parsed.ticketId && parsed.signature) {
+        return participant;
+      }
+    } catch {
+      // Invalid QR data, generate new
+    }
+  }
+  
+  // Generate new QR data
+  const qrData = generateQRData(participant, 'tenant-default', 'event-default');
+  
+  // Save to Supabase
+  if (participant.id) {
+    await saveQRDataToSupabase(participant.id, qrData);
+  }
+  
+  return { ...participant, qr_data: qrData };
 }
 
 function loadImage(src) {
@@ -109,16 +171,28 @@ export default function QRGenerate() {
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
   const [activeEventName, setActiveEventName] = useState(getCurrentEventName())
 
-  // Initial load data dari Supabase
+  // Initial load data dari Supabase (PRIMARY)
   useEffect(() => {
     const load = async () => {
-      await bootstrapStoreFromFirebase();
-      setParticipants(getParticipants(dayFilter));
-      setTicketBranding(getTenantBranding());
-      setActiveEventName(getCurrentEventName());
+      setGenerating(true);
+      try {
+        // Load from Supabase first (persistent storage)
+        const dbParticipants = await loadParticipantsFromSupabase(dayFilter);
+        setParticipants(dbParticipants);
+        
+        // Also bootstrap from Firebase/workspace for other data
+        await bootstrapStoreFromFirebase();
+        setTicketBranding(getTenantBranding());
+        setActiveEventName(getCurrentEventName());
+      } catch (err) {
+        toast.error('Gagal', 'Gagal memuat data peserta');
+        console.error(err);
+      } finally {
+        setGenerating(false);
+      }
     };
     load();
-  }, [dayFilter]);
+  }, [dayFilter, toast]);
 
   useEffect(() => {
     const refreshBranding = () => {
@@ -135,8 +209,13 @@ export default function QRGenerate() {
     }
   }, [])
 
+  // Refresh participants when day filter changes
   useEffect(() => {
-    setParticipants(getParticipants(dayFilter))
+    const refresh = async () => {
+      const dbParticipants = await loadParticipantsFromSupabase(dayFilter);
+      setParticipants(dbParticipants);
+    };
+    refresh();
   }, [dayFilter])
 
   const getCategoryToneClass = (category) => {
@@ -421,11 +500,12 @@ export default function QRGenerate() {
   const generateQR = async (participant) => {
     setSelectedParticipant(participant)
     try {
-      // Pastikan participant memiliki qr_data
-      const participantWithQR = {
-        ...participant,
-        qr_data: participant.qr_data || generateQRDataForParticipant(participant)
-      };
+      // Ensure QR data exists and save to Supabase
+      const participantWithQR = await ensureParticipantQRData(participant);
+      if (!participantWithQR) {
+        toast.error('Gagal', 'Tidak bisa generate QR untuk peserta ini');
+        return;
+      }
       
       const url = await buildTicketQrImage(participantWithQR, { width: 900, height: 540, qrSize: 280 })
       setQrUrl(url)
@@ -436,11 +516,12 @@ export default function QRGenerate() {
 
   const downloadQR = async (participant) => {
     try {
-      // Pastikan participant memiliki qr_data
-      const participantWithQR = {
-        ...participant,
-        qr_data: participant.qr_data || generateQRDataForParticipant(participant)
-      };
+      // Ensure QR data exists and save to Supabase
+      const participantWithQR = await ensureParticipantQRData(participant);
+      if (!participantWithQR) {
+        toast.error('Gagal', 'Tidak bisa generate QR untuk peserta ini');
+        return;
+      }
       
       const url = await buildTicketQrImage(participantWithQR, { width: 1200, height: 720, qrSize: 360 })
       const link = document.createElement('a')
@@ -454,11 +535,12 @@ export default function QRGenerate() {
 
   // Share QR via WhatsApp
   const shareViaWhatsApp = async (participant) => {
-    // Pastikan participant memiliki qr_data
-    const participantWithQR = {
-      ...participant,
-      qr_data: participant.qr_data || generateQRDataForParticipant(participant)
-    };
+    // Ensure QR data exists and save to Supabase
+    const participantWithQR = await ensureParticipantQRData(participant);
+    if (!participantWithQR) {
+      toast.error('Gagal', 'Tidak bisa generate QR untuk peserta ini');
+      return;
+    }
     
     const eventLabel = String(
       (activeEventName && activeEventName !== '-') ? activeEventName : (ticketBranding.eventName || 'Event')
