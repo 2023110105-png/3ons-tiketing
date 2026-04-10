@@ -11,6 +11,7 @@ import { createRateLimit } from './middlewares/rateLimit.js'
 import { createHealthRoutes } from './routes/healthRoutes.js'
 import { createPlatformOwnerRoutes } from './routes/platformOwnerRoutes.js'
 import { createTenantRoutes } from './routes/tenantRoutes.js'
+import { createTicketRoutes } from './routes/ticketRoutes.js'
 import { log } from './utils/logger.js'
 
 const env = readEnv()
@@ -64,6 +65,7 @@ app.use(cors({
 app.use(createHealthRoutes())
 app.use(createPlatformOwnerRoutes({ platformSecretRequired: platformAuth, writeRateLimit }))
 app.use(createTenantRoutes({ platformSecretRequired: platformAuth }))
+app.use(createTicketRoutes({ writeRateLimit }))
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
