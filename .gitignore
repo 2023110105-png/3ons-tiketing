@@ -27,3 +27,4 @@ dist-ssr
 wa-server/auth_data/
 wa-server/.wwebjs_cache/
 wa-server/.wwebjs_auth/
+.vercel
