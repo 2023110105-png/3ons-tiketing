@@ -199,8 +199,8 @@ export default function QRGenerate() {
       return v === undefined || v === null ? '' : String(v)
     }
 
-    const radius = Math.round(Math.min(width, height) * 0.035)
-    const pad = 22
+    const radius = Math.round(Math.min(width, height) * 0.04)
+    const pad = 24
     const safeX = pad
     const safeY = pad
     const safeW = width - pad * 2
@@ -230,144 +230,190 @@ export default function QRGenerate() {
       ctx.stroke()
     }
 
-    // Latar belakang (kertas halus)
+    // === BACKGROUND GRADIENT ELEGANT ===
     const bg = ctx.createLinearGradient(0, 0, width, height)
-    bg.addColorStop(0, '#fffefb')
-    bg.addColorStop(1, '#f7fbff')
+    bg.addColorStop(0, '#faf8f5')
+    bg.addColorStop(0.5, '#f5f0e8')
+    bg.addColorStop(1, '#faf8f5')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, width, height)
 
-    // Shadow + body tiket
+    // === SHADOW ELEVATION ===
     ctx.save()
-    ctx.shadowColor = 'rgba(15, 23, 42, 0.18)'
-    ctx.shadowBlur = 28
-    ctx.shadowOffsetY = 12
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)'
+    ctx.shadowBlur = 40
+    ctx.shadowOffsetY = 16
+    ctx.shadowOffsetX = 0
     fillRoundedRect(safeX, safeY, safeW, safeH, radius, '#ffffff')
     ctx.restore()
 
-    // Border tiket
-    strokeRoundedRect(safeX, safeY, safeW, safeH, radius, '#dfe6ef', 2)
-    strokeRoundedRect(safeX + 10, safeY + 10, safeW - 20, safeH - 20, Math.max(10, radius - 8), '#eef2f7', 1)
+    // === INNER BORDER ===
+    strokeRoundedRect(safeX + 8, safeY + 8, safeW - 16, safeH - 16, Math.max(12, radius - 8), '#f0ebe3', 2)
 
-    // Aksen atas (gradient biar lebih “brand”)
-    const topH = 18
+    // === TOP GRADIENT BAR ===
     const topGrad = ctx.createLinearGradient(safeX, safeY, safeX + safeW, safeY)
-    topGrad.addColorStop(0, style.accent)
-    topGrad.addColorStop(0.55, '#4da6e8')
-    topGrad.addColorStop(1, '#e84393')
-    fillRoundedRect(safeX, safeY, safeW, topH + 6, radius, topGrad)
-
-    // Dekorasi pita kanan
-    ctx.fillStyle = `${style.accent}1f`
+    topGrad.addColorStop(0, '#667eea')
+    topGrad.addColorStop(0.5, '#764ba2')
+    topGrad.addColorStop(1, '#f093fb')
+    ctx.save()
     ctx.beginPath()
-    ctx.moveTo(safeX + safeW - 190, safeY + 14)
-    ctx.lineTo(safeX + safeW - 10, safeY + 14)
-    ctx.lineTo(safeX + safeW - 10, safeY + 92)
+    ctx.moveTo(safeX + radius, safeY)
+    ctx.lineTo(safeX + safeW - radius, safeY)
+    ctx.arcTo(safeX + safeW, safeY, safeX + safeW, safeY + 28, radius)
+    ctx.lineTo(safeX + safeW, safeY + 28)
+    ctx.lineTo(safeX, safeY + 28)
+    ctx.lineTo(safeX, safeY + radius)
+    ctx.arcTo(safeX, safeY, safeX + radius, safeY, radius)
+    ctx.closePath()
+    ctx.fillStyle = topGrad
+    ctx.fill()
+    ctx.restore()
+
+    // === DECORATIVE CORNER ACCENT ===
+    ctx.save()
+    ctx.fillStyle = `${style.accent}15`
+    ctx.beginPath()
+    ctx.moveTo(safeX + safeW - 140, safeY + 16)
+    ctx.lineTo(safeX + safeW - 16, safeY + 16)
+    ctx.lineTo(safeX + safeW - 16, safeY + 100)
     ctx.closePath()
     ctx.fill()
+    ctx.restore()
 
-    const qrX = safeX + safeW - qrSize - 56
-    const qrY = safeY + 88
-    const leftX = safeX + 20
-    const leftY = safeY + 34
-    const leftW = qrX - leftX - 18
-    const leftH = safeY + safeH - leftY - 20
+    const qrX = safeX + safeW - qrSize - 60
+    const qrY = safeY + 100
+    const leftX = safeX + 24
+    const leftY = safeY + 44
+    const leftW = qrX - leftX - 24
+    const leftH = safeY + safeH - leftY - 24
 
-    // Panel informasi kiri
-    fillRoundedRect(leftX, leftY, leftW, leftH, Math.max(14, radius - 10), '#ffffff')
-    strokeRoundedRect(leftX, leftY, leftW, leftH, Math.max(14, radius - 10), '#edf0f6', 2)
+    // === INFO PANEL WITH SOFT SHADOW ===
+    ctx.save()
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
+    ctx.shadowBlur = 16
+    ctx.shadowOffsetY = 8
+    fillRoundedRect(leftX, leftY, leftW, leftH, Math.max(16, radius - 8), '#ffffff')
+    ctx.restore()
+    strokeRoundedRect(leftX, leftY, leftW, leftH, Math.max(16, radius - 8), '#e8e0d5', 1)
 
-    // Panel QR
-    fillRoundedRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 18, '#ffffff')
-    strokeRoundedRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 18, style.accent, 4)
+    // === QR PANEL ===
+    ctx.save()
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)'
+    ctx.shadowBlur = 20
+    ctx.shadowOffsetY = 10
+    fillRoundedRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 20, '#ffffff')
+    ctx.restore()
+    strokeRoundedRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 20, style.accent, 3)
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-    // Perforation line
-    const perfX = qrX - 32
+    // === ELEGANT PERFORATION LINE ===
+    const perfX = qrX - 40
     ctx.save()
-    ctx.strokeStyle = '#e5e7eb'
+    ctx.strokeStyle = '#d4c8b8'
     ctx.lineWidth = 2
-    ctx.setLineDash([2, 8])
+    ctx.setLineDash([4, 10])
+    ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.moveTo(perfX, safeY + 56)
-    ctx.lineTo(perfX, safeY + safeH - 28)
+    ctx.moveTo(perfX, safeY + 64)
+    ctx.lineTo(perfX, safeY + safeH - 32)
     ctx.stroke()
     ctx.restore()
 
-    // Watermark brand halus
+    // === SUBTLE WATERMARK ===
     ctx.save()
-    ctx.globalAlpha = 0.05
-    ctx.fillStyle = style.accent
-    ctx.font = '900 90px "Arial"'
-    ctx.translate(leftX + 40, safeY + safeH - 80)
-    ctx.rotate(-0.12)
-    ctx.fillText(String(brandLabel || '3oNs').toUpperCase(), 0, 0)
+    ctx.globalAlpha = 0.04
+    ctx.fillStyle = '#8b7355'
+    ctx.font = '900 100px "Georgia"'
+    ctx.translate(leftX + 60, safeY + safeH - 100)
+    ctx.rotate(-0.08)
+    ctx.fillText(String(brandLabel || 'Violin').toUpperCase(), 0, 0)
     ctx.restore()
 
-    // Teks header
-    ctx.fillStyle = '#0f172a'
-    ctx.font = '900 40px "Arial"'
-    ctx.fillText('E-Attendance', leftX + 22, leftY + 74)
+    // === HEADER TITLE ===
+    ctx.fillStyle = '#2d3748'
+    ctx.font = '900 36px "Arial"'
+    ctx.fillText('E-Attendance', leftX + 24, leftY + 68)
 
-    ctx.fillStyle = '#475569'
-    ctx.font = '700 19px "Arial"'
-    drawClampText(eventLabel || 'Event Pass', leftX + 22, leftY + 104, leftW - 44)
+    // Subtitle
+    ctx.fillStyle = '#718096'
+    ctx.font = '600 16px "Arial"'
+    drawClampText(eventLabel || 'PALEMBANG VIOLIN COMPETITION', leftX + 24, leftY + 94, leftW - 48)
 
-    // Identitas header
-    ctx.fillStyle = '#64748b'
-    ctx.font = '800 12px "Arial"'
-    drawClampText((brandLabel || '3oNs Digital').toUpperCase(), leftX + 22, leftY + 126, leftW - 44)
+    // Brand label
+    ctx.fillStyle = '#a0aec0'
+    ctx.font = '700 11px "Arial"'
+    drawClampText((brandLabel || 'Official Event').toUpperCase(), leftX + 24, leftY + 114, leftW - 48)
 
-    // Lencana kategori
-    fillRoundedRect(leftX + 22, leftY + 140, 176, 42, 14, style.soft)
-    strokeRoundedRect(leftX + 22, leftY + 140, 176, 42, 14, style.accent, 2)
-    ctx.fillStyle = style.dark
-    ctx.font = '900 18px "Arial"'
-    drawClampText(String(participant.category || style.label || '-'), leftX + 42, leftY + 168, 150)
+    // === ELEGANT CATEGORY BADGE ===
+    const badgeY = leftY + 132
+    ctx.save()
+    ctx.shadowColor = 'rgba(102, 126, 234, 0.25)'
+    ctx.shadowBlur = 12
+    ctx.shadowOffsetY = 4
+    fillRoundedRect(leftX + 24, badgeY, 160, 38, 19, style.accent)
+    ctx.restore()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '800 15px "Arial"'
+    ctx.textAlign = 'center'
+    ctx.fillText(String(participant.category || style.label || '-').toUpperCase(), leftX + 24 + 80, badgeY + 25)
+    ctx.textAlign = 'left'
 
-    // Participant details
-    ctx.fillStyle = '#0f172a'
-    ctx.font = '900 30px "Arial"'
-    drawClampText(participant.name || '-', leftX + 22, leftY + 238, leftW - 44)
+    // === PARTICIPANT NAME ===
+    ctx.fillStyle = '#1a202c'
+    ctx.font = '900 28px "Arial"'
+    drawClampText(participant.name || '-', leftX + 24, leftY + 210, leftW - 48)
 
-    ctx.fillStyle = '#64748b'
-    ctx.font = '700 14px "Arial"'
-    ctx.fillText('ID TIKET', leftX + 22, leftY + 282)
-    ctx.fillText('HARI', leftX + 22, leftY + 332)
-    ctx.fillText('KATEGORI', leftX + 22, leftY + 382)
+    // === INFO GRID ===
+    const infoY = leftY + 242
+    const colWidth = (leftW - 48) / 3
 
-    ctx.fillStyle = '#1e293b'
-    ctx.font = '900 24px "Arial"'
-    ctx.fillText(String(participant.ticket_id || '-'), leftX + 22, leftY + 308)
-    ctx.font = '900 22px "Arial"'
-    ctx.fillText(String(participant.day_number || '-'), leftX + 22, leftY + 358)
-    ctx.font = '900 22px "Arial"'
-    drawClampText(String(participant.category || style.label || '-'), leftX + 22, leftY + 408, leftW - 44)
+    // Labels
+    ctx.fillStyle = '#a0aec0'
+    ctx.font = '600 12px "Arial"'
+    ctx.fillText('ID TICKET', leftX + 24, infoY)
+    ctx.fillText('DAY', leftX + 24 + colWidth, infoY)
+    ctx.fillText('CATEGORY', leftX + 24 + colWidth * 2, infoY)
 
-    // Divider before notes
-    ctx.strokeStyle = '#e5e7eb'
+    // Values
+    ctx.fillStyle = '#2d3748'
+    ctx.font = '800 20px "Arial"'
+    ctx.fillText(String(participant.ticket_id || '-'), leftX + 24, infoY + 26)
+    ctx.font = '800 20px "Arial"'
+    ctx.fillText(String(participant.day_number || '-'), leftX + 24 + colWidth, infoY + 26)
+    ctx.font = '700 18px "Arial"'
+    ctx.fillText(String(participant.category || '-'), leftX + 24 + colWidth * 2, infoY + 26)
+
+    // === ELEGANT DIVIDER ===
+    const dividerY = leftY + leftH - 80
+    const gradDiv = ctx.createLinearGradient(leftX + 24, 0, leftX + leftW - 24, 0)
+    gradDiv.addColorStop(0, 'transparent')
+    gradDiv.addColorStop(0.5, '#e2d5c5')
+    gradDiv.addColorStop(1, 'transparent')
+    ctx.strokeStyle = gradDiv
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(leftX + 22, leftY + leftH - 94)
-    ctx.lineTo(leftX + leftW - 22, leftY + leftH - 94)
+    ctx.moveTo(leftX + 24, dividerY)
+    ctx.lineTo(leftX + leftW - 24, dividerY)
     ctx.stroke()
 
-    // Footer notes
-    ctx.fillStyle = '#334155'
-    ctx.font = '700 14px "Arial"'
-    ctx.fillText('Tunjukkan kode QR ini untuk registrasi absensi peserta.', leftX + 22, leftY + leftH - 64)
-    ctx.fillStyle = '#64748b'
+    // === FOOTER INSTRUCTION ===
+    ctx.fillStyle = '#4a5568'
     ctx.font = '600 13px "Arial"'
-    const tl = getMetaValue(participant, 'Tanggal Lahir')
-    ctx.fillText(tl ? `Tanggal Lahir: ${tl}` : 'Tunjukkan tiket ini saat registrasi di pintu masuk.', leftX + 22, leftY + leftH - 42)
+    ctx.fillText('📱 Tunjukkan kode QR ini untuk registrasi absensi peserta', leftX + 24, leftY + leftH - 54)
 
-    // Scan note
-    ctx.fillStyle = '#1e293b'
-    ctx.font = '800 14px "Arial"'
-    ctx.fillText('Scan QR di pintu masuk', qrX + 24, qrY + qrSize + 44)
-    ctx.fillStyle = '#64748b'
-    ctx.font = '700 12px "Arial"'
-    ctx.fillText('Jaga layar tetap terang untuk scan cepat', qrX + 24, qrY + qrSize + 64)
+    // Date/Time info
+    const tl = getMetaValue(participant, 'Tanggal Lahir')
+    ctx.fillStyle = '#718096'
+    ctx.font = '500 12px "Arial"'
+    ctx.fillText(tl ? `🎂 ${tl}` : '📅 11 April 2026 • Primavera Production', leftX + 24, leftY + leftH - 34)
+
+    // === QR FOOTER ===
+    ctx.fillStyle = '#2d3748'
+    ctx.font = '700 13px "Arial"'
+    ctx.fillText('🔍 Scan at entrance', qrX + 12, qrY + qrSize + 48)
+    ctx.fillStyle = '#a0aec0'
+    ctx.font = '500 11px "Arial"'
+    ctx.fillText('Keep screen bright for quick scan', qrX + 12, qrY + qrSize + 66)
 
     return canvas.toDataURL('image/png', 1)
   }
