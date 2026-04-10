@@ -1,9 +1,14 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCheckInLogs() { return []; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getStats() { return { byCategory: {} }; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getParticipants() { return []; }
+function getActiveTenant() { return { id: 'tenant-default' }; }
+function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
+function setCurrentDay() {}
+function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+function getCheckInLogs() { return []; }
+function getStats() { return { byCategory: {} }; }
+function getAdminLogs() { return []; }
+function getPeakHours() { return []; }
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'

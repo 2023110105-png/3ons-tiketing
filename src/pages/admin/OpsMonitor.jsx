@@ -1,9 +1,14 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCheckInLogs() { return []; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getStats() { return {}; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getParticipants() { return []; }
+function getActiveTenant() { return { id: 'tenant-default' }; }
+function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
+function setCurrentDay() {}
+function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+function getCheckInLogs() { return []; }
+function getStats() { return {}; }
+function getPendingCheckIns() { return []; }
+function getOfflineQueueHistory() { return []; }
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Clock, RefreshCw, Signal, WifiOff } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'

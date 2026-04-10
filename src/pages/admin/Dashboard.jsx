@@ -1,11 +1,13 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function simulateCheckIns() { alert('Simulasi check-in dijalankan (dummy).'); }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getCheckInLogs() { return []; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
-function getStats() { return { byCategory: {} }; }
-// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getParticipants() { return []; }
+function getActiveTenant() { return { id: 'tenant-default' }; }
+function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
+function setCurrentDay() {}
+function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+function simulateCheckIns() { alert('Simulasi check-in dijalankan (dummy).'); }
+function getCheckInLogs() { return []; }
+function getStats() { return { byCategory: {} }; }
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
