@@ -1,23 +1,7 @@
-
 // Komponen UserManager dinonaktifkan sementara (fokus ke tenant only, owner diputus)
 export default function UserManager() {
   return null;
 }
-  })
-
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const runFirebaseHydrate = useCallback(async () => {
-    if (typeof bootstrapStoreFromFirebase !== 'function') return
-    try {
-      await bootstrapStoreFromFirebase(true)
-    } catch {
-      // Keep owner UI responsive when Firebase hydrate is unavailable.
-    }
-  }, [])
-
-  const refreshTenantData = useCallback(async (tenantId = selectedTenantId, forceFirebase = true) => {
-    if (forceFirebase) {
       await runFirebaseHydrate()
     }
     const nextTenants = getTenants()
