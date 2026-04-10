@@ -36,7 +36,7 @@ const OWNER_RELEASE_VISIBLE_PATHS = new Set([
 ])
 
 export default function Layout({ children }) {
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
