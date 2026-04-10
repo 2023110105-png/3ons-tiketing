@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, setCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay, deleteCurrentDay, markParticipantTicketSent } from '../../store/mockData'
+import { getParticipants, addParticipant, deleteParticipant, bulkAddParticipants, updateParticipant, getCurrentDay, setCurrentDay, getAvailableDays, bootstrapStoreFromFirebase, getActiveTenant, createNewDay, deleteCurrentDay } from '../../store/mockData'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus } from 'lucide-react'
@@ -10,10 +10,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import * as XLSX from 'xlsx'
-
-const REALTIME_REFRESH_MS = 2500
 
 export default function Participants() {
   const resolveTenantId = (userValue) => {
@@ -33,7 +30,9 @@ export default function Participants() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const [importPreview, setImportPreview] = useState(null)
-  const [importDuplicatePolicy, setImportDuplicatePolicy] = useState('allow') // allow|overwrite|skip|block
+  const [importDuplicatePolicy, setImportDuplicatePolicy] = useState('overwrite') // overwrite|skip|block
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
+  const [duplicateInfo, setDuplicateInfo] = useState({ count: 0, samples: [] })
   const [showEditModal, setShowEditModal] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [editExtraRows, setEditExtraRows] = useState([])
@@ -57,7 +56,7 @@ export default function Participants() {
   const toast = useToast()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const isMobile = useIsMobileLayout()
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const fileInputRef = useRef(null)
   const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
 
@@ -335,6 +334,12 @@ export default function Participants() {
     setShowModal(true)
   }
 
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+  }, [])
+
   // WA status polling handled by useWaStatus()
 
   const refreshData = useCallback(async (forceFirebase = false) => {
@@ -396,7 +401,7 @@ export default function Participants() {
         await refreshData(true)
         updateLocalView()
       }
-    }, REALTIME_REFRESH_MS)
+    }, 30000)
     return () => window.clearInterval(id)
   }, [refreshData, updateLocalView])
 
@@ -438,12 +443,13 @@ export default function Participants() {
     return digits.length >= 10
   }
 
-  const sendTicketViaBot = async (participant, selectedMode = 'message_with_barcode') => {
+  const sendTicketViaBot = async (participant) => {
     if (!hasValidWaTarget(participant)) {
       return { success: false, error: 'Nomor WhatsApp peserta kosong atau tidak valid.' }
     }
     const tenantIdNow = resolveTenantId(user)
-    const waSendMode = String(selectedMode || 'message_with_barcode').trim() || 'message_with_barcode'
+    // Force desain tiket WA agar tidak jatuh ke mode QR polos.
+    const waSendMode = 'message_with_barcode';
     const wa_message = generateWaMessage(participant)
     try {
       const res = await apiFetch('/api/send-ticket', {
@@ -473,12 +479,8 @@ export default function Participants() {
 
   const handleSingleBotSend = async (participant) => {
     toast.info('Mengirim...', `Meneruskan tiket ${participant.name} ke layanan pengiriman`);
-    const result = await sendTicketViaBot(participant, 'message_with_barcode');
-    if (result?.success) {
-      markParticipantTicketSent(participant.id, 'message_with_barcode')
-      toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
-      updateLocalView()
-    }
+    const result = await sendTicketViaBot(participant);
+    if (result?.success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
     else toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Layanan pengiriman sedang tidak aktif.' }));
   }
 
@@ -487,9 +489,7 @@ export default function Participants() {
       setShowWaConnectModal(true)
       return
     }
-    const targetParticipants = visibleParticipants
-      .filter((p) => Number(p?.day_number) === Number(dayFilter))
-      .filter(hasValidWaTarget)
+    const targetParticipants = visibleParticipants.filter(hasValidWaTarget)
     if (targetParticipants.length === 0) return toast.error('Kosong', 'Tidak ada peserta untuk dibroadcast');
     const skippedCount = visibleParticipants.length - targetParticipants.length
     if (skippedCount > 0) {
@@ -514,12 +514,9 @@ export default function Participants() {
     const failureReasons = []
     for (let i = 0; i < targetParticipants.length; i++) {
       setBroadcastProgress(prev => ({ ...prev, current: i + 1 }));
-      const result = await sendTicketViaBot(targetParticipants[i], selectedMode);
+      const result = await sendTicketViaBot(targetParticipants[i]);
       if (result?.success) {
         s++
-        if (selectedMode === 'message_with_barcode') {
-          markParticipantTicketSent(targetParticipants[i].id, selectedMode)
-        }
       } else {
         f++
         if (failureReasons.length < 3) {
@@ -538,7 +535,6 @@ export default function Participants() {
     } else {
       toast.success('Broadcast Selesai', `Terkirim: ${s}, Gagal: ${f}`)
     }
-    updateLocalView()
     setTimeout(() => setIsBroadcasting(false), 3000);
   }
 
@@ -624,6 +620,56 @@ export default function Participants() {
     if (!m) return NaN
     const extracted = Number(m[1])
     return Number.isFinite(extracted) && Number.isInteger(extracted) && extracted > 0 ? extracted : NaN
+  }
+
+  const normalizePhoneForMatch = (value) => {
+    let phone = String(value || '').trim()
+    phone = phone.replace(/[^\d+]/g, '')
+    if (phone.startsWith('+62')) phone = '62' + phone.slice(3)
+    else if (phone.startsWith('0')) phone = '62' + phone.slice(1)
+    return phone
+  }
+
+  const readRowField = (row, aliases) => {
+    if (!row || typeof row !== 'object') return ''
+    const keys = Object.keys(row || {})
+    const normalizedAliases = aliases.map(a => String(a || '').toLowerCase().replace(/[^a-z0-9]/g, ''))
+    for (const k of keys) {
+      const kn = String(k || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (normalizedAliases.includes(kn)) return row[k]
+    }
+    return ''
+  }
+
+  const detectDuplicatesAgainstStore = (rows) => {
+    const dupSamples = []
+    let dupCount = 0
+    if (!Array.isArray(rows) || rows.length === 0) return { count: 0, samples: [] }
+    // Build a map of existing phones per day
+    const existingCache = new Map()
+    // We'll lazily populate existing phones for days we encounter
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rawPhone = readRowField(row, ['telepon', 'phone', 'hp', 'no_hp', 'nomor_hp', 'nomorwa', 'whatsapp', 'wa', 'mobile', 'telp'])
+      const phone = normalizePhoneForMatch(rawPhone)
+      if (!phone) continue
+      const rawDay = getRowDayValue(row)
+      const parsedDay = parseImportDayValue(rawDay)
+      const day = Number.isInteger(parsedDay) && parsedDay > 0 ? parsedDay : Number(dayFilter || 1)
+      if (!existingCache.has(day)) {
+        const existing = getParticipants(day) || []
+        const set = new Set(existing.map(p => normalizePhoneForMatch(p.phone)))
+        existingCache.set(day, set)
+      }
+      const set = existingCache.get(day)
+      if (set.has(phone)) {
+        dupCount++
+        if (dupSamples.length < 6) {
+          dupSamples.push({ rowIndex: i, phone: rawPhone, day })
+        }
+      }
+    }
+    return { count: dupCount, samples: dupSamples }
   }
 
   const validateImportRows = (rows) => {
@@ -766,8 +812,11 @@ export default function Participants() {
 
   const confirmImport = () => {
     if (!importPreview) return
-    if (importDuplicatePolicy === 'allow') {
-      toast.info('Mode duplikat aktif', 'Duplikat diizinkan. Data dengan nomor WA yang sama tetap akan diimport sebagai peserta baru.')
+    const dup = detectDuplicatesAgainstStore(importPreview.rows)
+    if (dup.count > 0) {
+      setDuplicateInfo(dup)
+      setShowDuplicateConfirm(true)
+      return
     }
     executeImportRows(importPreview.rows, importPreview.invalidDayRows || [])
   }
@@ -786,25 +835,18 @@ export default function Participants() {
   const downloadTemplate = () => {
     try {
       const templateData = [
-        { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer', hari: 1, 'Tanggal Lahir': '1990-01-01', Catatan: 'VIP' },
-        { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP', hari: 2, 'Tanggal Lahir': '1992-03-10', Catatan: '' },
-        { nama: 'Dian Pratama', telepon: '08111222333', kategori: 'Regular', hari: 3, 'Tanggal Lahir': '1995-07-21', Catatan: '' },
-        { nama: 'Eko Wahyudi', telepon: '082233445566', kategori: 'Media', hari: 1, 'Tanggal Lahir': '1988-11-02', Catatan: '' },
-        { nama: 'Fajar Nugraha', telepon: '081998877665', kategori: 'Regular', hari: 2, 'Tanggal Lahir': '1991-05-15', Catatan: '' },
-        { nama: 'Gita Pertiwi', telepon: '083811223344', kategori: 'VIP', hari: 3, 'Tanggal Lahir': '1993-09-09', Catatan: 'Prioritas' },
-        { nama: 'Hendra Saputra', telepon: '085700112233', kategori: 'Dealer', hari: 4, 'Tanggal Lahir': '1989-12-28', Catatan: '' },
-        { nama: 'Intan Maharani', telepon: '082122334455', kategori: 'Media', hari: 5, 'Tanggal Lahir': '1994-02-17', Catatan: '' }
+        { nama: 'Budi Santoso', telepon: '081234567890', kategori: 'Dealer', hari: 1 },
+        { nama: 'Citra Dewi', telepon: '089876543210', kategori: 'VIP', hari: 2 },
+        { nama: 'Dian Pratama', telepon: '08111222333', kategori: 'Regular', hari: 3 },
+        { nama: 'Eko Wahyudi', telepon: '082233445566', kategori: 'Media', hari: 1 }
       ]
       
       const ws = XLSX.utils.json_to_sheet(templateData)
       const guideData = [
-        { kolom: 'nama', wajib: 'Ya', keterangan: 'Nama lengkap peserta', contoh: 'Budi Santoso' },
-        { kolom: 'telepon', wajib: 'Tidak', keterangan: 'Nomor WA peserta', contoh: '081234567890' },
-        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta: boleh sesuai kategori Anda (bebas). Sistem menampilkan nama kategori apa adanya.', contoh: 'VIP / Kelas A / Premium' },
-        { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, pakai hari default filter', contoh: '2' },
-        { kolom: 'Tanggal Lahir', wajib: 'Tidak', keterangan: 'Opsional. Akan masuk sebagai Data Tambahan dan bisa diubah di daftar peserta.', contoh: '1990-01-01' },
-        { kolom: 'Catatan', wajib: 'Tidak', keterangan: 'Opsional. Akan masuk sebagai Data Tambahan dan bisa diubah di daftar peserta.', contoh: 'VIP' },
-        { kolom: 'Kolom lain', wajib: 'Tidak', keterangan: 'Kolom selain yang dikenali akan disimpan sebagai Data Tambahan (contoh: Alamat, Golongan, dll).', contoh: 'Alamat' }
+        { kolom: 'nama', wajib: 'Ya', keterangan: 'Nama lengkap peserta (wajib)', contoh: 'Budi Santoso' },
+        { kolom: 'telepon', wajib: 'Tidak', keterangan: 'Nomor WA peserta (format 08... atau 628...)', contoh: '081234567890' },
+        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta (bebas): VIP, Dealer, Regular, dll.', contoh: 'VIP' },
+        { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, akan dipakai hari filter aktif.', contoh: '2' }
       ]
       const wsGuide = XLSX.utils.json_to_sheet(guideData)
       
@@ -971,9 +1013,6 @@ export default function Participants() {
                 <div className="import-preview-note" style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 13 }}>
                   Duplikat dipadankan berdasarkan <strong>nomor telepon/WA</strong> di hari yang sama.
                 </div>
-                <div className="import-preview-note" style={{ marginTop: 6, color: 'var(--success)' }}>
-                  Rekomendasi saat ini: <strong>Izinkan (boleh nomor WA sama)</strong> agar import tetap lancar walaupun ada data duplikat.
-                </div>
                 <div className="form-group" style={{ marginTop: 10 }}>
                   <label className="form-label" style={{ marginBottom: 6 }}>Tindakan saat duplikat ditemukan</label>
                   <select
@@ -1014,12 +1053,43 @@ export default function Participants() {
                 <p className="import-preview-help">
                   Kolom yang didukung: <strong>nama/name</strong>, <strong>telepon/phone</strong>, <strong>kategori/category</strong>, <strong>hari/day/day_number</strong>. <strong>Kategori bebas</strong> (contoh: VIP, Dealer, Kelas A, Premium, dll).
                   <br />
-                  Kolom lain yang tidak dikenali (contoh: <strong>Tanggal Lahir</strong>) akan otomatis disimpan sebagai <strong>Data Tambahan</strong>.
+                    Gunakan hanya kolom pada template: <strong>nama, telepon, kategori, hari</strong>. Jika file Anda memiliki kolom lain, akan disimpan sebagai Data Tambahan, namun disarankan pakai template resmi.
                 </p>
               </>
             ) : null}
           </div>
-          <div className="modal-footer">
+            {showDuplicateConfirm && (
+              <div className="import-duplicate-confirm" style={{ padding: 12, border: '1px solid #f0f0f0', borderRadius: 8, margin: '8px 16px' }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>Duplikat ditemukan</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Ditemukan {duplicateInfo.count} baris dengan nomor yang sama seperti peserta yang sudah ada untuk hari yang sama.</div>
+                {duplicateInfo.samples && duplicateInfo.samples.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <table className="import-preview-table" style={{ width: '100%' }}>
+                      <thead>
+                        <tr><th>No</th><th>Baris</th><th>Telepon</th><th>Hari</th></tr>
+                      </thead>
+                      <tbody>
+                        {duplicateInfo.samples.map((s, idx) => (
+                          <tr key={idx}>
+                            <td>{idx + 1}</td>
+                            <td>{s.rowIndex + 1}</td>
+                            <td>{s.phone || '—'}</td>
+                            <td>{s.day}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button className="btn btn-ghost" onClick={() => setShowDuplicateConfirm(false)}>Batal</button>
+                  <button className="btn btn-secondary" onClick={() => { setImportDuplicatePolicy('skip'); setShowDuplicateConfirm(false); executeImportRows(importPreview.rows, importPreview.invalidDayRows || []) }}>Skip Duplikat</button>
+                  <button className="btn btn-primary" onClick={() => { setImportDuplicatePolicy('allow'); setShowDuplicateConfirm(false); executeImportRows(importPreview.rows, importPreview.invalidDayRows || []) }}>Lanjutkan (Tambahkan Semua)</button>
+                </div>
+              </div>
+            )}
+
+            <div className="modal-footer">
             {importResult ? (
               <button className="btn btn-primary flex-1" onClick={() => { setShowImportModal(false); setImportResult(null); setImportPreview(null) }}>Selesai</button>
             ) : (
