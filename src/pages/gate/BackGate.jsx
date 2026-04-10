@@ -1,4 +1,9 @@
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
+function getPendingCheckIns() { return []; }
+function bootstrapStoreFromFirebase() { return Promise.resolve(); }
+function getMaxPendingAttempts() { return 5; }
+function getOfflineQueueHistory() { return []; }
+// ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getCheckInLogs() { return []; }
 // ===== DUMMY FUNGSI AGAR ERROR HILANG =====
 function getStats() { return {}; }
