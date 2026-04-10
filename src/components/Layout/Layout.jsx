@@ -5,7 +5,7 @@ function getEvents() { return [{ id: 'event-default', name: 'Event Default', isA
 function getCurrentDay() { return 1; }
 function setCurrentDay() {}
 function setCurrentEvent() {}
-function createEvent(name, user) { return { id: 'event-default', name }; }
+function createEvent(name) { return { id: 'event-default', name }; }
 function bootstrapStoreFromFirebase() { return Promise.resolve(false); }
 let events = getEvents();
 let dayInput = '1';
