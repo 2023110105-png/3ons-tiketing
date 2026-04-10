@@ -1,3 +1,5 @@
+/* eslint-env node */
+/* global process */
 // Script untuk menghapus SEMUA data peserta dari Firebase Firestore
 // PERINGATAN: Data akan dihapus permanen dari Firestore!
 
@@ -89,6 +91,7 @@ async function wipeAll() {
   
   console.log('🗑️  Menghapus data dari Firestore...\n');
   
+  // eslint-disable-next-line no-unused-vars
   let totalDeleted = 0;
 
   // Hapus semua participants dari semua events di semua tenants
