@@ -2,42 +2,6 @@
 export default function UserManager() {
   return null;
 }
-      await runFirebaseHydrate()
-    }
-    const nextTenants = getTenants()
-    setTenants(nextTenants)
-    if (tenantId) {
-      setUsers(getTenantUsers(tenantId))
-    } else {
-      setUsers([])
-    }
-  }, [runFirebaseHydrate, selectedTenantId])
-
-  useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      void refreshTenantData(selectedTenantId, true)
-    }, 0)
-    return () => window.clearTimeout(timerId)
-  }, [selectedTenantId, refreshTenantData])
-
-  useEffect(() => {
-    try {
-      if (selectedTenantId) {
-        window.sessionStorage.setItem(OWNER_USER_SELECTED_TENANT_KEY, selectedTenantId)
-      } else {
-        window.sessionStorage.removeItem(OWNER_USER_SELECTED_TENANT_KEY)
-      }
-    } catch {
-      // Ignore storage failures.
-    }
-  }, [selectedTenantId])
-
-  const handleCreateUser = async (e) => {
-    e.preventDefault()
-    if (!selectedTenantId) return
-    
-    const result = await createTenantUser(selectedTenantId, newUser, currentUser)
-    if (result.success) {
       toast.success('Sukses', `User ${newUser.username} berhasil dibuat`)
       await refreshTenantData(selectedTenantId, true)
       setShowAddModal(false)
