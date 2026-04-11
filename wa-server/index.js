@@ -996,6 +996,41 @@ app.get('/api/wa/sessions', (req, res) => {
     });
 });
 
+// 1.2.5 Force restart WA client (for detached frame issues)
+app.post('/api/wa/force-restart', async (req, res) => {
+    if (!requireWaAdminSecret(req, res)) return;
+    const tenantId = normalizeTenantId(req?.body?.tenant_id);
+    const requestedBy = getRequesterInfo(req);
+    
+    console.log(`[WA FORCE RESTART] Requested by ${requestedBy} for ${tenantId}`);
+    
+    const session = getOrCreateTenantSession(tenantId);
+    
+    // Force cleanup
+    session.isReady = false;
+    session.status = 'restarting';
+    try {
+        if (session.client) {
+            await session.client.destroy().catch(() => {});
+        }
+    } catch {
+        // Ignore
+    }
+    session.client = null;
+    session.initPromise = null;
+    session.currentQR = null;
+    
+    // Trigger new connection
+    setTimeout(() => ensureTenantClient(tenantId), 1000);
+    
+    res.json({
+        success: true,
+        message: 'WA client restart triggered',
+        tenant_id: tenantId,
+        status: 'restarting'
+    });
+});
+
 // 1.3. Batch status + QR bootstrap for multiple tenants in one request
 app.post('/api/wa/batch-status', async (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
