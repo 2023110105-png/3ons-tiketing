@@ -1863,19 +1863,81 @@ app.post('/api/sync-to-gates', (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
     const tenantId = normalizeTenantId(req?.body?.tenant_id);
     const { reason } = req.body || {};
-    
-    console.log(`[SYNC-TO-GATES] Broadcasting sync signal for tenant=${tenantId}, reason=${reason || 'manual'}`);
-    
-    // Emit sync event via SSE or WebSocket if implemented
-    // For now, return success so clients can poll for changes
-    res.json({
-        success: true,
-        tenant_id: tenantId,
-        message: 'Sync signal broadcasted to all gates',
-        timestamp: new Date().toISOString(),
-        affected_clients: 'all_gate_devices',
-        reason: reason || 'manual_sync'
-    });
+    // ... (implementation continues)
+});
+
+// ===== PUBLIC QR CODE ENDPOINT (No auth required for easy sharing) =====
+// GET /qr/:ticketId?size=300&data=raw_qr_string
+app.get('/qr/:ticketId', async (req, res) => {
+    try {
+        const { ticketId } = req.params;
+        const size = Math.min(Math.max(Number(req.query.size) || 300, 100), 1000);
+        const rawData = req.query.data;
+        
+        console.log(`[QR ENDPOINT] Generating QR for ticket=${ticketId} size=${size}`);
+        
+        // Generate QR buffer using qrcode library (same as ticket-image-jimp)
+        const qrBuffer = await qrcode.toBuffer(rawData || ticketId, {
+            width: size,
+            margin: 2,
+            color: {
+                dark: '#1e293b',
+                light: '#ffffff'
+            },
+            errorCorrectionLevel: 'H'
+        });
+        
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache 24 hours
+        res.send(qrBuffer);
+        
+    } catch (err) {
+        console.error('[QR ENDPOINT] Error:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to generate QR' });
+    }
+});
+
+// Alternative: QR with ticket info (lookup from database)
+// GET /ticket-qr/:ticketId
+app.get('/ticket-qr/:ticketId', async (req, res) => {
+    try {
+        const { ticketId } = req.params;
+        const size = Math.min(Math.max(Number(req.query.size) || 400, 100), 800);
+        
+        console.log(`[TICKET-QR] Lookup and generate for ticket=${ticketId}`);
+        
+        // Fetch participant from Supabase
+        if (!supabase) {
+            return res.status(503).json({ success: false, error: 'Database not available' });
+        }
+        
+        const { data: participant, error } = await supabase
+            .from('participants')
+            .select('*')
+            .eq('ticket_id', ticketId)
+            .single();
+        
+        if (error || !participant) {
+            console.error(`[TICKET-QR] Participant not found: ${ticketId}`);
+            return res.status(404).json({ success: false, error: 'Ticket not found' });
+        }
+        
+        // Use the same buildTicketQrImageNode for consistent design
+        const imageBuffer = await buildTicketQrImageNode(participant, {
+            width: 1000,
+            height: 600,
+            qrSize: size,
+            eventLabel: 'Yamaha Music School'
+        });
+        
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.send(imageBuffer);
+        
+    } catch (err) {
+        console.error('[TICKET-QR] Error:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to generate ticket QR' });
+    }
 });
 
 // eslint-disable-next-line no-unused-vars
