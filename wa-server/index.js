@@ -1305,6 +1305,11 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                 }
                 
                 try {
+                    // Check if client connection is still alive (fix detached frame error)
+                    if (!session.client.info || !session.client.pupPage) {
+                        throw new Error('WhatsApp client disconnected (detached frame)');
+                    }
+                    
                     // Skip number validation in fast mode (saves ~500-1000ms)
                     if (!WA_SKIP_NUMBER_CHECK && typeof session.client.isRegisteredUser === 'function') {
                         const isRegistered = await withRetry(() => session.client.isRegisteredUser(waNumber), {
@@ -1398,6 +1403,16 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                         error: normalized.message,
                         error_code: normalized.code
                     });
+                    
+                    // Auto-reconnect jika error detached frame
+                    if (err.message && err.message.includes('detached')) {
+                        console.log(`[WA SEND] Detected detached frame, triggering reconnect...`);
+                        session.isReady = false;
+                        session.status = 'disconnected';
+                        // Trigger reconnect in background
+                        setTimeout(() => ensureTenantClient(tenantId), 1000);
+                    }
+                    
                     // Tetap delay meskipun error, jangan spam
                     if (i < phoneList.length - 1) {
                         await new Promise(r => setTimeout(r, delayMs));
