@@ -12,28 +12,18 @@ function normalizeTokenKey(key) {
 
 // Fallback getWaTemplate jika tidak ada global
 function getWaTemplate() {
-  // Tanggal hardcode 12 April 2026 sesuai request user
-  return `📋 *E-ATTENDANCE*
-🏛️ PALEMBANG VIOLIN & PIANO COMPETITION
+  // Pesan sederhana tanpa karakter khusus yang menakutkan
+  return `Halo {{nama}},
 
-╭─────────────────────╮
-  👤 *{{nama}}*
-  {{kategori}}
-  📱 NO -{{tiket}}
-╰─────────────────────╯
+Ini tiket masuk Anda:
 
-📅 Event : 12 April 2026
-🏢 Venue : Primavera Production
+Event: Yamaha Music School
+Tanggal: 12 April 2026
+Hari: {{hari}}
+Ticket ID: {{tiket}}
+Kategori: {{kategori}}
 
-✨ *PETUNJUK REGISTRASI*
-Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
-
-⚠️ *Ketentuan:*
-• Valid untuk 1 (satu) orang peserta
-• Wajib menunjukkan QR asli, tidak boleh screenshot
-• Harap hadir 30 menit sebelum jadwal tampil
-
-Terima kasih & semoga sukses! 🎻🎶`;
+Terima kasih!`;
 }
 
 export const generateWaMessage = (participant) => {
