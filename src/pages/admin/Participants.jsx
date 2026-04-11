@@ -697,7 +697,6 @@ export default function Participants() {
 
   const generateWaMessage = (p) => {
     const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const baseUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin;
     return `Halo ${p.name},
 
 Ini tiket masuk Anda:
@@ -707,11 +706,6 @@ Tanggal: ${dateStr}
 Hari: ${p.day_number}
 Ticket ID: ${p.ticket_id}
 Kategori: ${p.category}
-
-Link QR Code (buka untuk scan):
-${baseUrl}/ticket-qr/${p.ticket_id}?size=400
-
-Atau scan langsung dari aplikasi.
 
 *Petunjuk:*
 - Tunjukkan QR code ini ke petugas
