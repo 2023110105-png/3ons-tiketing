@@ -19,6 +19,7 @@
     "chart.js": "^4.5.1",
     "firebase": "^11.10.0",
     "html5-qrcode": "^2.3.8",
+    "jimp": "0.22.12",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^1.7.0",
@@ -31,6 +32,7 @@
     "react-router-dom": "^7.13.2",
     "recharts": "^3.8.1",
     "vite": "^7.0.0",
+    "whatsapp-web.js": "^1.23.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

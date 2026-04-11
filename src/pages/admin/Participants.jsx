@@ -162,6 +162,7 @@ import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
 
 export default function Participants() {
   const resolveTenantId = (userValue) => {
@@ -177,6 +178,7 @@ export default function Participants() {
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState(null)
@@ -734,6 +736,78 @@ Terima kasih!`;
   const [copyPasteModalOpen, setCopyPasteModalOpen] = useState(false);
   const [copyPasteData, setCopyPasteData] = useState(null);
   const copyTextRef = useRef(null);
+
+  // ===== DOWNLOAD ALL TICKETS AS ZIP =====
+  const handleDownloadAllTicketsZip = async () => {
+    if (participants.length === 0) {
+      toast.error('Tidak ada peserta', 'Tidak ada tiket untuk di-download');
+      return;
+    }
+
+    setIsDownloadingZip(true);
+    toast.info('Membuat ZIP...', `Mengumpulkan ${participants.length} tiket...`);
+
+    try {
+      const zip = new JSZip();
+      const baseUrl = window.location.origin.includes('localhost') 
+        ? 'http://localhost:3001' 
+        : window.location.origin;
+      
+      // Folder untuk tiket
+      const folder = zip.folder(`Tiket_Hari_${dayFilter}_${new Date().toISOString().split('T')[0]}`);
+
+      // Download semua gambar tiket
+      let successCount = 0;
+      for (const p of participants) {
+        try {
+          const ticketUrl = `${baseUrl}/ticket-qr/${p.ticket_id}?size=400`;
+          const response = await fetch(ticketUrl);
+          
+          if (!response.ok) {
+            console.warn(`[ZIP] Failed to fetch ticket ${p.ticket_id}: ${response.status}`);
+            continue;
+          }
+
+          const blob = await response.blob();
+          
+          // Format nama file: NamaPeserta_TicketID.png
+          const safeName = (p.name || 'Unknown').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 30);
+          const filename = `${safeName}_${p.ticket_id}.png`;
+          
+          folder.file(filename, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`[ZIP] Error fetching ticket ${p.ticket_id}:`, err);
+        }
+      }
+
+      if (successCount === 0) {
+        toast.error('Gagal', 'Tidak bisa mengunduh tiket. Pastikan bot berjalan.');
+        setIsDownloadingZip(false);
+        return;
+      }
+
+      // Generate ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.download = `Tiket_Hari_${dayFilter}_${successCount}peserta_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(zipUrl);
+
+      toast.success('Berhasil!', `${successCount} tiket telah di-download sebagai ZIP`);
+    } catch (err) {
+      console.error('[ZIP] Error:', err);
+      toast.error('Gagal', 'Error saat membuat ZIP: ' + err.message);
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
 
   const handleBroadcast = () => {
     if (!waConn.isReady) {
@@ -1881,6 +1955,14 @@ Terima kasih!`;
         </button>
         <button className="btn btn-ghost btn-sm btn-inline-icon" onClick={downloadTemplate} title="Download template Excel">
           <Download size={14} /> Template Excel
+        </button>
+        <button 
+          className="btn btn-ghost btn-sm btn-inline-icon btn-blue" 
+          onClick={handleDownloadAllTicketsZip} 
+          disabled={isDownloadingZip}
+          title="Download semua tiket sebagai ZIP"
+        >
+          <Download size={14} /> {isDownloadingZip ? 'Membuat ZIP...' : 'Download Tiket ZIP'}
         </button>
         <button className="btn btn-primary" onClick={openAddModal}><UserPlus size={14} /> Tambah Peserta</button>
       </div>
