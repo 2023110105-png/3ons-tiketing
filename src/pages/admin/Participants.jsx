@@ -709,7 +709,7 @@ Ticket ID: ${p.ticket_id}
 Kategori: ${p.category}
 
 Link QR Code (buka untuk scan):
-${baseUrl}/ticket-qr/${p.ticket_id}?size=400
+${baseUrl}/qr/${p.ticket_id}?size=400
 
 Atau scan langsung dari aplikasi.
 
@@ -760,7 +760,7 @@ Terima kasih!`;
       let successCount = 0;
       for (const p of participants) {
         try {
-          const ticketUrl = `${baseUrl}/ticket-qr/${p.ticket_id}?size=400`;
+          const ticketUrl = `${baseUrl}/qr/${p.ticket_id}?size=400`;
           const response = await fetch(ticketUrl);
           
           if (!response.ok) {
@@ -2194,7 +2194,7 @@ Terima kasih!`;
                 <label className="form-label">🎫 Preview Tiket (bisa di-download)</label>
                 <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '10px', background: '#f8f9fa' }}>
                   <img 
-                    src={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/ticket-qr/${copyPasteData.participant.ticket_id}?size=400`}
+                    src={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/qr/${copyPasteData.participant.ticket_id}?size=400`}
                     alt="Tiket QR"
                     style={{ width: '100%', maxWidth: '400px', display: 'block', margin: '0 auto', borderRadius: '4px' }}
                   />
@@ -2204,7 +2204,7 @@ Terima kasih!`;
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={handleCopyPasteModalClose}>Tutup</button>
               <a 
-                href={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/ticket-qr/${copyPasteData.participant.ticket_id}?size=400`}
+                href={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/qr/${copyPasteData.participant.ticket_id}?size=400`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-primary"

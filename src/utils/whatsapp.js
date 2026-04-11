@@ -36,27 +36,29 @@ Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
 Terima kasih & semoga sukses! 🎻🎶`;
 }
 
-// Template sederhana untuk link WA Web (hanya huruf/angka standar)
+// Template sederhana untuk link WA Web (formatting standar, tanpa karakter spesial bermasalah)
 function getWaTemplateSimple() {
-  return `E-ATTENDANCE
+  return `*E-ATTENDANCE*
 PALEMBANG VIOLIN & PIANO COMPETITION
 
-Nama: {{nama}}
-Kategori: {{kategori}}
-No Ticket: {{tiket}}
+----------------------------
+*{{nama}}*
+{{kategori}}
+NO - {{tiket}}
+----------------------------
 
 Event: 12 April 2026
 Venue: Primavera Production
 
-Petunjuk:
+*PETUNJUK REGISTRASI*
 Tunjukkan kode QR ini kepada petugas registrasi.
 
-Ketentuan:
+*Ketentuan:*
 - Valid untuk 1 orang peserta
 - Wajib menunjukkan QR asli
 - Harap hadir 30 menit sebelum tampil
 
-Terima kasih dan semoga sukses!`;
+Terima kasih & semoga sukses!`;
 }
 
 export const generateWaMessage = (participant) => {
@@ -115,7 +117,7 @@ export function getWhatsAppShareLink(participant) {
   const baseUrl = typeof window !== 'undefined' 
     ? (window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin)
     : '';
-  const qrUrl = `${baseUrl}/ticket-qr/${p.ticket_id}?size=400`;
+  const qrUrl = `${baseUrl}/qr/${p.ticket_id}?size=400`;
   
   // Use simple template for WA Web link (avoid emoji encoding issues)
   const template = getWaTemplateSimple()
