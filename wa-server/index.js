@@ -77,6 +77,9 @@ const TICKET_SIGNING_SECRET = String(process.env.TICKET_SIGNING_SECRET || WA_ADM
 const WA_AUTH_DATA_PATH = String(process.env.WA_AUTH_DATA_PATH || 'auth_data').trim() || 'auth_data';
 const WA_FAST_MODE = String(process.env.WA_FAST_MODE || '').toLowerCase() === 'true';
 const WA_SKIP_NUMBER_CHECK = String(process.env.WA_SKIP_NUMBER_CHECK || '').toLowerCase() === 'true' || WA_FAST_MODE;
+const WA_BATCH_SIZE = Number(process.env.WA_BATCH_SIZE || 20); // Max 20 peserta per batch (anti-spam)
+const WA_BATCH_COOLDOWN_MS = Number(process.env.WA_BATCH_COOLDOWN_MS || 300000); // 5 menit cooldown antar batch
+const WA_SEND_DELAY_MS = Number(process.env.WA_SEND_DELAY_MS || 5000); // 5 detik antar pesan
 const WA_MESSAGE_TIMEOUT_MS = Number(process.env.WA_MESSAGE_TIMEOUT_MS || (WA_FAST_MODE ? 15000 : 45000));
 const rateLimitStore = new Map();
 const deliveryMetrics = { waSendSuccess: 0, waSendFailed: 0 };
@@ -1321,16 +1324,25 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                 error_code: 'wa_client_not_ready'
             }));
         } else {
+            // ANTI-SPAM: Batch size limit
+            let batchPhoneList = phoneList;
+            if (phoneList.length > WA_BATCH_SIZE) {
+                console.warn(`[WA SEND] Batch too large (${phoneList.length}), limiting to ${WA_BATCH_SIZE} to avoid WhatsApp suspension`);
+                batchPhoneList = phoneList.slice(0, WA_BATCH_SIZE);
+            }
+            
             const now = new Date();
             const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
             const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📅 *Tanggal Dikirim:* ${dateStr}\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
             // SEQUENTIAL SEND dengan delay untuk hindari rate limit
-            const delayMs = Number(process.env.WA_SEND_DELAY_MS || 3000);
-            const healthCheckInterval = 10; // Cek session setiap 10 pesan
+            const delayMs = WA_SEND_DELAY_MS;
+            const healthCheckInterval = 5; // Cek session setiap 5 pesan (lebih sering)
             results.wa = [];
             
-            for (let i = 0; i < phoneList.length; i++) {
-                const p = phoneList[i];
+            console.log(`[WA SEND] Starting batch of ${batchPhoneList.length} messages with ${delayMs}ms delay (anti-spam protection)`);
+            
+            for (let i = 0; i < batchPhoneList.length; i++) {
+                const p = batchPhoneList[i];
                 const waNumber = formatPhoneWA(p);
                 
                 // Health check setiap N pesan
@@ -1340,9 +1352,9 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                     if (!freshSession.isReady || !isWaClientReady(freshSession.client)) {
                         console.error(`[WA SEND] Session tidak ready setelah ${i} pesan, stop batch.`);
                         // Mark sisanya sebagai failed
-                        for (let j = i; j < phoneList.length; j++) {
+                        for (let j = i; j < batchPhoneList.length; j++) {
                             results.wa.push({
-                                phone: phoneList[j],
+                                phone: batchPhoneList[j],
                                 status: 'Failed',
                                 error: 'WhatsApp session timeout setelah batch besar. Silakan retry.',
                                 error_code: 'wa_session_timeout'
@@ -1350,7 +1362,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                         }
                         break;
                     }
-                    // Extra cooldown setiap 10 pesan
+                    // Extra cooldown setiap 5 pesan
                     console.log(`[WA SEND] Cooldown 10 detik setelah ${i} pesan...`);
                     await new Promise(r => setTimeout(r, 10000));
                 }
@@ -1379,7 +1391,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                     }
                     
                     const startSend = Date.now();
-                    console.log(`[WA SEND] [${i+1}/${phoneList.length}] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id}) fast=${WA_FAST_MODE}`);
+                    console.log(`[WA SEND] [${i+1}/${batchPhoneList.length}] Mulai kirim ke ${waNumber} (ticket_id: ${ticket_id}) fast=${WA_FAST_MODE}`);
                     
                     let sendResult;
                     if (waSendMode === 'message_only') {
@@ -1420,10 +1432,34 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                         
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
                         console.log(`[WA SEND IMAGE] media created, mimetype=${media.mimetype}, data length=${media.data?.length}`);
-                        sendResult = await withRetry(() => session.client.sendMessage(waNumber, media, { caption: waMessage }), {
-                            retries: WA_FAST_MODE ? 1 : 3,
-                            timeoutMs: WA_MESSAGE_TIMEOUT_MS
-                        });
+                        try {
+                            sendResult = await withRetry(() => session.client.sendMessage(waNumber, media, { caption: waMessage }), {
+                                retries: WA_FAST_MODE ? 1 : 2,
+                                timeoutMs: WA_MESSAGE_TIMEOUT_MS
+                            });
+                        } catch (mediaErr) {
+                            // Fallback ke text-only jika detached frame atau getChat error
+                            const isConnectionError = mediaErr.message && (
+                                mediaErr.message.includes('detached') ||
+                                mediaErr.message.includes('getChat') ||
+                                mediaErr.message.includes('Cannot read properties')
+                            );
+                            if (isConnectionError) {
+                                console.log(`[WA SEND] Media failed (${mediaErr.message}), fallback to text-only...`);
+                                try {
+                                    sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
+                                        retries: 1,
+                                        timeoutMs: WA_MESSAGE_TIMEOUT_MS
+                                    });
+                                    console.log(`[WA SEND] Text-only fallback success`);
+                                } catch (textErr) {
+                                    console.log(`[WA SEND] Text-only also failed, marking as failed`);
+                                    throw textErr;
+                                }
+                            } else {
+                                throw mediaErr;
+                            }
+                        }
                         } catch (imgErr) {
                             console.error(`[WA SEND IMAGE] Error generating image:`, imgErr.message);
                             throw imgErr;
@@ -1435,17 +1471,17 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                         });
                     }
                     
-                    console.log(`[WA SEND] Sukses [${i+1}/${phoneList.length}] ke ${waNumber} time=${Date.now() - startSend}ms`);
+                    console.log(`[WA SEND] Sukses [${i+1}/${batchPhoneList.length}] ke ${waNumber} time=${Date.now() - startSend}ms`);
                     deliveryMetrics.waSendSuccess += 1;
                     results.wa.push({ phone: p, status: 'Success', msgId: sendResult?.id?.id });
                     
                     // Delay antar pesan (kecuali pesan terakhir)
-                    if (i < phoneList.length - 1) {
+                    if (i < batchPhoneList.length - 1) {
                         await new Promise(r => setTimeout(r, delayMs));
                     }
                     
                 } catch (err) {
-                    console.error(`[WA SEND ERROR] [${i+1}/${phoneList.length}] Gagal ke ${waNumber}:`, err.message);
+                    console.error(`[WA SEND ERROR] [${i+1}/${batchPhoneList.length}] Gagal ke ${waNumber}:`, err.message);
                     deliveryMetrics.waSendFailed += 1;
                     const normalized = classifyWaSendError(err);
                     results.wa.push({
@@ -1477,7 +1513,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                     }
                     
                     // Tetap delay meskipun error, jangan spam
-                    if (i < phoneList.length - 1) {
+                    if (i < batchPhoneList.length - 1) {
                         await new Promise(r => setTimeout(r, delayMs));
                     }
                 }
