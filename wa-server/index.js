@@ -1422,11 +1422,23 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                     
                     // Auto-reconnect jika error detached frame
                     if (err.message && err.message.includes('detached')) {
-                        console.log(`[WA SEND] Detected detached frame, triggering reconnect...`);
+                        console.log(`[WA SEND] Detected detached frame, force cleanup & restart...`);
+                        // Force cleanup
                         session.isReady = false;
                         session.status = 'disconnected';
+                        try {
+                            if (session.client) {
+                                await session.client.destroy().catch(() => {});
+                            }
+                        } catch {
+                            // Ignore cleanup errors
+                        }
+                        session.client = null;
+                        session.initPromise = null;
                         // Trigger reconnect in background
-                        setTimeout(() => ensureTenantClient(tenantId), 1000);
+                        setTimeout(() => ensureTenantClient(tenantId), 2000);
+                        // Stop batch, suruh user retry
+                        break;
                     }
                     
                     // Tetap delay meskipun error, jangan spam
