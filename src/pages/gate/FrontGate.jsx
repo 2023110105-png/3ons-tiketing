@@ -89,16 +89,54 @@ function getMaxPendingAttempts() {
   return 5;
 }
 
-async function checkIn(ticketId, day, scannedBy) {
+async function checkIn(ticketId, day, scannedBy, qrName = '') {
   try {
+    console.log(`[checkIn] Start: ticketId=${ticketId}, day=${day}`);
     // Sync data from server first to ensure we have latest participants
     await bootstrapStoreFromFirebase(true);
 
     // Cari peserta berdasarkan ticket_id
     const participants = getParticipants(day);
-    const participant = participants.find(p => p.ticket_id === ticketId);
+    console.log(`[checkIn] Found ${participants.length} participants for day ${day}`);
+    console.log(`[checkIn] First few participants:`, participants.slice(0, 5).map(p => ({ tid: p.ticket_id, name: p.name, day: p.day_number || p.day })));
+    console.log(`[checkIn] All ticketIds for day ${day}:`, participants.map(p => p.ticket_id).slice(0, 10));
+    let participant = participants.find(p => p.ticket_id === ticketId);
+    let matchedByName = false;
+    let finalTicketId = ticketId;
+
+    // AUTO-RECOGNITION: Jika tidak ditemukan, coba cocokkan berdasarkan nama (untuk QR lama)
+    if (!participant && qrName) {
+      const qrNameNormalized = String(qrName).trim().toLowerCase();
+      participant = participants.find(p => {
+        const pName = String(p.name || '').trim().toLowerCase();
+        return pName === qrNameNormalized && Number(p.day_number || p.day) === Number(day);
+      });
+      
+      if (participant) {
+        matchedByName = true;
+        finalTicketId = participant.ticket_id; // Gunakan ticket_id yang baru
+        console.log(`[checkIn] Auto-recognition by name: "${qrName}" -> ${finalTicketId}`);
+      }
+    }
 
     if (!participant) {
+      console.log(`[checkIn] Participant not found: ticketId=${ticketId}, day=${day}`);
+      // Coba cari di semua participants tanpa filter day
+      const allParticipants = getParticipants();
+      console.log(`[checkIn] Total participants (all days): ${allParticipants.length}`);
+      const foundInOtherDay = allParticipants.find(p => p.ticket_id === ticketId);
+      if (foundInOtherDay) {
+        const foundDay = foundInOtherDay.day_number || foundInOtherDay.day || 'unknown';
+        console.log(`[checkIn] Found in other day:`, { tid: foundInOtherDay.ticket_id, name: foundInOtherDay.name, day: foundDay });
+        return { 
+          success: false, 
+          error: `Peserta terdaftar untuk Hari ${foundDay}, tapi scan untuk Hari ${day}.`, 
+          status: 'wrong_day', 
+          participant: foundInOtherDay,
+          expectedDay: foundDay,
+          scannedDay: day
+        };
+      }
       return { success: false, error: 'Peserta tidak terdaftar (tidak ditemukan di data terbaru)', status: 'not_registered' };
     }
 
@@ -107,9 +145,11 @@ async function checkIn(ticketId, day, scannedBy) {
       return { success: false, error: 'Data peserta tidak valid - belum terdaftar dengan lengkap', status: 'invalid_registration' };
     }
 
+    console.log(`[checkIn] Participant found:`, { tid: participant.ticket_id, name: participant.name, day: participant.day_number || participant.day });
+    
     // Check if already checked in
     const existingLogs = getCheckInLogs(day);
-    const alreadyCheckedIn = existingLogs.some(log => log.ticket_id === ticketId);
+    const alreadyCheckedIn = existingLogs.some(log => log.ticket_id === finalTicketId);
     if (alreadyCheckedIn) {
       return { success: false, error: 'Peserta sudah check-in', alreadyCheckedIn: true, status: 'duplicate', participant };
     }
@@ -118,8 +158,8 @@ async function checkIn(ticketId, day, scannedBy) {
     const tenantId = 'tenant-default';
     const eventId = 'event-default';
     const newLog = {
-      id: `${ticketId}_${Date.now()}`,
-      ticket_id: ticketId,
+      id: `${finalTicketId}_${Date.now()}`,
+      ticket_id: finalTicketId,
       scanned_by: scannedBy,
       timestamp: new Date().toISOString(),
       day: day,
@@ -129,7 +169,10 @@ async function checkIn(ticketId, day, scannedBy) {
       // Participant info for BackGate/Monitor compatibility
       participant_name: participant?.name || participant?.nama || 'Unknown',
       participant_category: participant?.category || participant?.kategori || 'Regular',
-      participant_ticket: ticketId
+      participant_ticket: finalTicketId,
+      // Flag untuk auto-recognition
+      auto_recognized: matchedByName,
+      original_qr_ticket_id: matchedByName ? ticketId : null
     };
 
     // Store in memory (support both field names)
@@ -145,7 +188,16 @@ async function checkIn(ticketId, day, scannedBy) {
     // Persist to database (async, don't block response)
     void syncCheckInLog({ tenantId, eventId, log: newLog });
 
-    return { success: true, ticket_id: ticketId, participant, status: 'success' };
+    console.log(`[checkIn] SUCCESS: ${participant.name} checked in for day ${day}`);
+
+    return { 
+      success: true, 
+      ticket_id: finalTicketId, 
+      participant, 
+      status: 'success',
+      auto_recognized: matchedByName,
+      message: matchedByName ? 'Tiket ditemukan berdasarkan nama (QR lama)' : null
+    };
   } catch {
     return { success: false, error: 'Check-in failed', status: 'error' };
   }
@@ -177,9 +229,10 @@ async function syncPendingCheckIns() {
   for (const item of pending) {
     results.processed++;
     try {
-      // Parse QR data untuk mendapatkan ticket_id dan day
+      // Parse QR data untuk mendapatkan ticket_id, day, dan nama
       let ticketId = item.ticket_id;
       let day = item.day || 1;
+      let qrName = '';
       
       if (item.qr_data) {
         try {
@@ -197,6 +250,7 @@ async function syncPendingCheckIns() {
             if (isValid) {
               ticketId = parsed.ticketId || ticketId;
               day = parsed.dayNumber || day;
+              qrName = parsed.name || ''; // Ambil nama untuk auto-recognition
             }
           }
         } catch {
@@ -204,7 +258,7 @@ async function syncPendingCheckIns() {
         }
       }
       
-      const result = await checkIn(ticketId, day, item.scanned_by);
+      const result = await checkIn(ticketId, day, item.scanned_by, qrName);
       if (result.success) {
         results.synced++;
         removePendingCheckIn(item.ticket_id);
@@ -241,16 +295,29 @@ import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 import { apiFetch } from '../../utils/api'
-import { parseQRData, verifyQRSignature } from '../../utils/qrSecurity'
+import { parseQRData, verifyQRSignature, generateQRData } from '../../utils/qrSecurity'
 
 const SAME_QR_DEBOUNCE_MS = 1200
 const VERIFY_TIMEOUT_MS = 2200
 const REALTIME_REFRESH_MS = 2500
 
+// Helper untuk ambil hari yang tersedia dari data
+function getAvailableDays() {
+  const participants = getParticipants()
+  const days = new Set()
+  participants.forEach(p => {
+    const day = Number(p.day_number || p.day || 1)
+    if (day > 0) days.add(day)
+  })
+  return Array.from(days).sort((a, b) => a - b)
+}
+
 export default function FrontGate() {
-  const currentDay = getCurrentDay()
+  const availableDays = getAvailableDays()
+  const defaultDay = availableDays[0] || 1
+  const [selectedDay, setSelectedDay] = useState(defaultDay)
   const [result, setResult] = useState(null)
-  const [stats, setStats] = useState(getStats(currentDay))
+  const [stats, setStats] = useState(getStats(selectedDay))
   const [manualInput, setManualInput] = useState('')
   const [scanMode, setScanMode] = useState('manual') // 'camera', 'manual', 'search'
   const [searchQuery, setSearchQuery] = useState('')
@@ -269,8 +336,8 @@ export default function FrontGate() {
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
 
   const refreshStats = useCallback(() => {
-    setStats(getStats(currentDay))
-  }, [currentDay])
+    setStats(getStats(selectedDay))
+  }, [selectedDay])
 
   const refreshPendingState = useCallback(() => {
     const items = getPendingCheckIns()
@@ -395,30 +462,40 @@ export default function FrontGate() {
     // Verifikasi server (non-blocking - tidak menghentikan scan jika gagal)
     const verify = await verifyScanWithServer(qrData)
     if (!verify.valid) {
-      console.warn('Server verification warning:', verify.reason)
+      console.info(`[ServerVerify] Non-blocking: ${verify.reason} (check-in tetap dilanjutkan)`)
       // Tetap lanjutkan scan meskipun verifikasi server gagal
     }
 
-    // Parse QR data untuk mendapatkan ticket_id dan day
+    // Parse QR data untuk mendapatkan ticket_id, day, dan nama
     let ticketId = '';
     let day = 1;
+    let qrName = '';
     const parsed = parseQRData(qrData);
+    console.log(`[handleScan] Parsed QR:`, parsed);
     if (parsed && parsed.ticketId) {
       ticketId = parsed.ticketId;
       day = parsed.dayNumber || 1;
+      qrName = parsed.name || ''; // Ambil nama untuk auto-recognition
     } else {
       // Jika bukan JSON valid, gunakan qrData sebagai ticket_id langsung
       ticketId = qrData;
     }
+    console.log(`[handleScan] ticketId=${ticketId}, day=${day}, qrName=${qrName}`);
     
-    let res = await checkIn(ticketId, day, 'gate_front')
+    // Cek response dari server verify - jika ada name_matched, gunakan ticket_id dari server
+    if (verify?.valid && verify?.participant?.ticket_id) {
+      ticketId = verify.participant.ticket_id;
+      console.log(`[handleScan] Using server-matched ticket_id: ${ticketId}`);
+    }
+    
+    let res = await checkIn(ticketId, day, 'gate_front', qrName)
     if (!res.success && res.error?.toLowerCase().includes('tidak ditemukan')) {
       // New participants may still be in-flight from admin device sync.
       // Force a fresh pull and retry once so gate scan works without manual refresh.
       setIsResolvingLatestData(true)
       try {
         await bootstrapStoreFromFirebase(true)
-        res = await checkIn(ticketId, day, 'gate_front')
+        res = await checkIn(ticketId, day, 'gate_front', qrName)
       } finally {
         setIsResolvingLatestData(false)
       }
@@ -490,7 +567,7 @@ export default function FrontGate() {
         setIsResolvingLatestData(false)
       }
       // Search with fresh data
-      const results = searchParticipants(query, currentDay)
+      const results = searchParticipants(query, selectedDay)
       // Mark participants as registered if found in data
       const resultsWithSyncStatus = results.map(p => ({
         ...p,
@@ -501,7 +578,7 @@ export default function FrontGate() {
     } else {
       setSearchResults([])
     }
-  }, [currentDay, refreshStats])
+  }, [selectedDay, refreshStats])
 
   // Camera scanner
   const startCamera = async () => {
@@ -646,7 +723,9 @@ export default function FrontGate() {
     if (result.status === 'invalid_server') return 'VERIFIKASI DI SERVER GAGAL'
     if (result.success) return 'CHECK-IN BERHASIL'
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
-    if (result.status === 'wrong_day') return 'SALAH HARI'
+    if (result.status === 'wrong_day') {
+      return `SALAH HARI (Tiket Hari ${result.expectedDay})`;
+    }
     if (result.status === 'not_registered') return 'PESERTA BELUM TERDAFTAR'
     if (result.status === 'invalid_registration') return 'REGISTRASI TIDAK VALID'
     if (result.status === 'not_found') return 'PESERTA TIDAK DITEMUKAN'
@@ -674,7 +753,9 @@ export default function FrontGate() {
     if (result.status === 'sync_partial') return 'Sebagian gagal. Coba sinkron ulang saat koneksi stabil.'
     if (result.success) return 'Silakan peserta masuk.'
     if (result.status === 'duplicate') return 'Arahkan peserta ke helpdesk untuk verifikasi ulang.'
-    if (result.status === 'wrong_day') return 'Informasikan hari tiket yang benar.'
+    if (result.status === 'wrong_day') {
+      return `Peserta terdaftar untuk Hari ${result.expectedDay}, tapi scan untuk Hari ${result.scannedDay}.`;
+    }
     if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
     if (result.status === 'not_registered') return 'Peserta belum terdaftar di sistem. Arahkan ke helpdesk untuk registrasi.'
     if (result.status === 'invalid_registration') return 'Data registrasi peserta tidak lengkap. Arahkan ke helpdesk.'
@@ -769,6 +850,58 @@ export default function FrontGate() {
             </button>
           )}
         </div>
+
+        {/* Day Selector - Dropdown */}
+        <div className="day-selector" style={{ 
+          display: 'flex', 
+          gap: '12px', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          marginTop: '16px',
+          padding: '12px 16px',
+          background: 'var(--bg-secondary, #f8fafc)',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color, #e2e8f0)'
+        }}>
+          <label htmlFor="day-selector" style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Pilih Hari:
+          </label>
+          <select
+            id="day-selector"
+            name="day"
+            value={selectedDay}
+            onChange={(e) => setSelectedDay(Number(e.target.value))}
+            style={{
+              padding: '10px 16px',
+              fontSize: '16px',
+              fontWeight: '600',
+              borderRadius: '8px',
+              border: '2px solid var(--brand-primary, #3b82f6)',
+              background: 'white',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              minWidth: '120px'
+            }}
+          >
+            {availableDays.length > 0 ? (
+              availableDays.map(day => (
+                <option key={day} value={day}>Hari {day}</option>
+              ))
+            ) : (
+              <option value={1}>Hari 1</option>
+            )}
+          </select>
+          <div style={{
+            padding: '8px 16px',
+            background: 'var(--brand-primary, #3b82f6)',
+            color: 'white',
+            borderRadius: '8px',
+            fontWeight: '700',
+            fontSize: '14px'
+          }}>
+            Aktif: Hari {selectedDay}
+          </div>
+        </div>
       </div>
 
       {/* Mode Tabs - 3 tabs now */}
@@ -827,6 +960,8 @@ export default function FrontGate() {
             <h3 className="card-title mb-16">Input QR Data Manual</h3>
             <form onSubmit={handleManualSubmit} className="scanner-inline-form">
               <input
+                id="qr-input"
+                name="qr_data"
                 className="form-input"
                 placeholder='Paste QR data atau ketik JSON...'
                 value={manualInput}
@@ -845,7 +980,7 @@ export default function FrontGate() {
             <p className="scanner-note scanner-note-tight">
               Klik untuk simulasi scan peserta
             </p>
-            <QuickScanButtons currentDay={currentDay} onScan={handleScan} />
+            <QuickScanButtons currentDay={selectedDay} onScan={handleScan} />
           </div>
 
           {result && (
@@ -894,6 +1029,8 @@ export default function FrontGate() {
             <div className="scanner-search-input-wrap">
               <Search size={16} className="scanner-search-icon" />
               <input
+                id="search-input"
+                name="search_query"
                 type="text"
                 className="form-input scanner-search-input"
                 placeholder="Ketik nama atau ticket ID..."
@@ -1074,6 +1211,17 @@ function QuickScanButtons({ currentDay, onScan }) {
   const unchecked = participants.filter(p => !checkedInTicketIds.has(p.ticket_id)).slice(0, 6)
   const checked = participants.filter(p => checkedInTicketIds.has(p.ticket_id)).slice(0, 2)
 
+  // Generate fresh QR data untuk konsistensi
+  const getFreshQRData = (p) => {
+    // Generate QR data baru berdasarkan ticket_id dan day yang ada di data
+    return generateQRData({
+      ticket_id: p.ticket_id,
+      day_number: p.day_number || p.day || currentDay,
+      name: p.name,
+      category: p.category
+    }, 'tenant-default', 'event-default')
+  }
+
   return (
     <div className="quick-scan-list">
       {unchecked.length > 0 && (
@@ -1082,7 +1230,7 @@ function QuickScanButtons({ currentDay, onScan }) {
             Belum Check-in:
           </div>
           {unchecked.map(p => (
-            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn" onClick={() => onScan(p.qr_data)}>
+            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn" onClick={() => onScan(getFreshQRData(p))}>
               <span className="quick-scan-icon success"><Play size={12} /></span>
               {p.name}
               <span className="quick-scan-ticket">{p.ticket_id}</span>
@@ -1096,7 +1244,7 @@ function QuickScanButtons({ currentDay, onScan }) {
             Sudah Check-in (test duplikat):
           </div>
           {checked.map(p => (
-            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn quick-scan-btn-muted" onClick={() => onScan(p.qr_data)}>
+            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn quick-scan-btn-muted" onClick={() => onScan(getFreshQRData(p))}>
               <span className="quick-scan-icon danger"><Square size={10} /></span>
               {p.name}
               <span className="quick-scan-ticket">{p.ticket_id}</span>

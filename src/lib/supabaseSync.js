@@ -4,6 +4,17 @@ const WORKSPACE_TABLE = 'workspace_state'
 const WORKSPACE_ID = 'default'
 const WORKSPACE_SCHEMA = 'public'
 
+// Singleton state for shared subscription
+const globalSubState = {
+  callbacks: new Set(),
+  isSubscribed: false,
+  isConnecting: false,
+  isPolling: false,
+  pollTimer: null,
+  lastData: null,
+  channel: null
+}
+
 function noopPromise() {
   return Promise.resolve(false)
 }
@@ -128,13 +139,60 @@ export async function fetchFirebaseWorkspaceSnapshot() {
   }
 }
 
-export function subscribeWorkspaceChanges(onChange) {
-  if (!isSupabaseEnabled || !supabase || typeof onChange !== 'function') {
-    return () => {}
+function notifyAllCallbacks(payload) {
+  globalSubState.callbacks.forEach((cb) => {
+    try {
+      cb(payload)
+    } catch (err) {
+      console.error('[SupabaseSync] callback error:', err?.message)
+    }
+  })
+}
+
+function stopGlobalPolling() {
+  if (globalSubState.pollTimer) {
+    clearInterval(globalSubState.pollTimer)
+    globalSubState.pollTimer = null
+    globalSubState.isPolling = false
+  }
+}
+
+function startGlobalPolling(pollInterval) {
+  if (globalSubState.isPolling) return
+  globalSubState.isPolling = true
+
+  const doPoll = async () => {
+    try {
+      const snapshot = await readWorkspaceRow()
+      if (snapshot) {
+        const snapshotJson = JSON.stringify(snapshot)
+        if (snapshotJson !== globalSubState.lastData) {
+          globalSubState.lastData = snapshotJson
+          notifyAllCallbacks({ new: snapshot, old: null, eventType: 'POLL_UPDATE' })
+        }
+      }
+    } catch (err) {
+      console.warn('[SupabaseSync] poll fetch failed:', err?.message)
+    }
   }
 
+  doPoll()
+  globalSubState.pollTimer = setInterval(doPoll, pollInterval)
+}
+
+function setupGlobalRealtime(pollInterval) {
+  // Prevent race condition - if already connecting or connected, skip
+  if (globalSubState.channel || globalSubState.isConnecting) return
+
+  globalSubState.isConnecting = true
+
   const channel = supabase
-    .channel(`workspace:${WORKSPACE_ID}`)
+    .channel(`workspace:${WORKSPACE_ID}:${Date.now()}`, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: '' }
+      }
+    })
     .on(
       'postgres_changes',
       {
@@ -144,27 +202,68 @@ export function subscribeWorkspaceChanges(onChange) {
         filter: `id=eq.${WORKSPACE_ID}`
       },
       (payload) => {
-        try {
-          onChange(payload)
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[SupabaseSync] realtime callback failed:', err?.message || err)
-        }
+        notifyAllCallbacks(payload)
       }
     )
 
   channel.subscribe((status, err) => {
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      // eslint-disable-next-line no-console
-      console.error('[SupabaseSync] realtime subscribe failed:', err?.message || err || status)
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      if (!globalSubState.isSubscribed) {
+        console.warn('[SupabaseSync] realtime unavailable, using polling fallback:', err?.message || status)
+        console.info(`[SupabaseSync] Auto-polling every ${pollInterval / 1000}s - data will sync automatically`)
+        startGlobalPolling(pollInterval)
+      }
+    } else if (status === 'SUBSCRIBED') {
+      globalSubState.isSubscribed = true
+      stopGlobalPolling()
+      console.info('[SupabaseSync] realtime connected successfully, polling stopped')
     }
+    globalSubState.isConnecting = false
   })
 
+  globalSubState.channel = channel
+}
+
+export function subscribeWorkspaceChanges(onChange, options = {}) {
+  if (!isSupabaseEnabled || !supabase || typeof onChange !== 'function') {
+    return () => {}
+  }
+
+  const { pollInterval = 10000 } = options
+
+  // Add callback to global set
+  globalSubState.callbacks.add(onChange)
+
+  // Setup shared subscription if not already done
+  if (!globalSubState.channel && !globalSubState.isSubscribed && !globalSubState.isPolling) {
+    setupGlobalRealtime(pollInterval)
+  }
+
+  // Return unsubscribe function
   return () => {
-    try {
-      supabase.removeChannel(channel)
-    } catch {
-      // no-op
+    globalSubState.callbacks.delete(onChange)
+
+    // Cleanup if no more callbacks
+    if (globalSubState.callbacks.size === 0) {
+      stopGlobalPolling()
+      const channelToRemove = globalSubState.channel
+      globalSubState.channel = null
+      globalSubState.isSubscribed = false
+      globalSubState.isConnecting = false
+
+      // Delay cleanup to avoid "WebSocket closed before connection" warning
+      // This only happens in React StrictMode (dev) when component unmounts quickly
+      if (channelToRemove) {
+        setTimeout(() => {
+          try {
+            supabase.removeChannel(channelToRemove).catch(() => {
+              // Ignore removal errors - channel may already be closed
+            })
+          } catch {
+            // no-op
+          }
+        }, 500)
+      }
     }
   }
 }
@@ -182,7 +281,6 @@ export function syncTenantUpsert(tenant) {
     }
     ensureTenantStoreBucket(snapshot, tenant.id)
   }).catch((err) => {
-    // eslint-disable-next-line no-console
     console.error('[SupabaseSync] tenant upsert failed:', err?.message || err)
     return false
   })
@@ -199,7 +297,6 @@ export function syncTenantDelete(tenantId) {
       snapshot.tenantRegistry.activeTenantId = Object.keys(snapshot.tenantRegistry.tenants)[0] || ''
     }
   }).catch((err) => {
-    // eslint-disable-next-line no-console
     console.error('[SupabaseSync] tenant delete failed:', err?.message || err)
     return false
   })
@@ -217,8 +314,7 @@ export function syncTenantUserUpsert({ tenantId, user }) {
     tenant.users = users
     snapshot.tenantRegistry.tenants[tenantId] = tenant
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] tenant user upsert failed:', err?.message || err)
+        console.error('[SupabaseSync] tenant user upsert failed:', err?.message || err)
     return false
   })
 }
@@ -232,8 +328,7 @@ export function syncTenantUserDelete({ tenantId, userId }) {
     tenant.users = asArray(tenant.users).filter((item) => String(item?.id || '') !== String(userId))
     snapshot.tenantRegistry.tenants[tenantId] = tenant
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] tenant user delete failed:', err?.message || err)
+        console.error('[SupabaseSync] tenant user delete failed:', err?.message || err)
     return false
   })
 }
@@ -251,8 +346,7 @@ export function syncParticipantUpsert({ tenantId, eventId, participant }) {
       delete event.deletedParticipantIds[participant.id]
     }
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] participant upsert failed:', err?.message || err)
+        console.error('[SupabaseSync] participant upsert failed:', err?.message || err)
     return false
   })
 }
@@ -267,8 +361,7 @@ export function syncParticipantDelete({ tenantId, eventId, participantId }) {
     }
     event.deletedParticipantIds[participantId] = new Date().toISOString()
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] participant delete failed:', err?.message || err)
+        console.error('[SupabaseSync] participant delete failed:', err?.message || err)
     return false
   })
 }
@@ -283,8 +376,7 @@ export function syncCheckInLog({ tenantId, eventId, log }) {
     else logs.push(log)
     event.checkInLogs = logs
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] checkin log sync failed:', err?.message || err)
+        console.error('[SupabaseSync] checkin log sync failed:', err?.message || err)
     return false
   })
 }
@@ -295,8 +387,7 @@ export function syncResetCheckInLogs({ tenantId, eventId }) {
     const event = ensureEvent(snapshot, tenantId, eventId)
     event.checkInLogs = []
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] reset checkin logs failed:', err?.message || err)
+        console.error('[SupabaseSync] reset checkin logs failed:', err?.message || err)
     return false
   })
 }
@@ -307,8 +398,7 @@ export function syncResetAdminLogs({ tenantId, eventId }) {
     const event = ensureEvent(snapshot, tenantId, eventId)
     event.adminLogs = []
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] reset admin logs failed:', err?.message || err)
+        console.error('[SupabaseSync] reset admin logs failed:', err?.message || err)
     return false
   })
 }
@@ -323,8 +413,7 @@ export function syncAuditLog({ tenantId, eventId, log }) {
     else logs.push(log)
     event.adminLogs = logs
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] audit log sync failed:', err?.message || err)
+        console.error('[SupabaseSync] audit log sync failed:', err?.message || err)
     return false
   })
 }
@@ -368,8 +457,7 @@ export function syncEventSnapshot({ tenantId, event }) {
     }
     if (!bucket.activeEventId) bucket.activeEventId = event.id
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] event snapshot sync failed:', err?.message || err)
+        console.error('[SupabaseSync] event snapshot sync failed:', err?.message || err)
     return false
   })
 }
@@ -383,8 +471,7 @@ export function syncEventDelete({ tenantId, eventId }) {
       bucket.activeEventId = Object.keys(bucket.events)[0] || null
     }
   }).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[SupabaseSync] event delete failed:', err?.message || err)
+        console.error('[SupabaseSync] event delete failed:', err?.message || err)
     return false
   })
 }

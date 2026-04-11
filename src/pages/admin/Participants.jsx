@@ -1449,25 +1449,27 @@ export default function Participants() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Nama</label>
-                <input className="form-input" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} required autoFocus />
+                <label className="form-label" htmlFor="edit-name">Nama</label>
+                <input id="edit-name" name="name" className="form-input" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} required autoFocus />
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Telepon (WA)</label>
-                  <input className="form-input" value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
+                  <label className="form-label" htmlFor="edit-phone">Telepon (WA)</label>
+                  <input id="edit-phone" name="phone" className="form-input" value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Email</label>
-                  <input className="form-input" type="email" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
+                  <label className="form-label" htmlFor="edit-email">Email</label>
+                  <input id="edit-email" name="email" className="form-input" type="email" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
                 </div>
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Hari Tiket</label>
+                  <label className="form-label" htmlFor="edit-day">Hari Tiket</label>
                   <input
+                    id="edit-day"
+                    name="day_number"
                     className="form-input"
                     type="number"
                     min="1"
@@ -1478,8 +1480,8 @@ export default function Participants() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Kategori (bebas)</label>
-                  <input className="form-input" value={editData.category} onChange={e => setEditData({ ...editData, category: e.target.value })} />
+                  <label className="form-label" htmlFor="edit-category">Kategori (bebas)</label>
+                  <input id="edit-category" name="category" className="form-input" value={editData.category} onChange={e => setEditData({ ...editData, category: e.target.value })} />
                 </div>
               </div>
 
@@ -1551,6 +1553,8 @@ export default function Participants() {
         <div className="m-participant-search">
           <Search size={16} className="m-participant-search-icon" />
           <input
+            id="mobile-participant-search"
+            name="mobile_search"
             className="form-input m-participant-search-input"
             placeholder="Cari nama atau tiket..."
             value={search}
@@ -1560,7 +1564,7 @@ export default function Participants() {
 
         <div className="m-filter-chips">
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <select className="m-filter-select" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
+            <select id="mobile-day-filter" name="mobile_day" className="m-filter-select" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
               {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
             </select>
             <button className="btn btn-ghost btn-sm m-filter-select" onClick={handleAddNewDay} title="Tambah Hari" style={{ padding: '0 8px' }}>
@@ -1712,11 +1716,11 @@ export default function Participants() {
               </div>
               <form onSubmit={handleAdd}>
                 <div className="modal-body">
-                  <div className="form-group"><label className="form-label">Nama</label><input className="form-input" placeholder="Nama lengkap" value={newParticipant.name} onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })} required autoFocus /></div>
-                  <div className="form-group"><label className="form-label">Telepon (WA)</label><input className="form-input" placeholder="08xxx (untuk WA)" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
-                  <div className="form-group"><label className="form-label">Kategori</label><input className="form-input" placeholder="Kategori (bebas)" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-name">Nama</label><input id="add-name" name="name" className="form-input" placeholder="Nama lengkap" value={newParticipant.name} onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })} required autoFocus /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-phone">Telepon (WA)</label><input id="add-phone" name="phone" className="form-input" placeholder="08xxx (untuk WA)" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-email">Email</label><input id="add-email" name="email" className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-day">Hari Tiket</label><input id="add-day" name="day_number" className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-category">Kategori</label><input id="add-category" name="category" className="form-input" placeholder="Kategori (bebas)" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })} /></div>
                   <div className="form-group">
                     <label className="form-label">Data Tambahan (opsional)</label>
                     <ExtraFieldsEditor
@@ -1750,12 +1754,12 @@ export default function Participants() {
               <div className="modal-body">
                 <p>Anda yakin ingin menghapus peserta <b>{deleteTarget.name}</b>?</p>
                 <div className="form-group mt-16">
-                  <label className="form-label">Alasan Penghapusan <span style={{color: 'red'}}>*</span></label>
-                  <textarea className="form-input" placeholder="Masukkan alasan minimal 15 karakter" value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3} required />
+                  <label className="form-label" htmlFor="delete-reason">Alasan Penghapusan <span style={{color: 'red'}}>*</span></label>
+                  <textarea id="delete-reason" name="delete_reason" className="form-input" placeholder="Masukkan alasan minimal 15 karakter" value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3} required />
                 </div>
                 <div className="form-group mt-16">
-                  <label className="form-label">Konfirmasi Kedua <span style={{color: 'red'}}>*</span></label>
-                  <input className="form-input" placeholder="Ketik SETUJU untuk melanjutkan" value={deleteApproval} onChange={e => setDeleteApproval(e.target.value)} required />
+                  <label className="form-label" htmlFor="delete-confirm">Konfirmasi Kedua <span style={{color: 'red'}}>*</span></label>
+                  <input id="delete-confirm" name="delete_confirm" className="form-input" placeholder="Ketik SETUJU untuk melanjutkan" value={deleteApproval} onChange={e => setDeleteApproval(e.target.value)} required />
                 </div>
               </div>
               <div className="modal-footer">
@@ -1793,14 +1797,14 @@ export default function Participants() {
       <div className="participants-toolbar">
         <div className="search-bar participants-search">
           <span className="search-bar-icon"><Search size={16} /></span>
-          <input placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input id="participant-search" name="search" placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+        <select id="category-filter" name="category" className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">Semua Kategori</option>
           {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <select className="form-select select-sm" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
+          <select id="day-filter" name="day" className="form-select select-sm" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
           <button className="btn btn-ghost btn-sm" onClick={handleAddNewDay} title="Tambah Hari Baru" style={{ padding: '6px 8px' }}>
@@ -1812,7 +1816,7 @@ export default function Participants() {
             </button>
           )}
         </div>
-        <select className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+        <select id="status-filter" name="status" className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="all">Semua Status</option>
           <option value="checked">Sudah Check-in</option>
           <option value="unchecked">Belum Hadir</option>

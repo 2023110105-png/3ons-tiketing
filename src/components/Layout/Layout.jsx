@@ -404,6 +404,8 @@ export default function Layout({ children }) {
             {(user?.role === 'super_admin' || user?.role === 'admin') && (
               <>
                 <select
+                  id="header-event-select"
+                  name="event_id"
                   className="form-select header-event-select"
                   value={activeEventId}
                   onChange={(e) => handleEventChange(e.target.value)}
@@ -423,6 +425,8 @@ export default function Layout({ children }) {
               <form className="header-day-form" onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span className="header-day-label" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
                 <input
+                  id="header-day-input"
+                  name="active_day"
                   type="number"
                   min="1"
                   value={dayInput}

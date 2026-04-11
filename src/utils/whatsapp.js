@@ -12,16 +12,17 @@ function normalizeTokenKey(key) {
 
 // Fallback getWaTemplate jika tidak ada global
 function getWaTemplate() {
+  // Tanggal hardcode 12 April 2026 sesuai request user
   return `📋 *E-ATTENDANCE*
-🏛️ PALEMBANG VIOLIN COMPETITION
+🏛️ PALEMBANG VIOLIN & PIANO COMPETITION
 
-╭────────────────────────╮
+╭─────────────────────╮
   👤 *{{nama}}*
-  � {{kategori}}
-  📱 Violin-{{tiket}}
-╰────────────────────────╯
+  {{kategori}}
+  📱 NO -{{tiket}}
+╰─────────────────────╯
 
-📅 Event : 11 April 2026
+📅 Event : 12 April 2026
 🏢 Venue : Primavera Production
 
 ✨ *PETUNJUK REGISTRASI*

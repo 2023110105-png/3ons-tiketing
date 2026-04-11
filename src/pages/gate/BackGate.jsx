@@ -8,7 +8,7 @@ async function bootstrapStoreFromFirebase() {
   return _workspaceSnapshot;
 }
 
-function getCurrentDay() { return 1; }
+// getCurrentDay removed - now using selectedDay state
 
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
@@ -87,7 +87,7 @@ import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 const REALTIME_REFRESH_MS = 2500
 
 export default function BackGate() {
-  const currentDay = getCurrentDay()
+  const [selectedDay, setSelectedDay] = useState(1) // State untuk pilih Day 1 atau Day 2
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const [nowTs, setNowTs] = useState(() => Date.now())
@@ -96,8 +96,8 @@ export default function BackGate() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   void refreshKey
-  const stats = getStats(currentDay)
-  const rawLogs = getCheckInLogs(currentDay)
+  const stats = getStats(selectedDay)
+  const rawLogs = getCheckInLogs(selectedDay)
   const logs = enrichLogsWithParticipantData(rawLogs)
   const pendingItems = getPendingCheckIns()
 
@@ -108,7 +108,7 @@ export default function BackGate() {
       setRefreshKey(k => k + 1);
     };
     loadData();
-  }, [])
+  }, [selectedDay]) // Reload ketika selectedDay berubah
 
   // Refresh stats periodically
   useEffect(() => {
@@ -210,10 +210,71 @@ export default function BackGate() {
 
   return (
     <div className="monitor-container">
+      {/* Day Selector - Dropdown */}
+      <div className="day-selector" style={{ 
+        display: 'flex', 
+        gap: '12px', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        marginBottom: '20px',
+        padding: '12px 16px',
+        background: 'var(--bg-secondary, #f8fafc)',
+        borderRadius: '12px',
+        border: '1px solid var(--border-color, #e2e8f0)'
+      }}>
+        <label htmlFor="backgate-day-selector" style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-secondary)' }}>
+          Pilih Hari:
+        </label>
+        <select
+          id="backgate-day-selector"
+          name="day"
+          value={selectedDay}
+          onChange={(e) => setSelectedDay(Number(e.target.value))}
+          style={{
+            padding: '10px 16px',
+            fontSize: '16px',
+            fontWeight: '600',
+            borderRadius: '8px',
+            border: '2px solid var(--brand-primary, #3b82f6)',
+            background: 'white',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            minWidth: '120px'
+          }}
+        >
+          {(() => {
+            const participants = getParticipants()
+            const days = new Set()
+            participants.forEach(p => {
+              const day = Number(p.day_number || p.day || 1)
+              if (day > 0) days.add(day)
+            })
+            const availableDays = Array.from(days).sort((a, b) => a - b)
+            return availableDays.length > 0 ? (
+              availableDays.map(day => (
+                <option key={day} value={day}>Hari {day}</option>
+              ))
+            ) : (
+              <option value={1}>Hari 1</option>
+            )
+          })()}
+        </select>
+        <div style={{
+          padding: '8px 16px',
+          background: 'var(--brand-primary, #3b82f6)',
+          color: 'white',
+          borderRadius: '8px',
+          fontWeight: '700',
+          fontSize: '14px'
+        }}>
+          Aktif: Hari {selectedDay}
+        </div>
+      </div>
+
       {/* Big Counter */}
       <div className="monitor-counter animate-fade-in-up">
         <div className="monitor-kicker">
-          Kehadiran langsung · Hari {currentDay}
+          Kehadiran langsung · Hari {selectedDay}
         </div>
         <div className="monitor-counter-value">
           <span>{stats.checkedIn}</span> / {stats.total}

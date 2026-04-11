@@ -3,11 +3,74 @@
 const Jimp = require('jimp')
 const QRCode = require('qrcode')
 
+// VIBRANT Full Color Palette - Anti Monoton!
 const CATEGORY_STYLES = {
-  VIP: { accent: '#b91c1c', soft: '#fdecea', dark: '#7f1d1d', label: 'VIP' },
-  Dealer: { accent: '#1d4ed8', soft: '#e8f1ff', dark: '#1e3a8a', label: 'DEALER' },
-  Media: { accent: '#ca8a04', soft: '#fff8e1', dark: '#854d0e', label: 'MEDIA' },
-  Regular: { accent: '#15803d', soft: '#eaf7ee', dark: '#14532d', label: 'REGULAR' }
+  VIP: { 
+    accent: '#e74c3c', 
+    accentLight: '#ff7979',
+    soft: '#ffe4e1', 
+    dark: '#c0392b', 
+    gradient: ['#c0392b', '#e74c3c', '#ff6b6b', '#ff9f9f'],
+    label: 'VIP'
+  },
+  Dealer: { 
+    accent: '#3498db', 
+    accentLight: '#74b9ff',
+    soft: '#dff9fb', 
+    dark: '#2980b9', 
+    gradient: ['#2980b9', '#3498db', '#5dade2', '#85c1e9'],
+    label: 'DEALER'
+  },
+  Media: { 
+    accent: '#f39c12', 
+    accentLight: '#f9ca24',
+    soft: '#fff9c4', 
+    dark: '#d68910', 
+    gradient: ['#d68910', '#f39c12', '#f5b041', '#f8c471'],
+    label: 'MEDIA'
+  },
+  Regular: { 
+    accent: '#27ae60', 
+    accentLight: '#55efc4',
+    soft: '#e8f8f5', 
+    dark: '#1e8449', 
+    gradient: ['#1e8449', '#27ae60', '#58d68d', '#82e0aa'],
+    label: 'REGULAR'
+  }
+}
+
+// CLEAN Color Scheme - Putih dengan gradasi lembut
+const COLORS = {
+  background: '#ffffff',
+  cardBg: '#ffffff',
+  cardBorder: '#e8e8e8',
+  textPrimary: '#2d3436',
+  textSecondary: '#636e72',
+  textMuted: '#b2bec3',
+  accentRed: '#e74c3c',
+  accentBlue: '#3498db',
+  accentGreen: '#27ae60',
+  accentOrange: '#f39c12',
+  accentPink: '#fd79a8',
+  accentPurple: '#9b59b6',
+  accentCyan: '#00cec9',
+  accentYellow: '#fdcb6e',
+  divider: '#dfe6e9',
+  shadow: 'rgba(0, 0, 0, 0.08)'
+}
+
+// Rainbow colors for maximum vibrancy
+const RAINBOW = {
+  red: '#ff6b6b',
+  orange: '#ffa502',
+  yellow: '#f9ca24',
+  green: '#6ab04c',
+  blue: '#4834d4',
+  indigo: '#686de0',
+  violet: '#be2edd',
+  pink: '#ff7979',
+  cyan: '#22a6b3',
+  teal: '#1dd1a1'
 }
 
 function normalizeCategory(category) {
@@ -58,123 +121,228 @@ function printClamp(image, font, text, x, y, maxWidth) {
 }
 
 async function buildTicketQrImageNode(participant, options = {}) {
-  const width = Number(options.width || 900)
-  const height = Number(options.height || 540)
-  const qrSize = Number(options.qrSize || 320)
-  const eventLabel = String(options.eventLabel || 'Event Platform').trim() || 'Event Platform'
-  const brandLabel = String(options.brandLabel || '3oNs Digital').trim() || '3oNs Digital'
+  try {
+  const width = Number(options.width || 1000)
+  const height = Number(options.height || 600)
+  const qrSize = Number(options.qrSize || 340)
+  const eventLabel = String(options.eventLabel || 'PALEMBANG VIOLIN & PIANO COMPETITION').trim() || 'Event Platform'
+  // Brand label sudah digabung dengan eventLabel
   const categoryLabel = normalizeCategory(participant?.category)
   const style = resolveStyle(categoryLabel)
 
-  const image = new Jimp(width, height, '#f3f6fb')
-  const safeX = 20
-  const safeY = 20
-  const safeW = width - 40
-  const safeH = height - 40
+  console.log(`[TICKET-IMAGE] Starting generation for ${participant?.name}, category=${categoryLabel}`)
 
-  // Outer card with shadow effect
-  await fillRect(image, safeX, safeY, safeW, safeH, '#ffffff')
-  await fillRect(image, safeX, safeY, safeW, 2, '#dfe6ef')  // top border
-  await fillRect(image, safeX, safeY + safeH - 2, safeW, 2, '#dfe6ef')  // bottom border
-  await fillRect(image, safeX, safeY, 2, safeH, '#dfe6ef')  // left border
-  await fillRect(image, safeX + safeW - 2, safeY, 2, safeH, '#dfe6ef')  // right border
-  await fillRect(image, safeX + 10, safeY + 10, safeW - 20, safeH - 20, '#ffffff')  // inner area
-
-  // Top gradient strip (kategori color based)
-  const stripH = 24
-  await fillRect(image, safeX + 8, safeY + 8, Math.round((safeW - 16) * 0.5), stripH, style.accent)
-  await fillRect(image, safeX + 8 + Math.round((safeW - 16) * 0.5), safeY + 8, Math.round((safeW - 16) * 0.35), stripH, '#4da6e8')
-  await fillRect(image, safeX + 8 + Math.round((safeW - 16) * 0.85), safeY + 8, Math.round((safeW - 16) * 0.15), stripH, '#e84393')
+  // Create main image dengan background putih bersih
+  const image = new Jimp(width, height, '#ffffff')
   
-  // Decorative ribbon on right top
-  await fillRect(image, safeX + safeW - 190, safeY + 14, 170, 78, style.soft)
+  // Margins and dimensions
+  const margin = 30
+  const cardX = margin
+  const cardY = margin
+  const cardW = width - margin * 2
+  const cardH = height - margin * 2
 
-  const qrX = safeX + safeW - qrSize - 56
-  const qrY = safeY + 88
-  const leftX = safeX + 20
-  const leftY = safeY + 34
-  const leftW = qrX - leftX - 18
-  const leftH = safeY + safeH - leftY - 20
-
-  // Panel informasi kiri
-  await fillRect(image, leftX, leftY, leftW, leftH, '#ffffff')
-  await fillRect(image, leftX, leftY, leftW, 2, '#edf0f6')  // top
-  await fillRect(image, leftX, leftY + leftH - 2, leftW, 2, '#edf0f6')  // bottom
-  await fillRect(image, leftX, leftY, 2, leftH, '#edf0f6')  // left
-  await fillRect(image, leftX + leftW - 2, leftY, 2, leftH, '#edf0f6')  // right
-
-  // Panel QR with category color border
-  await fillRect(image, qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, '#ffffff')
-  await fillRect(image, qrX - 18, qrY - 18, qrSize + 36, 4, style.accent)  // top border
-  await fillRect(image, qrX - 18, qrY + qrSize + 14, qrSize + 36, 4, style.accent)  // bottom border
-  await fillRect(image, qrX - 18, qrY - 16, 4, qrSize + 32, style.accent)  // left border
-  await fillRect(image, qrX + qrSize + 14, qrY - 16, 4, qrSize + 32, style.accent)  // right border
-
-  // Perforation line
-  for (let i = safeY + 56; i < safeY + safeH - 28; i += 12) {
-    await fillRect(image, qrX - 32, i, 2, 4, '#e5e7eb')
+  // === CARD DENGAN SHADOW RAPI ===
+  // Shadow layer (lebih rapi)
+  for (let i = 4; i >= 0; i--) {
+    const alpha = String(8 - i).padStart(2, '0')
+    await fillRect(image, cardX + i, cardY + i + 2, cardW, cardH, `#000000${alpha}`)
   }
+  
+  // Main card putih
+  await fillRect(image, cardX, cardY, cardW, cardH, '#ffffff')
+  
+  // === HEADER SOLID COLOR ===
+  const headerH = 80
+  // Header dengan warna solid (tidak gradient) agar lebih rapi
+  await fillRect(image, cardX, cardY, cardW, headerH, style.accent)
+  
+  // Garis aksen bawah header (solid)
+  await fillRect(image, cardX, cardY + headerH - 3, cardW, 3, style.dark)
+  
+  // === LEFT CONTENT AREA ===
+  const contentX = cardX + 40
+  const contentY = cardY + headerH + 30
+  const contentW = cardW - qrSize - 140
+  // Content area height sudah ter-cover oleh layout
 
+  // === RIGHT QR AREA ===
+  const qrX = cardX + cardW - qrSize - 50
+  const qrY = cardY + headerH + 40
+
+  // === CATEGORY BADGE (Floating) ===
+  const badgeW = 180
+  const badgeH = 45
+  const badgeX = contentX
+  const badgeY = contentY
+  
+  // Badge shadow
+  await fillRect(image, badgeX + 3, badgeY + 3, badgeW, badgeH, '#00000015')
+  // Badge background
+  await fillRect(image, badgeX, badgeY, badgeW, badgeH, style.accent)
+  // Badge highlight
+  await fillRect(image, badgeX, badgeY, badgeW, 3, style.accentLight)
+
+  // === QR CODE SECTION ===
+  // QR Container with elegant border
+  const qrContainerPad = 20
+  const qrContainerW = qrSize + qrContainerPad * 2
+  const qrContainerH = qrSize + qrContainerPad * 2 + 60 // Extra for text
+  
+  // QR container background
+  await fillRect(image, qrX - qrContainerPad, qrY - qrContainerPad, qrContainerW, qrContainerH, '#ffffff')
+  
+  // QR container border with gradient effect
+  const borderThickness = 4
+  await fillRect(image, qrX - qrContainerPad, qrY - qrContainerPad, qrContainerW, borderThickness, style.accent)
+  await fillRect(image, qrX - qrContainerPad, qrY - qrContainerPad + qrContainerH - borderThickness, qrContainerW, borderThickness, style.accent)
+  await fillRect(image, qrX - qrContainerPad, qrY - qrContainerPad, borderThickness, qrContainerH, style.accent)
+  await fillRect(image, qrX - qrContainerPad + qrContainerW - borderThickness, qrY - qrContainerPad, borderThickness, qrContainerH, style.accent)
+  
+  // Corner accents
+  const cornerSize = 12
+  await fillRect(image, qrX - qrContainerPad - 2, qrY - qrContainerPad - 2, cornerSize, cornerSize, style.accent)
+  await fillRect(image, qrX + qrSize + qrContainerPad - cornerSize + 2, qrY - qrContainerPad - 2, cornerSize, cornerSize, style.accent)
+  await fillRect(image, qrX - qrContainerPad - 2, qrY + qrSize + qrContainerPad - cornerSize + 2, cornerSize, cornerSize, style.accent)
+  await fillRect(image, qrX + qrSize + qrContainerPad - cornerSize + 2, qrY + qrSize + qrContainerPad - cornerSize + 2, cornerSize, cornerSize, style.accent)
+
+  // Generate and place QR code
   const qrBuffer = await QRCode.toBuffer(String(participant?.qr_data || '-'), {
-    margin: 3,
+    margin: 2,
     width: qrSize,
-    color: { dark: '#111111', light: '#FFFFFF' },
+    color: { dark: '#1e293b', light: '#FFFFFF' },
     errorCorrectionLevel: 'H'
   })
   const qrImage = await Jimp.read(qrBuffer)
   image.composite(qrImage, qrX, qrY)
 
-  // Load fonts
+  // === LOAD FONTS ===
+  // Font yang tersedia di Jimp: 8, 10, 12, 14, 16, 32, 64 (TIDAK ADA 24!)
   const fontTitle = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK)
+  const fontSubtitle = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK) // Ganti 24 ke 32
   const fontBody = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK)
   const fontSmall = await Jimp.loadFont(Jimp.FONT_SANS_14_BLACK)
   const fontBold = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK)
-  const fontLarge = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK)
 
-  // Header - E-Attendance (sama seperti QRGenerate.jsx)
-  image.print(fontLarge, leftX + 22, leftY + 40, 'E-Attendance')
-  printClamp(image, fontBody, eventLabel || 'PALEMBANG VIOLIN COMPETITION', leftX + 22, leftY + 80, leftW - 44)
-  printClamp(image, fontSmall, (brandLabel || 'Official Event').toUpperCase(), leftX + 22, leftY + 102, leftW - 44)
+  // === HEADER TEXT (on gradient) ===
+  // Event title on header
+  image.print(fontSubtitle, contentX + 20, cardY + 20, 'E-ATTENDANCE')
+  image.print(fontSmall, contentX + 20, cardY + 50, eventLabel.toUpperCase())
+  
+  // Brand on right of header
+  const brandText = '3oNs Digital'
+  const brandWidth = Jimp.measureText(fontSmall, brandText)
+  image.print(fontSmall, cardX + cardW - brandWidth - 30, cardY + 30, brandText)
 
-  // Elegant category badge (sama seperti QRGenerate.jsx)
-  await fillRect(image, leftX + 22, leftY + 120, 160, 38, style.accent)
-  printClamp(image, fontBody, String(categoryLabel).toUpperCase(), leftX + 32, leftY + 142, 140)
+  // === CATEGORY BADGE TEXT ===
+  const badgeText = String(categoryLabel).toUpperCase()
+  const badgeTextWidth = Jimp.measureText(fontBold, badgeText)
+  image.print(fontBold, badgeX + (badgeW - badgeTextWidth) / 2, badgeY + 14, badgeText)
 
-  // Participant name
-  printClamp(image, fontTitle, String(participant?.name || '-'), leftX + 22, leftY + 190, leftW - 44)
+  // === PARTICIPANT NAME (Large, prominent) ===
+  const nameY = badgeY + badgeH + 30
+  printClamp(image, fontTitle, String(participant?.name || '-'), contentX, nameY, contentW - 20)
 
-  // Info Grid - ID TICKET, DAY, CATEGORY (sama seperti QRGenerate.jsx)
-  const infoY = leftY + 242
-  const colWidth = Math.round((leftW - 44) / 3)
+  // === COLORFUL INFO GRID ===
+  const infoY = nameY + 60
+  const colWidth = Math.floor((contentW - 40) / 3)
+  const boxHeight = 75
+  
+  // Info boxes dengan warna-warna berbeda (anti monoton!)
+  const infoBoxes = [
+    { 
+      label: 'ID TICKET', 
+      value: String(participant?.ticket_id || '-'),
+      bg: '#ffe4e1',
+      border: RAINBOW.red,
+      text: '#c0392b'
+    },
+    { 
+      label: 'DAY', 
+      value: String(participant?.day_number || '-'),
+      bg: '#e8f8f5',
+      border: RAINBOW.green,
+      text: '#27ae60'
+    },
+    { 
+      label: 'CATEGORY', 
+      value: String(participant?.category || categoryLabel || '-'),
+      bg: '#ebf5fb',
+      border: RAINBOW.blue,
+      text: '#2980b9'
+    }
+  ]
+  
+  for (let i = 0; i < infoBoxes.length; i++) {
+    const boxX = contentX + (colWidth * i)
+    const box = infoBoxes[i]
+    
+    // Box shadow
+    await fillRect(image, boxX + 2, infoY + 2, colWidth - 10, boxHeight, '#00000008')
+    
+    // Box background dengan vibrant color
+    await fillRect(image, boxX, infoY, colWidth - 10, boxHeight, box.bg)
+    
+    // Box border - colorful top
+    await fillRect(image, boxX, infoY, colWidth - 10, 4, box.border)
+    
+    // Label dengan warna yang sesuai
+    image.print(fontSmall, boxX + 12, infoY + 15, box.label)
+    
+    // Value
+    printClamp(image, fontBold, box.value, boxX + 12, infoY + 42, colWidth - 28)
+  }
 
-  // Labels
-  image.print(fontSmall, leftX + 22, infoY, 'ID TICKET')
-  image.print(fontSmall, leftX + 22 + colWidth, infoY, 'DAY')
-  image.print(fontSmall, leftX + 22 + colWidth * 2, infoY, 'CATEGORY')
+  // === DIVIDER LINE ===
+  const dividerY = infoY + boxHeight + 40
+  await fillRect(image, contentX, dividerY, contentW - 20, 2, COLORS.divider)
 
-  // Values
-  image.print(fontBold, leftX + 22, infoY + 18, String(participant?.ticket_id || '-'))
-  image.print(fontBold, leftX + 22 + colWidth, infoY + 18, String(participant?.day_number || '-'))
-  printClamp(image, fontBold, String(participant?.category || categoryLabel || '-'), leftX + 22 + colWidth * 2, infoY + 18, colWidth - 10)
+  // === INSTRUCTION TEXT ===
+  const footerY = dividerY + 25
+  image.print(fontBody, contentX, footerY, 'Tunjukkan kode QR ini kepada petugas registrasi')
+  image.print(fontSmall, contentX, footerY + 25, 'untuk melakukan absensi peserta')
 
-  // Divider before footer
-  await fillRect(image, leftX + 22, leftY + leftH - 80, leftW - 44, 2, '#e5e7eb')
-
-  // Footer instruction (sama seperti QRGenerate.jsx)
-  image.print(fontBody, leftX + 22, leftY + leftH - 60, 'Tunjukkan kode QR ini untuk registrasi absensi peserta')
+  // === DATE INFO - 12 APRIL 2026 ===
   const dob = getMetaValue(participant, 'Tanggal Lahir')
-  image.print(
-    fontSmall,
-    leftX + 22,
-    leftY + leftH - 40,
-    dob ? `${dob}` : '11 April 2026 - Primavera Production'
-  )
+  const dateText = dob ? `${dob}` : '12 April 2026 - Primavera Production'
+  
+  // Date box dengan gradasi lembut
+  const dateBoxY = footerY + 60
+  const dateBoxW = contentW - 20
+  const dateBoxH = 34
+  
+  // Background gradasi (putih ke warna kategori)
+  await fillRect(image, contentX, dateBoxY, dateBoxW, dateBoxH, '#ffffff')
+  await fillRect(image, contentX, dateBoxY, dateBoxW * 0.7, dateBoxH, style.soft)
+  
+  // Border lembut
+  await fillRect(image, contentX, dateBoxY, dateBoxW, 2, style.accentLight)
+  
+  // Date text
+  image.print(fontSmall, contentX + 12, dateBoxY + 21, '* ' + dateText)
 
-  // QR Footer (sama seperti QRGenerate.jsx)
-  image.print(fontBody, qrX + 24, qrY + qrSize + 30, 'Scan at entrance')
-  image.print(fontSmall, qrX + 24, qrY + qrSize + 50, 'Keep screen bright for quick scan')
+  // === QR FOOTER TEXT - PRESISI ===
+  const qrPad = 16
+  const qrFooterY = qrY + qrSize + qrPad + 10
+  
+  // Center text dalam QR area
+  const qrAreaCenter = qrX + qrSize/2
+  const text1 = 'Scan at entrance'
+  const text1Width = Jimp.measureText(fontBody, text1)
+  image.print(fontBody, qrAreaCenter - text1Width/2, qrFooterY, text1)
+  
+  const text2 = 'Keep screen bright'
+  const text2Width = Jimp.measureText(fontSmall, text2)
+  image.print(fontSmall, qrAreaCenter - text2Width/2, qrFooterY + 20, text2)
 
-  return image.getBufferAsync(Jimp.MIME_PNG)
+  const buffer = await image.getBufferAsync(Jimp.MIME_PNG)
+  console.log(`[TICKET-IMAGE] Generated buffer size=${buffer.length}`)
+  return buffer
+  } catch (err) {
+    console.error(`[TICKET-IMAGE] Error:`, err.message)
+    console.error(`[TICKET-IMAGE] Stack:`, err.stack)
+    throw err
+  }
 }
 
 module.exports = { buildTicketQrImageNode }

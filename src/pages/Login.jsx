@@ -54,7 +54,7 @@ export default function Login() {
         setError(getFriendlyLoginError(result.error))
         setLoading(false)
       }
-    } catch (err) {
+    } catch {
       setError('Terjadi kesalahan. Silakan coba lagi.')
       setLoading(false)
     }
@@ -87,6 +87,7 @@ export default function Login() {
             <label className="form-label" htmlFor="login-username">Nama Pengguna</label>
             <input
               id="login-username"
+              name="username"
               type="text"
               className="form-input login-form-input"
               placeholder="Ketik nama pengguna Anda"
@@ -105,6 +106,7 @@ export default function Login() {
             <label className="form-label" htmlFor="login-password">Kata sandi</label>
             <input
               id="login-password"
+              name="password"
               type="password"
               className="form-input login-form-input"
               placeholder="Masukkan kata sandi"

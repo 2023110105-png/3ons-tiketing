@@ -86,6 +86,7 @@ if (WA_FAST_MODE) {
 }
 
 // Helper: Generate QR data for participant (server-side)
+// KONSISTEN dengan frontend: output plain JSON (bukan base64)
 function generateServerQRData({ ticket_id, name, day_number }, tenantId = 'tenant-default', eventId = 'event-default') {
     try {
         const tid = String(ticket_id || '').trim();
@@ -96,11 +97,11 @@ function generateServerQRData({ ticket_id, name, day_number }, tenantId = 'tenan
         
         if (!tid) return null;
         
-        // Build deterministic signature
+        // Build deterministic signature (sama dengan frontend buildQRPayload)
         const payload = `${t}|${e}|${tid}|${d}|event-2026`;
         const sig = Buffer.from(payload).toString('base64');
         
-        // Build QR data object
+        // Build QR data object (sama format dengan frontend)
         const qrObject = {
             v: 2,
             tid,
@@ -112,7 +113,8 @@ function generateServerQRData({ ticket_id, name, day_number }, tenantId = 'tenan
             r: crypto.randomUUID().slice(0, 8)
         };
         
-        return Buffer.from(JSON.stringify(qrObject)).toString('base64');
+        // Return plain JSON (KONSISTEN dengan frontend generateQRData)
+        return JSON.stringify(qrObject);
     } catch (err) {
         console.error('[generateServerQRData] Error:', err.message);
         return null;
@@ -1268,7 +1270,9 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                 error_code: 'wa_client_not_ready'
             }));
         } else {
-            const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const waMessage = req.body.wa_message || `🎫 *E-Ticket*\n\nHalo *${name}*,\nBerikut tiket masuk Anda untuk *Hari ke-${day_number}*.\n\n📅 *Tanggal Dikirim:* ${dateStr}\n📋 *Ticket ID:* ${ticket_id}\n📂 *Kategori:* ${category}\n\nSilakan tunjukkan barcode tiket ini kepada petugas gerbang event. Terima kasih.\n\n_3oNs Digital_`;
             // SEQUENTIAL SEND dengan delay untuk hindari rate limit
             const delayMs = Number(process.env.WA_SEND_DELAY_MS || 3000);
             const healthCheckInterval = 10; // Cek session setiap 10 pesan
@@ -1328,18 +1332,46 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                             timeoutMs: WA_MESSAGE_TIMEOUT_MS
                         });
                     } else if (waSendMode === 'message_with_barcode') {
-                        // Generate e-ticket image with QR and details
-                        const participant = { name, ticket_id, category, day_number, qr_data: qrData };
-                        const imgStart = Date.now();
-                        const imageBuffer = await buildTicketQrImageNode(participant, {});
-                        console.log(`[WA SEND IMAGE] gen_time=${Date.now() - imgStart}ms bytes=${imageBuffer?.length || 0}`);
+                        console.log('[WA SEND] Entering message_with_barcode mode');
+                        try {
+                            // Generate e-ticket image with QR and details
+                            const participant = { name, ticket_id, category, day_number, qr_data: qrData };
+                            const imgStart = Date.now();
+                            console.log('[WA SEND] Calling buildTicketQrImageNode...');
+                            const imageBuffer = await buildTicketQrImageNode(participant, {});
+                            console.log(`[WA SEND IMAGE] gen_time=${Date.now() - imgStart}ms`);
+                            console.log(`[WA SEND IMAGE] result=${imageBuffer}`);
+                            console.log(`[WA SEND IMAGE] type=${typeof imageBuffer}`);
+                            console.log(`[WA SEND IMAGE] isBuffer=${Buffer.isBuffer(imageBuffer)}`);
+                            console.log(`[WA SEND IMAGE] has data?=${imageBuffer ? 'yes' : 'no'}`);
+                            if (imageBuffer && imageBuffer.length) {
+                                console.log(`[WA SEND IMAGE] length=${imageBuffer.length}`);
+                            }
                         
-                        const base64Str = imageBuffer.toString('base64');
+                        // Pastikan buffer valid lalu convert ke base64
+                        let buffer;
+                        if (Buffer.isBuffer(imageBuffer)) {
+                            buffer = imageBuffer;
+                        } else if (imageBuffer && typeof imageBuffer === 'object' && imageBuffer.data) {
+                            // Handle Jimp buffer format
+                            buffer = Buffer.from(imageBuffer.data);
+                        } else {
+                            buffer = Buffer.from(imageBuffer);
+                        }
+                        
+                        const base64Str = buffer.toString('base64');
+                        console.log(`[WA SEND IMAGE] base64 length=${base64Str?.length}, type=${typeof base64Str}`);
+                        
                         const media = new MessageMedia('image/png', base64Str, `Ticket_${ticket_id}.png`);
+                        console.log(`[WA SEND IMAGE] media created, mimetype=${media.mimetype}, data length=${media.data?.length}`);
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, media, { caption: waMessage }), {
                             retries: WA_FAST_MODE ? 1 : 3,
                             timeoutMs: WA_MESSAGE_TIMEOUT_MS
                         });
+                        } catch (imgErr) {
+                            console.error(`[WA SEND IMAGE] Error generating image:`, imgErr.message);
+                            throw imgErr;
+                        }
                     } else {
                         sendResult = await withRetry(() => session.client.sendMessage(waNumber, waMessage), {
                             retries: WA_FAST_MODE ? 1 : 3,

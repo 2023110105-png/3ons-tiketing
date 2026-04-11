@@ -1,6 +1,1387 @@
 [
   {
     "tenantId": "tenant-default",
+    "time": "2026-04-11T12:47:02.995Z",
+    "phoneList": [
+      "085268730213"
+    ],
+    "results": [
+      {
+        "phone": "085268730213",
+        "status": "Success",
+        "msgId": "3EB0499505FE6262A57BD6"
+      }
+    ],
+    "ticket_id": "T220260020",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Gloria Kineta Jeremiah Sihombing",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:58.280Z",
+    "phoneList": [
+      "0811782689"
+    ],
+    "results": [
+      {
+        "phone": "0811782689",
+        "status": "Success",
+        "msgId": "3EB057877AF985F83B4812"
+      }
+    ],
+    "ticket_id": "T220260019",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Calista Elle Leonardo",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:56.355Z",
+    "phoneList": [
+      "085103030483"
+    ],
+    "results": [
+      {
+        "phone": "085103030483",
+        "status": "Success",
+        "msgId": "3EB07F30A54F004166FFAD"
+      }
+    ],
+    "ticket_id": "T220260018",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Kanaya Namirah Cetta",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:55.353Z",
+    "phoneList": [
+      "085669835529"
+    ],
+    "results": [
+      {
+        "phone": "085669835529",
+        "status": "Success",
+        "msgId": "3EB0D1279B0C67F75E1D3C"
+      }
+    ],
+    "ticket_id": "T220260017",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Albifardzan Karna Jayasantika",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:53.895Z",
+    "phoneList": [
+      "085669835529"
+    ],
+    "results": [
+      {
+        "phone": "085669835529",
+        "status": "Success",
+        "msgId": "3EB02BD06A7554F4474614"
+      }
+    ],
+    "ticket_id": "T220260016",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "M. Ghazali Syahdi",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:24.392Z",
+    "phoneList": [
+      "081278701700"
+    ],
+    "results": [
+      {
+        "phone": "081278701700",
+        "status": "Success",
+        "msgId": "3EB0DD2EA03CE1951565A4"
+      }
+    ],
+    "ticket_id": "T220260015",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Christiano Oswald Simbolon",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:21.509Z",
+    "phoneList": [
+      "081274812764"
+    ],
+    "results": [
+      {
+        "phone": "081274812764",
+        "status": "Success",
+        "msgId": "3EB096BBBEF60E8A80A5C6"
+      }
+    ],
+    "ticket_id": "T220260014",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Aisyah Razzan",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:18.243Z",
+    "phoneList": [
+      "082216666776"
+    ],
+    "results": [
+      {
+        "phone": "082216666776",
+        "status": "Success",
+        "msgId": "3EB03C6B7BFDB598698B40"
+      }
+    ],
+    "ticket_id": "T220260013",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Maryam Nauratul Aslah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:13.958Z",
+    "phoneList": [
+      "082182520061"
+    ],
+    "results": [
+      {
+        "phone": "082182520061",
+        "status": "Success",
+        "msgId": "3EB06315F7E89926BA0CC5"
+      }
+    ],
+    "ticket_id": "T220260012",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Syalinka Maheswari Ismail",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:10.658Z",
+    "phoneList": [
+      "081373780979"
+    ],
+    "results": [
+      {
+        "phone": "081373780979",
+        "status": "Success",
+        "msgId": "3EB08122DEA62D618AE01C"
+      }
+    ],
+    "ticket_id": "T220260011",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Arshaka Ryuzaki Alfalah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:05.966Z",
+    "phoneList": [
+      "085267108185"
+    ],
+    "results": [
+      {
+        "phone": "085267108185",
+        "status": "Success",
+        "msgId": "3EB01F307D85C35CD1FDF4"
+      }
+    ],
+    "ticket_id": "T220260010",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Razif Fathian",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:46:04.693Z",
+    "phoneList": [
+      "081222288166"
+    ],
+    "results": [
+      {
+        "phone": "081222288166",
+        "status": "Success",
+        "msgId": "3EB0F7AB295301F5434ADC"
+      }
+    ],
+    "ticket_id": "T220260009",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Alisha Kanya Almahyra",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:45:19.335Z",
+    "phoneList": [
+      "082126953669"
+    ],
+    "results": [
+      {
+        "phone": "082126953669",
+        "status": "Success",
+        "msgId": "3EB0FDBFF84845C0EEFBFF"
+      }
+    ],
+    "ticket_id": "T220260008",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Neysha Kamila Zahira",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:45:16.539Z",
+    "phoneList": [
+      "085103030483"
+    ],
+    "results": [
+      {
+        "phone": "085103030483",
+        "status": "Success",
+        "msgId": "3EB02330B206A34C17D82F"
+      }
+    ],
+    "ticket_id": "T220260007",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Tobias Timothy",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:45:14.958Z",
+    "phoneList": [
+      "082126953669"
+    ],
+    "results": [
+      {
+        "phone": "082126953669",
+        "status": "Success",
+        "msgId": "3EB07AE8DBF738D57129F7"
+      }
+    ],
+    "ticket_id": "T220260006",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Maurenty Lizbeth Toline",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:45:13.140Z",
+    "phoneList": [
+      "08117264908"
+    ],
+    "results": [
+      {
+        "phone": "08117264908",
+        "status": "Success",
+        "msgId": "3EB045ABD20D912D0BCD38"
+      }
+    ],
+    "ticket_id": "T220260005",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Jane Roselyn Soetandar",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:45:11.480Z",
+    "phoneList": [
+      "082183203026"
+    ],
+    "results": [
+      {
+        "phone": "082183203026",
+        "status": "Success",
+        "msgId": "3EB0FF42A3E8EB129CAAC6"
+      }
+    ],
+    "ticket_id": "T220260004",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Gabrielle Theo",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:45:09.907Z",
+    "phoneList": [
+      "081373580556"
+    ],
+    "results": [
+      {
+        "phone": "081373580556",
+        "status": "Success",
+        "msgId": "3EB0EA7DD4407831631A00"
+      }
+    ],
+    "ticket_id": "T220260003",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Raffasya Kinza Rizki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:44:35.858Z",
+    "phoneList": [
+      "085267697576"
+    ],
+    "results": [
+      {
+        "phone": "085267697576",
+        "status": "Success",
+        "msgId": "3EB070F898DFF5B41A41D2"
+      }
+    ],
+    "ticket_id": "T220260002",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Dyo Devandra El Wibowo Mahyiddin",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:44:05.816Z",
+    "phoneList": [
+      "08127122333"
+    ],
+    "results": [
+      {
+        "phone": "08127122333",
+        "status": "Success",
+        "msgId": "3EB037D69342741979E53C"
+      }
+    ],
+    "ticket_id": "T220260001",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Talitha Catharina theng",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:28:02.158Z",
+    "phoneList": [
+      "082229159143"
+    ],
+    "results": [
+      {
+        "phone": "082229159143",
+        "status": "Success",
+        "msgId": "3EB01A17B00798D23061D1"
+      }
+    ],
+    "ticket_id": "T120260020",
+    "category": "Shining Fiddler B",
+    "day_number": 1,
+    "name": "Syarifa akifa nayla",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:53.740Z",
+    "phoneList": [
+      "082175900908"
+    ],
+    "results": [
+      {
+        "phone": "082175900908",
+        "status": "Success",
+        "msgId": "3EB071BD30011ACD1B24B8"
+      }
+    ],
+    "ticket_id": "T120260018",
+    "category": "Shining Fiddler B",
+    "day_number": 1,
+    "name": "Alfaina Suha Anindhita",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:52.888Z",
+    "phoneList": [
+      "0852-6723-4772"
+    ],
+    "results": [
+      {
+        "phone": "0852-6723-4772",
+        "status": "Success",
+        "msgId": "3EB0BBF81F01C758E349AA"
+      }
+    ],
+    "ticket_id": "T120260017",
+    "category": "Shining Fiddler B",
+    "day_number": 1,
+    "name": "Zaneta Ayshia Putri",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:52.430Z",
+    "phoneList": [
+      "085368565419"
+    ],
+    "results": [
+      {
+        "phone": "085368565419",
+        "status": "Success",
+        "msgId": "3EB027F0F9115B9C0D544C"
+      }
+    ],
+    "ticket_id": "T120260016",
+    "category": "Shining Fiddler B",
+    "day_number": 1,
+    "name": "Kinan Assyifatu Zahra",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:12.563Z",
+    "phoneList": [
+      "08153808118"
+    ],
+    "results": [
+      {
+        "phone": "08153808118",
+        "status": "Success",
+        "msgId": "3EB0BE99C1633A2065C46B"
+      }
+    ],
+    "ticket_id": "T120260015",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Shaelynn Kimberly Yohanes",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:11.152Z",
+    "phoneList": [
+      "082118703700"
+    ],
+    "results": [
+      {
+        "phone": "082118703700",
+        "status": "Success",
+        "msgId": "3EB053929493F46091C5A6"
+      }
+    ],
+    "ticket_id": "T120260014",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Gorgeous Darrel Chandra",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:05.556Z",
+    "phoneList": [
+      "081273586688"
+    ],
+    "results": [
+      {
+        "phone": "081273586688",
+        "status": "Success",
+        "msgId": "3EB0A814FE04941624ECB8"
+      }
+    ],
+    "ticket_id": "T120260013",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Max leeroy",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:05.093Z",
+    "phoneList": [
+      "0811780589"
+    ],
+    "results": [
+      {
+        "phone": "0811780589",
+        "status": "Success",
+        "msgId": "3EB07D3AB56F93438E4D1B"
+      }
+    ],
+    "ticket_id": "T120260012",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Felicia Leona Yanto",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:04.331Z",
+    "phoneList": [
+      "08117816160"
+    ],
+    "results": [
+      {
+        "phone": "08117816160",
+        "status": "Success",
+        "msgId": "3EB077B407C335A182975E"
+      }
+    ],
+    "ticket_id": "T120260011",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Cullen Kenzo Winata",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:27:03.006Z",
+    "phoneList": [
+      "081271023115"
+    ],
+    "results": [
+      {
+        "phone": "081271023115",
+        "status": "Success",
+        "msgId": "3EB0A505FE51AD99094DFB"
+      }
+    ],
+    "ticket_id": "T120260010",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Jovita Yvana Mufti",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:34.095Z",
+    "phoneList": [
+      "085261218432"
+    ],
+    "results": [
+      {
+        "phone": "085261218432",
+        "status": "Success",
+        "msgId": "3EB00AE20CA3A127090516"
+      }
+    ],
+    "ticket_id": "T120260008",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Gianne Kayleen Lumban Toruan",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:29.258Z",
+    "phoneList": [
+      "085103030483"
+    ],
+    "results": [
+      {
+        "phone": "085103030483",
+        "status": "Success",
+        "msgId": "3EB098E314FEAEA6D23AB7"
+      }
+    ],
+    "ticket_id": "T220260007",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Tobias Timothy",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:22.564Z",
+    "phoneList": [
+      "082126953669"
+    ],
+    "results": [
+      {
+        "phone": "082126953669",
+        "status": "Success",
+        "msgId": "3EB0F6EE039718C011C37C"
+      }
+    ],
+    "ticket_id": "T220260006",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Maurenty Lizbeth Toline",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:19.706Z",
+    "phoneList": [
+      "08117264908"
+    ],
+    "results": [
+      {
+        "phone": "08117264908",
+        "status": "Success",
+        "msgId": "3EB057B315C080FB66CDA7"
+      }
+    ],
+    "ticket_id": "T220260005",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Jane Roselyn Soetandar",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:18.286Z",
+    "phoneList": [
+      "082183203026"
+    ],
+    "results": [
+      {
+        "phone": "082183203026",
+        "status": "Success",
+        "msgId": "3EB01BB6FF0B74807E5C17"
+      }
+    ],
+    "ticket_id": "T220260004",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Gabrielle Theo",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:10.241Z",
+    "phoneList": [
+      "081373580556"
+    ],
+    "results": [
+      {
+        "phone": "081373580556",
+        "status": "Success",
+        "msgId": "3EB0EC9245B9CCEE268687"
+      }
+    ],
+    "ticket_id": "T220260003",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Raffasya Kinza Rizki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:08.942Z",
+    "phoneList": [
+      "085267697576"
+    ],
+    "results": [
+      {
+        "phone": "085267697576",
+        "status": "Success",
+        "msgId": "3EB0F642B13824E5E21CFA"
+      }
+    ],
+    "ticket_id": "T220260002",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Dyo Devandra El Wibowo Mahyiddin",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:26:02.008Z",
+    "phoneList": [
+      "08127122333"
+    ],
+    "results": [
+      {
+        "phone": "08127122333",
+        "status": "Success",
+        "msgId": "3EB036CA6066A35BAB7968"
+      }
+    ],
+    "ticket_id": "T220260001",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Talitha Catharina theng",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:25:24.480Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB0E747B07E89B7FF7205"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:24:03.940Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:22:57.607Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:20:28.903Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:19:33.107Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:16:35.957Z",
+    "phoneList": [
+      "08127122333"
+    ],
+    "results": [
+      {
+        "phone": "08127122333",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260001",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Talitha Catharina theng",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:16:13.418Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:14:05.842Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:10:12.174Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:08:14.830Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:08:00.258Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:05:58.633Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:03:24.660Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Perangkat WhatsApp belum siap.",
+        "error_code": "wa_client_not_ready"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T12:01:43.865Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "file must be a string",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:38:13.994Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB0422569EBB2698E5237"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:32:04.124Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB0B3EA6A28D416CFB0DB"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:30:54.188Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB0BED74ECA425C9D438E"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:29:18.305Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB0BEBD416410EEF3727D"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:48.327Z",
+    "phoneList": [
+      "081278701700"
+    ],
+    "results": [
+      {
+        "phone": "081278701700",
+        "status": "Success",
+        "msgId": "3EB0B92954EF8BC9F4B902"
+      }
+    ],
+    "ticket_id": "T220260015",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Christiano Oswald Simbolon",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:46.904Z",
+    "phoneList": [
+      "081274812764"
+    ],
+    "results": [
+      {
+        "phone": "081274812764",
+        "status": "Success",
+        "msgId": "3EB06365897190EE9873BA"
+      }
+    ],
+    "ticket_id": "T220260014",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Aisyah Razzan",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:44.351Z",
+    "phoneList": [
+      "082216666776"
+    ],
+    "results": [
+      {
+        "phone": "082216666776",
+        "status": "Success",
+        "msgId": "3EB05C255A96B985DBC44F"
+      }
+    ],
+    "ticket_id": "T220260013",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Maryam Nauratul Aslah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:42.731Z",
+    "phoneList": [
+      "082182520061"
+    ],
+    "results": [
+      {
+        "phone": "082182520061",
+        "status": "Success",
+        "msgId": "3EB0DC15289AB05EE7270E"
+      }
+    ],
+    "ticket_id": "T220260012",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Syalinka Maheswari Ismail",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:39.172Z",
+    "phoneList": [
+      "081373780979"
+    ],
+    "results": [
+      {
+        "phone": "081373780979",
+        "status": "Success",
+        "msgId": "3EB02BDC4612EE17EA3CD1"
+      }
+    ],
+    "ticket_id": "T220260011",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Arshaka Ryuzaki Alfalah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:37.687Z",
+    "phoneList": [
+      "085267108185"
+    ],
+    "results": [
+      {
+        "phone": "085267108185",
+        "status": "Success",
+        "msgId": "3EB0B1CE1571F575F1A935"
+      }
+    ],
+    "ticket_id": "T220260010",
+    "category": "Little Fingers B",
+    "day_number": 2,
+    "name": "Razif Fathian",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:36.967Z",
+    "phoneList": [
+      "081222288166"
+    ],
+    "results": [
+      {
+        "phone": "081222288166",
+        "status": "Success",
+        "msgId": "3EB028B10C700C80E10382"
+      }
+    ],
+    "ticket_id": "T220260009",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Alisha Kanya Almahyra",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:35.665Z",
+    "phoneList": [
+      "082126953669"
+    ],
+    "results": [
+      {
+        "phone": "082126953669",
+        "status": "Success",
+        "msgId": "3EB067611CCCAA5C983C21"
+      }
+    ],
+    "ticket_id": "T220260008",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Neysha Kamila Zahira",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T11:04:32.793Z",
+    "phoneList": [
+      "085103030483"
+    ],
+    "results": [
+      {
+        "phone": "085103030483",
+        "status": "Success",
+        "msgId": "3EB0381FD43CC34326E55B"
+      }
+    ],
+    "ticket_id": "T220260007",
+    "category": "Little Fingers A",
+    "day_number": 2,
+    "name": "Tobias Timothy",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:21:29.525Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Success",
+        "msgId": "3EB009AE3E66603159BEE8"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:20:02.840Z",
+    "phoneList": [
+      "081279858171"
+    ],
+    "results": [
+      {
+        "phone": "081279858171",
+        "status": "Success",
+        "msgId": "3EB0DCE273C23B7840D7A7"
+      }
+    ],
+    "ticket_id": "T120260006",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Bentley Kassidy",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:19:58.465Z",
+    "phoneList": [
+      "08127118155"
+    ],
+    "results": [
+      {
+        "phone": "08127118155",
+        "status": "Success",
+        "msgId": "3EB0476127828B255E4924"
+      }
+    ],
+    "ticket_id": "T120260005",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Anna Vioneta Tobing",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:19:54.696Z",
+    "phoneList": [
+      "081221234395"
+    ],
+    "results": [
+      {
+        "phone": "081221234395",
+        "status": "Success",
+        "msgId": "3EB082711D4093CF187C00"
+      }
+    ],
+    "ticket_id": "T120260004",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "M. Akma Alamgir Tsaqib",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:19:42.847Z",
+    "phoneList": [
+      "081278701700"
+    ],
+    "results": [
+      {
+        "phone": "081278701700",
+        "status": "Success",
+        "msgId": "3EB0E308BAB87E0DC9B88F"
+      }
+    ],
+    "ticket_id": "T120260003",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Christabel Osanna Simbolon",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:19:38.039Z",
+    "phoneList": [
+      "081977789930"
+    ],
+    "results": [
+      {
+        "phone": "081977789930",
+        "status": "Success",
+        "msgId": "3EB04CB7634CF2DD720863"
+      }
+    ],
+    "ticket_id": "T120260002",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Alicia Kate Kwanto",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T10:19:32.208Z",
+    "phoneList": [
+      "08117897774"
+    ],
+    "results": [
+      {
+        "phone": "08117897774",
+        "status": "Success",
+        "msgId": "3EB0F3A35744DD5FAB1F63"
+      }
+    ],
+    "ticket_id": "T120260001",
+    "category": "Shining Fiddler A",
+    "day_number": 1,
+    "name": "Kamila Afiyah Ilham",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
     "time": "2026-04-10T17:24:40.196Z",
     "phoneList": [
       "082289002700"

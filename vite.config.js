@@ -18,6 +18,9 @@ export default defineConfig({
         target: 'http://127.0.0.1:3001',
         changeOrigin: true
       }
+    },
+    headers: {
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://cdn.jsdelivr.net; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.railway.app https://*.supabase.co wss://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; frame-src 'self';"
     }
   },
   build: {
