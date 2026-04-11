@@ -153,7 +153,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
-import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus } from 'lucide-react'
+import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus, Copy, ExternalLink } from 'lucide-react'
 import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
@@ -682,6 +682,53 @@ export default function Participants() {
     if (result?.success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
     else toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Layanan pengiriman sedang tidak aktif.' }));
   }
+
+  const handleCopyPasteMode = (participant) => {
+    const waMessage = generateWaMessage(participant);
+    setCopyPasteData({
+      participant,
+      message: waMessage,
+      phone: participant.phone
+    });
+    setCopyPasteModalOpen(true);
+  };
+
+  const generateWaMessage = (p) => {
+    const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `🎫 *E-TICKET*
+
+Halo *${p.name}*,
+Berikut tiket masuk Anda untuk *Hari ke-${p.day_number}*.
+
+📅 *Tanggal:* ${dateStr}
+📋 *Ticket ID:* ${p.ticket_id}
+📂 *Kategori:* ${p.category}
+
+⚠️ *Petunjuk:*
+• Tunjukkan tiket ini ke petugas gerbang
+• QR Code dapat di-scan di lokasi
+• Screenshot tidak valid
+
+Terima kasih!
+_3oNs Digital_`;
+  };
+
+  const handleCopyToClipboard = () => {
+    if (copyTextRef.current) {
+      copyTextRef.current.select();
+      document.execCommand('copy');
+      toast.success('Tersalin!', 'Pesan WA sudah di-copy. Buka WA dan paste.');
+    }
+  };
+
+  const handleCopyPasteModalClose = () => {
+    setCopyPasteModalOpen(false);
+    setCopyPasteData(null);
+  };
+
+  const [copyPasteModalOpen, setCopyPasteModalOpen] = useState(false);
+  const [copyPasteData, setCopyPasteData] = useState(null);
+  const copyTextRef = useRef(null);
 
   const handleBroadcast = () => {
     if (!waConn.isReady) {
@@ -1861,6 +1908,9 @@ export default function Participants() {
                   <button className="btn btn-ghost btn-blue btn-sm" onClick={() => handleSingleBotSend(p)} title="Kirim Otomatis">
                     <Bot size={14} />
                   </button>
+                  <button className="btn btn-ghost btn-green btn-sm" onClick={() => handleCopyPasteMode(p)} title="Copy-Paste Mode (Cepat & Aman)">
+                    <Copy size={14} />
+                  </button>
                   <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-whatsapp btn-sm" title="Kirim Manual (WA Web)">
                     <MessageCircle size={14} />
                   </a>
@@ -2009,6 +2059,64 @@ export default function Participants() {
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Batal</button>
               <button type="button" className="btn btn-danger" onClick={confirmDeleteParticipant}>Hapus Peserta</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== COPY-PASTE MODAL (Kirim Manual Cepat) ===== */}
+      {copyPasteModalOpen && copyPasteData && (
+        <div className="modal-overlay" onClick={handleCopyPasteModalClose}>
+          <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">📋 Copy-Paste Mode (Cepat & Aman)</h3>
+              <button className="modal-close" onClick={handleCopyPasteModalClose}><X size={14} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">👤 Penerima</label>
+                <div className="participant-info" style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '16px' }}>
+                  <strong>{copyPasteData.participant.name}</strong>
+                  <div style={{ color: '#666', fontSize: '14px' }}>{copyPasteData.participant.phone}</div>
+                  <div style={{ color: '#888', fontSize: '12px' }}>Ticket ID: {copyPasteData.participant.ticket_id}</div>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">💬 Pesan WhatsApp Siap Kirim</label>
+                <textarea
+                  ref={copyTextRef}
+                  className="form-input"
+                  value={copyPasteData.message}
+                  readOnly
+                  rows={12}
+                  style={{ fontFamily: 'monospace', fontSize: '14px', background: '#f8f9fa' }}
+                />
+              </div>
+              <div className="alert alert-info" style={{ marginTop: '12px' }}>
+                <strong>Cara pakai:</strong>
+                <ol style={{ margin: '8px 0 0 16px', fontSize: '14px' }}>
+                  <li>Klik "Copy Pesan" di bawah</li>
+                  <li>Buka WhatsApp di HP Anda</li>
+                  <li>Cari kontak: <strong>{copyPasteData.participant.phone}</strong></li>
+                  <li>Paste pesan dan kirim</li>
+                </ol>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={handleCopyPasteModalClose}>Tutup</button>
+              <button type="button" className="btn btn-primary" onClick={handleCopyToClipboard}>
+                <Copy size={14} style={{ marginRight: '6px' }} />
+                Copy Pesan
+              </button>
+              <a 
+                href={`https://wa.me/${copyPasteData.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(copyPasteData.message)}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-whatsapp"
+              >
+                <ExternalLink size={14} style={{ marginRight: '6px' }} />
+                Buka WA Web
+              </a>
             </div>
           </div>
         </div>
