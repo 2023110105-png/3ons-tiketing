@@ -117,7 +117,7 @@ export function getWhatsAppShareLink(participant) {
   const baseUrl = typeof window !== 'undefined' 
     ? (window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin)
     : '';
-  const qrUrl = `${baseUrl}/qr/${p.ticket_id}?size=400`;
+  const qrUrl = `${baseUrl}/ticket-qr/${p.ticket_id}?size=400&name=${encodeURIComponent(p.name || '')}&category=${encodeURIComponent(p.category || '')}&day=${encodeURIComponent(p.day_number || '1')}`;
   
   // Use simple template for WA Web link (avoid emoji encoding issues)
   const template = getWaTemplateSimple()

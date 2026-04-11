@@ -1898,29 +1898,42 @@ app.get('/qr/:ticketId', async (req, res) => {
     }
 });
 
-// Alternative: QR with ticket info (lookup from database)
-// GET /ticket-qr/:ticketId
+// Alternative: QR with ticket info (lookup from database or use query params)
+// GET /ticket-qr/:ticketId?name=...&category=...&day=...
 app.get('/ticket-qr/:ticketId', async (req, res) => {
     try {
         const { ticketId } = req.params;
         const size = Math.min(Math.max(Number(req.query.size) || 400, 100), 800);
+        const { name, category, day } = req.query;
         
         console.log(`[TICKET-QR] Lookup and generate for ticket=${ticketId}`);
         
-        // Fetch participant from Supabase
-        if (!supabase) {
-            return res.status(503).json({ success: false, error: 'Database not available' });
+        let participant = null;
+        
+        // Try Supabase first
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('participants')
+                .select('*')
+                .eq('ticket_id', ticketId)
+                .single();
+            
+            if (!error && data) {
+                participant = data;
+                console.log(`[TICKET-QR] Found in Supabase: ${ticketId}`);
+            }
         }
         
-        const { data: participant, error } = await supabase
-            .from('participants')
-            .select('*')
-            .eq('ticket_id', ticketId)
-            .single();
-        
-        if (error || !participant) {
-            console.error(`[TICKET-QR] Participant not found: ${ticketId}`);
-            return res.status(404).json({ success: false, error: 'Ticket not found' });
+        // Fallback: use query params or minimal data
+        if (!participant) {
+            console.log(`[TICKET-QR] Not in DB, using fallback data for: ${ticketId}`);
+            participant = {
+                ticket_id: ticketId,
+                name: name || 'Peserta',
+                category: category || '-',
+                day_number: day || '1',
+                qr_data: ticketId
+            };
         }
         
         // Use the same buildTicketQrImageNode for consistent design
