@@ -2106,9 +2106,31 @@ Terima kasih!`;
                   <li>Paste pesan dan kirim</li>
                 </ol>
               </div>
+              
+              {/* Preview Tiket */}
+              <div className="form-group" style={{ marginTop: '20px' }}>
+                <label className="form-label">🎫 Preview Tiket (bisa di-download)</label>
+                <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '10px', background: '#f8f9fa' }}>
+                  <img 
+                    src={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/ticket-qr/${copyPasteData.participant.ticket_id}?size=400`}
+                    alt="Tiket QR"
+                    style={{ width: '100%', maxWidth: '400px', display: 'block', margin: '0 auto', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={handleCopyPasteModalClose}>Tutup</button>
+              <a 
+                href={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/ticket-qr/${copyPasteData.participant.ticket_id}?size=400`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                download={`Tiket_${copyPasteData.participant.ticket_id}.png`}
+              >
+                <Download size={14} style={{ marginRight: '6px' }} />
+                Download Tiket
+              </a>
               <button type="button" className="btn btn-primary" onClick={handleCopyToClipboard}>
                 <Copy size={14} style={{ marginRight: '6px' }} />
                 Copy Pesan
