@@ -670,6 +670,30 @@ async function buildTicketQrImageNode(participant, options = {}) {
 
   image.print(fontSmall, qrAreaCenter - text2Width/2, qrFooterY + 20, text2)
 
+  
+
+  // === LINK BARCODE TEXT ===
+
+  const linkText = 'Link Barcode (buka untuk lihat QR):'
+
+  const linkTextWidth = Jimp.measureText(fontSmall, linkText)
+
+  image.print(fontSmall, qrAreaCenter - linkTextWidth/2, qrFooterY + 45, linkText)
+
+  
+
+  // URL dinamis berdasarkan participant
+
+  const ticketId = participant?.ticket_id || 'T000000000'
+
+  const baseUrl = 'http://localhost:3001'
+
+  const qrUrl = `${baseUrl}/ticket-qr/${ticketId}?size=400`
+
+  const urlTextWidth = Jimp.measureText(fontSmall, qrUrl)
+
+  image.print(fontSmall, qrAreaCenter - urlTextWidth/2, qrFooterY + 65, qrUrl)
+
 
 
   const buffer = await image.getBufferAsync(Jimp.MIME_PNG)

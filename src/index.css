@@ -5245,6 +5245,237 @@ button:focus-visible,
   overflow: auto;
 }
 
+/* ============================================
+   PROFESSIONAL PARTICIPANT LIST STYLES
+   ============================================ */
+
+.qr-list-professional {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.qr-item-pro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.qr-item-pro:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.qr-item-pro.is-selected {
+  background: linear-gradient(135deg, var(--brand-primary-subtle) 0%, rgba(232, 64, 64, 0.08) 100%);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-primary-glow), 0 4px 12px rgba(232, 64, 64, 0.15);
+}
+
+.qr-item-pro.is-sent {
+  border-left: 4px solid var(--success);
+}
+
+.qr-item-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Nomor urut - Circle badge */
+.qr-item-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
+  color: white;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(232, 64, 64, 0.3);
+}
+
+/* Avatar dengan inisial */
+.qr-item-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  text-transform: uppercase;
+}
+
+/* Info container */
+.qr-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Header: Nama + Badge */
+.qr-item-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.qr-item-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+/* Category badges */
+.qr-item-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.qr-item-badge.badge-vip {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: white;
+}
+
+.qr-item-badge.badge-dealer {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+}
+
+.qr-item-badge.badge-media {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: white;
+}
+
+.qr-item-badge.badge-regular,
+.qr-item-badge.badge-default {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+}
+
+/* Details: Tiket + Telepon */
+.qr-item-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.qr-item-ticket {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.qr-item-phone {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--brand-blue);
+}
+
+.qr-phone-icon {
+  font-size: 0.9rem;
+}
+
+/* Status indicator */
+.qr-status-sent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--success);
+  background: var(--success-bg);
+  padding: 5px 12px;
+  border-radius: 20px;
+  margin-right: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Action buttons */
+.qr-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.qr-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.qr-btn:hover {
+  transform: scale(1.05);
+}
+
+.qr-btn-primary {
+  background: var(--brand-primary-subtle) !important;
+  color: var(--brand-primary) !important;
+}
+
+.qr-btn-primary:hover {
+  background: var(--brand-primary) !important;
+  color: white !important;
+}
+
+/* Legacy styles - deprecated */
 .qr-list {
   display: flex;
   flex-direction: column;
@@ -5254,7 +5485,7 @@ button:focus-visible,
 .qr-list-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -5280,6 +5511,11 @@ button:focus-visible,
 .qr-list-meta {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.qr-list-phone {
+  color: var(--brand-blue);
+  font-weight: 500;
 }
 
 .qr-list-actions {

@@ -360,6 +360,11 @@ export default function QRGenerate() {
     return 'm-p-avatar-regular'
   }
 
+  const getCategoryColor = (category) => {
+    const style = CATEGORY_STYLES[category] || CATEGORY_STYLES.Regular
+    return style.accent
+  }
+
   const buildTicketQrImage = async (participant, options = {}) => {
     const width = options.width || 900
     const height = options.height || 540
@@ -1119,24 +1124,64 @@ export default function QRGenerate() {
                 <h3 className="card-title">Daftar Peserta Hari {dayFilter}</h3>
                 <span className="badge badge-red">{participants.length}</span>
               </div>
-              <div className="qr-list">
-                {participants.map(p => (
-                  <div key={p.id} onClick={() => generateQR(p)} className={`qr-list-item ${selectedParticipant?.id === p.id ? 'is-selected' : ''}`}>
-                    <div>
-                      <div className="qr-list-name">{p.name}</div>
-                      <div className="qr-list-meta">
-                        {p.ticket_id} · {p.category}
-                        {p.qr_locked && (
-                          <span className="badge badge-green" style={{ marginLeft: 8, fontSize: '0.66rem' }}>
-                            Terkirim
+              <div className="qr-list-professional">
+                {participants.map((p, index) => (
+                  <div 
+                    key={p.id} 
+                    onClick={() => generateQR(p)} 
+                    className={`qr-item-pro ${selectedParticipant?.id === p.id ? 'is-selected' : ''} ${p.qr_locked ? 'is-sent' : ''}`}
+                  >
+                    <div className="qr-item-main">
+                      <div className="qr-item-number">{index + 1}</div>
+                      <div className="qr-item-avatar" style={{ background: getCategoryColor(p.category) }}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="qr-item-info">
+                        <div className="qr-item-header">
+                          <span className="qr-item-name">{p.name}</span>
+                          <span className={`qr-item-badge badge-${p.category?.toLowerCase() || 'default'}`}>
+                            {p.category}
                           </span>
-                        )}
+                        </div>
+                        <div className="qr-item-details">
+                          <span className="qr-item-ticket">{p.ticket_id}</span>
+                          {p.phone && (
+                            <span className="qr-item-phone">
+                              <span className="qr-phone-icon">📞</span>
+                              {p.phone}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="qr-list-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openManualSend(p) }} title="Kirim Manual"><Send size={14} /></button>
-                      <button className="btn btn-ghost btn-whatsapp btn-sm" onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }} title="Share via WhatsApp"><MessageCircle size={14} /></button>
-                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); downloadQR(p) }} title="Download tiket"><Download size={14} /></button>
+                    <div className="qr-item-actions">
+                      {p.qr_locked && (
+                        <span className="qr-status-sent">
+                          <span className="status-dot"></span>
+                          Terkirim
+                        </span>
+                      )}
+                      <button 
+                        className="btn btn-ghost btn-sm qr-btn" 
+                        onClick={(e) => { e.stopPropagation(); openManualSend(p) }} 
+                        title="Kirim Manual"
+                      >
+                        <Send size={14} />
+                      </button>
+                      <button 
+                        className="btn btn-ghost btn-whatsapp btn-sm qr-btn" 
+                        onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }} 
+                        title="Share via WhatsApp"
+                      >
+                        <MessageCircle size={14} />
+                      </button>
+                      <button 
+                        className="btn btn-ghost btn-sm qr-btn qr-btn-primary" 
+                        onClick={(e) => { e.stopPropagation(); downloadQR(p) }} 
+                        title="Download tiket"
+                      >
+                        <Download size={14} />
+                      </button>
                     </div>
                   </div>
                 ))}
