@@ -1715,7 +1715,7 @@ Terima kasih!`;
               <p>Tidak ada data ditemukan</p>
             </div>
           ) : (
-            visibleParticipants.map((p, index) => (
+            visibleParticipants.map((p) => (
               <div key={p.id} className="m-participant-card-v2">
                 {/* Row 1: Avatar + Info */}
                 <div className="m-card-row-main">
