@@ -3270,6 +3270,32 @@ button:focus-visible,
   box-shadow: 0 0 0 3px var(--brand-primary-subtle) !important;
 }
 
+/* Mobile: Fix search icon position */
+@media (max-width: 768px) {
+  .scanner-search-icon {
+    left: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 20px !important;
+    width: 20px !important;
+  }
+  
+  .scanner-search-input {
+    padding-left: 42px !important;
+    font-size: 1rem !important;
+    min-height: 48px !important;
+  }
+  
+  .scanner-search-input-wrap {
+    display: flex !important;
+    align-items: center !important;
+  }
+}
+
 /* Keep manual-search input neutral on mobile browsers */
 .scanner-search-input:invalid,
 .scanner-search-input:user-invalid,
@@ -4780,13 +4806,292 @@ button:focus-visible,
   }
 }
 
-/* --- Mobile Participant Card List --- */
+/* --- Mobile Search Styles --- */
+.m-search-container {
+  position: relative;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+}
+
+.m-search-input {
+  width: 100%;
+  padding: 12px 40px 12px 14px;
+  font-size: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.m-search-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-primary-glow);
+}
+
+.m-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.m-search-clear {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-color);
+  border: none;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding-bottom: 2px;
+}
+
+.m-search-clear:hover {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.m-results-count {
+  padding: 4px 16px 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+.m-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  margin: 8px 16px;
+}
+
+.m-search-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.m-search-empty-text {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* --- Mobile Participant Card List v2 (Clean Layout) --- */
 .m-card-list {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+/* Card v2 - Clean 2-row layout */
+.m-participant-card-v2 {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 12px 14px;
+  gap: 10px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.m-participant-card-v2:active {
+  background: var(--bg-card-hover);
+  transform: scale(0.98);
+}
+
+/* Row 1: Main Info */
+.m-card-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.m-card-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  background: var(--brand-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.m-card-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.m-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.m-card-name-row {
+  display: flex;
+  align-items: center;
   gap: 6px;
 }
 
+.m-card-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.m-card-status {
+  flex-shrink: 0;
+}
+
+.m-card-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.m-card-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.m-card-badge.badge-red {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: white;
+}
+
+.m-card-badge.badge-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+}
+
+.m-card-badge.badge-yellow {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: white;
+}
+
+.m-card-badge.badge-green {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+}
+
+.m-card-ticket {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.m-card-phone {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--brand-blue);
+  flex-shrink: 0;
+}
+
+/* Row 2: Actions */
+.m-card-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.m-card-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.m-card-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.m-card-btn-send:hover {
+  background: var(--brand-primary-subtle);
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.m-card-btn-wa {
+  background: rgba(37, 211, 102, 0.1);
+  border-color: rgba(37, 211, 102, 0.3);
+  color: #25d366;
+}
+
+.m-card-btn-wa:hover {
+  background: #25d366;
+  border-color: #25d366;
+  color: white;
+}
+
+.m-card-btn-download:hover {
+  background: var(--brand-blue);
+  border-color: var(--brand-blue);
+  color: white;
+}
+
+/* Legacy mobile card (keep for compatibility) */
 .m-participant-card {
   display: flex;
   align-items: center;
@@ -5248,6 +5553,83 @@ button:focus-visible,
 /* ============================================
    PROFESSIONAL PARTICIPANT LIST STYLES
    ============================================ */
+
+/* Search Container */
+.qr-search-container {
+  position: relative;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.qr-search-input {
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  font-size: 0.95rem;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.qr-search-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-primary-glow);
+}
+
+.qr-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.qr-search-clear {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-color);
+  border: none;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding-bottom: 2px;
+}
+
+.qr-search-clear:hover {
+  background: var(--brand-primary);
+  color: white;
+}
+
+/* Search Empty State */
+.qr-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.qr-search-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.qr-search-empty-text {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
 
 .qr-list-professional {
   display: flex;
@@ -6794,4 +7176,162 @@ button:focus-visible,
 .qr-list-actions {
   display: flex;
   gap: 6px;
+}
+
+/* ============================================
+   PARTICIPANTS PAGE - MOBILE SPECIFIC STYLES
+   ============================================ */
+
+/* Participants Mobile Card - Override untuk tampilan lebih rapi */
+.m-participants-page .m-participant-card-v2,
+.m-card-list:has(.m-card-btn-bot) .m-participant-card-v2 {
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+/* Badge lebih kecil di Participants */
+.m-participants-page .m-card-badge,
+.m-card-list:has(.m-card-btn-bot) .m-card-badge {
+  font-size: 0.6rem !important;
+  padding: 1px 6px !important;
+  border-radius: 10px !important;
+}
+
+/* Nama lebih compact */
+.m-participants-page .m-card-name,
+.m-card-list:has(.m-card-btn-bot) .m-card-name {
+  font-size: 0.9rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Subtitle row lebih rapat */
+.m-participants-page .m-card-subtitle,
+.m-card-list:has(.m-card-btn-bot) .m-card-subtitle {
+  gap: 6px !important;
+  margin-top: 2px !important;
+}
+
+/* Ticket ID lebih kecil */
+.m-participants-page .m-card-ticket,
+.m-card-list:has(.m-card-btn-bot) .m-card-ticket {
+  font-size: 0.7rem !important;
+  padding: 1px 6px !important;
+}
+
+/* Phone lebih kecil */
+.m-participants-page .m-card-phone,
+.m-card-list:has(.m-card-btn-bot) .m-card-phone {
+  font-size: 0.75rem !important;
+}
+
+/* Avatar lebih kecil di Participants */
+.m-participants-page .m-card-avatar,
+.m-card-list:has(.m-card-btn-bot) .m-card-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 0.85rem !important;
+}
+
+/* Action buttons lebih compact */
+.m-participants-page .m-card-actions,
+.m-card-list:has(.m-card-btn-bot) .m-card-actions {
+  padding-top: 6px !important;
+  gap: 6px !important;
+}
+
+.m-participants-page .m-card-btn,
+.m-card-list:has(.m-card-btn-bot) .m-card-btn {
+  padding: 6px 8px !important;
+  font-size: 0.75rem !important;
+  border-radius: 8px !important;
+}
+
+.m-participants-page .m-card-btn svg,
+.m-card-list:has(.m-card-btn-bot) .m-card-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Time check-in lebih kecil */
+.m-participants-page .m-card-time,
+.m-card-list:has(.m-card-btn-bot) .m-card-time {
+  font-size: 0.7rem !important;
+  margin-top: 2px !important;
+}
+
+/* Grid untuk 4 buttons */
+.m-participants-page .m-card-actions,
+.m-card-list:has(.m-card-btn-delete) .m-card-actions {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+
+/* Status dot lebih kecil */
+.m-participants-page .status-dot,
+.m-card-list:has(.m-card-btn-bot) .status-dot {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+/* ============================================
+   WA DELIVERY - MOBILE SPECIFIC STYLES
+   ============================================ */
+
+/* Mobile toolbar buttons - Grid layout */
+@media (max-width: 768px) {
+  .admin-actions-wrap {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  .admin-actions-wrap .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 12px !important;
+    font-size: 0.85rem !important;
+  }
+  
+  .admin-actions-wrap .btn svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
+
+/* Stats grid di WA Delivery */
+.wa-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .wa-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.wa-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.wa-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.wa-stat-value.sent { color: var(--success); }
+.wa-stat-value.pending { color: var(--warning); }
+.wa-stat-value.failed { color: var(--danger); }
+.wa-stat-value.total { color: var(--brand-primary); }
+
+.wa-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
 }

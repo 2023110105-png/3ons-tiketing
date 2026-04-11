@@ -273,6 +273,7 @@ export default function QRGenerate() {
   const [activeTab, setActiveTab] = useState('generate') // 'generate' atau 'import'
   const [manualSendParticipant, setManualSendParticipant] = useState(null)
   const [isManualSendOpen, setIsManualSendOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const toast = useToast()
   const isMobile = useIsMobileLayout()
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
@@ -364,6 +365,18 @@ export default function QRGenerate() {
     const style = CATEGORY_STYLES[category] || CATEGORY_STYLES.Regular
     return style.accent
   }
+
+  // Filter participants berdasarkan search query
+  const filteredParticipants = participants.filter(p => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase().trim()
+    return (
+      p.name?.toLowerCase().includes(query) ||
+      p.ticket_id?.toLowerCase().includes(query) ||
+      p.phone?.toLowerCase().includes(query) ||
+      p.category?.toLowerCase().includes(query)
+    )
+  })
 
   const buildTicketQrImage = async (participant, options = {}) => {
     const width = options.width || 900
@@ -970,44 +983,102 @@ export default function QRGenerate() {
           </div>
         )}
 
+        {/* Search Input - Mobile */}
+        <div className="m-search-container">
+          <input
+            type="text"
+            className="m-search-input"
+            placeholder="🔍 Cari peserta..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button 
+              className="m-search-clear"
+              onClick={() => setSearchQuery('')}
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        {/* Results Count - Mobile */}
+        {searchQuery && (
+          <div className="m-results-count">
+            {filteredParticipants.length} dari {participants.length} peserta
+          </div>
+        )}
+
         {/* Participant List - Full Width */}
         <div className="m-card-list">
-          {participants.map(p => (
-            <div key={p.id} className="m-participant-card" onClick={() => generateQR(p)}>
-              <div className={`m-p-avatar ${getCategoryToneClass(p.category)}`}>
-                {p.name.charAt(0)}
+          {filteredParticipants.length === 0 ? (
+            <div className="m-search-empty">
+              <div className="m-search-empty-icon">🔍</div>
+              <div className="m-search-empty-text">
+                {searchQuery ? `Tidak ada hasil untuk "${searchQuery}"` : 'Tidak ada peserta'}
               </div>
-              <div className="m-p-info">
-                <div className="m-p-name">{p.name}</div>
-                <div className="m-p-meta">
-                  <span className={`badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'gray'}`}>
-                    {p.category}
-                  </span>
-                  <span className="m-p-ticket">{p.ticket_id}</span>
-                  {p.qr_locked && <span className="badge badge-green">Terkirim</span>}
+              {searchQuery && (
+                <button className="btn btn-ghost btn-sm" onClick={() => setSearchQuery('')}>
+                  Hapus Pencarian
+                </button>
+              )}
+            </div>
+          ) : filteredParticipants.map((p, index) => (
+            <div key={p.id} className="m-participant-card-v2" onClick={() => generateQR(p)}>
+              {/* Row 1: Number + Avatar + Main Info */}
+              <div className="m-card-row-main">
+                <div className="m-card-number">{index + 1}</div>
+                <div className={`m-card-avatar ${getCategoryToneClass(p.category)}`}>
+                  {p.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="m-card-info">
+                  <div className="m-card-name-row">
+                    <span className="m-card-name">{p.name}</span>
+                    {p.qr_locked && (
+                      <span className="m-card-status">
+                        <span className="status-dot"></span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="m-card-subtitle">
+                    <span className={`m-card-badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'green'}`}>
+                      {p.category}
+                    </span>
+                    <span className="m-card-ticket">{p.ticket_id}</span>
+                    {p.phone && (
+                      <span className="m-card-phone">📞 {p.phone}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <button
-                className="btn btn-ghost btn-sm qr-icon-btn qr-manual-btn"
-                onClick={(e) => { e.stopPropagation(); openManualSend(p) }}
-                title="Kirim Manual"
-              >
-                <Send size={16} />
-              </button>
-              <button
-                className="btn btn-ghost btn-sm qr-icon-btn qr-whatsapp-btn"
-                onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}
-                title="Share via WhatsApp"
-              >
-                <MessageCircle size={16} />
-              </button>
-              <button
-                className="btn btn-ghost btn-sm qr-icon-btn"
-                onClick={(e) => { e.stopPropagation(); downloadQR(p) }}
-                title="Download tiket"
-              >
-                <Download size={16} />
-              </button>
+              
+              {/* Row 2: Action Buttons */}
+              <div className="m-card-actions">
+                <button
+                  className="m-card-btn m-card-btn-send"
+                  onClick={(e) => { e.stopPropagation(); openManualSend(p) }}
+                  title="Kirim Manual"
+                >
+                  <Send size={14} />
+                  <span>Kirim</span>
+                </button>
+                <button
+                  className="m-card-btn m-card-btn-wa"
+                  onClick={(e) => { e.stopPropagation(); shareViaWhatsApp(p) }}
+                  title="WhatsApp"
+                >
+                  <MessageCircle size={14} />
+                  <span>WA</span>
+                </button>
+                <button
+                  className="m-card-btn m-card-btn-download"
+                  onClick={(e) => { e.stopPropagation(); downloadQR(p) }}
+                  title="Download"
+                >
+                  <Download size={14} />
+                  <span>Simpan</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1122,10 +1193,41 @@ export default function QRGenerate() {
             <div className="card qr-list-card">
               <div className="card-header">
                 <h3 className="card-title">Daftar Peserta Hari {dayFilter}</h3>
-                <span className="badge badge-red">{participants.length}</span>
+                <span className="badge badge-red">
+                  {searchQuery ? `${filteredParticipants.length}/${participants.length}` : participants.length}
+                </span>
               </div>
+              
+              {/* Search Input */}
+              <div className="qr-search-container">
+                <input
+                  type="text"
+                  className="qr-search-input"
+                  placeholder="🔍 Cari nama, tiket, telepon, atau kategori..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button 
+                    className="qr-search-clear"
+                    onClick={() => setSearchQuery('')}
+                    title="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              
               <div className="qr-list-professional">
-                {participants.map((p, index) => (
+                {filteredParticipants.length === 0 ? (
+                  <div className="qr-search-empty">
+                    <div className="qr-search-empty-icon">🔍</div>
+                    <div className="qr-search-empty-text">Tidak ada peserta yang cocok dengan "{searchQuery}"</div>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setSearchQuery('')}>
+                      Hapus Pencarian
+                    </button>
+                  </div>
+                ) : filteredParticipants.map((p, index) => (
                   <div 
                     key={p.id} 
                     onClick={() => generateQR(p)} 

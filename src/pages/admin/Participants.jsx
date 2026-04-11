@@ -1715,38 +1715,74 @@ Terima kasih!`;
               <p>Tidak ada data ditemukan</p>
             </div>
           ) : (
-            visibleParticipants.map(p => (
-              <div key={p.id} className="m-participant-card">
-                <div className={`m-p-avatar ${p.is_checked_in ? 'm-p-avatar-checked' : 'm-p-avatar-pending'}`}>
-                  {p.is_checked_in ? <CheckCircle size={16} /> : p.name.charAt(0)}
-                </div>
-                <div className="m-p-info">
-                  <div className="m-p-name">{p.name}</div>
-                  <div className="m-p-meta">
-                    <span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span>
-                    <span className="m-p-ticket">{p.ticket_id}</span>
+            visibleParticipants.map((p, index) => (
+              <div key={p.id} className="m-participant-card-v2">
+                {/* Row 1: Avatar + Info */}
+                <div className="m-card-row-main">
+                  <div className={`m-card-avatar ${p.is_checked_in ? 'm-p-avatar-checked' : 'm-p-avatar-pending'}`}>
+                    {p.is_checked_in ? <CheckCircle size={18} /> : p.name.charAt(0).toUpperCase()}
                   </div>
-                  {getMetaPreview(p.meta) && (
-                    <div className="m-p-extra">{getMetaPreview(p.meta)}</div>
-                  )}
-                  {p.checked_in_at && (
-                    <div className="m-p-time">
-                      Check-in {new Date(p.checked_in_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  <div className="m-card-info">
+                    <div className="m-card-name-row">
+                      <span className="m-card-name">{p.name}</span>
+                      {p.is_checked_in && (
+                        <span className="m-card-status">
+                          <span className="status-dot"></span>
+                        </span>
+                      )}
                     </div>
-                  )}
+                    <div className="m-card-subtitle">
+                      <span className={`m-card-badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'green'}`}>
+                        {p.category || 'Regular'}
+                      </span>
+                      <span className="m-card-ticket">{p.ticket_id}</span>
+                      {p.phone && (
+                        <span className="m-card-phone">📞 {p.phone}</span>
+                      )}
+                    </div>
+                    {p.checked_in_at && (
+                      <div className="m-card-time">
+                        ✓ Check-in {new Date(p.checked_in_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="m-p-actions">
-                  <button className="m-p-delete m-p-delete-bot" onClick={() => handleSingleBotSend(p)} title="Kirim otomatis">
-                    <Bot size={16} />
+                
+                {/* Row 2: Actions */}
+                <div className="m-card-actions">
+                  <button 
+                    className="m-card-btn m-card-btn-bot" 
+                    onClick={() => handleSingleBotSend(p)} 
+                    title="Kirim otomatis"
+                  >
+                    <Bot size={14} />
+                    <span>Bot</span>
                   </button>
-                  <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="m-p-delete m-p-delete-wa" title="Kirim WA">
-                    <MessageCircle size={16} />
+                  <a 
+                    href={getWhatsAppShareLink(p)} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="m-card-btn m-card-btn-wa" 
+                    title="Kirim WA"
+                  >
+                    <MessageCircle size={14} />
+                    <span>WA</span>
                   </a>
-                  <button className="m-p-delete m-p-delete-edit" onClick={() => openEditParticipant(p)} title="Ubah data">
-                    <Edit3 size={16} />
+                  <button 
+                    className="m-card-btn m-card-btn-edit" 
+                    onClick={() => openEditParticipant(p)} 
+                    title="Ubah data"
+                  >
+                    <Edit3 size={14} />
+                    <span>Edit</span>
                   </button>
-                  <button className="m-p-delete" onClick={() => handleDelete(p)} title="Hapus">
-                    <Trash2 size={16} />
+                  <button 
+                    className="m-card-btn m-card-btn-delete" 
+                    onClick={() => handleDelete(p)} 
+                    title="Hapus"
+                  >
+                    <Trash2 size={14} />
+                    <span>Hapus</span>
                   </button>
                 </div>
               </div>
