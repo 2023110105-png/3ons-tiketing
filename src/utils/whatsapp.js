@@ -36,6 +36,31 @@ Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
 Terima kasih & semoga sukses! 🎻🎶`;
 }
 
+// Template sederhana untuk link WA Web (tanpa emoji bermasalah)
+function getWaTemplateSimple() {
+  return `*E-ATTENDANCE*
+PALEMBANG VIOLIN & PIANO COMPETITION
+
+--------------------------------
+  *{{nama}}*
+  {{kategori}}
+  NO -{{tiket}}
+--------------------------------
+
+Event : 12 April 2026
+Venue : Primavera Production
+
+*PETUNJUK REGISTRASI*
+Tunjukkan kode QR ini kepada petugas registrasi.
+
+*Ketentuan:*
+- Valid untuk 1 orang peserta
+- Wajib menunjukkan QR asli
+- Harap hadir 30 menit sebelum tampil
+
+Terima kasih & semoga sukses!`;
+}
+
 export const generateWaMessage = (participant) => {
   const template = String((typeof window !== 'undefined' && typeof window.getWaTemplate === 'function') ? window.getWaTemplate() : getWaTemplate())
   const p = participant || {}
@@ -86,13 +111,19 @@ export function formatPhoneDisplay(phone) {
 // Generate the WhatsApp message and URL
 export function getWhatsAppShareLink(participant) {
   const phone = formatPhoneNumberRaw(participant.phone)
+  const p = participant || {}
   
   // Create a fast, public QR code URL using a free QR API
-  // That way we don't need Supabase Storage just for sharing the QR picture
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(participant.qr_data)}`
   
-  // Generate message primarily from template
-  const message = generateWaMessage(participant)
+  // Use simple template for WA Web link (avoid emoji encoding issues)
+  const template = getWaTemplateSimple()
+  let message = template
+    .replace(/\{\{nama\}\}/g, p.name || '')
+    .replace(/\{\{tiket\}\}/g, p.ticket_id || '')
+    .replace(/\{\{hari\}\}/g, p.day_number || '')
+    .replace(/\{\{kategori\}\}/g, p.category || '')
+  
   const text = `${message}\n\n*Direct Link Barcode:* ${qrUrl}`
   
   const encodedText = encodeURIComponent(text)
