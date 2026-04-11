@@ -111,8 +111,11 @@ export function getWhatsAppShareLink(participant) {
   const phone = formatPhoneNumberRaw(participant.phone)
   const p = participant || {}
   
-  // Create a fast, public QR code URL using a free QR API
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(participant.qr_data)}`
+  // Use our own QR endpoint with consistent design
+  const baseUrl = typeof window !== 'undefined' 
+    ? (window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin)
+    : '';
+  const qrUrl = `${baseUrl}/ticket-qr/${p.ticket_id}?size=400`;
   
   // Use simple template for WA Web link (avoid emoji encoding issues)
   const template = getWaTemplateSimple()
@@ -122,7 +125,7 @@ export function getWhatsAppShareLink(participant) {
     .replace(/\{\{hari\}\}/g, p.day_number || '')
     .replace(/\{\{kategori\}\}/g, p.category || '')
   
-  const text = `${message}\n\n*Direct Link Barcode:* ${qrUrl}`
+  const text = `${message}\n\nLink Barcode (buka untuk lihat QR):\n${qrUrl}`
   
   const encodedText = encodeURIComponent(text)
   return `https://wa.me/${phone}?text=${encodedText}`
