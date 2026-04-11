@@ -927,6 +927,13 @@ export default function FrontGate() {
               <div className="scanner-result-text">
                 {getResultTitle()}
               </div>
+              {/* Tampilkan nama dan tiket langsung saat success */}
+              {result.success && result.participant && (
+                <div className="scanner-result-participant">
+                  <div className="scanner-result-name">{result.participant.name}</div>
+                  <div className="scanner-result-ticket">{result.participant.ticket_id}</div>
+                </div>
+              )}
               <div className="scanner-result-action">{getResultActionHint()}</div>
               {canShowDetailToggle && (
                 <button className="btn btn-ghost btn-sm scanner-detail-toggle" onClick={() => setShowResultDetail(prev => !prev)}>
@@ -935,9 +942,6 @@ export default function FrontGate() {
               )}
               {canShowDetailToggle && showResultDetail && (
                 <>
-                  {result.participant && (
-                    <div className="scanner-result-detail">{result.participant.name}</div>
-                  )}
                   {result.security && (
                     <div className="scanner-result-detail scanner-result-subdetail">
                       Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
@@ -990,6 +994,13 @@ export default function FrontGate() {
                 <h2 className={`scanner-feedback-title scanner-feedback-title-lg scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
+                {/* Tampilkan nama dan tiket langsung saat success */}
+                {result.success && result.participant && (
+                  <div className="scanner-feedback-participant-highlight">
+                    <div className="scanner-feedback-name-highlight">{result.participant.name}</div>
+                    <div className="scanner-feedback-ticket-highlight">{result.participant.ticket_id}</div>
+                  </div>
+                )}
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
                 {canShowDetailToggle && (
                   <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
@@ -1095,6 +1106,13 @@ export default function FrontGate() {
                 <h2 className={`scanner-feedback-title scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
+                {/* Tampilkan nama dan tiket langsung saat success */}
+                {result.success && result.participant && (
+                  <div className="scanner-feedback-participant-highlight">
+                    <div className="scanner-feedback-name-highlight">{result.participant.name}</div>
+                    <div className="scanner-feedback-ticket-highlight">{result.participant.ticket_id}</div>
+                  </div>
+                )}
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
                 {canShowDetailToggle && (
                   <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>

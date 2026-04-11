@@ -1,6 +1,1052 @@
 [
   {
     "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:23.450Z",
+    "phoneList": [
+      "085361352888"
+    ],
+    "results": [
+      {
+        "phone": "085361352888",
+        "status": "Success",
+        "msgId": "3EB0137B305ACC9CD2B4B1"
+      }
+    ],
+    "ticket_id": "T120260050",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Jason Yap",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:23.281Z",
+    "phoneList": [
+      "082381972192"
+    ],
+    "results": [
+      {
+        "phone": "082381972192",
+        "status": "Success",
+        "msgId": "3EB0AD9245106E568D80E5"
+      }
+    ],
+    "ticket_id": "T120260049",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Aira Florsyifa Ardian",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:23.270Z",
+    "phoneList": [
+      "082381972192"
+    ],
+    "results": [
+      {
+        "phone": "082381972192",
+        "status": "Success",
+        "msgId": "3EB06A732CD5C24DD04E49"
+      }
+    ],
+    "ticket_id": "T120260049",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Aira Florsyifa Ardian",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:22.994Z",
+    "phoneList": [
+      "085361352888"
+    ],
+    "results": [
+      {
+        "phone": "085361352888",
+        "status": "Success",
+        "msgId": "3EB001D8271981050F226A"
+      }
+    ],
+    "ticket_id": "T120260050",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Jason Yap",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:22.966Z",
+    "phoneList": [
+      "085361352888"
+    ],
+    "results": [
+      {
+        "phone": "085361352888",
+        "status": "Success",
+        "msgId": "3EB00C98073CE76BDBD01C"
+      }
+    ],
+    "ticket_id": "T120260050",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Jason Yap",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:21.218Z",
+    "phoneList": [
+      "08117120093"
+    ],
+    "results": [
+      {
+        "phone": "08117120093",
+        "status": "Success",
+        "msgId": "3EB0E31F0EA673203CD57A"
+      }
+    ],
+    "ticket_id": "T120260048",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Graciana Kinanti Halim",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:31:21.184Z",
+    "phoneList": [
+      "08117120093"
+    ],
+    "results": [
+      {
+        "phone": "08117120093",
+        "status": "Success",
+        "msgId": "3EB0319A9599332BECC2A4"
+      }
+    ],
+    "ticket_id": "T120260048",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Graciana Kinanti Halim",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:30:59.764Z",
+    "phoneList": [
+      "087878434474"
+    ],
+    "results": [
+      {
+        "phone": "087878434474",
+        "status": "Success",
+        "msgId": "3EB0B91EFAAB95F1A806BB"
+      }
+    ],
+    "ticket_id": "T120260047",
+    "category": "Great Fiddler",
+    "day_number": 1,
+    "name": "Felix Alfredo",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:30:47.825Z",
+    "phoneList": [
+      "082269546686"
+    ],
+    "results": [
+      {
+        "phone": "082269546686",
+        "status": "Success",
+        "msgId": "3EB074FC32929589F649C4"
+      }
+    ],
+    "ticket_id": "T120260046",
+    "category": "Bright Fiddler",
+    "day_number": 1,
+    "name": "Rebecca Angel Lie",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:30:47.708Z",
+    "phoneList": [
+      "082269546686"
+    ],
+    "results": [
+      {
+        "phone": "082269546686",
+        "status": "Success",
+        "msgId": "3EB0ED9D9D61EE296A690D"
+      }
+    ],
+    "ticket_id": "T120260045",
+    "category": "Bright Fiddler",
+    "day_number": 1,
+    "name": "Theresa Christin Lie",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:29:50.076Z",
+    "phoneList": [
+      "+6281367360111"
+    ],
+    "results": [
+      {
+        "phone": "+6281367360111",
+        "status": "Success",
+        "msgId": "3EB0F04FC1F4257E58E063"
+      }
+    ],
+    "ticket_id": "T120260041",
+    "category": "Bright Fiddler",
+    "day_number": 1,
+    "name": "Muhammad Alariq Anandya",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T15:29:48.248Z",
+    "phoneList": [
+      "085357607312"
+    ],
+    "results": [
+      {
+        "phone": "085357607312",
+        "status": "Success",
+        "msgId": "3EB0DDD5D43948BCDB913B"
+      }
+    ],
+    "ticket_id": "T120260042",
+    "category": "Bright Fiddler",
+    "day_number": 1,
+    "name": "Amiratu Sofia",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:52:42.872Z",
+    "phoneList": [
+      "082124347295"
+    ],
+    "results": [
+      {
+        "phone": "082124347295",
+        "status": "Success",
+        "msgId": "3EB0CA1D57DE015C0F73CF"
+      }
+    ],
+    "ticket_id": "T220260042",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Kimiko Diandra Darmansyah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:52:29.130Z",
+    "phoneList": [
+      "085669835533"
+    ],
+    "results": [
+      {
+        "phone": "085669835533",
+        "status": "Failed",
+        "error": "Nomor tidak terdaftar di WhatsApp.",
+        "error_code": "wa_number_not_registered"
+      }
+    ],
+    "ticket_id": "T220260041",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Felicia Choo Xin Yi",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:51:47.147Z",
+    "phoneList": [
+      "085669835533"
+    ],
+    "results": [
+      {
+        "phone": "085669835533",
+        "status": "Failed",
+        "error": "Nomor tidak terdaftar di WhatsApp.",
+        "error_code": "wa_number_not_registered"
+      }
+    ],
+    "ticket_id": "T220260041",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Felicia Choo Xin Yi",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:47:39.978Z",
+    "phoneList": [
+      "082124347295"
+    ],
+    "results": [
+      {
+        "phone": "082124347295",
+        "status": "Failed",
+        "error": "Cannot read properties of undefined (reading 'getChat')",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260042",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Kimiko Diandra Darmansyah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:47:36.986Z",
+    "phoneList": [
+      "085669835533"
+    ],
+    "results": [
+      {
+        "phone": "085669835533",
+        "status": "Failed",
+        "error": "Nomor tidak terdaftar di WhatsApp.",
+        "error_code": "wa_number_not_registered"
+      }
+    ],
+    "ticket_id": "T220260041",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Felicia Choo Xin Yi",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:56.617Z",
+    "phoneList": [
+      "085669835532"
+    ],
+    "results": [
+      {
+        "phone": "085669835532",
+        "status": "Success",
+        "msgId": "3EB031E8A900FC6B79EC05"
+      }
+    ],
+    "ticket_id": "T220260040",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Adzkia Latisha Nugraha",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:52.373Z",
+    "phoneList": [
+      "085669835531"
+    ],
+    "results": [
+      {
+        "phone": "085669835531",
+        "status": "Success",
+        "msgId": "3EB079BFF2E7F0A426F02F"
+      }
+    ],
+    "ticket_id": "T220260039",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Nadya Callista Atmaja",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:45.203Z",
+    "phoneList": [
+      "085669835530"
+    ],
+    "results": [
+      {
+        "phone": "085669835530",
+        "status": "Success",
+        "msgId": "3EB0DD96CBC9794DE9822A"
+      }
+    ],
+    "ticket_id": "T220260038",
+    "category": "Preparatory B",
+    "day_number": 2,
+    "name": "Marco Allister Chen",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:23.999Z",
+    "phoneList": [
+      "085273250707"
+    ],
+    "results": [
+      {
+        "phone": "085273250707",
+        "status": "Success",
+        "msgId": "3EB00CA1F4D896C94212C1"
+      }
+    ],
+    "ticket_id": "T220260036",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Arsyila Mayesha Zahwa",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:20.385Z",
+    "phoneList": [
+      "085103030483"
+    ],
+    "results": [
+      {
+        "phone": "085103030483",
+        "status": "Success",
+        "msgId": "3EB0924C208A29A3FC9B0E"
+      }
+    ],
+    "ticket_id": "T220260035",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Ahmad Arkan Ramadhana",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:19.811Z",
+    "phoneList": [
+      "085669835529"
+    ],
+    "results": [
+      {
+        "phone": "085669835529",
+        "status": "Success",
+        "msgId": "3EB0A7F3BB53FB063CD11D"
+      }
+    ],
+    "ticket_id": "T220260034",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Sheinatiur Abigail Purba",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:17.669Z",
+    "phoneList": [
+      "082179061609"
+    ],
+    "results": [
+      {
+        "phone": "082179061609",
+        "status": "Success",
+        "msgId": "3EB08DF54315E0B0FD32B1"
+      }
+    ],
+    "ticket_id": "T220260033",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Mikhael Aldrich Pranata Wijaya",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:13.665Z",
+    "phoneList": [
+      "082181412545"
+    ],
+    "results": [
+      {
+        "phone": "082181412545",
+        "status": "Success",
+        "msgId": "3EB0B136727703DD09E2FB"
+      }
+    ],
+    "ticket_id": "T220260032",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Kenzo Bryant Rusdy",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:12.957Z",
+    "phoneList": [
+      "082175112999"
+    ],
+    "results": [
+      {
+        "phone": "082175112999",
+        "status": "Success",
+        "msgId": "3EB08294F72EAFAEE86DC2"
+      }
+    ],
+    "ticket_id": "T220260031",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Girindra Hagia Rawdah",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:06.553Z",
+    "phoneList": [
+      "081809009193"
+    ],
+    "results": [
+      {
+        "phone": "081809009193",
+        "status": "Success",
+        "msgId": "3EB040CFE7FC7AB36BA29F"
+      }
+    ],
+    "ticket_id": "T220260030",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Paula Anantari Haksajiwo",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:05.474Z",
+    "phoneList": [
+      "085366979856"
+    ],
+    "results": [
+      {
+        "phone": "085366979856",
+        "status": "Success",
+        "msgId": "3EB026C9DFAC29D8DFBA6E"
+      }
+    ],
+    "ticket_id": "T220260029",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Aresha Farzana Altatra",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:32:04.246Z",
+    "phoneList": [
+      "08117898228"
+    ],
+    "results": [
+      {
+        "phone": "08117898228",
+        "status": "Success",
+        "msgId": "3EB0804177C9B23739940D"
+      }
+    ],
+    "ticket_id": "T220260028",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Priscelline Theniago",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:31:59.264Z",
+    "phoneList": [
+      "08117898228"
+    ],
+    "results": [
+      {
+        "phone": "08117898228",
+        "status": "Success",
+        "msgId": "3EB049A008B7322C2390B2"
+      }
+    ],
+    "ticket_id": "T220260027",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Paris Clairine Lie",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:31:57.820Z",
+    "phoneList": [
+      "087781777722"
+    ],
+    "results": [
+      {
+        "phone": "087781777722",
+        "status": "Success",
+        "msgId": "3EB05CD0771C10FA7E9FC9"
+      }
+    ],
+    "ticket_id": "T220260026",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Qiana Sybilla Qotrunnada",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:31:52.139Z",
+    "phoneList": [
+      "082324537679"
+    ],
+    "results": [
+      {
+        "phone": "082324537679",
+        "status": "Success",
+        "msgId": "3EB00374DB309FC8FAD927"
+      }
+    ],
+    "ticket_id": "T220260025",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Diandra Athalia Christine",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:31:47.340Z",
+    "phoneList": [
+      "085279706553"
+    ],
+    "results": [
+      {
+        "phone": "085279706553",
+        "status": "Success",
+        "msgId": "3EB081EBBA7EE5B7319280"
+      }
+    ],
+    "ticket_id": "T220260024",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Khaira Latisha",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:31:19.912Z",
+    "phoneList": [
+      "081373733214"
+    ],
+    "results": [
+      {
+        "phone": "081373733214",
+        "status": "Success",
+        "msgId": "3EB0D9B2E8F76E2C571B7D"
+      }
+    ],
+    "ticket_id": "T220260023",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Malika Adara Putri",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:28:49.200Z",
+    "phoneList": [
+      "081373733214"
+    ],
+    "results": [
+      {
+        "phone": "081373733214",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '424C1A2092478F100EBC71DFAA2CDE51'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260023",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Malika Adara Putri",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:26:52.977Z",
+    "phoneList": [
+      "081373733214"
+    ],
+    "results": [
+      {
+        "phone": "081373733214",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '890220F54909C8118AF4649178763AA8'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260023",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Malika Adara Putri",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:26:45.969Z",
+    "phoneList": [
+      "085273653058"
+    ],
+    "results": [
+      {
+        "phone": "085273653058",
+        "status": "Success",
+        "msgId": "3EB071D2FABCC49A1CCB4E"
+      }
+    ],
+    "ticket_id": "T220260022",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Qania Yuri Alesha",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:26:44.278Z",
+    "phoneList": [
+      "082285263673"
+    ],
+    "results": [
+      {
+        "phone": "082285263673",
+        "status": "Success",
+        "msgId": "3EB01ABF7898C6312CEEF5"
+      }
+    ],
+    "ticket_id": "T220260021",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Alvin Gracio Pratama",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:26:38.202Z",
+    "phoneList": [
+      "085268730213"
+    ],
+    "results": [
+      {
+        "phone": "085268730213",
+        "status": "Success",
+        "msgId": "3EB0B7EC59BB32B87ECF8F"
+      }
+    ],
+    "ticket_id": "T220260020",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Gloria Kineta Jeremiah Sihombing",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:26:15.369Z",
+    "phoneList": [
+      "082229159143"
+    ],
+    "results": [
+      {
+        "phone": "082229159143",
+        "status": "Success",
+        "msgId": "3EB084EBFCD38F26EF80B4"
+      }
+    ],
+    "ticket_id": "T120260020",
+    "category": "Shining Fiddler B",
+    "day_number": 1,
+    "name": "Syarifa akifa nayla",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:23:44.912Z",
+    "phoneList": [
+      "082229159143"
+    ],
+    "results": [
+      {
+        "phone": "082229159143",
+        "status": "Failed",
+        "error": "Jimp is not a constructor",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T120260020",
+    "category": "Shining Fiddler B",
+    "day_number": 1,
+    "name": "Syarifa akifa nayla",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:21:11.187Z",
+    "phoneList": [
+      "085268730213"
+    ],
+    "results": [
+      {
+        "phone": "085268730213",
+        "status": "Failed",
+        "error": "Jimp is not a constructor",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260020",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Gloria Kineta Jeremiah Sihombing",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:17:35.067Z",
+    "phoneList": [
+      "082285263673"
+    ],
+    "results": [
+      {
+        "phone": "082285263673",
+        "status": "Failed",
+        "error": "Jimp is not a constructor",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260021",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Alvin Gracio Pratama",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:09:37.673Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:08:40.306Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:06:59.068Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:03:44.196Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:03:21.558Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:03:08.498Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:01:52.372Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:01:36.122Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:01:20.770Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T14:00:21.193Z",
+    "phoneList": [
+      "089670631060"
+    ],
+    "results": [
+      {
+        "phone": "089670631060",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T1775902886661",
+    "category": "admin 3ons",
+    "day_number": 2,
+    "name": "zaki",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
+    "time": "2026-04-11T13:59:39.705Z",
+    "phoneList": [
+      "082285263673"
+    ],
+    "results": [
+      {
+        "phone": "082285263673",
+        "status": "Failed",
+        "error": "Attempted to use detached Frame '74FA433ED560F0105C44F0A3119842CE'.",
+        "error_code": "wa_send_failed"
+      }
+    ],
+    "ticket_id": "T220260021",
+    "category": "Preparatory A",
+    "day_number": 2,
+    "name": "Alvin Gracio Pratama",
+    "wa_send_mode": "message_with_barcode"
+  },
+  {
+    "tenantId": "tenant-default",
     "time": "2026-04-11T12:47:02.995Z",
     "phoneList": [
       "085268730213"
