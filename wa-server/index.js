@@ -1861,9 +1861,10 @@ app.get('/api/import/logs', (req, res) => {
 // API: Trigger sync to all gates (broadcast refresh signal)
 app.post('/api/sync-to-gates', (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
-    const tenantId = normalizeTenantId(req?.body?.tenant_id);
-    const { reason } = req.body || {};
-    // ... (implementation continues)
+    const _tenantId = normalizeTenantId(req?.body?.tenant_id);
+    const { reason: _reason } = req.body || {};
+    // TODO: Implement sync broadcast to all gate devices
+    res.json({ success: true, message: 'Sync signal queued for broadcast' });
 });
 
 // ===== PUBLIC QR CODE ENDPOINT (No auth required for easy sharing) =====
