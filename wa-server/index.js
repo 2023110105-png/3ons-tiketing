@@ -121,6 +121,22 @@ function generateServerQRData({ ticket_id, name, day_number }, tenantId = 'tenan
     }
 }
 
+// Helper untuk cek apakah WA client benar-benar siap (tidak detached)
+function isWaClientReady(client) {
+    if (!client) return false;
+    try {
+        // Check basic properties
+        if (!client.info || !client.pupPage) return false;
+        // Check if page is closed/detached
+        if (client.pupPage.isClosed && client.pupPage.isClosed()) return false;
+        // Check if browser is connected
+        if (client.pupBrowser && client.pupBrowser.isConnected && !client.pupBrowser.isConnected()) return false;
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && !WA_ADMIN_SECRET) {
     throw new Error('WA_ADMIN_SECRET wajib diisi di production');
 }
@@ -240,7 +256,7 @@ app.post('/api/wa/test-send', rateLimit, async (req, res) => {
         try { await session.initPromise; } catch (err) { void err; }
     }
     session = getOrCreateTenantSession(tenantId);
-    if (!session.isReady || !session.client) {
+    if (!session.isReady || !isWaClientReady(session.client)) {
         return res.json({ success: false, error: 'WA Client Not Ready', status: session.status });
     }
     const waNumber = formatPhoneWA(phone);
@@ -1262,7 +1278,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
 
     // A. PROSES SEND WHATSAPP (Batch/Paralel)
     if (send_wa && phoneList.length > 0) {
-        if (!session.isReady || !session.client) {
+        if (!session.isReady || !isWaClientReady(session.client)) {
             results.wa = phoneList.map((p) => ({
                 phone: p,
                 status: 'Failed',
@@ -1286,7 +1302,7 @@ app.post('/api/send-ticket', rateLimit, async (req, res) => {
                 if (i > 0 && i % healthCheckInterval === 0) {
                     console.log(`[WA SEND] Health check setelah ${i} pesan...`);
                     const freshSession = getOrCreateTenantSession(tenantId);
-                    if (!freshSession.isReady || !freshSession.client) {
+                    if (!freshSession.isReady || !isWaClientReady(freshSession.client)) {
                         console.error(`[WA SEND] Session tidak ready setelah ${i} pesan, stop batch.`);
                         // Mark sisanya sebagai failed
                         for (let j = i; j < phoneList.length; j++) {
