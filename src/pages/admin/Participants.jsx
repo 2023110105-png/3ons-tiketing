@@ -695,22 +695,24 @@ export default function Participants() {
 
   const generateWaMessage = (p) => {
     const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `🎫 *E-TICKET*
+    return `Halo ${p.name},
 
-Halo *${p.name}*,
-Berikut tiket masuk Anda untuk *Hari ke-${p.day_number}*.
+Ini tiket masuk Anda:
 
-📅 *Tanggal:* ${dateStr}
-📋 *Ticket ID:* ${p.ticket_id}
-📂 *Kategori:* ${p.category}
+Event: Yamaha Music School
+Tanggal: ${dateStr}
+Hari: ${p.day_number}
+Ticket ID: ${p.ticket_id}
+Kategori: ${p.category}
 
-⚠️ *Petunjuk:*
-• Tunjukkan tiket ini ke petugas gerbang
-• QR Code dapat di-scan di lokasi
-• Screenshot tidak valid
+Link QR Code:
+https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(p.qr_data || '')}
 
-Terima kasih!
-_3oNs Digital_`;
+*Petunjuk:*
+- Tunjukkan QR code ini ke petugas
+- Tidak boleh screenshot
+
+Terima kasih!`;
   };
 
   const handleCopyToClipboard = () => {
