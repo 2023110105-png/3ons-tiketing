@@ -1,10 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import mkcert from 'vite-plugin-mkcert'
 
 const ENABLE_PWA = true
-const ENABLE_HTTPS = false  // Disabled: mkcert issue on Windows. Re-enable when fixed.
+const ENABLE_HTTPS = false  // Disabled: mkcert not available in production build
 
 export default defineConfig({
   test: {
@@ -72,7 +71,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    ...(ENABLE_HTTPS ? [mkcert()] : []),
     ...(ENABLE_PWA ? [VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['brand-logo.svg', 'favicon-brand.svg', 'icons.svg'],
