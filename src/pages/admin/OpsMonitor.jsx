@@ -44,9 +44,19 @@ function getCheckInLogs(day) {
   return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
 function getStats(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
-  void day;
-  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.stats || {};
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
+  
+  // Calculate stats dynamically based on selected day
+  const participants = _getParticipants(day);
+  const checkInLogs = getCheckInLogs(day);
+  const checkedInTicketIds = new Set(checkInLogs.map(log => String(log.ticket_id || '').trim().toLowerCase()));
+  
+  const total = participants.length;
+  const checkedIn = participants.filter(p => checkedInTicketIds.has(String(p.ticket_id || '').trim().toLowerCase())).length;
+  const notCheckedIn = total - checkedIn;
+  const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+  
+  return { total, checkedIn, notCheckedIn, percentage };
 }
 function getPendingCheckIns() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
@@ -97,10 +107,18 @@ export default function OpsMonitor() {
       load();
     }, []);
   const toast = useToast()
-  const availableDays = _getAvailableDays()
-  const [dayFilter, setDayFilter] = useState(availableDays[0] || 1)
+  const [dayFilter, setDayFilter] = useState(1)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
+  
+  // Update available days and dayFilter when data changes
+  const availableDays = _getAvailableDays()
+  useEffect(() => {
+    if (availableDays.length > 0 && !availableDays.includes(dayFilter)) {
+      setDayFilter(availableDays[0])
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, dayFilter])
 
   // Lightweight auto-refresh for live ops view
   useEffect(() => {
@@ -113,13 +131,16 @@ export default function OpsMonitor() {
 
   // Realtime subscription for instant updates
   useEffect(() => {
-    _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
+    _unsubscribeRealtime = subscribeWorkspaceChanges(async (payload) => {
       console.log('[OpsMonitor] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
-      void bootstrapStoreFromFirebase().then(() => {
+      try {
+        await bootstrapStoreFromFirebase(true);
         setTick(t => t + 1);
         console.log('[OpsMonitor] Data refreshed from realtime update');
-      });
+      } catch (err) {
+        console.error('[OpsMonitor] Failed to refresh data:', err);
+      }
     });
 
     return () => {
