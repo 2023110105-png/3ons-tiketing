@@ -103,12 +103,15 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
     // Sync data from server first to ensure we have latest participants
     await bootstrapStoreFromFirebase(true);
 
-    // Cari peserta berdasarkan ticket_id
+    // Cari peserta berdasarkan ticket_id (case-insensitive)
     const participants = getParticipants(day);
     console.log(`[checkIn] Found ${participants.length} participants for day ${day}`);
     console.log(`[checkIn] First few participants:`, participants.slice(0, 5).map(p => ({ tid: p.ticket_id, name: p.name, day: p.day_number || p.day })));
     console.log(`[checkIn] All ticketIds for day ${day}:`, participants.map(p => p.ticket_id).slice(0, 10));
-    let participant = participants.find(p => p.ticket_id === ticketId);
+    
+    // Case-insensitive ticket ID search
+    const searchTicketId = String(ticketId || '').trim().toLowerCase();
+    let participant = participants.find(p => String(p.ticket_id || '').trim().toLowerCase() === searchTicketId);
     let matchedByName = false;
     let finalTicketId = ticketId;
 
@@ -129,10 +132,10 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
 
     if (!participant) {
       console.log(`[checkIn] Participant not found: ticketId=${ticketId}, day=${day}`);
-      // Coba cari di semua participants tanpa filter day
+      // Coba cari di semua participants tanpa filter day (case-insensitive)
       const allParticipants = getParticipants();
       console.log(`[checkIn] Total participants (all days): ${allParticipants.length}`);
-      const foundInOtherDay = allParticipants.find(p => p.ticket_id === ticketId);
+      const foundInOtherDay = allParticipants.find(p => String(p.ticket_id || '').trim().toLowerCase() === searchTicketId);
       if (foundInOtherDay) {
         const foundDay = foundInOtherDay.day_number || foundInOtherDay.day || 'unknown';
         console.log(`[checkIn] Found in other day:`, { tid: foundInOtherDay.ticket_id, name: foundInOtherDay.name, day: foundDay });
@@ -155,9 +158,10 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
 
     console.log(`[checkIn] Participant found:`, { tid: participant.ticket_id, name: participant.name, day: participant.day_number || participant.day });
     
-    // Check if already checked in
+    // Check if already checked in (case-insensitive)
     const existingLogs = getCheckInLogs(day);
-    const alreadyCheckedIn = existingLogs.some(log => log.ticket_id === finalTicketId);
+    const finalTicketIdLower = String(finalTicketId || '').trim().toLowerCase();
+    const alreadyCheckedIn = existingLogs.some(log => String(log.ticket_id || '').trim().toLowerCase() === finalTicketIdLower);
     if (alreadyCheckedIn) {
       return { success: false, error: 'Peserta sudah check-in', alreadyCheckedIn: true, status: 'duplicate', participant };
     }
@@ -165,9 +169,11 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
     // Add to check-in logs
     const tenantId = 'tenant-default';
     const eventId = 'event-default';
+    // Use participant's actual ticket_id from database (not from QR) for consistency
+    const actualTicketId = participant.ticket_id || finalTicketId;
     const newLog = {
-      id: `${finalTicketId}_${Date.now()}`,
-      ticket_id: finalTicketId,
+      id: `${actualTicketId}_${Date.now()}`,
+      ticket_id: actualTicketId,
       scanned_by: scannedBy,
       timestamp: new Date().toISOString(),
       day: day,
@@ -177,7 +183,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
       // Participant info for BackGate/Monitor compatibility
       participant_name: participant?.name || participant?.nama || 'Unknown',
       participant_category: participant?.category || participant?.kategori || 'Regular',
-      participant_ticket: finalTicketId,
+      participant_ticket: actualTicketId,
       // Flag untuk auto-recognition
       auto_recognized: matchedByName,
       original_qr_ticket_id: matchedByName ? ticketId : null
@@ -200,7 +206,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
 
     return { 
       success: true, 
-      ticket_id: finalTicketId, 
+      ticket_id: actualTicketId, 
       participant, 
       status: 'success',
       auto_recognized: matchedByName,
