@@ -72,7 +72,7 @@ function getOfflineQueueHistory(limit) {
   return typeof limit === 'number' ? arr.slice(0, limit) : arr;
 }
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, AlertTriangle, Clock, RefreshCw, Signal, WifiOff } from 'lucide-react'
+import { Activity, AlertTriangle, Clock, FileText, RefreshCw, Signal, WifiOff } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
 
 const STALE_SCAN_WARN_MINUTES = 6
@@ -109,6 +109,7 @@ export default function OpsMonitor() {
   const toast = useToast()
   const [dayFilter, setDayFilter] = useState(1)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
   const [tick, setTick] = useState(0)
   
   // Update available days and dayFilter when data changes
@@ -273,6 +274,108 @@ export default function OpsMonitor() {
     }
   }
 
+  const handlePrintAttendance = async () => {
+    if (isPrinting) return
+    setIsPrinting(true)
+    try {
+      const { jsPDF } = await import('jspdf')
+      const doc = new jsPDF('p', 'mm', 'a4')
+      
+      const stats = getStats(dayFilter)
+      const logs = getCheckInLogs(dayFilter)
+      const participants = _getParticipants(dayFilter)
+      
+      // Header
+      doc.setFontSize(16)
+      doc.text('LAPORAN KEHADIRAN', 105, 15, { align: 'center' })
+      doc.setFontSize(12)
+      doc.text(`Hari ${dayFilter} - ${new Date().toLocaleDateString('id-ID')}`, 105, 22, { align: 'center' })
+      
+      // Stats Summary
+      doc.setFontSize(11)
+      doc.text('Ringkasan Kehadiran:', 14, 35)
+      doc.setFontSize(10)
+      doc.text(`Total Peserta: ${stats.total}`, 14, 42)
+      doc.text(`Sudah Check-in: ${stats.checkedIn}`, 14, 48)
+      doc.text(`Belum Check-in: ${stats.notCheckedIn}`, 14, 54)
+      doc.text(`Persentase: ${stats.percentage}%`, 14, 60)
+      
+      // Check-in logs table
+      doc.setFontSize(11)
+      doc.text('Daftar Check-in:', 14, 72)
+      
+      // Table headers
+      doc.setFillColor(240, 240, 240)
+      doc.rect(14, 76, 182, 8, 'F')
+      doc.setFontSize(9)
+      doc.text('Waktu', 16, 81)
+      doc.text('Gate', 50, 81)
+      doc.text('ID Tiket', 75, 81)
+      doc.text('Nama', 110, 81)
+      doc.text('Status', 170, 81)
+      
+      // Table rows
+      let y = 88
+      logs.forEach((log, i) => {
+        if (y > 280) {
+          doc.addPage()
+          y = 20
+        }
+        const name = participantNameMap.get(String(log.ticket_id || '').toLowerCase()) || log.participant_name || '-'
+        doc.text(formatTime(log.timestamp).substring(0, 16), 16, y)
+        doc.text(String(log.scanned_by || '-').replace(/_/g, ' '), 50, y)
+        doc.text(log.ticket_id || '-', 75, y)
+        doc.text(name.substring(0, 25), 110, y)
+        doc.text(String(log.status || 'valid').toUpperCase(), 170, y)
+        
+        if (i % 2 === 1) {
+          doc.setFillColor(250, 250, 250)
+          doc.rect(14, y - 4, 182, 6, 'F')
+        }
+        y += 6
+      })
+      
+      // Participants not checked in
+      if (y > 200) {
+        doc.addPage()
+        y = 20
+      } else {
+        y += 10
+      }
+      
+      const checkedInIds = new Set(logs.map(l => String(l.ticket_id || '').toLowerCase()))
+      const notCheckedIn = participants.filter(p => !checkedInIds.has(String(p.ticket_id || '').toLowerCase()))
+      
+      if (notCheckedIn.length > 0) {
+        doc.setFontSize(11)
+        doc.text(`Peserta Belum Check-in (${notCheckedIn.length}):`, 14, y)
+        y += 8
+        
+        notCheckedIn.slice(0, 50).forEach((p, i) => {
+          if (y > 280) {
+            doc.addPage()
+            y = 20
+          }
+          doc.setFontSize(9)
+          doc.text(`${i + 1}. ${p.ticket_id || '-'} - ${p.name || '-'}`, 16, y)
+          y += 5
+        })
+      }
+      
+      // Footer
+      doc.setFontSize(8)
+      doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 292)
+      
+      doc.save(`laporan-kehadiran-hari-${dayFilter}-${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('Sukses', 'PDF laporan kehadiran telah diunduh.')
+    } catch (err) {
+      console.error('PDF generation failed:', err)
+      toast.error('Gagal', 'Tidak dapat membuat PDF. Pastikan data tersedia.')
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
   return (
     <div className="page-container animate-fade-in-up">
       <div className="page-header">
@@ -287,6 +390,9 @@ export default function OpsMonitor() {
               <option key={d} value={d}>Hari {d}</option>
             ))}
           </select>
+          <button type="button" className="btn btn-secondary" onClick={handlePrintAttendance} disabled={isPrinting} title="Cetak PDF kehadiran">
+            <FileText size={16} /> Cetak PDF
+          </button>
           <button type="button" className="btn btn-secondary" onClick={handleRefresh} disabled={isRefreshing} title="Muat data terbaru">
             <RefreshCw size={16} className={isRefreshing ? 'spinner' : ''} /> Segarkan
           </button>
