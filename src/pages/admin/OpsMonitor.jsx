@@ -29,11 +29,6 @@ function _getAvailableDays() {
   const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
   return days.length > 0 ? days.sort((a, b) => a - b) : [1];
 }
-function getCurrentDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = 'tenant-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
 function _setCurrentDay(day) {
   if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
     _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
@@ -102,7 +97,8 @@ export default function OpsMonitor() {
       load();
     }, []);
   const toast = useToast()
-  const [dayFilter, setDayFilter] = useState(getCurrentDay())
+  const availableDays = _getAvailableDays()
+  const [dayFilter, setDayFilter] = useState(availableDays[0] || 1)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [, setTick] = useState(0)
 
@@ -266,7 +262,7 @@ export default function OpsMonitor() {
         </div>
         <div className="admin-actions-wrap">
           <select className="form-select admin-select-auto" value={dayFilter} onChange={(e) => setDayFilter(Number(e.target.value))} title="Filter hari aktif">
-            {Array.from({ length: Math.max(1, Number(getCurrentDay()) || 1) }, (_, i) => i + 1).map(d => (
+            {_getAvailableDays().map(d => (
               <option key={d} value={d}>Hari {d}</option>
             ))}
           </select>
