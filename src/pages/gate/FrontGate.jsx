@@ -4,6 +4,14 @@ let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 let _pendingCheckIns = [];
 let _offlineQueueHistory = [];
+let _checkInCache = [];
+
+// Helper functions
+function getTenantId() { return 'tenant-default'; }
+function getEventId() { return 'event-default'; }
+function getUserName() { return localStorage.getItem('user_name') || 'Admin'; }
+function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
 
 async function bootstrapStoreFromFirebase() {
   _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
@@ -203,7 +211,67 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
   }
 }
 
-async function manualCheckIn(ticketId, scannedBy) {
+// Force check-in (override wrong_day restriction)
+async function forceCheckIn(ticketId, day, scannedBy, qrName = '') {
+  try {
+    console.log(`[forceCheckIn] Override: ticketId=${ticketId}, day=${day}`);
+    await bootstrapStoreFromFirebase(true);
+
+    const participants = getParticipants();
+    const participant = participants.find(p => p.ticket_id === ticketId);
+    if (!participant) {
+      return { success: false, error: 'Peserta tidak ditemukan', status: 'error' };
+    }
+
+    const finalTicketId = participant.ticket_id;
+    const tenantId = getTenantId();
+    const eventId = getEventId();
+
+    // Generate offline UUID
+    const offlineId = generateOfflineId();
+    const timestamp = new Date().toISOString();
+
+    const newLog = {
+      id: offlineId,
+      ticket_id: finalTicketId,
+      day: day,
+      scanned_by: scannedBy,
+      timestamp: timestamp,
+      sync_status: 'pending',
+      synced_at: null,
+      qr_data: qrName || participant.name
+    };
+
+    _pendingCheckIns.push(newLog);
+    savePendingCheckIns();
+
+    const existingIndex = _checkInCache.findIndex(
+      log => log.ticket_id === finalTicketId && log.day === day
+    );
+    if (existingIndex !== -1) {
+      _checkInCache[existingIndex] = newLog;
+    } else {
+      _checkInCache.push(newLog);
+    }
+
+    void syncCheckInLog({ tenantId, eventId, log: newLog });
+
+    console.log(`[forceCheckIn] SUCCESS: ${participant.name} force checked in for day ${day}`);
+
+    return { 
+      success: true, 
+      ticket_id: finalTicketId, 
+      participant, 
+      status: 'success',
+      forced: true,
+      message: 'Check-in berhasil ( OVERRIDE - Salah Hari )'
+    };
+  } catch {
+    return { success: false, error: 'Force check-in failed', status: 'error' };
+  }
+}
+
+async function manualCheckIn(ticketId, scannedBy, day) {
   // Sync data first to ensure we have latest participants
   await bootstrapStoreFromFirebase(true);
 
@@ -218,8 +286,8 @@ async function manualCheckIn(ticketId, scannedBy) {
     return { success: false, error: 'Data peserta tidak valid (nama atau tiket ID kosong)', status: 'invalid_data' };
   }
 
-  const day = getCurrentDay();
-  return checkIn(ticketId, day, scannedBy);
+  const checkDay = day || getCurrentDay();
+  return checkIn(ticketId, checkDay, scannedBy);
 }
 
 async function syncPendingCheckIns() {
@@ -504,15 +572,17 @@ export default function FrontGate() {
     setShowResultDetail(false)
 
     if (res.success) {
-      // VIP gets special fanfare
+      triggerSuccessHaptic()
       if (res.participant?.category === 'VIP') {
         playVIPAlert()
       } else {
         playSuccess()
       }
     } else if (res.status === 'wrong_day') {
+      triggerErrorHaptic()
       playWarning()
     } else {
+      triggerErrorHaptic()
       playError()
     }
 
@@ -530,12 +600,13 @@ export default function FrontGate() {
   // Manual check-in by participant ID - now async with server sync
   const handleManualCheckIn = async (participant) => {
     setIsResolvingLatestData(true)
-    const res = await manualCheckIn(participant.ticket_id, 'gate_front')
+    const res = await manualCheckIn(participant.ticket_id, 'gate_front', selectedDay)
     setIsResolvingLatestData(false)
     setResult(res)
     setShowResultDetail(false)
 
     if (res.success) {
+      triggerSuccessHaptic()
       if (res.participant?.category === 'VIP') {
         playVIPAlert()
       } else {
@@ -545,6 +616,7 @@ export default function FrontGate() {
         p.ticket_id === participant.ticket_id ? { ...p, is_checked_in: true } : p
       ))
     } else {
+      triggerErrorHaptic()
       playError()
     }
 
@@ -583,18 +655,56 @@ export default function FrontGate() {
   // Camera scanner
   const startCamera = async () => {
     try {
+      // Tunggu sebentar agar DOM element siap
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Cek apakah element qr-reader sudah ada
+      const qrElement = document.getElementById('qr-reader')
+      if (!qrElement) {
+        console.error('[Camera] qr-reader element not found')
+        alert('Komponen scanner belum siap. Coba lagi.')
+        return
+      }
+      
       const { Html5Qrcode } = await import('html5-qrcode')
+      if (!Html5Qrcode) {
+        throw new Error('Library html5-qrcode gagal di-load')
+      }
+      console.log('[Camera] Html5Qrcode loaded successfully')
       const scanner = new Html5Qrcode('qr-reader')
       scannerRef.current = scanner
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => handleScan(decodedText),
-        () => {}
+        (errorMessage) => { console.log('[Camera] Scan error:', errorMessage) }
       )
     } catch (err) {
-      console.error('Camera error:', err)
-      setScanMode('manual')
+      console.error('[Camera] Full error:', err)
+      console.error('[Camera] Error type:', typeof err)
+      console.error('[Camera] Error string:', String(err))
+      console.error('[Camera] Error keys:', Object.keys(err || {}))
+      console.error('[Camera] Error name:', err?.name)
+      console.error('[Camera] Error message:', err?.message)
+      console.error('[Camera] Error stack:', err?.stack)
+      
+      // Parse error string untuk mendapatkan pesan yang lebih baik
+      const errStr = String(err)
+      let userMsg = 'Gagal mengakses kamera'
+      
+      if (errStr.includes('NotAllowedError')) {
+        userMsg = 'Izin kamera ditolak. Klik Allow saat browser meminta izin.'
+      } else if (errStr.includes('NotFoundError')) {
+        userMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
+      } else if (errStr.includes('NotReadableError')) {
+        userMsg = 'Kamera sedang digunakan aplikasi lain. Tutup Zoom/Teams dulu.'
+      } else if (errStr.includes('AbortError')) {
+        userMsg = 'Akses kamera dibatalkan.'
+      } else {
+        userMsg = `Gagal mengakses kamera: ${errStr}`
+      }
+      
+      alert(userMsg)
     }
   }
 
@@ -602,8 +712,9 @@ export default function FrontGate() {
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop()
-      } catch {
-        // Scanner may already be stopped.
+        console.log('[Camera] Scanner stopped successfully')
+      } catch (err) {
+        console.log('[Camera] Stop error (may already be stopped):', err?.message)
       }
       scannerRef.current = null
     }
@@ -642,7 +753,10 @@ export default function FrontGate() {
   }, [refreshStats, refreshPendingState])
 
   useEffect(() => {
-    return () => { stopCamera() }
+    return () => { 
+      stopCamera()
+      console.log('[FrontGate] Component unmounted, camera stopped')
+    }
   }, [])
 
   useEffect(() => {
@@ -689,10 +803,30 @@ export default function FrontGate() {
   const handleModeSwitch = (mode) => {
     if (mode === 'camera' && scanMode !== 'camera') {
       setScanMode('camera')
-      setTimeout(startCamera, 100)
+      // Delay lebih lama agar DOM element qr-reader siap
+      setTimeout(startCamera, 500)
     } else if (mode !== 'camera') {
       stopCamera()
       setScanMode(mode)
+    }
+  }
+
+  // Haptic feedback helper for mobile
+  const triggerHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(10) // Short 10ms vibration
+    }
+  }
+  
+  const triggerSuccessHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([50, 30, 50]) // Pattern: short, pause, short
+    }
+  }
+  
+  const triggerErrorHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([100, 50, 100]) // Pattern: long, pause, long
     }
   }
 
@@ -754,7 +888,7 @@ export default function FrontGate() {
     if (result.success) return 'Silakan peserta masuk.'
     if (result.status === 'duplicate') return 'Arahkan peserta ke helpdesk untuk verifikasi ulang.'
     if (result.status === 'wrong_day') {
-      return `Peserta terdaftar untuk Hari ${result.expectedDay}, tapi scan untuk Hari ${result.scannedDay}.`;
+      return `Tiket untuk Hari ${result.expectedDay}. Saat ini Hari ${result.scannedDay}.`;
     }
     if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
     if (result.status === 'not_registered') return 'Peserta belum terdaftar di sistem. Arahkan ke helpdesk untuk registrasi.'
@@ -815,6 +949,52 @@ export default function FrontGate() {
     setResult({ success: true, status: 'synced', message: 'Semua antrean offline berhasil dibersihkan' })
     setTimeout(() => setResult(null), 2500)
   }
+
+  const handleForceCheckIn = async () => {
+    if (!result || result.status !== 'wrong_day' || !result.participant) {
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `⚠️ Check-in Override\n\n` +
+      `Nama: ${result.participant.name}\n` +
+      `Tiket: ${result.participant.ticket_id}\n\n` +
+      `Tiket untuk Hari ${result.expectedDay}, tapi akan check-in untuk Hari ${result.scannedDay}.\n\n` +
+      `Lanjutkan check-in?`
+    );
+    
+    if (!confirmed) return;
+    
+    triggerSuccessHaptic();
+    
+    const res = await forceCheckIn(
+      result.participant.ticket_id,
+      result.scannedDay,
+      getUserName(),
+      result.participant.name
+    );
+    
+    if (res.success) {
+      refreshStats();
+      setResult({
+        success: true,
+        status: 'forced',
+        message: 'Check-in berhasil (OVERRIDE)',
+        participant: result.participant,
+        scannedDay: result.scannedDay,
+        expectedDay: result.expectedDay
+      });
+      setTimeout(() => setResult(null), 3000);
+    } else {
+      triggerErrorHaptic();
+      setResult({
+        success: false,
+        status: 'error',
+        message: res.error || 'Force check-in gagal'
+      });
+      setTimeout(() => setResult(null), 3000);
+    }
+  };
 
   const handleExportOfflineReport = async () => {
     const ok = await exportOfflineQueueReportToCSV(getPendingCheckIns(), getOfflineQueueHistory(1000))
@@ -906,14 +1086,14 @@ export default function FrontGate() {
 
       {/* Mode Tabs - 3 tabs now */}
       <div className="tabs scanner-tabs">
-        <button className={`tab ${scanMode === 'camera' ? 'active' : ''}`} onClick={() => handleModeSwitch('camera')}>
+        <button className={`tab touch-feedback ${scanMode === 'camera' ? 'active' : ''}`} onClick={() => { triggerHaptic(); handleModeSwitch('camera'); }}>
           <Camera size={16} /> Kamera
         </button>
-        <button className={`tab ${scanMode === 'manual' ? 'active' : ''}`} onClick={() => handleModeSwitch('manual')}>
+        <button className={`tab touch-feedback ${scanMode === 'manual' ? 'active' : ''}`} onClick={() => { triggerHaptic(); handleModeSwitch('manual'); }}>
           <Keyboard size={16} /> Manual
         </button>
-        <button className={`tab ${scanMode === 'search' ? 'active' : ''}`} onClick={() => handleModeSwitch('search')}>
-          <Search size={16} /> Cari Nama
+        <button className={`tab touch-feedback ${scanMode === 'search' ? 'active' : ''}`} onClick={() => { triggerHaptic(); handleModeSwitch('search'); }}>
+          <Search size={16} /> Cari
         </button>
       </div>
 
@@ -935,6 +1115,18 @@ export default function FrontGate() {
                 </div>
               )}
               <div className="scanner-result-action">{getResultActionHint()}</div>
+              
+              {/* Tombol Check-in Tetap untuk kasus wrong_day */}
+              {result && result.status === 'wrong_day' && result.participant && (
+                <button 
+                  className="btn btn-warning btn-sm scanner-force-checkin-btn" 
+                  onClick={handleForceCheckIn}
+                  style={{ marginTop: '12px' }}
+                >
+                  <AlertTriangle size={16} /> Check-in Tetap
+                </button>
+              )}
+              
               {canShowDetailToggle && (
                 <button className="btn btn-ghost btn-sm scanner-detail-toggle" onClick={() => setShowResultDetail(prev => !prev)}>
                   {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
@@ -1002,6 +1194,18 @@ export default function FrontGate() {
                   </div>
                 )}
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
+                
+                {/* Tombol Check-in Tetap untuk kasus wrong_day */}
+                {result && result.status === 'wrong_day' && result.participant && (
+                  <button 
+                    className="scanner-force-checkin-btn" 
+                    onClick={handleForceCheckIn}
+                    style={{ marginTop: '12px', marginBottom: '8px' }}
+                  >
+                    <AlertTriangle size={16} /> Check-in Tetap (Override)
+                  </button>
+                )}
+                
                 {canShowDetailToggle && (
                   <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
                     {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
@@ -1114,6 +1318,18 @@ export default function FrontGate() {
                   </div>
                 )}
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
+                
+                {/* Tombol Check-in Tetap untuk kasus wrong_day */}
+                {result && result.status === 'wrong_day' && result.participant && (
+                  <button 
+                    className="scanner-force-checkin-btn" 
+                    onClick={handleForceCheckIn}
+                    style={{ marginTop: '12px', marginBottom: '8px' }}
+                  >
+                    <AlertTriangle size={16} /> Check-in Tetap (Override)
+                  </button>
+                )}
+                
                 {canShowDetailToggle && (
                   <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
                     {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
