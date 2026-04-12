@@ -104,18 +104,18 @@ function generateServerQRData({ ticket_id, name, day_number }, tenantId = 'tenan
         const payload = `${t}|${e}|${tid}|${d}|event-2026`;
         const sig = Buffer.from(payload).toString('base64');
         
-        // Build QR data object (sama format dengan frontend)
+        // Build QR data object (KONSISTEN dengan frontend buildQRPayload)
+        // Urutan field harus sama persis dengan frontend untuk JSON.stringify consistency
         const qrObject = {
-            v: 2,
             tid,
             t,
             e,
             d,
             n,
             sig,
-            r: crypto.randomUUID().slice(0, 8)
+            v: 2
         };
-        
+
         // Return plain JSON (KONSISTEN dengan frontend generateQRData)
         return JSON.stringify(qrObject);
     } catch (err) {
@@ -747,15 +747,16 @@ function normalizeOutgoingQrData(rawQr, fallback = {}) {
         console.log(`[normalizeOutgoingQrData] Using MODERN format for ticket=${parsed.ticketId}`);
     }
 
+    // Build payload dengan urutan field SAMA PERSIS frontend (qrSecurity.js buildQRPayload)
+    // tid, t, e, d, n, sig, v - untuk konsistensi JSON.stringify
     const payload = {
         tid: parsed.ticketId,
-        n: String(fallback?.name || '').trim() || '',
-        d: parsed.dayNumber,
         t: parsed.tenantId,
         e: parsed.eventId,
-        r: parsed.secureRef || '',
+        d: parsed.dayNumber,
+        n: String(fallback?.name || '').trim() || '',
         sig: parsed.signature,
-        v: Number.isFinite(parsed.version) ? parsed.version : 1
+        v: Number.isFinite(parsed.version) ? parsed.version : 2
     };
 
     return {
