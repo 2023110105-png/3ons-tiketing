@@ -1,88 +1,93 @@
 import { useParams, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Building2, ClipboardList, Settings } from 'lucide-react'
 
-// Tabs
-import TenantList from './tabs/TenantList'
-import ContractManager from './tabs/ContractManager'
-import QuotaManager from './tabs/QuotaManager'
+// Simplified Owner Tabs - only 4 essential menus
+import OwnerOverview from './tabs/OwnerOverview'
+import OwnerTenants from './tabs/OwnerTenants'
+import OwnerAudit from './tabs/OwnerAudit'
+import OwnerSystem from './tabs/OwnerSystem'
 
-import AuditLog from './tabs/AuditLog'
-import TenantHealth from './tabs/TenantHealth'
-import BillingInvoice from './tabs/BillingInvoice'
-import BackupRestore from './tabs/BackupRestore'
-import WhiteLabel from './tabs/WhiteLabel'
-import NotificationCenter from './tabs/NotificationCenter'
-import ImpersonateView from './tabs/ImpersonateView'
-import ServerVerifyTools from './tabs/ServerVerifyTools'
-
-const RELEASE_MORNING_MODE = true
-const OWNER_RELEASE_ALLOWED_TABS = new Set(['users', 'billing', 'audit', 'health', 'notifications'])
+const OWNER_MENU = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/owner' },
+  { id: 'tenants', label: 'Tenants', icon: Building2, path: '/owner/tenants' },
+  { id: 'audit', label: 'Audit Log', icon: ClipboardList, path: '/owner/audit' },
+  { id: 'system', label: 'System', icon: Settings, path: '/owner/system' }
+]
 
 export default function OwnerPanel() {
   const { activeTab } = useParams()
   const navigate = useNavigate()
-  
-  const renderActiveTab = () => {
-    if (RELEASE_MORNING_MODE && activeTab && !OWNER_RELEASE_ALLOWED_TABS.has(activeTab)) {
-      return (
-        <div className="owner-empty-state" style={{ padding: '42px 20px' }}>
-          <div className="owner-empty-icon">🛡️</div>
-          <div className="owner-empty-title">Menu dikunci sementara</div>
-          <p className="owner-empty-message" style={{ maxWidth: 560, margin: '10px auto 18px' }}>
-            Mode rilis pagi aktif. Untuk menjaga sistem tetap stabil saat handover ke user, menu ini dinonaktifkan sementara.
-          </p>
-          {/* <button className="btn btn-primary" onClick={() => navigate('/owner/users')}>
-            Buka Kelola Pengguna
-          </button> */}
-        </div>
-      )
-    }
+  const currentTab = activeTab || 'overview'
 
-    switch (activeTab) {
+  const handleTabChange = (tabId) => {
+    const menu = OWNER_MENU.find(m => m.id === tabId)
+    if (menu) navigate(menu.path)
+  }
+
+  const renderActiveTab = () => {
+    switch (currentTab) {
+      case 'overview':
+        return <OwnerOverview onNavigate={handleTabChange} />
       case 'tenants':
-        return <TenantList 
-                  onManageUsers={() => navigate('/owner/users')} 
-                  onEditContract={() => navigate('/owner/contracts')} 
-                />
-      case 'contracts':
-        return <ContractManager />
-      case 'quotas':
-        return <QuotaManager />
-      case 'users':
-        return <UserManagement />
-      case 'impersonate':
-        return <ImpersonateView />
-      case 'billing':
-        return <BillingInvoice />
+        return <OwnerTenants />
       case 'audit':
-        return <AuditLog />
-      case 'health':
-        return <TenantHealth />
-      case 'backup':
-        return <BackupRestore />
-      case 'branding':
-        return <WhiteLabel />
-      case 'notifications':
-        return <NotificationCenter />
-      case 'tech-tools':
-        return <ServerVerifyTools />
+        return <OwnerAudit />
+      case 'system':
+        return <OwnerSystem />
       default:
-        return RELEASE_MORNING_MODE ? <UserManagement /> : <TenantList />
+        return <OwnerOverview onNavigate={handleTabChange} />
     }
   }
 
   return (
-    <div className="owner-console-wrapper animate-fade-in">
-      <header className="owner-console-hero">
-        <span className="page-kicker">Platform</span>
-        <h1>Pusat kendali pemilik</h1>
-        <p>Kelola akun brand, kuota, kontrak, audit, dan kesehatan sistem. Perubahan di lingkungan ini berdampak ke banyak tenant—gunakan dengan hati-hati.</p>
-      </header>
+    <div className="owner-panel-container">
+      {/* Sidebar Navigation */}
+      <aside className="owner-sidebar">
+        <div className="owner-brand">
+          <div className="owner-brand-icon">3o</div>
+          <div className="owner-brand-text">
+            <span className="owner-brand-name">Owner Panel</span>
+            <span className="owner-brand-sub">Platform Management</span>
+          </div>
+        </div>
 
-      <div className="owner-tab-content card owner-workspace-card">
-        <div className="card-pad">
+        <nav className="owner-nav">
+          {OWNER_MENU.map(item => {
+            const Icon = item.icon
+            const isActive = currentTab === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                className={`owner-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={20} />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="owner-sidebar-footer">
+          <button onClick={() => navigate('/admin')} className="owner-nav-item">
+            ← Kembali ke Admin
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="owner-main">
+        <header className="owner-header">
+          <h1>{OWNER_MENU.find(m => m.id === currentTab)?.label || 'Overview'}</h1>
+          <div className="owner-header-actions">
+            <span className="owner-role-badge">Platform Owner</span>
+          </div>
+        </header>
+
+        <div className="owner-content">
           {renderActiveTab()}
         </div>
-      </div>
+      </main>
     </div>
   )
 }

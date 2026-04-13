@@ -28,12 +28,6 @@ function _getAvailableDays() {
   return days.length > 0 ? days.sort((a, b) => a - b) : [1];
 }
 
-function getCurrentDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = 'tenant-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
-
 function getCurrentEventId() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
   const tenantId = 'tenant-default';
