@@ -78,13 +78,12 @@ import {
 
 const RELEASE_MORNING_MODE = true
 const REALTIME_SYNC_INTERVAL_MS = 2500
-const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
-const OWNER_RELEASE_VISIBLE_PATHS = new Set([
-  '/owner/users',
-  '/owner/billing',
-  '/owner/audit',
-  '/owner/health',
-  '/owner/notifications'
+const ADMIN_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_ADMIN_FEATURES || 'true').trim().toLowerCase() === 'true'
+const ADMIN_RELEASE_VISIBLE_PATHS = new Set([
+  '/admin-panel/overview',
+  '/admin-panel/tenants',
+  '/admin-panel/audit',
+  '/admin-panel/system'
 ])
 
 export default function Layout({ children }) {
@@ -127,7 +126,7 @@ export default function Layout({ children }) {
   }, [])
 
   useEffect(() => {
-    if (user?.role === 'owner') return
+    if (user?.role === 'admin') return
 
     let stopped = false
 
@@ -174,35 +173,29 @@ export default function Layout({ children }) {
   const isActive = (path) => location.pathname === path
 
   const getNavItems = () => {
-    if (user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') {
+    if (user?.role === 'operator') {
       return [
-        { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
-        { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
+        { path: '/operator', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
+        { path: '/operator/participants', icon: <Users size={18} />, label: 'Peserta' },
         { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai' }
       ]
     }
-    if (user?.role === 'owner' && OWNER_FEATURES_ENABLED) {
-      return [{ path: '/owner', icon: <ShieldCheck size={18} />, label: 'Pemilik' }]
-    }
-    if (user?.role === 'gate_front') {
-      return [{ path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai QR' }]
-    }
-    if (user?.role === 'gate_back') {
-      return [{ path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Monitor' }]
+    if (user?.role === 'admin' && ADMIN_FEATURES_ENABLED) {
+      return [{ path: '/admin-panel', icon: <ShieldCheck size={18} />, label: 'Admin Panel' }]
     }
     return []
   }
 
-  const adminNav = [
-    { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
-    { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
-    { path: '/admin/analytics', icon: <TrendingUp size={18} />, label: 'Analitik' },
-    { path: '/admin/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
-    { path: '/admin/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
-    { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
-    { path: '/admin/qr-generate', icon: <QrCode size={18} />, label: 'Buat QR' },
-    { path: '/admin/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },
-    { path: '/admin/settings', icon: <Settings size={18} />, label: 'Pengaturan' },
+  const operatorNav = [
+    { path: '/operator', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
+    { path: '/operator/participants', icon: <Users size={18} />, label: 'Peserta' },
+    { path: '/operator/analytics', icon: <TrendingUp size={18} />, label: 'Analitik' },
+    { path: '/operator/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
+    { path: '/operator/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
+    { path: '/operator/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
+    { path: '/operator/qr-generate', icon: <QrCode size={18} />, label: 'Buat QR' },
+    { path: '/operator/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },
+    { path: '/operator/settings', icon: <Settings size={18} />, label: 'Pengaturan' },
   ]
 
   const gateNav = [
@@ -210,32 +203,21 @@ export default function Layout({ children }) {
     { path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Pantau Langsung' },
   ]
 
-  const ownerNav = [
-    { path: '/owner/tenants', icon: <LayoutDashboard size={18} />, label: 'Akun Brand' },
-    { path: '/owner/contracts', icon: <FileText size={18} />, label: 'Kontrak Sewa' },
-    { path: '/owner/quotas', icon: <BarChart3 size={18} />, label: 'Kuota Akun Brand' },
-    { path: '/owner/users', icon: <Users size={18} />, label: 'Kelola Pengguna' },
-    { path: '/owner/impersonate', icon: <Eye size={18} />, label: 'Masuk sebagai Pengguna' },
-    { path: '/owner/billing', icon: <History size={18} />, label: 'Tagihan' },
-    { path: '/owner/audit', icon: <ShieldCheck size={18} />, label: 'Riwayat Aktivitas' },
-    { path: '/owner/health', icon: <Activity size={18} />, label: 'Kesehatan Sistem' },
-    { path: '/owner/backup', icon: <Database size={18} />, label: 'Cadangan Data' },
-    { path: '/owner/branding', icon: <Settings size={18} />, label: 'Tampilan Brand' },
-    { path: '/owner/notifications', icon: <Bell size={18} />, label: 'Pemberitahuan' },
-    { path: '/owner/tech-tools', icon: <ShieldCheck size={18} />, label: 'Alat IT' },
+  const adminNav = [
+    { path: '/admin-panel/overview', icon: <LayoutDashboard size={18} />, label: 'Overview' },
+    { path: '/admin-panel/tenants', icon: <Building2 size={18} />, label: 'Tenants' },
+    { path: '/admin-panel/audit', icon: <ClipboardList size={18} />, label: 'Audit Log' },
+    { path: '/admin-panel/system', icon: <Settings size={18} />, label: 'System' },
   ]
-  const ownerNavVisible = RELEASE_MORNING_MODE
-    ? ownerNav.filter((item) => OWNER_RELEASE_VISIBLE_PATHS.has(item.path))
-    : ownerNav
+  const adminNavVisible = RELEASE_MORNING_MODE
+    ? adminNav.filter((item) => ADMIN_RELEASE_VISIBLE_PATHS.has(item.path))
+    : adminNav
 
   const mobileNavItems = getNavItems()
 
   const scopeLabels = {
-    super_admin: 'Admin Acara',
-    admin_client: 'Admin Acara',
-    owner: 'Pemilik Platform',
-    gate_front: 'Pemindaian QR',
-    gate_back: 'Monitor Pintu',
+    admin: 'Admin Panel',
+    operator: 'Operator',
   }
 
   const scopeClass = user?.role
@@ -273,11 +255,11 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          {(user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') && (
+          {user?.role === 'operator' && (
             <>
               <div className="nav-section">
-                <div className="nav-section-title">Panel Admin</div>
-                {adminNav.map(item => (
+                <div className="nav-section-title">Panel Operator</div>
+                {operatorNav.map(item => (
                   <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                     <span className="nav-icon">{item.icon}</span>
                     {item.label}
@@ -296,30 +278,10 @@ export default function Layout({ children }) {
             </>
           )}
 
-          {user?.role === 'gate_front' && (
+          {user?.role === 'admin' && ADMIN_FEATURES_ENABLED && (
             <div className="nav-section">
-              <div className="nav-section-title">Pemindai</div>
-              <Link to="/gate/scan" className={`nav-item ${isActive('/gate/scan') ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
-                <span className="nav-icon"><Camera size={18} /></span>
-                Pindai Kode QR
-              </Link>
-            </div>
-          )}
-
-          {user?.role === 'gate_back' && (
-            <div className="nav-section">
-              <div className="nav-section-title">Monitor</div>
-              <Link to="/gate/monitor" className={`nav-item ${isActive('/gate/monitor') ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
-                <span className="nav-icon"><MonitorSmartphone size={18} /></span>
-                Pantau Langsung
-              </Link>
-            </div>
-          )}
-
-          {user?.role === 'owner' && OWNER_FEATURES_ENABLED && (
-            <div className="nav-section">
-              <div className="nav-section-title">Panel Pemilik</div>
-              {ownerNavVisible.map(item => (
+              <div className="nav-section-title">Admin Panel</div>
+              {adminNavVisible.map(item => (
                 <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}
@@ -330,7 +292,7 @@ export default function Layout({ children }) {
         </nav>
 
         <div className="sidebar-footer">
-          {user?.role !== 'owner' && (
+          {user?.role === 'operator' && (
             <a
               href={supportLink}
               target="_blank"
@@ -396,7 +358,7 @@ export default function Layout({ children }) {
         </header>
 
         <div className="page-wrapper">
-          {RELEASE_MORNING_MODE && user?.role === 'owner' && OWNER_FEATURES_ENABLED && (
+          {RELEASE_MORNING_MODE && user?.role === 'admin' && ADMIN_FEATURES_ENABLED && (
             <div
               style={{
                 marginBottom: 12,

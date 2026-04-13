@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Settings, Database, Shield, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
 
-export default function OwnerSystem() {
+export default function AdminSystem() {
   const [health] = useState({
     supabase: { status: 'connected', lastPing: '2s ago' },
     storage: { status: 'healthy', used: '12%', total: '100%' },

@@ -42,18 +42,18 @@ function lazyWithTimeout(importFn, timeoutMs = 10000) {
 }
 
 const loadLogin = () => import('./pages/Login')
-const loadDashboard = lazyWithTimeout(() => import('./pages/admin/Dashboard'))
-const loadParticipants = lazyWithTimeout(() => import('./pages/admin/Participants'))
-const loadQRGenerate = lazyWithTimeout(() => import('./pages/admin/QRGenerate'))
-const loadReports = lazyWithTimeout(() => import('./pages/admin/Reports'))
+const loadDashboard = lazyWithTimeout(() => import('./pages/operator/Dashboard'))
+const loadParticipants = lazyWithTimeout(() => import('./pages/operator/Participants'))
+const loadQRGenerate = lazyWithTimeout(() => import('./pages/operator/QRGenerate'))
+const loadReports = lazyWithTimeout(() => import('./pages/operator/Reports'))
 const loadFrontGate = lazyWithTimeout(() => import('./pages/gate/FrontGate'))
 const loadBackGate = lazyWithTimeout(() => import('./pages/gate/BackGate'))
-const loadSettings = lazyWithTimeout(() => import('./pages/admin/Settings'))
-const loadConnectDevice = lazyWithTimeout(() => import('./pages/admin/ConnectDevice'))
-const loadOpsMonitor = lazyWithTimeout(() => import('./pages/admin/OpsMonitor'))
-const loadWaDelivery = lazyWithTimeout(() => import('./pages/admin/WaDelivery'))
-const loadAnalytics = lazyWithTimeout(() => import('./pages/admin/Analytics'))
-const loadOwnerPanel = lazyWithTimeout(() => import('./pages/owner/OwnerPanel'))
+const loadSettings = lazyWithTimeout(() => import('./pages/operator/Settings'))
+const loadConnectDevice = lazyWithTimeout(() => import('./pages/operator/ConnectDevice'))
+const loadOpsMonitor = lazyWithTimeout(() => import('./pages/operator/OpsMonitor'))
+const loadWaDelivery = lazyWithTimeout(() => import('./pages/operator/WaDelivery'))
+const loadAnalytics = lazyWithTimeout(() => import('./pages/operator/Analytics'))
+const loadAdminPanel = lazyWithTimeout(() => import('./pages/admin-panel/AdminPanel'))
 
 const Login = lazy(loadLogin)
 const Dashboard = lazy(loadDashboard)
@@ -67,8 +67,8 @@ const ConnectDevice = lazy(loadConnectDevice)
 const OpsMonitor = lazy(loadOpsMonitor)
 const WaDelivery = lazy(loadWaDelivery)
 const Analytics = lazy(loadAnalytics)
-const OwnerPanel = lazy(loadOwnerPanel)
-const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
+const AdminPanel = lazy(loadAdminPanel)
+const ADMIN_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_ADMIN_FEATURES || 'true').trim().toLowerCase() === 'true'
 
 function RouteFallback() {
   return (
@@ -97,18 +97,13 @@ function ProtectedRoute({ children, allowedRoles }) {
     console.log('[ProtectedRoute] No user, redirecting to login')
     return <Navigate to="/login" replace />
   }
-  if (!OWNER_FEATURES_ENABLED && user?.role === 'owner') {
-    return <Navigate to="/admin" replace />
+  if (!ADMIN_FEATURES_ENABLED && user?.role === 'admin') {
+    return <Navigate to="/operator" replace />
   }
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect based on role
-    if (user.role === 'owner') return <Navigate to={OWNER_FEATURES_ENABLED ? '/owner' : '/admin'} replace />
-    if (user.role === 'gate_front') return <Navigate to="/gate/scan" replace />
-    if (user.role === 'gate_back') return <Navigate to="/gate/monitor" replace />
-    // Admin and super_admin go to admin
-    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'admin_client') {
-      return <Navigate to="/admin" replace />
-    }
+    if (user.role === 'admin') return <Navigate to={ADMIN_FEATURES_ENABLED ? '/admin-panel' : '/operator'} replace />
+    if (user.role === 'operator') return <Navigate to="/operator" replace />
     return <Navigate to="/login" replace />
   }
 
@@ -150,8 +145,8 @@ function AppRoutes() {
         return
       }
 
-      if (user.role === 'owner' && OWNER_FEATURES_ENABLED) {
-        loadOwnerPanel()
+      if (user.role === 'admin' && ADMIN_FEATURES_ENABLED) {
+        loadAdminPanel()
       }
     }
 
@@ -177,52 +172,51 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={
-        user.role === 'owner' ? (OWNER_FEATURES_ENABLED ? '/owner' : '/admin') :
-        (user.role === 'super_admin' || user.role === 'admin_client') ? '/admin' :
-        user.role === 'gate_front' ? '/gate/scan' :
-        '/gate/monitor'
+        user.role === 'admin' ? (ADMIN_FEATURES_ENABLED ? '/admin-panel' : '/operator') :
+        user.role === 'operator' ? '/operator' :
+        '/gate/scan'
       } replace /> : <Login />} />
 
-      {/* Owner Route */}
-      <Route path="/owner" element={<Navigate to={OWNER_FEATURES_ENABLED ? '/owner/tenants' : '/admin'} replace />} />
-      <Route path="/owner/:activeTab" element={
-        OWNER_FEATURES_ENABLED ? (
-          <ProtectedRoute allowedRoles={['owner']}>
-            <OwnerPanel />
+      {/* Admin Panel Route */}
+      <Route path="/admin-panel" element={<Navigate to={ADMIN_FEATURES_ENABLED ? '/admin-panel/overview' : '/operator'} replace />} />
+      <Route path="/admin-panel/:activeTab" element={
+        ADMIN_FEATURES_ENABLED ? (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminPanel />
           </ProtectedRoute>
         ) : (
-          <Navigate to="/admin" replace />
+          <Navigate to="/operator" replace />
         )
       } />
       
-      {/* Admin Routes */}
-      <Route path="/admin" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+      {/* Operator Routes */}
+      <Route path="/operator" element={
+        <ProtectedRoute allowedRoles={['operator']}>
           <Dashboard />
         </ProtectedRoute>
       } />
-      <Route path="/admin/participants" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+      <Route path="/operator/participants" element={
+        <ProtectedRoute allowedRoles={['operator']}>
           <Participants />
         </ProtectedRoute>
       } />
-      <Route path="/admin/qr-generate" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+      <Route path="/operator/qr-generate" element={
+        <ProtectedRoute allowedRoles={['operator']}>
           <QRGenerate />
         </ProtectedRoute>
       } />
-      <Route path="/admin/connect" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+      <Route path="/operator/connect" element={
+        <ProtectedRoute allowedRoles={['operator']}>
           <ConnectDevice />
         </ProtectedRoute>
       } />
-      <Route path="/admin/reports" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+      <Route path="/operator/reports" element={
+        <ProtectedRoute allowedRoles={['operator']}>
           <Reports />
         </ProtectedRoute>
       } />
-      <Route path="/admin/ops" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+      <Route path="/operator/ops" element={
+        <ProtectedRoute allowedRoles={['operator']}>
           <OpsMonitor />
         </ProtectedRoute>
       } />

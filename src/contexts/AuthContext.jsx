@@ -93,7 +93,7 @@ async function fastLoginSupabase(username, password) {
   }
   
   // Validasi: pastikan role valid
-  const validRoles = ['owner', 'super_admin', 'admin_client', 'gate_front', 'gate_back', 'admin'];
+  const validRoles = ['admin', 'operator'];
   const userRole = String(user.role || '').trim().toLowerCase();
   if (!validRoles.includes(userRole)) {
     return { success: false, error: 'Akun tidak memiliki peran yang valid' };

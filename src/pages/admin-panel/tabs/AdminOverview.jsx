@@ -1,6 +1,6 @@
 import { Building2, Users, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react'
 
-export default function OwnerOverview({ onNavigate }) {
+export default function AdminOverview({ onNavigate }) {
   const stats = {
     tenants: 1,
     totalUsers: 3,

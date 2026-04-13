@@ -156,12 +156,13 @@ const CATEGORY_COLORS = {
 };
 
 // StatCard component di luar render function
-function StatCard({ icon: IconComponent, title, value, subtext, color = 'blue', trend = null }) {
+function StatCard({ icon, title, value, subtext, color = 'blue', trend = null }) {
+  const Icon = icon
   return (
     <div className="analytics-card" style={{ borderTop: `3px solid var(--brand-${color})` }}>
       <div className="analytics-card-header">
         <div className={`analytics-icon bg-${color}`}>
-          <IconComponent size={20} />
+          <Icon size={20} />
         </div>
         <span className="analytics-card-title">{title}</span>
       </div>

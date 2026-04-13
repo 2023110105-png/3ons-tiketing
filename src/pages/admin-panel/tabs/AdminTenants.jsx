@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Building2, Plus, Edit2, Trash2, Users } from 'lucide-react'
 
-export default function OwnerTenants() {
+export default function AdminTenants() {
   const [tenants, setTenants] = useState([
     { id: 'tenant-default', name: '3oNs Digital', brand: 'Yamaha Music', users: 3, status: 'active' }
   ])

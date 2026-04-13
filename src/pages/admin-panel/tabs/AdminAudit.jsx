@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ClipboardList, Filter, Download } from 'lucide-react'
 
-export default function OwnerAudit() {
+export default function AdminAudit() {
   const [logs] = useState([
     { id: 1, action: 'LOGIN', user: 'admin@example.com', details: 'User login', timestamp: '2026-04-13 15:30:00' },
     { id: 2, action: 'CHECKIN', user: 'gate@example.com', details: 'Participant check-in: T120260001', timestamp: '2026-04-13 15:25:00' },
