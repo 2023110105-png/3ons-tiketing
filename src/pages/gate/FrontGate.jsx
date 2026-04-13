@@ -1,5 +1,5 @@
 // ===== REAL FUNCTIONS FOR GATE SCAN =====
-import { fetchFirebaseWorkspaceSnapshot, syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 let _pendingCheckIns = [];
@@ -13,8 +13,8 @@ function getUserName() { return localStorage.getItem('user_name') || 'Admin'; }
 function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
@@ -101,7 +101,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
   try {
     console.log(`[checkIn] Start: ticketId=${ticketId}, day=${day}`);
     // Sync data from server first to ensure we have latest participants
-    await bootstrapStoreFromFirebase(true);
+    await bootstrapStoreFromServer(true);
 
     // Cari peserta berdasarkan ticket_id (case-insensitive)
     const participants = getParticipants(day);
@@ -221,7 +221,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
 async function forceCheckIn(ticketId, day, scannedBy, qrName = '') {
   try {
     console.log(`[forceCheckIn] Override: ticketId=${ticketId}, day=${day}`);
-    await bootstrapStoreFromFirebase(true);
+    await bootstrapStoreFromServer(true);
 
     const participants = getParticipants();
     const participant = participants.find(p => p.ticket_id === ticketId);
@@ -279,7 +279,7 @@ async function forceCheckIn(ticketId, day, scannedBy, qrName = '') {
 
 async function manualCheckIn(ticketId, scannedBy, day) {
   // Sync data first to ensure we have latest participants
-  await bootstrapStoreFromFirebase(true);
+  await bootstrapStoreFromServer(true);
 
   const participants = getParticipants();
   const participant = participants.find(p => p.ticket_id === ticketId);
@@ -405,7 +405,7 @@ export default function FrontGate() {
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const lastScanRef = useRef({ data: null, time: 0 })
-  const lastFirebaseSyncRef = useRef(0)
+  const lastServerSyncRef = useRef(0)
   const scannerRef = useRef(null)
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
 
@@ -419,11 +419,11 @@ export default function FrontGate() {
     setPendingCount(items.length)
   }, [])
 
-  const refreshFromFirebaseIfStale = useCallback(async () => {
+  const refreshFromServerIfStale = useCallback(async () => {
     const now = Date.now()
-    if (now - lastFirebaseSyncRef.current < 2000) return
-    lastFirebaseSyncRef.current = now
-    void bootstrapStoreFromFirebase(true)
+    if (now - lastServerSyncRef.current < 2000) return
+    lastServerSyncRef.current = now
+    void bootstrapStoreFromServer(true)
   }, [])
 
   const getLimitBadgeClass = () => {
@@ -462,7 +462,7 @@ export default function FrontGate() {
   }, [isSyncing, refreshPendingState, refreshStats])
 
   const verifyScanWithServer = useCallback(async (qrData) => {
-    void refreshFromFirebaseIfStale()
+    void refreshFromServerIfStale()
 
     const parsed = parseQRData(qrData)
     if (!parsed) {
@@ -508,7 +508,7 @@ export default function FrontGate() {
     } catch {
       return { valid: false, reason: 'verify_unreachable', enforced: false }
     }
-  }, [refreshFromFirebaseIfStale])
+  }, [refreshFromServerIfStale])
 
   const handleScan = useCallback(async (qrData) => {
     const now = Date.now()
@@ -517,7 +517,7 @@ export default function FrontGate() {
     }
     lastScanRef.current = { data: qrData, time: now }
 
-    void refreshFromFirebaseIfStale()
+    void refreshFromServerIfStale()
 
     if (!navigator.onLine) {
       enqueuePendingCheckIn(qrData, 'gate_front', scanMode)
@@ -568,7 +568,7 @@ export default function FrontGate() {
       // Force a fresh pull and retry once so gate scan works without manual refresh.
       setIsResolvingLatestData(true)
       try {
-        await bootstrapStoreFromFirebase(true)
+        await bootstrapStoreFromServer(true)
         res = await checkIn(ticketId, day, 'gate_front', qrName)
       } finally {
         setIsResolvingLatestData(false)
@@ -594,7 +594,7 @@ export default function FrontGate() {
 
     refreshStats()
     setTimeout(() => setResult(null), getResultDismissMs(res))
-  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshFromFirebaseIfStale, refreshPendingState, refreshStats, verifyScanWithServer])
+  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshFromServerIfStale, refreshPendingState, refreshStats, verifyScanWithServer])
 
   const handleManualSubmit = (e) => {
     e.preventDefault()
@@ -637,7 +637,7 @@ export default function FrontGate() {
       // Sync data from server first to ensure we have latest participants
       setIsResolvingLatestData(true)
       try {
-        await bootstrapStoreFromFirebase(true)
+        await bootstrapStoreFromServer(true)
         refreshStats()
       } catch (err) {
         console.error('[FrontGate] Failed to sync before search:', err)
@@ -729,7 +729,7 @@ export default function FrontGate() {
   // Initial data load from Supabase
   useEffect(() => {
     const loadData = async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       refreshStats();
       refreshPendingState();
     };
@@ -743,7 +743,7 @@ export default function FrontGate() {
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
       console.log('[FrontGate] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
-      void bootstrapStoreFromFirebase().then(() => {
+      void bootstrapStoreFromServer().then(() => {
         refreshStats();
         refreshPendingState();
         console.log('[FrontGate] Data refreshed from realtime update');
@@ -771,12 +771,12 @@ export default function FrontGate() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void refreshFromFirebaseIfStale()
+      void refreshFromServerIfStale()
       refreshStats()
       refreshPendingState()
     }, REALTIME_REFRESH_MS)
     return () => window.clearInterval(intervalId)
-  }, [refreshFromFirebaseIfStale, refreshPendingState, refreshStats])
+  }, [refreshFromServerIfStale, refreshPendingState, refreshStats])
 
   useEffect(() => {
     const goOnline = () => {

@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR DIAGNOSTIC SUITE =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/firebaseSync'
+import { fetchWorkspaceSnapshot } from '../../../lib/dataSync'
 
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() { 
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() { 
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot; 
 }
 
@@ -114,7 +114,7 @@ export class DiagnosticSuite {
 
   async readRemoteWorkspaceSnapshot() {
     try {
-      return await fetchFirebaseWorkspaceSnapshot()
+      return await fetchWorkspaceSnapshot()
     } catch {
       return null
     }
@@ -334,7 +334,7 @@ export class DiagnosticSuite {
         eventId: getCurrentEventId() || this.eventId
       }
       const before = getParticipants(getCurrentDay()).length
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
       const after = getParticipants(getCurrentDay()).length
 
       const contextAfter = {

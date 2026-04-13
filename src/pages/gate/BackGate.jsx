@@ -1,10 +1,10 @@
 // ===== REAL FUNCTIONS FOR BACKGATE =====
-import { fetchFirebaseWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
@@ -104,7 +104,7 @@ export default function BackGate() {
   // Initial data load
   useEffect(() => {
     const loadData = async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       setRefreshKey(k => k + 1);
     };
     loadData();
@@ -113,7 +113,7 @@ export default function BackGate() {
   // Refresh stats periodically
   useEffect(() => {
     const interval = setInterval(() => {
-      void bootstrapStoreFromFirebase();
+      void bootstrapStoreFromServer();
       setRefreshKey(k => k + 1)
     }, REALTIME_REFRESH_MS)
     return () => clearInterval(interval)
@@ -124,7 +124,7 @@ export default function BackGate() {
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
       console.log('[BackGate] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
-      void bootstrapStoreFromFirebase().then(() => {
+      void bootstrapStoreFromServer().then(() => {
         setRefreshKey(k => k + 1);
         console.log('[BackGate] Data refreshed from realtime update');
       });

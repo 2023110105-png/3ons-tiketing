@@ -1,8 +1,8 @@
 // ===== REAL FUNCTIONS FOR WA DELIVERY =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function getParticipants(day) {
@@ -191,7 +191,7 @@ export default function WaDelivery() {
     // Initial load peserta dari Supabase
     useEffect(() => {
       const load = async () => {
-        await bootstrapStoreFromFirebase();
+        await bootstrapStoreFromServer();
       };
       load();
     }, []);
@@ -783,7 +783,7 @@ export default function WaDelivery() {
       )
       
       // Refresh participants data
-      await bootstrapStoreFromFirebase()
+      await bootstrapStoreFromServer()
     } catch (err) {
       toast.error('Gagal regenerasi QR', err?.message || 'Terjadi kesalahan saat regenerasi QR')
     } finally {

@@ -1,8 +1,8 @@
 // ===== REAL FUNCTIONS FOR QR GENERATE =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function getParticipants(day) {
@@ -316,8 +316,8 @@ export default function QRGenerate() {
         ]);
         setParticipants(dbParticipants);
         
-        // Also bootstrap from Firebase/workspace for other data
-        await bootstrapStoreFromFirebase();
+        // Also bootstrap from server for other data
+        await bootstrapStoreFromServer();
         setTicketBranding(getTenantBranding());
         setActiveEventName(getCurrentEventName());
       } catch (err) {

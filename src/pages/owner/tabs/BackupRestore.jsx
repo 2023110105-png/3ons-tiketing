@@ -15,21 +15,21 @@ export default function BackupRestore() {
 
   const initialHydrationDoneRef = useRef(false)
 
-  const runFirebaseHydrate = useCallback(async () => {
-    if (typeof bootstrapStoreFromFirebase !== 'function') return
+  const runServerHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromServer !== 'function') return
     try {
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
     } catch {
-      // Keep owner UI responsive when Firebase hydrate is unavailable.
+      // Keep owner UI responsive when server hydrate is unavailable.
     }
   }, [])
 
-  const refreshBackups = useCallback(async (forceFirebase = true) => {
-    if (forceFirebase) {
-      await runFirebaseHydrate()
+  const refreshBackups = useCallback(async (forceServer = true) => {
+    if (forceServer) {
+      await runServerHydrate()
     }
     setBackups(getStoreBackups())
-  }, [runFirebaseHydrate])
+  }, [runServerHydrate])
 
   // Only hydrate once on initial mount, not on every render
   useEffect(() => {

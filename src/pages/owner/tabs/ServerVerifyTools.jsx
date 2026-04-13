@@ -1,8 +1,8 @@
 // ===== REAL FUNCTIONS FOR SERVER VERIFY =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../../lib/dataSync';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() { 
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() { 
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot; 
 }
 
@@ -618,10 +618,10 @@ export default function ServerVerifyTools() {
       })
 
       await pushCheck('Sinkron data ke server', async () => {
-        if (typeof bootstrapStoreFromFirebase !== 'function') {
+        if (typeof bootstrapStoreFromServer !== 'function') {
           throw new Error('Penyegaran data tidak tersedia di aplikasi ini')
         }
-        await bootstrapStoreFromFirebase(true)
+        await bootstrapStoreFromServer(true)
         return 'Sinkronisasi data ke server berhasil dijalankan'
       })
 
@@ -768,13 +768,13 @@ export default function ServerVerifyTools() {
         }
       },
       {
-        key: 'firebase-sync-probe',
+        key: 'server-sync-probe',
         label: 'Sinkron data di perangkat (klien)',
         run: async () => {
-          if (typeof bootstrapStoreFromFirebase !== 'function') {
+          if (typeof bootstrapStoreFromServer !== 'function') {
             return { ok: false, status: 0, detail: 'Penyegaran data tidak tersedia' }
           }
-          await bootstrapStoreFromFirebase(true)
+          await bootstrapStoreFromServer(true)
           return { ok: true, status: 200, detail: 'Sinkronisasi data berhasil' }
         }
       }

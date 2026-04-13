@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR SETTINGS =====
-import { fetchFirebaseWorkspaceSnapshot, syncEventSnapshot, syncResetCheckInLogs } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, syncEventSnapshot, syncResetCheckInLogs } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
@@ -222,6 +222,167 @@ function restoreStoreBackup() { return { success: true }; }
 function exportStoreBackup() { return { success: true, content: '{}', fileName: 'backup.json' }; }
 function deleteStoreBackup() { return { success: true }; }
 function deleteInvalidStoreBackups() { return { success: true, deleted: 0 }; }
+
+// ===== BACKUP/EXPORT FUNCTIONS =====
+function getAllEventData() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return null;
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  if (!event) return null;
+  
+  return {
+    event: {
+      id: eventId,
+      name: event.name || 'Event Default',
+      exportDate: new Date().toISOString(),
+      currentDay: event.currentDay || 1,
+      waTemplate: event.waTemplate || '',
+      waSendMode: event.waSendMode || 'message_only'
+    },
+    participants: event.participants || [],
+    checkInLogs: event.checkInLogs || event.checkin_logs || [],
+    adminLogs: event.adminLogs || [],
+    stats: {
+      totalParticipants: (event.participants || []).length,
+      totalCheckIns: (event.checkInLogs || event.checkin_logs || []).length,
+      byCategory: getCategoryStats(event.participants || [], event.checkInLogs || event.checkin_logs || [])
+    }
+  };
+}
+
+function getCategoryStats(participants, logs) {
+  const checkedInIds = new Set(logs.map(l => l.ticket_id));
+  const stats = {};
+  
+  participants.forEach(p => {
+    const cat = p.category || 'Regular';
+    if (!stats[cat]) stats[cat] = { total: 0, checkedIn: 0 };
+    stats[cat].total++;
+    if (checkedInIds.has(p.ticket_id)) stats[cat].checkedIn++;
+  });
+  
+  return stats;
+}
+
+async function exportFullBackup(format = 'json') {
+  const data = getAllEventData();
+  if (!data) return { success: false, error: 'Tidak ada data untuk di-export' };
+  
+  const timestamp = new Date().toISOString().split('T')[0];
+  const filename = `Backup_${data.event.name.replace(/\s+/g, '_')}_${timestamp}`;
+  
+  if (format === 'json') {
+    const content = JSON.stringify(data, null, 2);
+    downloadFile(content, `${filename}.json`, 'application/json');
+    return { success: true, filename: `${filename}.json`, recordCount: data.participants.length };
+  }
+  
+  if (format === 'csv') {
+    return exportAsCSV(data, filename);
+  }
+  
+  if (format === 'excel') {
+    return exportAsExcel(data, filename);
+  }
+  
+  return { success: false, error: 'Format tidak didukung' };
+}
+
+function exportAsCSV(data, filename) {
+  const { participants, checkInLogs, event } = data;
+  
+  // Participants sheet
+  let csv = 'PARTICIPANTS\n';
+  csv += 'ID,Nama,Telepon,Email,Kategori,Hari,Ticket ID,QR Data,Status Check-in\n';
+  const checkedInIds = new Set(checkInLogs.map(l => l.ticket_id));
+  
+  participants.forEach(p => {
+    const status = checkedInIds.has(p.ticket_id) ? 'Hadir' : 'Belum';
+    csv += `${p.id || ''},${escapeCSV(p.name)},${p.phone || ''},${p.email || ''},${p.category || 'Regular'},${p.day_number || p.day || 1},${p.ticket_id},${p.qr_data || ''},${status}\n`;
+  });
+  
+  // Check-in logs sheet
+  csv += '\nCHECK-IN LOGS\n';
+  csv += 'Ticket ID,Nama,Kategori,Waktu,Hari,Scan Oleh\n';
+  checkInLogs.forEach(log => {
+    csv += `${log.ticket_id},${escapeCSV(log.participant_name || '')},${log.participant_category || ''},${log.timestamp},${log.day || 1},${log.scanned_by || ''}\n`;
+  });
+  
+  // Summary
+  csv += '\nSUMMARY\n';
+  csv += 'Metric,Value\n';
+  csv += `Event Name,${escapeCSV(event.name)}\n`;
+  csv += `Export Date,${event.exportDate}\n`;
+  csv += `Total Participants,${participants.length}\n`;
+  csv += `Total Check-ins,${checkInLogs.length}\n`;
+  csv += `Current Day,${event.currentDay}\n`;
+  
+  downloadFile(csv, `${filename}.csv`, 'text/csv');
+  return { success: true, filename: `${filename}.csv`, recordCount: participants.length };
+}
+
+function escapeCSV(value) {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+async function exportAsExcel(data, filename) {
+  // Use XLSX library if available, fallback to CSV
+  try {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    
+    // Participants sheet
+    const wsParticipants = XLSX.utils.json_to_sheet(data.participants.map(p => ({
+      ID: p.id,
+      Nama: p.name,
+      Telepon: p.phone,
+      Email: p.email,
+      Kategori: p.category || 'Regular',
+      Hari: p.day_number || p.day || 1,
+      'Ticket ID': p.ticket_id,
+      'QR Data': p.qr_data,
+      Status: data.checkInLogs.some(l => l.ticket_id === p.ticket_id) ? 'Hadir' : 'Belum'
+    })));
+    XLSX.utils.book_append_sheet(wb, wsParticipants, 'Peserta');
+    
+    // Check-in logs sheet
+    const wsLogs = XLSX.utils.json_to_sheet(data.checkInLogs.map(l => ({
+      'Ticket ID': l.ticket_id,
+      Nama: l.participant_name,
+      Kategori: l.participant_category,
+      Waktu: l.timestamp,
+      Hari: l.day,
+      'Scan Oleh': l.scanned_by
+    })));
+    XLSX.utils.book_append_sheet(wb, wsLogs, 'Check-in Logs');
+    
+    // Download
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+    return { success: true, filename: `${filename}.xlsx`, recordCount: data.participants.length };
+  } catch {
+    // Fallback to CSV
+    return exportAsCSV(data, filename);
+  }
+}
+
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 const isSupabaseEnabled = true;
 import { useEffect, useState } from 'react'
 import { useToast } from '../../contexts/ToastContext'
@@ -339,7 +500,7 @@ export default function Settings() {
   useEffect(() => {
     let mounted = true
     async function load() {
-      await bootstrapStoreFromFirebase()
+      await bootstrapStoreFromServer()
       if (mounted) {
         const template = getWaTemplate()
         setWaTemplateState(template)
@@ -517,7 +678,7 @@ export default function Settings() {
       return
     }
     // Refresh data from server to ensure local state is synced
-    await bootstrapStoreFromFirebase(true)
+    await bootstrapStoreFromServer(true)
     toast.success('Sukses', 'Semua riwayat check-in telah dibersihkan dan tersinkron ke server.')
     clearResetModalState()
   }
@@ -548,7 +709,7 @@ export default function Settings() {
       return
     }
     // Refresh data from server to ensure local state is synced
-    await bootstrapStoreFromFirebase(true)
+    await bootstrapStoreFromServer(true)
     toast.success('Sukses', 'Semua data peserta telah dihapus dari sistem dan tersinkron ke server.')
     clearDeleteModalState()
   }
@@ -922,6 +1083,86 @@ export default function Settings() {
               <strong>Hasil:</strong> {cleanupResult}
             </div>
           )}
+        </div>
+
+        {/* BACKUP & EXPORT */}
+        <div className="card card-pad">
+          <h3 className="card-title mb-16 card-title-inline">
+            <Download size={18} /> Backup & Export Data
+          </h3>
+          <p className="text-note">
+            Export semua data event untuk backup atau analisis. Data yang di-export meliputi peserta, log check-in, dan statistik lengkap.
+          </p>
+          
+          <div className="backup-stats-grid" style={{ margin: '16px 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
+            <div className="backup-stat-item" style={{ textAlign: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+              <div className="backup-stat-value" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--brand-primary)' }}>
+                {getAllEventData()?.participants?.length || 0}
+              </div>
+              <div className="backup-stat-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Peserta</div>
+            </div>
+            <div className="backup-stat-item" style={{ textAlign: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+              <div className="backup-stat-value" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--success)' }}>
+                {getAllEventData()?.checkInLogs?.length || 0}
+              </div>
+              <div className="backup-stat-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Check-in</div>
+            </div>
+            <div className="backup-stat-item" style={{ textAlign: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+              <div className="backup-stat-value" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--brand-blue)' }}>
+                {Object.keys(getAllEventData()?.stats?.byCategory || {}).length}
+              </div>
+              <div className="backup-stat-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Kategori</div>
+            </div>
+          </div>
+
+          <div className="actions-left" style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button 
+              className="btn btn-primary btn-sm" 
+              onClick={async () => {
+                const result = await exportFullBackup('json');
+                if (result.success) {
+                  toast.success('Export Berhasil', `${result.recordCount} data di-export ke ${result.filename}`);
+                } else {
+                  toast.error('Export Gagal', result.error);
+                }
+              }}
+            >
+              <Download size={14} /> Export JSON
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              onClick={async () => {
+                const result = await exportFullBackup('csv');
+                if (result.success) {
+                  toast.success('Export Berhasil', `${result.recordCount} data di-export ke ${result.filename}`);
+                } else {
+                  toast.error('Export Gagal', result.error);
+                }
+              }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              onClick={async () => {
+                const result = await exportFullBackup('excel');
+                if (result.success) {
+                  toast.success('Export Berhasil', `${result.recordCount} data di-export ke ${result.filename}`);
+                } else {
+                  toast.error('Export Gagal', result.error);
+                }
+              }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+          </div>
+          
+          <div className="admin-note" style={{ marginTop: 16 }}>
+            <strong>Format:</strong><br/>
+            • <strong>JSON</strong> - Complete data dengan struktur lengkap untuk backup<br/>
+            • <strong>CSV</strong> - Format spreadsheet untuk analisis di Excel/Google Sheets<br/>
+            • <strong>Excel</strong> - File .xlsx dengan multiple sheet (Peserta, Logs, Summary)
+          </div>
         </div>
 
         <div className="card card-pad">

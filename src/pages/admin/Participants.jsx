@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR PARTICIPANTS =====
-import { fetchFirebaseWorkspaceSnapshot, syncParticipantUpsert } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, syncParticipantUpsert } from '../../lib/dataSync';
 import { generateQRData } from '../../utils/qrSecurity';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function getParticipants(day) {
@@ -496,7 +496,7 @@ export default function Participants() {
 
   const refreshData = useCallback(async (forceFirebase = false) => {
     if (forceFirebase) {
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
     }
     setAvailableDays(getAvailableDays())
     // Let dayFilter effect handle participant setting
@@ -539,7 +539,7 @@ export default function Participants() {
   // Initial load & refresh on dayFilter change
   useEffect(() => {
     const load = async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       setParticipants(getParticipants(dayFilter));
       setAvailableDays(getAvailableDays());
     };

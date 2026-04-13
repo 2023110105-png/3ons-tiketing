@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR LAYOUT =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
@@ -32,12 +32,6 @@ function getCurrentDay() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
   const tenantId = 'tenant-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
-
-function setCurrentDay(day) {
-  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
-    _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
-  }
 }
 
 function getCurrentEventId() { 
@@ -85,7 +79,7 @@ import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
   BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck,
-  FileText, Eye, History, Activity, Database, Bell, MessageCircle
+  FileText, Eye, History, Activity, Database, Bell, MessageCircle, TrendingUp
 } from 'lucide-react'
 
 const RELEASE_MORNING_MODE = true
@@ -104,8 +98,6 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [currentDay, setDay] = useState(getCurrentDay())
-  const [dayInput, setDayInput] = useState(String(getCurrentDay()))
   const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const isMobile = useIsMobileLayout()
@@ -122,9 +114,6 @@ export default function Layout({ children }) {
   const refreshEventState = () => {
     setEvents(getEvents())
     setActiveEventId(getCurrentEventId())
-    const d = getCurrentDay()
-    setDay(d)
-    setDayInput(String(d))
   }
 
   useEffect(() => {
@@ -150,7 +139,7 @@ export default function Layout({ children }) {
 
     const pullLatestWorkspace = async () => {
       try {
-        const changed = await bootstrapStoreFromFirebase(true)
+        const changed = await bootstrapStoreFromServer(true)
         if (!changed || stopped) return
 
         refreshEventState()
@@ -170,12 +159,6 @@ export default function Layout({ children }) {
     }
   }, [user?.role])
 
-  const handleDayChange = (day) => {
-    setCurrentDay(day, user)
-    setDay(day)
-    setDayInput(String(day))
-  }
-
   const handleEventChange = (eventId) => {
     setCurrentEvent(eventId, user)
     refreshEventState()
@@ -187,16 +170,6 @@ export default function Layout({ children }) {
     const result = createEvent(name, user)
     setCurrentEvent(result.id, user)
     refreshEventState()
-  }
-
-  const handleDaySubmit = (e) => {
-    e.preventDefault()
-    const day = Number(dayInput)
-    if (!Number.isInteger(day) || day < 1) {
-      setDayInput(String(currentDay))
-      return
-    }
-    handleDayChange(day)
   }
 
   const handleLogout = () => {
@@ -229,6 +202,7 @@ export default function Layout({ children }) {
   const adminNav = [
     { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
     { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
+    { path: '/admin/analytics', icon: <TrendingUp size={18} />, label: 'Analitik' },
     { path: '/admin/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
     { path: '/admin/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
     { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
@@ -420,23 +394,6 @@ export default function Layout({ children }) {
                   <Plus size={16} />
                 </button>
               </>
-            )}
-            {user?.role !== 'owner' && (
-              <form className="header-day-form" onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="header-day-label" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
-                <input
-                  id="header-day-input"
-                  name="active_day"
-                  type="number"
-                  min="1"
-                  value={dayInput}
-                  onChange={(e) => setDayInput(e.target.value)}
-                  onBlur={handleDaySubmit}
-                  className="form-input header-day-input"
-                  style={{ height: 34, padding: '6px 10px', fontWeight: 700 }}
-                  title="Isi hari aktif acara"
-                />
-              </form>
             )}
             <button className="header-btn danger" onClick={handleLogout} title="Keluar">
               <LogOut size={16} />

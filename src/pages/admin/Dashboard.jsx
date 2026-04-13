@@ -1,40 +1,31 @@
 // ===== REAL FUNCTIONS FOR DATA SYNC =====
-import { fetchFirebaseWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
-function getParticipants(day) {
+function getAllParticipants() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const participants =
-    _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.participants || [];
 }
 
 function _getActiveTenant() { return { id: 'tenant-default' }; }
-function _getAvailableDays() { return [1]; }
-function getCurrentDay() { return 1; }
 function _setCurrentDay() {}
 
-function getCheckInLogs(day) {
+function getAllCheckInLogs() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  // Support both field names for backward compatibility
   const event = _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default'];
-  const logs = event?.checkInLogs || event?.checkin_logs || [];
-  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
+  return event?.checkInLogs || event?.checkin_logs || [];
 }
 
-function getStats(day) {
+function getStats() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {}, total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
-  const participants = getParticipants(day);
-  const checkInLogs = getCheckInLogs(day);
+  const participants = getAllParticipants();
+  const checkInLogs = getAllCheckInLogs();
   const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
   
   const byCategory = {
@@ -74,25 +65,24 @@ import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler)
 
 export default function Dashboard() {
-  const currentDay = getCurrentDay()
   const [refreshKey, setRefreshKey] = useState(0)
   const isMobile = useIsMobileLayout()
 
   void refreshKey
-  const stats = getStats(currentDay)
-  const logs = getCheckInLogs(currentDay)
+  const stats = getStats()
+  const logs = getAllCheckInLogs()
 
   useEffect(() => {
     // Initial data load
     const loadData = async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       setRefreshKey(k => k + 1); // Trigger re-render
     };
     loadData();
     
     // Auto-refresh every 2 seconds
     const interval = setInterval(async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       setRefreshKey(k => k + 1);
     }, 2000);
     return () => clearInterval(interval)
@@ -103,7 +93,7 @@ export default function Dashboard() {
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
       console.log('[Dashboard] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
-      void bootstrapStoreFromFirebase().then(() => {
+      void bootstrapStoreFromServer().then(() => {
         setRefreshKey(k => k + 1);
         console.log('[Dashboard] Data refreshed from realtime update');
       });
@@ -203,7 +193,7 @@ export default function Dashboard() {
       <div className="page-container">
         {/* Mobile Hero Counter */}
         <div className="m-hero-card dashboard-hero-accent">
-          <div className="m-hero-title">HARI {currentDay}</div>
+          <div className="m-hero-title">KEHADIRAN</div>
           <div className="m-hero-counter">
             <span className="m-hero-num">{stats.checkedIn}</span>
             <span className="m-hero-divider">/</span>
@@ -281,7 +271,7 @@ export default function Dashboard() {
         <div>
           <span className="page-kicker">Panel admin</span>
           <h1>Ringkasan</h1>
-          <p>Kehadiran real-time untuk Hari {currentDay}. Angka dan grafik di bawah menyamai data di pintu masuk.</p>
+          <p>Kehadiran real-time semua peserta. Angka dan grafik di bawah menyamai data di pintu masuk.</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in
@@ -320,7 +310,7 @@ export default function Dashboard() {
           <div className="card-header">
             <div>
               <h3 className="card-title">Tren kehadiran</h3>
-              <p className="card-subtitle-hint">Perkiraan check-in per jam (08:00–19:00) berdasarkan log hari ini.</p>
+              <p className="card-subtitle-hint">Perkiraan check-in per jam (08:00–19:00) berdasarkan semua log check-in.</p>
             </div>
           </div>
           <div className="chart-container"><Line data={lineData} options={lineOptions} /></div>

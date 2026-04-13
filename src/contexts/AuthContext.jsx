@@ -109,49 +109,6 @@ async function fastLoginSupabase(username, password) {
   };
 }
 
-// Login by identity (email/username) - untuk auto-recovery session
-async function loginByIdentity(identity, _options = {}) {
-  void _options;
-  if (!identity) {
-    return { success: false, error: 'Identity tidak valid' };
-  }
-  
-  const result = await getWorkspaceUsersFromSupabase();
-  if (!result.success) {
-    return result;
-  }
-  
-  const normalizedIdentity = String(identity).trim().toLowerCase();
-  
-  const user = result.users.find(u => {
-    const userUsername = String(u.username || '').trim().toLowerCase();
-    const userEmail = String(u.email || '').trim().toLowerCase();
-    const userId = String(u.id || '').trim().toLowerCase();
-    
-    return userUsername === normalizedIdentity || 
-           userEmail === normalizedIdentity || 
-           userId === normalizedIdentity;
-  });
-  
-  if (!user) {
-    return { success: false, error: 'Pengguna tidak ditemukan' };
-  }
-  
-  // Validasi: pastikan user aktif
-  if (user.is_active === false || user.active === false || user.disabled === true) {
-    return { success: false, error: 'Akun tidak aktif' };
-  }
-  
-  return { 
-    success: true, 
-    user: {
-      ...user,
-      tenant_id: user.tenant_id || user.tenant?.id || 'tenant-default',
-      tenant: user.tenant || { id: 'tenant-default', name: 'Default' }
-    }
-  };
-}
-
 // Local login dengan validasi penuh
 async function doLogin(username, password, _options = {}) {
   void _options;
@@ -165,64 +122,11 @@ function doLogout() {
   workspaceUsersCache = null;
   workspaceUsersCacheTime = 0;
 }
-
-// Resolve login email dari username dengan lookup ke Supabase
-async function resolveLoginEmail(username) {
-  const normalized = String(username || '').trim().toLowerCase();
-  if (!normalized) return null;
-  
-  // Jika sudah format email, return as-is
-  if (normalized.includes('@')) {
-    return normalized;
-  }
-  
-  // Coba cari user dengan username tersebut dan return email-nya
-  const result = await getWorkspaceUsersFromSupabase();
-  if (!result.success) return null;
-  
-  const user = result.users.find(u => {
-    const userUsername = String(u.username || '').trim().toLowerCase();
-    const userId = String(u.id || '').trim().toLowerCase();
-    return userUsername === normalized || userId === normalized;
-  });
-  
-  return user?.email || null;
-}
 import { createContext, useEffect, useState, useCallback } from 'react'
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
-import { auth, isFirebaseEnabled } from '../lib/firebase'
 import { apiFetch } from '../utils/api'
+
 export const AuthContext = createContext(null)
 const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
-const FIREBASE_AUTH_MODE = isFirebaseEnabled && import.meta.env.VITE_FIREBASE_AUTH_MODE !== 'hybrid'
-  ? 'strict'
-  : 'hybrid'
-
-function mapFirebaseAuthError(errorCode) {
-  switch (errorCode) {
-    case 'auth/invalid-email':
-      return 'Format email belum benar'
-    case 'auth/user-disabled':
-      return 'Akun dinonaktifkan'
-    case 'auth/user-not-found':
-    case 'auth/wrong-password':
-    case 'auth/invalid-credential':
-      return 'Nama pengguna atau kata sandi tidak sesuai'
-    case 'auth/too-many-requests':
-      return 'Terlalu banyak percobaan masuk, coba lagi sebentar'
-    case 'resource-exhausted':
-    case 'quota-exceeded':
-      return 'Layanan cloud sedang mencapai batas kuota. Sistem masuk mode lokal sementara.'
-    default:
-      return 'Proses masuk gagal'
-  }
-}
-
-function isValidEmail(value) {
-  const text = String(value || '').trim().toLowerCase()
-  if (!text) return false
-  return /^[^@]+@[^@]+\.[^@]+$/.test(text)
-}
 
 function resolveTenantIdFromUser(user) {
   const fromTenantObject = String(user?.tenant?.id || '').trim()
@@ -259,22 +163,6 @@ async function bootstrapWaSessionAfterLogin(user) {
   } catch {
     // Keep login flow non-blocking when WA runtime is temporarily unavailable.
   }
-}
-
-async function waitForFirebaseAuthReady() {
-  if (!isFirebaseEnabled || !auth) return
-  if (typeof auth.authStateReady === 'function') {
-    try {
-      await auth.authStateReady()
-      return
-    } catch {
-      // Fallback to timeout below.
-    }
-  }
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, 500)
-  })
 }
 
 export function AuthProvider({ children }) {
@@ -318,20 +206,7 @@ export function AuthProvider({ children }) {
       // Try to restore session from localStorage first
       let session = loadUserSession()
       
-      // If no local session, try Firebase auth
-      if (!session && isFirebaseEnabled && auth) {
-        await waitForFirebaseAuthReady()
-        const firebaseEmail = auth.currentUser?.email
-        if (firebaseEmail) {
-          const recovered = await loginByIdentity(firebaseEmail)
-          if (recovered.success) {
-            session = recovered.user
-            saveUserSession(session) // Save to localStorage
-          }
-        }
-      }
-
-      setUser(session)
+          setUser(session)
       setLoading(false)
     }
 
@@ -351,167 +226,6 @@ export function AuthProvider({ children }) {
       void bootstrapWaSessionAfterLogin(fastResult.user);
       return fastResult;
     }
-    const isQuotaExhaustedError = (errLike) => {
-      const code = String(errLike?.code || '').toLowerCase()
-      const message = String(errLike?.message || '').toLowerCase()
-      return code.includes('resource-exhausted')
-        || code.includes('quota-exceeded')
-        || message.includes('resource-exhausted')
-        || message.includes('quota exceeded')
-    }
-
-    if (FIREBASE_AUTH_MODE === 'strict') {
-      if (!isFirebaseEnabled || !auth) {
-        return { success: false, error: 'Layanan masuk belum diaktifkan. Hubungi administrator.' }
-      }
-
-      const preferredTenantId = String(options?.tenantId || '').trim()
-      const scopedOptions = preferredTenantId ? { tenantId: preferredTenantId } : null
-      const loginLocal = (identity, secret) => (
-        scopedOptions ? doLogin(identity, secret, scopedOptions) : doLogin(identity, secret)
-      )
-      const loginIdentity = (identity) => (
-        scopedOptions ? loginByIdentity(identity, scopedOptions) : loginByIdentity(identity)
-      )
-
-      // Always refresh latest tenant/user snapshot before credential checks.
-      try {
-        // await bootstrapStoreFromFirebase(true) // dihapus (mockData.js sudah tidak ada)
-      } catch (hydrateErr) {
-        if (isQuotaExhaustedError(hydrateErr)) {
-          const localOnly = scopedOptions ? doLogin(username, password, scopedOptions) : doLogin(username, password)
-          if (localOnly.success) {
-            setUser(localOnly.user)
-            saveUserSession(localOnly.user) // Save to localStorage for persistence
-            void bootstrapWaSessionAfterLogin(localOnly.user)
-            return localOnly
-          }
-        }
-        // Continue with current snapshot if refresh fails.
-      }
-
-      const normalizedIdentity = String(username || '').trim().toLowerCase()
-      const resolvedEmail = await resolveLoginEmail(username)
-      const candidateEmail = isValidEmail(resolvedEmail)
-        ? resolvedEmail
-        : (isValidEmail(normalizedIdentity) ? normalizedIdentity : null)
-      if (!candidateEmail) {
-        // Akun tidak punya email, gunakan fallback local authentication
-        const localResult = await doLogin(username, password)
-        if (localResult.success) {
-          setUser(localResult.user)
-          saveUserSession(localResult.user) // Save to localStorage for persistence
-          return localResult
-        }
-        // Return local auth error jika username/password salah
-        return localResult
-      }
-
-      try {
-        await signInWithEmailAndPassword(auth, candidateEmail, password)
-        try {
-          // await bootstrapStoreFromFirebase(true) // dihapus (mockData.js sudah tidak ada)
-        } catch {
-          // Continue with last known snapshot.
-        }
-
-        const identityResult = await loginIdentity(username)
-        if (identityResult.success) {
-          if (identityResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
-            await signOut(auth).catch(() => {})
-            doLogout()
-            return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
-          }
-          setUser(identityResult.user)
-          saveUserSession(identityResult.user) // Save to localStorage for persistence
-          void bootstrapWaSessionAfterLogin(identityResult.user)
-          return identityResult
-        }
-
-        const emailIdentityResult = await loginIdentity(candidateEmail)
-        if (emailIdentityResult.success) {
-          if (emailIdentityResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
-            await signOut(auth).catch(() => {})
-            doLogout()
-            return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
-          }
-          setUser(emailIdentityResult.user)
-          saveUserSession(emailIdentityResult.user) // Save to localStorage for persistence
-          void bootstrapWaSessionAfterLogin(emailIdentityResult.user)
-          return emailIdentityResult
-        }
-
-        await signOut(auth)
-        return {
-          success: false,
-          error: 'Akun valid, tetapi belum terdaftar di sistem tenant'
-        }
-      } catch (error) {
-        if (isQuotaExhaustedError(error)) {
-          const localOnly = await loginLocal(username, password)
-          if (localOnly.success) {
-            if (localOnly.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
-              doLogout()
-              return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
-            }
-            setUser(localOnly.user)
-            saveUserSession(localOnly.user) // Save to localStorage for persistence
-            void bootstrapWaSessionAfterLogin(localOnly.user)
-            return localOnly
-          }
-        }
-        // Jika akun valid di registry lokal tapi belum ada di Firebase Auth, otomatis buat.
-        const localResult = await loginLocal(username, password)
-        if (localResult.success) {
-          if (localResult.user?.role === 'owner' && !OWNER_FEATURES_ENABLED) {
-            doLogout()
-            return { success: false, error: 'Akses owner sedang dinonaktifkan. Gunakan akun admin/gate.' }
-          }
-          try {
-            await createUserWithEmailAndPassword(auth, candidateEmail, password)
-            setUser(localResult.user)
-            saveUserSession(localResult.user) // Save to localStorage for persistence
-            void bootstrapWaSessionAfterLogin(localResult.user)
-            return localResult
-          } catch (createErr) {
-            const createCode = String(createErr?.code || '').toLowerCase()
-            // If Firebase account already exists (common after password reset desync),
-            // keep tenant operational via local auth instead of hard-blocking login.
-            if (createCode === 'auth/email-already-in-use' || createCode === 'email-already-in-use') {
-              setUser(localResult.user)
-              saveUserSession(localResult.user) // Save to localStorage for persistence
-              void bootstrapWaSessionAfterLogin(localResult.user)
-              return localResult
-            }
-            return {
-              success: false,
-              error: 'Pendaftaran ke layanan masuk gagal. Hubungi administrator atau tim pendukung.'
-            }
-          }
-        }
-        return { success: false, error: mapFirebaseAuthError(error?.code) }
-      }
-    }
-
-    if (isFirebaseEnabled && auth) {
-      const candidateEmail = await resolveLoginEmail(username)
-      if (candidateEmail) {
-        try {
-          await signInWithEmailAndPassword(auth, candidateEmail, password)
-          const scopedOptions = options?.tenantId ? { tenantId: options.tenantId } : null
-          const identityResult = await (scopedOptions ? loginByIdentity(username, scopedOptions) : loginByIdentity(username))
-          if (identityResult.success) {
-            setUser(identityResult.user)
-            saveUserSession(identityResult.user) // Save to localStorage for persistence
-            void bootstrapWaSessionAfterLogin(identityResult.user)
-            return identityResult
-          }
-        } catch {
-          // Hybrid mode keeps local fallback.
-        }
-      }
-    }
-
     const preferredTenantId = String(options?.tenantId || '').trim()
     const result = await (preferredTenantId
       ? doLogin(username, password, { tenantId: preferredTenantId })
@@ -529,13 +243,6 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(async () => {
-    if (isFirebaseEnabled && auth) {
-      try {
-        await signOut(auth)
-      } catch {
-        // Keep local logout path as source of truth.
-      }
-    }
     saveUserSession(null); // Clear session from localStorage
     setUser(null)
   }, [])

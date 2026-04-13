@@ -11,7 +11,7 @@ vi.mock('../../../utils/api', () => ({
 }))
 
 vi.mock('../../../store/mockData', () => ({
-  bootstrapStoreFromFirebase: vi.fn(async () => true),
+  bootstrapStoreFromServer: vi.fn(async () => true),
   getCheckInLogs: vi.fn(() => []),
   getCurrentDay: vi.fn(() => 1),
   getCurrentEventId: vi.fn(() => 'event-1'),

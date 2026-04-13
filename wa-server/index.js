@@ -747,16 +747,15 @@ function normalizeOutgoingQrData(rawQr, fallback = {}) {
         console.log(`[normalizeOutgoingQrData] Using MODERN format for ticket=${parsed.ticketId}`);
     }
 
-    // Build payload dengan urutan field SAMA PERSIS frontend (qrSecurity.js buildQRPayload)
-    // tid, t, e, d, n, sig, v - untuk konsistensi JSON.stringify
     const payload = {
         tid: parsed.ticketId,
+        n: String(fallback?.name || '').trim() || '',
+        d: parsed.dayNumber,
         t: parsed.tenantId,
         e: parsed.eventId,
-        d: parsed.dayNumber,
-        n: String(fallback?.name || '').trim() || '',
+        r: parsed.secureRef || '',
         sig: parsed.signature,
-        v: Number.isFinite(parsed.version) ? parsed.version : 2
+        v: Number.isFinite(parsed.version) ? parsed.version : 1
     };
 
     return {

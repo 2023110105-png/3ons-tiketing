@@ -13,19 +13,19 @@ export default function TenantHealth() {
   const [healthData, setHealthData] = useState(getTenantHealth())
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const runFirebaseHydrate = async () => {
-    if (typeof bootstrapStoreFromFirebase !== 'function') return
+  const runServerHydrate = async () => {
+    if (typeof bootstrapStoreFromServer !== 'function') return
     try {
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
     } catch {
-      // Keep owner UI responsive when Firebase hydrate is unavailable.
+      // Keep owner UI responsive when server hydrate is unavailable.
     }
   }
 
   const handleRefresh = () => {
     setIsRefreshing(true)
     setTimeout(async () => {
-      await runFirebaseHydrate()
+      await runServerHydrate()
       setHealthData(getTenantHealth())
       setIsRefreshing(false)
     }, 800)

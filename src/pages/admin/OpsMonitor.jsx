@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR OPS MONITOR =====
-import { fetchFirebaseWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function _getParticipants(day) {
@@ -102,7 +102,7 @@ export default function OpsMonitor() {
     // Initial load data dari Supabase
     useEffect(() => {
       const load = async () => {
-        await bootstrapStoreFromFirebase();
+        await bootstrapStoreFromServer();
       };
       load();
     }, []);
@@ -124,7 +124,7 @@ export default function OpsMonitor() {
   // Lightweight auto-refresh for live ops view
   useEffect(() => {
     const id = window.setInterval(() => {
-      void bootstrapStoreFromFirebase(true)
+      void bootstrapStoreFromServer(true)
       setTick(t => t + 1)
     }, 5000)
     return () => window.clearInterval(id)
@@ -136,7 +136,7 @@ export default function OpsMonitor() {
       console.log('[OpsMonitor] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
       try {
-        await bootstrapStoreFromFirebase(true);
+        await bootstrapStoreFromServer(true);
         setTick(t => t + 1);
         console.log('[OpsMonitor] Data refreshed from realtime update');
       } catch (err) {
@@ -264,7 +264,7 @@ export default function OpsMonitor() {
     if (isRefreshing) return
     setIsRefreshing(true)
     try {
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
       toast.success('Update', 'Data terbaru berhasil dimuat.')
       setTick(t => t + 1)
     } catch {
@@ -471,10 +471,11 @@ export default function OpsMonitor() {
       doc.rect(14, y, 182, 8, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(9)
-      doc.text('WAKTU', 18, y + 5.5)
-      doc.text('GATE', 55, y + 5.5)
-      doc.text('ID TIKET', 85, y + 5.5)
-      doc.text('NAMA', 120, y + 5.5)
+      doc.text('WAKTU', 16, y + 5.5)
+      doc.text('GATE', 45, y + 5.5)
+      doc.text('ID TIKET', 70, y + 5.5)
+      doc.text('NAMA', 105, y + 5.5)
+      doc.text('KATEGORI', 150, y + 5.5)
       doc.text('STATUS', 180, y + 5.5, { align: 'right' })
       
       y += 8
@@ -489,10 +490,11 @@ export default function OpsMonitor() {
           doc.rect(14, y, 182, 8, 'F')
           doc.setTextColor(255, 255, 255)
           doc.setFontSize(9)
-          doc.text('WAKTU', 18, y + 5.5)
-          doc.text('GATE', 55, y + 5.5)
-          doc.text('ID TIKET', 85, y + 5.5)
-          doc.text('NAMA', 120, y + 5.5)
+          doc.text('WAKTU', 16, y + 5.5)
+          doc.text('GATE', 45, y + 5.5)
+          doc.text('ID TIKET', 70, y + 5.5)
+          doc.text('NAMA', 105, y + 5.5)
+          doc.text('KATEGORI', 150, y + 5.5)
           doc.text('STATUS', 180, y + 5.5, { align: 'right' })
           y += 8
         }
@@ -505,13 +507,20 @@ export default function OpsMonitor() {
         const name = participantNameMap.get(String(log.ticket_id || '').toLowerCase()) || log.participant_name || '-'
         const gate = String(log.scanned_by || '-').replace(/_/g, ' ').toUpperCase()
         
+        // Find participant category
+        const participant = participants.find(p => 
+          String(p.ticket_id || '').trim().toLowerCase() === String(log.ticket_id || '').trim().toLowerCase()
+        )
+        const category = (participant?.category || 'Regular').toUpperCase()
+        
         doc.setTextColor(...SECONDARY_COLOR)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(8)
-        doc.text(formatTime(log.timestamp).substring(0, 16), 18, y + 4.5)
-        doc.text(gate.substring(0, 12), 55, y + 4.5)
-        doc.text((log.ticket_id || '-').substring(0, 15), 85, y + 4.5)
-        doc.text(name.substring(0, 25), 120, y + 4.5)
+        doc.text(formatTime(log.timestamp).substring(0, 16), 16, y + 4.5)
+        doc.text(gate.substring(0, 10), 45, y + 4.5)
+        doc.text((log.ticket_id || '-').substring(0, 12), 70, y + 4.5)
+        doc.text(name.substring(0, 20), 105, y + 4.5)
+        doc.text(category.substring(0, 10), 150, y + 4.5)
         
         const status = String(log.status || 'valid').toUpperCase()
         if (status === 'VALID' || status === 'SUCCESS') {

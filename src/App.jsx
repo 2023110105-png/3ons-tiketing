@@ -52,6 +52,7 @@ const loadSettings = lazyWithTimeout(() => import('./pages/admin/Settings'))
 const loadConnectDevice = lazyWithTimeout(() => import('./pages/admin/ConnectDevice'))
 const loadOpsMonitor = lazyWithTimeout(() => import('./pages/admin/OpsMonitor'))
 const loadWaDelivery = lazyWithTimeout(() => import('./pages/admin/WaDelivery'))
+const loadAnalytics = lazyWithTimeout(() => import('./pages/admin/Analytics'))
 const loadOwnerPanel = lazyWithTimeout(() => import('./pages/owner/OwnerPanel'))
 
 const Login = lazy(loadLogin)
@@ -65,6 +66,7 @@ const Settings = lazy(loadSettings)
 const ConnectDevice = lazy(loadConnectDevice)
 const OpsMonitor = lazy(loadOpsMonitor)
 const WaDelivery = lazy(loadWaDelivery)
+const Analytics = lazy(loadAnalytics)
 const OwnerPanel = lazy(loadOwnerPanel)
 const OWNER_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_OWNER_FEATURES || 'false').trim().toLowerCase() === 'true'
 
@@ -132,6 +134,7 @@ function AppRoutes() {
         loadFrontGate()
         loadBackGate()
         loadReports()
+        loadAnalytics()
         return
       }
 
@@ -231,6 +234,11 @@ function AppRoutes() {
       <Route path="/admin/settings" element={
         <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
           <Settings />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/analytics" element={
+        <ProtectedRoute allowedRoles={['super_admin', 'admin_client', 'admin']}>
+          <Analytics />
         </ProtectedRoute>
       } />
 

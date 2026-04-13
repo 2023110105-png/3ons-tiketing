@@ -1,8 +1,8 @@
 // ===== REAL FUNCTIONS FOR WHITE LABEL =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../../lib/dataSync';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() { 
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() { 
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot; 
 }
 function getTenants() { return [

@@ -1,8 +1,8 @@
 // ===== REAL FUNCTIONS FOR REPORTS =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function getParticipants(day) {
@@ -68,7 +68,7 @@ export default function Reports() {
     // Initial load data dari Supabase
     useEffect(() => {
       const load = async () => {
-        await bootstrapStoreFromFirebase();
+        await bootstrapStoreFromServer();
       };
       load();
     }, []);

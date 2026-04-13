@@ -13,21 +13,21 @@ export default function NotificationCenter() {
 
   const initialHydrationDoneRef = useRef(false)
 
-  const runFirebaseHydrate = useCallback(async () => {
-    if (typeof bootstrapStoreFromFirebase !== 'function') return
+  const runServerHydrate = useCallback(async () => {
+    if (typeof bootstrapStoreFromServer !== 'function') return
     try {
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
     } catch {
-      // Keep owner UI responsive when Firebase hydrate is unavailable.
+      // Keep owner UI responsive when server hydrate is unavailable.
     }
   }, [])
 
-  const refreshNotifications = useCallback(async (forceFirebase = true) => {
-    if (forceFirebase) {
-      await runFirebaseHydrate()
+  const refreshNotifications = useCallback(async (forceServer = true) => {
+    if (forceServer) {
+      await runServerHydrate()
     }
     setNotifications(getOwnerNotifications())
-  }, [runFirebaseHydrate])
+  }, [runServerHydrate])
 
   // Only hydrate once on initial mount, not on every render
   useEffect(() => {
