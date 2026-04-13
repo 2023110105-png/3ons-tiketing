@@ -285,58 +285,249 @@ export default function OpsMonitor() {
       const logs = getCheckInLogs(dayFilter)
       const participants = _getParticipants(dayFilter)
       
-      // Header
-      doc.setFontSize(16)
-      doc.text('LAPORAN KEHADIRAN', 105, 15, { align: 'center' })
+      // Colors
+      const PRIMARY_COLOR = [41, 128, 185] // Blue
+      const SECONDARY_COLOR = [52, 73, 94] // Dark blue-gray
+      const ACCENT_COLOR = [46, 204, 113] // Green
+      const LIGHT_BG = [248, 249, 250]
+      const BORDER_COLOR = [200, 200, 200]
+      
+      // Professional Header with Logo area
+      doc.setFillColor(...PRIMARY_COLOR)
+      doc.rect(0, 0, 210, 35, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(20)
+      doc.setFont('helvetica', 'bold')
+      doc.text('LAPORAN KEHADIRAN', 105, 18, { align: 'center' })
       doc.setFontSize(12)
-      doc.text(`Hari ${dayFilter} - ${new Date().toLocaleDateString('id-ID')}`, 105, 22, { align: 'center' })
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Hari ${dayFilter} | ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 105, 28, { align: 'center' })
       
-      // Stats Summary
-      doc.setFontSize(11)
-      doc.text('Ringkasan Kehadiran:', 14, 35)
+      // Sub-header with event info
+      doc.setTextColor(...SECONDARY_COLOR)
       doc.setFontSize(10)
-      doc.text(`Total Peserta: ${stats.total}`, 14, 42)
-      doc.text(`Sudah Check-in: ${stats.checkedIn}`, 14, 48)
-      doc.text(`Belum Check-in: ${stats.notCheckedIn}`, 14, 54)
-      doc.text(`Persentase: ${stats.percentage}%`, 14, 60)
+      doc.text('Strings Fiddle Convention 2026', 14, 42)
+      doc.setDrawColor(...BORDER_COLOR)
+      doc.line(14, 45, 196, 45)
       
-      // Check-in logs table
+      // Stats Summary Cards
+      let y = 52
       doc.setFontSize(11)
-      doc.text('Daftar Check-in:', 14, 72)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text('RINGKASAN KEHADIRAN', 14, y)
+      y += 10
       
-      // Table headers
-      doc.setFillColor(240, 240, 240)
-      doc.rect(14, 76, 182, 8, 'F')
+      // Stats boxes
+      const boxWidth = 45
+      const boxHeight = 25
+      const boxSpacing = 4
+      
+      // Total box
+      doc.setFillColor(...LIGHT_BG)
+      doc.setDrawColor(...BORDER_COLOR)
+      doc.roundedRect(14, y, boxWidth, boxHeight, 3, 3, 'FD')
+      doc.setFontSize(8)
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text('TOTAL PESERTA', 14 + boxWidth/2, y + 7, { align: 'center' })
+      doc.setFontSize(14)
+      doc.setTextColor(...PRIMARY_COLOR)
+      doc.text(String(stats.total), 14 + boxWidth/2, y + 18, { align: 'center' })
+      
+      // Checked in box
+      doc.setFillColor(...LIGHT_BG)
+      doc.roundedRect(14 + boxWidth + boxSpacing, y, boxWidth, boxHeight, 3, 3, 'FD')
+      doc.setFontSize(8)
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text('SUDAH CHECK-IN', 14 + boxWidth + boxSpacing + boxWidth/2, y + 7, { align: 'center' })
+      doc.setFontSize(14)
+      doc.setTextColor(...ACCENT_COLOR)
+      doc.text(String(stats.checkedIn), 14 + boxWidth + boxSpacing + boxWidth/2, y + 18, { align: 'center' })
+      
+      // Not checked in box
+      doc.setFillColor(...LIGHT_BG)
+      doc.roundedRect(14 + (boxWidth + boxSpacing) * 2, y, boxWidth, boxHeight, 3, 3, 'FD')
+      doc.setFontSize(8)
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text('BELUM CHECK-IN', 14 + (boxWidth + boxSpacing) * 2 + boxWidth/2, y + 7, { align: 'center' })
+      doc.setFontSize(14)
+      doc.setTextColor(231, 76, 60)
+      doc.text(String(stats.notCheckedIn), 14 + (boxWidth + boxSpacing) * 2 + boxWidth/2, y + 18, { align: 'center' })
+      
+      // Percentage box
+      doc.setFillColor(...LIGHT_BG)
+      doc.roundedRect(14 + (boxWidth + boxSpacing) * 3, y, boxWidth, boxHeight, 3, 3, 'FD')
+      doc.setFontSize(8)
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text('PERSENTASE', 14 + (boxWidth + boxSpacing) * 3 + boxWidth/2, y + 7, { align: 'center' })
+      doc.setFontSize(14)
+      doc.setTextColor(...PRIMARY_COLOR)
+      doc.text(`${stats.percentage}%`, 14 + (boxWidth + boxSpacing) * 3 + boxWidth/2, y + 18, { align: 'center' })
+      
+      y += boxHeight + 12
+      
+      // CATEGORY BREAKDOWN TABLE
+      const categories = {}
+      participants.forEach(p => {
+        const cat = p.category || 'Regular'
+        if (!categories[cat]) categories[cat] = { total: 0, checkedIn: 0 }
+        categories[cat].total++
+      })
+      
+      logs.forEach(log => {
+        const p = participants.find(pt => 
+          String(pt.ticket_id || '').trim().toLowerCase() === String(log.ticket_id || '').trim().toLowerCase()
+        )
+        if (p) {
+          const cat = p.category || 'Regular'
+          if (categories[cat]) categories[cat].checkedIn++
+        }
+      })
+      
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text('KEHADIRAN PER KATEGORI', 14, y)
+      y += 8
+      
+      // Category table header
+      doc.setFillColor(...PRIMARY_COLOR)
+      doc.setDrawColor(...PRIMARY_COLOR)
+      doc.rect(14, y, 182, 8, 'F')
+      doc.setTextColor(255, 255, 255)
       doc.setFontSize(9)
-      doc.text('Waktu', 16, 81)
-      doc.text('Gate', 50, 81)
-      doc.text('ID Tiket', 75, 81)
-      doc.text('Nama', 110, 81)
-      doc.text('Status', 170, 81)
+      doc.setFont('helvetica', 'bold')
+      doc.text('KATEGORI', 18, y + 5.5)
+      doc.text('TOTAL', 75, y + 5.5, { align: 'center' })
+      doc.text('HADIR', 105, y + 5.5, { align: 'center' })
+      doc.text('BELUM', 135, y + 5.5, { align: 'center' })
+      doc.text('%', 165, y + 5.5, { align: 'center' })
+      doc.text('STATUS', 185, y + 5.5, { align: 'center' })
+      
+      y += 8
+      
+      // Category table rows
+      const sortedCategories = Object.entries(categories).sort((a, b) => b[1].total - a[1].total)
+      sortedCategories.forEach(([cat, data], i) => {
+        const notChecked = data.total - data.checkedIn
+        const pct = data.total > 0 ? Math.round((data.checkedIn / data.total) * 100) : 0
+        const status = pct >= 80 ? 'BAIK' : pct >= 50 ? 'CUKUP' : 'PERLU PERHATIAN'
+        
+        // Row background alternating
+        if (i % 2 === 0) {
+          doc.setFillColor(250, 250, 250)
+          doc.rect(14, y, 182, 7, 'F')
+        }
+        
+        doc.setDrawColor(...BORDER_COLOR)
+        doc.line(14, y + 7, 196, y + 7)
+        
+        doc.setTextColor(...SECONDARY_COLOR)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9)
+        doc.text(cat.toUpperCase(), 18, y + 5)
+        doc.text(String(data.total), 75, y + 5, { align: 'center' })
+        doc.setTextColor(...ACCENT_COLOR)
+        doc.text(String(data.checkedIn), 105, y + 5, { align: 'center' })
+        doc.setTextColor(231, 76, 60)
+        doc.text(String(notChecked), 135, y + 5, { align: 'center' })
+        doc.setTextColor(...SECONDARY_COLOR)
+        doc.text(`${pct}%`, 165, y + 5, { align: 'center' })
+        
+        // Status badge
+        if (pct >= 80) {
+          doc.setFillColor(46, 204, 113)
+          doc.setTextColor(255, 255, 255)
+        } else if (pct >= 50) {
+          doc.setFillColor(241, 196, 15)
+          doc.setTextColor(255, 255, 255)
+        } else {
+          doc.setFillColor(231, 76, 60)
+          doc.setTextColor(255, 255, 255)
+        }
+        doc.roundedRect(170, y + 1, 25, 5, 2, 2, 'F')
+        doc.setFontSize(7)
+        doc.text(status, 182.5, y + 4.3, { align: 'center' })
+        
+        y += 7
+      })
+      
+      y += 10
+      
+      // CHECK-IN LOGS TABLE
+      if (y > 200) {
+        doc.addPage()
+        y = 20
+      }
+      
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...SECONDARY_COLOR)
+      doc.text(`DAFTAR CHECK-IN (${logs.length} scan)`, 14, y)
+      y += 8
+      
+      // Table header
+      doc.setFillColor(...PRIMARY_COLOR)
+      doc.rect(14, y, 182, 8, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(9)
+      doc.text('WAKTU', 18, y + 5.5)
+      doc.text('GATE', 55, y + 5.5)
+      doc.text('ID TIKET', 85, y + 5.5)
+      doc.text('NAMA', 120, y + 5.5)
+      doc.text('STATUS', 180, y + 5.5, { align: 'right' })
+      
+      y += 8
       
       // Table rows
-      let y = 88
       logs.forEach((log, i) => {
         if (y > 280) {
           doc.addPage()
           y = 20
+          // Repeat header on new page
+          doc.setFillColor(...PRIMARY_COLOR)
+          doc.rect(14, y, 182, 8, 'F')
+          doc.setTextColor(255, 255, 255)
+          doc.setFontSize(9)
+          doc.text('WAKTU', 18, y + 5.5)
+          doc.text('GATE', 55, y + 5.5)
+          doc.text('ID TIKET', 85, y + 5.5)
+          doc.text('NAMA', 120, y + 5.5)
+          doc.text('STATUS', 180, y + 5.5, { align: 'right' })
+          y += 8
         }
-        const name = participantNameMap.get(String(log.ticket_id || '').toLowerCase()) || log.participant_name || '-'
-        doc.text(formatTime(log.timestamp).substring(0, 16), 16, y)
-        doc.text(String(log.scanned_by || '-').replace(/_/g, ' '), 50, y)
-        doc.text(log.ticket_id || '-', 75, y)
-        doc.text(name.substring(0, 25), 110, y)
-        doc.text(String(log.status || 'valid').toUpperCase(), 170, y)
         
-        if (i % 2 === 1) {
+        if (i % 2 === 0) {
           doc.setFillColor(250, 250, 250)
-          doc.rect(14, y - 4, 182, 6, 'F')
+          doc.rect(14, y, 182, 6, 'F')
         }
+        
+        const name = participantNameMap.get(String(log.ticket_id || '').toLowerCase()) || log.participant_name || '-'
+        const gate = String(log.scanned_by || '-').replace(/_/g, ' ').toUpperCase()
+        
+        doc.setTextColor(...SECONDARY_COLOR)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.text(formatTime(log.timestamp).substring(0, 16), 18, y + 4.5)
+        doc.text(gate.substring(0, 12), 55, y + 4.5)
+        doc.text((log.ticket_id || '-').substring(0, 15), 85, y + 4.5)
+        doc.text(name.substring(0, 25), 120, y + 4.5)
+        
+        const status = String(log.status || 'valid').toUpperCase()
+        if (status === 'VALID' || status === 'SUCCESS') {
+          doc.setTextColor(...ACCENT_COLOR)
+        } else if (status === 'DUPLICATE') {
+          doc.setTextColor(241, 196, 15)
+        } else {
+          doc.setTextColor(231, 76, 60)
+        }
+        doc.text(status, 180, y + 4.5, { align: 'right' })
+        
         y += 6
       })
       
       // Participants not checked in
-      if (y > 200) {
+      if (y > 220) {
         doc.addPage()
         y = 20
       } else {
@@ -348,23 +539,70 @@ export default function OpsMonitor() {
       
       if (notCheckedIn.length > 0) {
         doc.setFontSize(11)
-        doc.text(`Peserta Belum Check-in (${notCheckedIn.length}):`, 14, y)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(231, 76, 60)
+        doc.text(`PESERTA BELUM CHECK-IN (${notCheckedIn.length})`, 14, y)
         y += 8
         
-        notCheckedIn.slice(0, 50).forEach((p, i) => {
+        // Not checked in table header
+        doc.setFillColor(231, 76, 60)
+        doc.rect(14, y, 182, 8, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(9)
+        doc.text('NO', 18, y + 5.5)
+        doc.text('ID TIKET', 35, y + 5.5)
+        doc.text('NAMA', 90, y + 5.5)
+        doc.text('KATEGORI', 160, y + 5.5)
+        
+        y += 8
+        
+        notCheckedIn.slice(0, 40).forEach((p, i) => {
           if (y > 280) {
             doc.addPage()
             y = 20
+            doc.setFillColor(231, 76, 60)
+            doc.rect(14, y, 182, 8, 'F')
+            doc.setTextColor(255, 255, 255)
+            doc.setFontSize(9)
+            doc.text('NO', 18, y + 5.5)
+            doc.text('ID TIKET', 35, y + 5.5)
+            doc.text('NAMA', 90, y + 5.5)
+            doc.text('KATEGORI', 160, y + 5.5)
+            y += 8
           }
-          doc.setFontSize(9)
-          doc.text(`${i + 1}. ${p.ticket_id || '-'} - ${p.name || '-'}`, 16, y)
-          y += 5
+          
+          if (i % 2 === 0) {
+            doc.setFillColor(254, 242, 242)
+            doc.rect(14, y, 182, 6, 'F')
+          }
+          
+          doc.setTextColor(...SECONDARY_COLOR)
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(8)
+          doc.text(String(i + 1), 18, y + 4.5)
+          doc.text(p.ticket_id || '-', 35, y + 4.5)
+          doc.text((p.name || '-').substring(0, 35), 90, y + 4.5)
+          doc.text((p.category || 'Regular').toUpperCase(), 160, y + 4.5)
+          
+          y += 6
         })
+        
+        if (notCheckedIn.length > 40) {
+          y += 5
+          doc.setFontSize(9)
+          doc.setTextColor(...SECONDARY_COLOR)
+          doc.text(`... dan ${notCheckedIn.length - 40} peserta lainnya`, 14, y)
+        }
       }
       
       // Footer
+      doc.setDrawColor(...BORDER_COLOR)
+      doc.line(14, 287, 196, 287)
       doc.setFontSize(8)
-      doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 292)
+      doc.setTextColor(150, 150, 150)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Dicetak oleh Strings Fiddle Convention 2026 System | ${new Date().toLocaleString('id-ID')}`, 14, 292)
+      doc.text(`Halaman 1`, 180, 292, { align: 'right' })
       
       doc.save(`laporan-kehadiran-hari-${dayFilter}-${new Date().toISOString().split('T')[0]}.pdf`)
       toast.success('Sukses', 'PDF laporan kehadiran telah diunduh.')
