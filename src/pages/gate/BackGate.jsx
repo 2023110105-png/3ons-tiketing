@@ -3,6 +3,12 @@ import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dat
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 
+// Helper functions - akan di-override dengan dynamic tenant dari user context
+let _currentTenantId = 'Primavera Production';
+function getTenantId() { return _currentTenantId; }
+function setTenantId(tenantId) { _currentTenantId = tenantId; }
+function getEventId() { return 'event-default'; }
+
 async function bootstrapStoreFromServer() {
   _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
@@ -12,8 +18,8 @@ async function bootstrapStoreFromServer() {
 
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
+  const tenantId = getTenantId();
+  const eventId = getEventId();
   // Support both field names for backward compatibility
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   const logs = event?.checkInLogs || event?.checkin_logs || [];
@@ -44,7 +50,7 @@ function getStats(day) {
 
 function getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   const eventId = 'event-default';
   const participants =
     _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
@@ -80,6 +86,7 @@ function enrichLogsWithParticipantData(logs) {
   });
 }
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../contexts/AuthContextSaaS'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
@@ -87,6 +94,11 @@ import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 const REALTIME_REFRESH_MS = 2500
 
 export default function BackGate() {
+  const { user } = useAuth()
+  // Set tenant ID dari user context
+  const tenantId = user?.tenant_id || 'Primavera Production'
+  setTenantId(tenantId)
+  
   const [selectedDay, setSelectedDay] = useState(1) // State untuk pilih Day 1 atau Day 2
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)

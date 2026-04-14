@@ -1,6 +1,6 @@
 import { supabase, isSupabaseEnabled } from './supabase.js'
 
-const DEFAULT_TENANT_ID = 'tenant-default'
+const DEFAULT_TENANT_ID = 'Primavera Production'
 const WORKSPACE_TABLE = 'workspace_state'
 const WORKSPACE_ID = 'default'
 const WORKSPACE_SCHEMA = 'public'
@@ -45,14 +45,8 @@ export function isWorkspaceSyncEnabled() {
 
 function scopeTenantPayload(payload = {}) {
   if (!payload || typeof payload !== 'object') return payload
-  const next = { ...payload }
-  if (Object.prototype.hasOwnProperty.call(next, 'tenantId')) {
-    next.tenantId = DEFAULT_TENANT_ID
-  }
-  if (Object.prototype.hasOwnProperty.call(next, 'tenant_id')) {
-    next.tenant_id = DEFAULT_TENANT_ID
-  }
-  return next
+  // Keep original tenantId - support multi-tenant
+  return { ...payload }
 }
 
 // Workspace helpers
@@ -283,7 +277,7 @@ export function subscribeWorkspaceChanges(onChange, options = {}) {
 export function syncTenantUpsert(tenant) {
   const nextTenant = {
     ...(tenant || {}),
-    id: DEFAULT_TENANT_ID
+    id: tenant?.id || tenant?.tenant_id || DEFAULT_TENANT_ID
   }
   if (!nextTenant?.id) return noopPromise()
   return mutateWorkspace((snapshot) => {
@@ -304,16 +298,13 @@ export function syncTenantUpsert(tenant) {
 
 export function syncTenantDelete(tenantId) {
   const scopedTenantId = String(tenantId || '').trim()
-  if (scopedTenantId && scopedTenantId !== DEFAULT_TENANT_ID) {
-    return Promise.resolve(false)
-  }
-  if (!DEFAULT_TENANT_ID) return noopPromise()
+  if (!scopedTenantId) return Promise.resolve(false)
   return mutateWorkspace((snapshot) => {
     ensureTenantRegistry(snapshot)
     ensureStore(snapshot)
-    delete snapshot.tenantRegistry.tenants[DEFAULT_TENANT_ID]
-    delete snapshot.store.tenants[DEFAULT_TENANT_ID]
-    if (snapshot.tenantRegistry.activeTenantId === DEFAULT_TENANT_ID) {
+    delete snapshot.tenantRegistry.tenants[scopedTenantId]
+    delete snapshot.store.tenants[scopedTenantId]
+    if (snapshot.tenantRegistry.activeTenantId === scopedTenantId) {
       snapshot.tenantRegistry.activeTenantId = Object.keys(snapshot.tenantRegistry.tenants)[0] || ''
     }
   }).catch((err) => {

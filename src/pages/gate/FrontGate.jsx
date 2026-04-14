@@ -6,10 +6,13 @@ let _pendingCheckIns = [];
 let _offlineQueueHistory = [];
 let _checkInCache = [];
 
-// Helper functions
-function getTenantId() { return 'tenant-default'; }
+// Helper functions - akan di-override dengan dynamic tenant dari user context
+let _currentTenantId = 'Primavera Production';
+function getTenantId() { return _currentTenantId; }
+function setTenantId(tenantId) { _currentTenantId = tenantId; }
 function getEventId() { return 'event-default'; }
 function getUserName() { return localStorage.getItem('user_name') || 'Admin'; }
+function getActiveTenant() { return { id: _currentTenantId }; }
 function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
 
@@ -20,8 +23,8 @@ async function bootstrapStoreFromServer() {
 
 function getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
+  const tenantId = getTenantId();
+  const eventId = getEventId();
   const participants =
     _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   if (typeof day === 'number') {
@@ -30,7 +33,6 @@ function getParticipants(day) {
   return participants;
 }
 
-function getActiveTenant() { return { id: 'tenant-default' }; }
 function getCurrentDay() { return 1; }
 
 function getStats(day) {
@@ -47,8 +49,8 @@ function getStats(day) {
 
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
+  const tenantId = getTenantId();
+  const eventId = getEventId();
   // Support both field names for backward compatibility
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   const logs = event?.checkInLogs || event?.checkin_logs || [];
@@ -167,8 +169,8 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
     }
 
     // Add to check-in logs
-    const tenantId = 'tenant-default';
-    const eventId = 'event-default';
+    const tenantId = getTenantId();
+    const eventId = getEventId();
     // Use participant's actual ticket_id from database (not from QR) for consistency
     const actualTicketId = participant.ticket_id || finalTicketId;
     const newLog = {
@@ -365,6 +367,7 @@ function retryPendingCheckIn(ticketId) {
   return false;
 }
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useAuth } from '../../contexts/AuthContextSaaS'
 import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
@@ -387,6 +390,11 @@ function getAvailableDays() {
 }
 
 export default function FrontGate() {
+  const { user } = useAuth()
+  // Set tenant ID dari user context
+  const tenantId = user?.tenant_id || 'Primavera Production'
+  setTenantId(tenantId)
+  
   const availableDays = getAvailableDays()
   const defaultDay = availableDays[0] || 1
   const [selectedDay, setSelectedDay] = useState(defaultDay)
@@ -1459,7 +1467,7 @@ function QuickScanButtons({ currentDay, onScan }) {
       day_number: p.day_number || p.day || currentDay,
       name: p.name,
       category: p.category
-    }, 'tenant-default', 'event-default')
+    }, 'Primavera Production', 'event-default')
   }
 
   return (

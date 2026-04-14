@@ -9,7 +9,7 @@
  */
 export function buildQRPayload({ ticketId, tenantId, eventId, dayNumber, name = '' }) {
   const tid = String(ticketId || '').trim();
-  const t = String(tenantId || 'tenant-default').trim();
+  const t = String(tenantId || 'Primavera Production').trim();
   const e = String(eventId || 'event-default').trim();
   const d = Number(dayNumber) || 1;
   const n = String(name || '').trim();
@@ -34,7 +34,7 @@ export function buildQRPayload({ ticketId, tenantId, eventId, dayNumber, name = 
 /**
  * Generate QR data string (JSON) yang konsisten
  */
-export function generateQRData(participant, tenantId = 'tenant-default', eventId = 'event-default') {
+export function generateQRData(participant, tenantId = 'Primavera Production', eventId = 'event-default') {
   if (!participant) return null;
   
   const payload = buildQRPayload({

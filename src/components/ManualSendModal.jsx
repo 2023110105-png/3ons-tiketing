@@ -60,7 +60,7 @@ export default function ManualSendModal({
   participant, 
   qrImageUrl, 
   onSendSuccess,
-  tenantId = 'tenant-default'
+  tenantId = 'Primavera Production'
 }) {
   const toast = useToast()
   const [phone, setPhone] = useState('')

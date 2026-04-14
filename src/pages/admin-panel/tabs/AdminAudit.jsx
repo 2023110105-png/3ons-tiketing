@@ -34,34 +34,32 @@ export default function AdminAudit() {
 
   return (
     <div className="owner-audit">
-      <div className="owner-section-header">
-        <h3>Audit Log</h3>
+      <div className="owner-toolbar">
+        <div className="owner-filters">
+          <div className="owner-search">
+            <input
+              type="text"
+              placeholder="Cari di log audit..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="owner-filter-group">
+            <Filter size={16} />
+            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+              <option value="all">Semua Aksi</option>
+              <option value="LOGIN">Login</option>
+              <option value="CHECKIN">Check-in</option>
+              <option value="CREATE">Create</option>
+              <option value="UPDATE">Update</option>
+              <option value="DELETE">Delete</option>
+              <option value="EXPORT">Export</option>
+            </select>
+          </div>
+        </div>
         <button className="owner-btn-secondary" onClick={exportLogs}>
           <Download size={16} /> Export CSV
         </button>
-      </div>
-
-      <div className="owner-filters">
-        <div className="owner-search">
-          <input
-            type="text"
-            placeholder="Search logs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="owner-filter-group">
-          <Filter size={16} />
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">All Actions</option>
-            <option value="LOGIN">Login</option>
-            <option value="CHECKIN">Check-in</option>
-            <option value="CREATE">Create</option>
-            <option value="UPDATE">Update</option>
-            <option value="DELETE">Delete</option>
-            <option value="EXPORT">Export</option>
-          </select>
-        </div>
       </div>
 
       <div className="owner-table-container">
@@ -92,7 +90,7 @@ export default function AdminAudit() {
       {filteredLogs.length === 0 && (
         <div className="owner-empty">
           <ClipboardList size={48} />
-          <p>No audit logs found</p>
+          <p>Tidak ada log audit ditemukan</p>
         </div>
       )}
     </div>

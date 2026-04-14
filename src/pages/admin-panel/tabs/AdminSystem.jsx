@@ -21,10 +21,13 @@ export default function AdminSystem() {
       {/* Health Status */}
       <div className="owner-section">
         <div className="owner-section-header">
-          <h3>System Health</h3>
+          <div>
+            <span className="owner-section-kicker">Status Sistem</span>
+            <h3 className="owner-section-title-sm">Health Overview</h3>
+          </div>
           <button className="owner-btn-secondary" onClick={runHealthCheck} disabled={isChecking}>
             <RefreshCw size={16} className={isChecking ? 'owner-spin' : ''} />
-            {isChecking ? 'Checking...' : 'Check Now'}
+            {isChecking ? 'Memeriksa...' : 'Periksa Sekarang'}
           </button>
         </div>
 
@@ -62,7 +65,10 @@ export default function AdminSystem() {
 
       {/* Quick Actions */}
       <div className="owner-section">
-        <h3>Maintenance Actions</h3>
+        <div className="owner-section-subheader">
+          <span className="owner-section-kicker">Pemeliharaan</span>
+          <h3 className="owner-section-title-sm">Tindakan Perawatan</h3>
+        </div>
         <div className="owner-actions-list">
           <div className="owner-action-row">
             <div className="owner-action-info">
@@ -101,7 +107,10 @@ export default function AdminSystem() {
 
       {/* Environment Info */}
       <div className="owner-section">
-        <h3>Environment</h3>
+        <div className="owner-section-subheader">
+          <span className="owner-section-kicker">Informasi</span>
+          <h3 className="owner-section-title-sm">Environment</h3>
+        </div>
         <div className="owner-info-list">
           <div className="owner-info-row">
             <span className="owner-info-label">Platform Version</span>

@@ -1,7 +1,8 @@
 {
-  "name": "ons-project-platform",
+  "name": "3ons-tiketing",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
+  "description": "3ONS Ticketing - Multi-Tenant Event Management SaaS",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -49,6 +50,8 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsdom": "^29.0.1",
+    "md-to-pdf": "^5.2.5",
+    "pg": "^8.20.0",
     "vite-plugin-mkcert": "^2.0.0",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.2"

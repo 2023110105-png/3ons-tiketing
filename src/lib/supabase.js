@@ -1,11 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = (import.meta.env && import.meta.env.VITE_SUPABASE_URL) || ''
-const supabaseAnonKey = (import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) || ''
-
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } })
-  : null
-
-export const isSupabaseEnabled = !!supabase
+// Re-export from api/supabase.js for backward compatibility
+// TODO: Migrate all imports to use '@/api/supabase' instead
+export { supabase, isSupabaseEnabled } from '../api/supabase.js'
 

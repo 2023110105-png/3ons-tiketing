@@ -9,19 +9,19 @@ async function bootstrapStoreFromServer() {
 
 function _getParticipants() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
 }
 
 function _getActiveTenant() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'tenant-default' };
-  return _workspaceSnapshot.store.tenants?.['tenant-default'] || { id: 'tenant-default' };
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'Primavera Production' };
+  return _workspaceSnapshot.store.tenants?.['Primavera Production'] || { id: 'Primavera Production' };
 }
 
 function _getAvailableDays() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   const eventId = 'event-default';
   const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
@@ -30,32 +30,32 @@ function _getAvailableDays() {
 
 function getCurrentEventId() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.activeEventId || 'event-default';
 }
 
 function getTenantBranding() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.branding || { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
 }
 
 function getEvents() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [{ id: 'event-default', name: 'Event Default', isArchived: false }];
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
   return Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
 }
 
 function setCurrentEvent(eventId) {
-  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
-    _workspaceSnapshot.store.tenants['tenant-default'].activeEventId = eventId;
+  if (_workspaceSnapshot?.store?.tenants?.['Primavera Production']) {
+    _workspaceSnapshot.store.tenants['Primavera Production'].activeEventId = eventId;
   }
 }
 
 function createEvent(name) { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'event-default', name };
-  const tenantId = 'tenant-default';
+  const tenantId = 'Primavera Production';
   const newEventId = 'event-' + Date.now();
   const newEvent = { id: newEventId, name, isArchived: false, participants: [], checkin_logs: [], created_at: new Date().toISOString() };
   if (!_workspaceSnapshot.store.tenants[tenantId].events) {
@@ -67,13 +67,14 @@ function createEvent(name) {
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/useAuth'
+import { useAuth } from '../../contexts/AuthContextSaaS'
 
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
   BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck,
-  FileText, Eye, History, Activity, Database, Bell, MessageCircle, TrendingUp
+  FileText, Eye, History, Activity, Database, Bell, MessageCircle, TrendingUp,
+  Building2, ClipboardList
 } from 'lucide-react'
 
 const RELEASE_MORNING_MODE = true
@@ -96,13 +97,7 @@ export default function Layout({ children }) {
   const isMobile = useIsMobileLayout()
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
 
-  const roleLabel = {
-    super_admin: 'Admin Utama',
-    admin_client: 'Admin Acara',
-    gate_front: 'Petugas Pintu Depan',
-    gate_back: 'Petugas Pintu Belakang',
-    owner: 'Pemilik Platform'
-  }
+  // roleLabel not used anymore - using scopeLabels with user_type
 
   const refreshEventState = () => {
     setEvents(getEvents())
@@ -126,7 +121,7 @@ export default function Layout({ children }) {
   }, [])
 
   useEffect(() => {
-    if (user?.role === 'admin') return
+    if (user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin') return
 
     let stopped = false
 
@@ -150,7 +145,7 @@ export default function Layout({ children }) {
       stopped = true
       window.clearInterval(id)
     }
-  }, [user?.role])
+  }, [user?.user_type])
 
   const handleEventChange = (eventId) => {
     setCurrentEvent(eventId, user)
@@ -173,29 +168,31 @@ export default function Layout({ children }) {
   const isActive = (path) => location.pathname === path
 
   const getNavItems = () => {
-    if (user?.role === 'operator') {
+    if (user?.user_type === 'gate_user') {
       return [
-        { path: '/operator', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
-        { path: '/operator/participants', icon: <Users size={18} />, label: 'Peserta' },
-        { path: '/gate/scan', icon: <Camera size={18} />, label: 'Pindai' }
+        { path: '/gate/front', icon: <Camera size={18} />, label: 'Scan QR' }
       ]
     }
-    if (user?.role === 'admin' && ADMIN_FEATURES_ENABLED) {
+    if (user?.user_type === 'system_admin') {
       return [{ path: '/admin-panel', icon: <ShieldCheck size={18} />, label: 'Admin Panel' }]
+    }
+    if (user?.user_type === 'tenant_admin') {
+      return [{ path: '/admin-tenant', icon: <LayoutDashboard size={18} />, label: 'Dashboard' }]
     }
     return []
   }
 
-  const operatorNav = [
-    { path: '/operator', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
-    { path: '/operator/participants', icon: <Users size={18} />, label: 'Peserta' },
-    { path: '/operator/analytics', icon: <TrendingUp size={18} />, label: 'Analitik' },
-    { path: '/operator/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
-    { path: '/operator/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
-    { path: '/operator/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
-    { path: '/operator/qr-generate', icon: <QrCode size={18} />, label: 'Buat QR' },
-    { path: '/operator/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },
-    { path: '/operator/settings', icon: <Settings size={18} />, label: 'Pengaturan' },
+  // Tenant Admin Navigation - goes to admin-tenant paths
+  const tenantAdminNav = [
+    { path: '/admin-tenant/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+    { path: '/admin-tenant/participants', icon: <Users size={18} />, label: 'Peserta' },
+    { path: '/admin-tenant/analytics', icon: <TrendingUp size={18} />, label: 'Analitik' },
+    { path: '/admin-tenant/ops-monitor', icon: <Activity size={18} />, label: 'Ops Monitor' },
+    { path: '/admin-tenant/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
+    { path: '/admin-tenant/connect-device', icon: <Smartphone size={18} />, label: 'Perangkat' },
+    { path: '/admin-tenant/qr-generate', icon: <QrCode size={18} />, label: 'Buat QR' },
+    { path: '/admin-tenant/reports', icon: <BarChart3 size={18} />, label: 'Laporan' },
+    { path: '/admin-tenant/settings', icon: <Settings size={18} />, label: 'Pengaturan' },
   ]
 
   const gateNav = [
@@ -203,31 +200,34 @@ export default function Layout({ children }) {
     { path: '/gate/monitor', icon: <MonitorSmartphone size={18} />, label: 'Pantau Langsung' },
   ]
 
-  const adminNav = [
+  // System Admin Navigation - goes to admin-panel paths
+  const systemAdminNav = [
     { path: '/admin-panel/overview', icon: <LayoutDashboard size={18} />, label: 'Overview' },
     { path: '/admin-panel/tenants', icon: <Building2 size={18} />, label: 'Tenants' },
+    { path: '/admin-panel/gate-users', icon: <Users size={18} />, label: 'Gate Users' },
     { path: '/admin-panel/audit', icon: <ClipboardList size={18} />, label: 'Audit Log' },
     { path: '/admin-panel/system', icon: <Settings size={18} />, label: 'System' },
   ]
-  const adminNavVisible = RELEASE_MORNING_MODE
-    ? adminNav.filter((item) => ADMIN_RELEASE_VISIBLE_PATHS.has(item.path))
-    : adminNav
+  
+  const adminNav = user?.user_type === 'system_admin' ? systemAdminNav : tenantAdminNav
+  const adminNavVisible = adminNav
 
   const mobileNavItems = getNavItems()
 
   const scopeLabels = {
-    admin: 'Admin Panel',
-    operator: 'Operator',
+    system_admin: 'System Admin',
+    tenant_admin: 'Admin Panel',
+    gate_user: 'Operator',
   }
 
-  const scopeClass = user?.role
-    ? `app-scope app-scope--${user.role.replace(/_/g, '-')}`
+  const scopeClass = user?.user_type
+    ? `app-scope app-scope--${user.user_type.replace(/_/g, '-')}`
     : 'app-scope'
   const supportPhone = '6285800366090'
   const supportText = encodeURIComponent(
     `Halo Admin, saya mengalami kendala di aplikasi.\n` +
     `Nama: ${user?.name || '-'}\n` +
-    `Peran: ${roleLabel[user?.role] || 'Pengguna'}\n` +
+    `Peran: ${scopeLabels[user?.user_type] || 'Pengguna'}\n` +
     `Tenant: ${tenantBranding?.brandName || '-'}\n` +
     `Halaman: ${location.pathname}\n` +
     `Detail kendala:`
@@ -250,22 +250,13 @@ export default function Layout({ children }) {
           )}
           <div className={`sidebar-product-mark${isMobile ? ' sidebar-product-mark--mobile' : ''}`}>
             <span className="sidebar-product-mark-badge">{tenantBranding?.brandName || '3ons'}</span>
-            <span className="sidebar-product-mark-role">{scopeLabels[user?.role] ?? 'Digital'}</span>
+            <span className="sidebar-product-mark-role">{scopeLabels[user?.user_type] ?? 'Digital'}</span>
           </div>
         </div>
 
         <nav className="sidebar-nav">
-          {user?.role === 'operator' && (
+          {user?.user_type === 'gate_user' && (
             <>
-              <div className="nav-section">
-                <div className="nav-section-title">Panel Operator</div>
-                {operatorNav.map(item => (
-                  <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
-                    <span className="nav-icon">{item.icon}</span>
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
               <div className="nav-section">
                 <div className="nav-section-title">Akses Pintu</div>
                 {gateNav.map(item => (
@@ -277,8 +268,22 @@ export default function Layout({ children }) {
               </div>
             </>
           )}
+          
+          {user?.user_type === 'tenant_admin' && (
+            <>
+              <div className="nav-section">
+                <div className="nav-section-title">Panel Admin</div>
+                {tenantAdminNav.map(item => (
+                  <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
+                    <span className="nav-icon">{item.icon}</span>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
 
-          {user?.role === 'admin' && ADMIN_FEATURES_ENABLED && (
+          {(user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin') && (
             <div className="nav-section">
               <div className="nav-section-title">Admin Panel</div>
               {adminNavVisible.map(item => (
@@ -292,7 +297,7 @@ export default function Layout({ children }) {
         </nav>
 
         <div className="sidebar-footer">
-          {user?.role === 'operator' && (
+          {user?.user_type === 'gate_user' && (
             <a
               href={supportLink}
               target="_blank"
@@ -310,7 +315,7 @@ export default function Layout({ children }) {
             </div>
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{user?.name}</div>
-              <div className="sidebar-user-role">{roleLabel[user?.role] || 'Pengguna'}</div>
+              <div className="sidebar-user-role">{scopeLabels[user?.user_type] || 'Pengguna'}</div>
             </div>
           </div>
         </div>
@@ -331,7 +336,7 @@ export default function Layout({ children }) {
             </Link>
           </div>
           <div className="header-right">
-            {(user?.role === 'super_admin' || user?.role === 'admin') && (
+            {(user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin') && (
               <>
                 <select
                   id="header-event-select"
@@ -358,7 +363,7 @@ export default function Layout({ children }) {
         </header>
 
         <div className="page-wrapper">
-          {RELEASE_MORNING_MODE && user?.role === 'admin' && ADMIN_FEATURES_ENABLED && (
+          {RELEASE_MORNING_MODE && user?.user_type === 'tenant_admin' && ADMIN_FEATURES_ENABLED && (
             <div
               style={{
                 marginBottom: 12,
@@ -371,7 +376,7 @@ export default function Layout({ children }) {
                 fontWeight: 700
               }}
             >
-              Mode Rilis Pagi Aktif: menu owner dibatasi ke operasi aman untuk menjaga stabilitas layanan tenant default.
+              Mode Rilis Pagi Aktif: fitur admin panel dibatasi ke operasi aman untuk menjaga stabilitas layanan.
             </div>
           )}
           {children}
@@ -387,7 +392,7 @@ export default function Layout({ children }) {
               {isActive(item.path) && <span className="mobile-nav-indicator"></span>}
             </Link>
           ))}
-          {(user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') && (
+          {(user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin') && (
             <button className="mobile-nav-item" onClick={() => setSidebarOpen(true)}>
               <span className="mobile-nav-icon"><Menu size={18} /></span>
               <span className="mobile-nav-label">Lainnya</span>

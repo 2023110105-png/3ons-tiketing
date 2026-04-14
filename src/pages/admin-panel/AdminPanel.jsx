@@ -1,93 +1,106 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, ClipboardList, Settings } from 'lucide-react'
+import { useParams, Navigate } from 'react-router-dom'
+import { LayoutDashboard, Building2, ClipboardList, Settings, Users } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContextSaaS'
 
-// Simplified Admin Tabs - only 4 essential menus
+// Admin Tabs
 import AdminOverview from './tabs/AdminOverview'
 import AdminTenants from './tabs/AdminTenants'
 import AdminAudit from './tabs/AdminAudit'
 import AdminSystem from './tabs/AdminSystem'
+import GateUsers from './GateUsers'
 
-const ADMIN_MENU = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/admin-panel' },
-  { id: 'tenants', label: 'Tenants', icon: Building2, path: '/admin-panel/tenants' },
-  { id: 'audit', label: 'Audit Log', icon: ClipboardList, path: '/admin-panel/audit' },
-  { id: 'system', label: 'System', icon: Settings, path: '/admin-panel/system' }
-]
+// All tabs config
+const allTabsConfig = {
+  overview: {
+    component: AdminOverview,
+    title: 'Overview',
+    description: 'Ringkasan sistem dan statistik utama platform.',
+    icon: LayoutDashboard,
+    kicker: 'Dashboard',
+    allowedTypes: ['system_admin'] // Only system admin
+  },
+  tenants: {
+    component: AdminTenants,
+    title: 'Manajemen Tenant',
+    description: 'Kelola tenant, pengguna, dan akses gate.',
+    icon: Building2,
+    kicker: 'Organisasi',
+    allowedTypes: ['system_admin'] // Only system admin
+  },
+  'gate-users': {
+    component: GateUsers,
+    title: 'Gate Users',
+    description: 'Kelola petugas gate untuk check-in.',
+    icon: Users,
+    kicker: 'Manajemen',
+    allowedTypes: ['system_admin', 'tenant_admin'] // Both can access
+  },
+  audit: {
+    component: AdminAudit,
+    title: 'Audit Log',
+    description: 'Riwayat aktivitas dan jejak audit sistem.',
+    icon: ClipboardList,
+    kicker: 'Kepatuhan',
+    allowedTypes: ['system_admin'] // Only system admin
+  },
+  system: {
+    component: AdminSystem,
+    title: 'System Health',
+    description: 'Status kesehatan sistem dan tindakan pemeliharaan.',
+    icon: Settings,
+    kicker: 'Infrastruktur',
+    allowedTypes: ['system_admin'] // Only system admin
+  }
+}
+
+// Default tab for each user type
+const defaultTab = {
+  system_admin: 'overview',
+  tenant_admin: 'gate-users'
+}
 
 export default function AdminPanel() {
   const { activeTab } = useParams()
-  const navigate = useNavigate()
-  const currentTab = activeTab || 'overview'
-
-  const handleTabChange = (tabId) => {
-    const menu = ADMIN_MENU.find(m => m.id === tabId)
-    if (menu) navigate(menu.path)
+  const { user } = useAuth()
+  const userType = user?.user_type || 'tenant_admin'
+  
+  // Filter tabs based on user type
+  const tabConfig = Object.fromEntries(
+    Object.entries(allTabsConfig).filter(([tabKey, config]) => 
+      config.allowedTypes.includes(userType)
+    )
+  )
+  
+  // Redirect to default tab if current tab not allowed
+  const currentTab = activeTab || defaultTab[userType]
+  if (!tabConfig[currentTab]) {
+    return <Navigate to={`/admin-panel/${defaultTab[userType]}`} replace />
   }
-
-  const renderActiveTab = () => {
-    switch (currentTab) {
-      case 'overview':
-        return <AdminOverview onNavigate={handleTabChange} />
-      case 'tenants':
-        return <AdminTenants />
-      case 'audit':
-        return <AdminAudit />
-      case 'system':
-        return <AdminSystem />
-      default:
-        return <AdminOverview onNavigate={handleTabChange} />
-    }
-  }
+  
+  const config = tabConfig[currentTab]
+  const ActiveComponent = config.component
+  const IconComponent = config.icon
 
   return (
-    <div className="admin-panel-container">
-      {/* Sidebar Navigation */}
-      <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <div className="admin-brand-icon">3o</div>
-          <div className="admin-brand-text">
-            <span className="admin-brand-name">Admin Panel</span>
-            <span className="admin-brand-sub">System Management</span>
+    <div className="admin-console-wrapper">
+      {/* Header Konsisten */}
+      <div className="admin-tab-intro">
+        <span className="page-kicker">{config.kicker}</span>
+        <div className="admin-tab-header">
+          <div className="admin-tab-title-group">
+            <h2>{config.title}</h2>
+            <p>{config.description}</p>
+          </div>
+          <div className="admin-tab-icon">
+            <IconComponent size={28} />
           </div>
         </div>
+      </div>
 
-        <nav className="admin-nav">
-          {ADMIN_MENU.map(item => {
-            const Icon = item.icon
-            const isActive = currentTab === item.id
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleTabChange(item.id)}
-                className={`admin-nav-item ${isActive ? 'active' : ''}`}
-              >
-                <Icon size={20} />
-                <span>{item.label}</span>
-              </button>
-            )
-          })}
-        </nav>
-
-        <div className="admin-sidebar-footer">
-          <button onClick={() => navigate('/operator')} className="admin-nav-item">
-            ← Kembali ke Operator
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="admin-main">
-        <header className="admin-header">
-          <h1>{ADMIN_MENU.find(m => m.id === currentTab)?.label || 'Overview'}</h1>
-          <div className="admin-header-actions">
-            <span className="admin-role-badge">System Admin</span>
-          </div>
-        </header>
-
-        <div className="admin-content">
-          {renderActiveTab()}
-        </div>
-      </main>
+      {/* Konten Tab */}
+      <div className="admin-tab-content">
+        <ActiveComponent />
+      </div>
     </div>
   )
 }

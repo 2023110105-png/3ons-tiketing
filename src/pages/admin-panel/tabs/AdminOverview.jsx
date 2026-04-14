@@ -1,6 +1,7 @@
-import { Building2, Users, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react'
+import { Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-export default function AdminOverview({ onNavigate }) {
+export default function AdminOverview() {
   const stats = {
     tenants: 1,
     totalUsers: 3,
@@ -11,67 +12,84 @@ export default function AdminOverview({ onNavigate }) {
   }
 
   return (
-    <div className="owner-overview">
+    <div className="admin-overview">
       {/* Stats Grid */}
-      <div className="owner-stats-grid">
-        <div className="owner-stat-card">
-          <div className="owner-stat-icon blue"><Building2 size={24} /></div>
-          <div className="owner-stat-value">{stats.tenants}</div>
-          <div className="owner-stat-label">Active Tenants</div>
+      <div className="admin-stats-grid">
+        <div className="admin-stat-card">
+          <div className="admin-stat-icon blue"><Building2 size={24} /></div>
+          <div className="admin-stat-info">
+            <h4>{stats.tenants}</h4>
+            <p>Active Tenants</p>
+          </div>
         </div>
         
-        <div className="owner-stat-card">
-          <div className="owner-stat-icon green"><Users size={24} /></div>
-          <div className="owner-stat-value">{stats.totalUsers}</div>
-          <div className="owner-stat-label">Total Users</div>
+        <div className="admin-stat-card">
+          <div className="admin-stat-icon green"><Users size={24} /></div>
+          <div className="admin-stat-info">
+            <h4>{stats.totalUsers}</h4>
+            <p>Total Users</p>
+          </div>
         </div>
         
-        <div className="owner-stat-card">
-          <div className="owner-stat-icon purple"><CheckCircle size={24} /></div>
-          <div className="owner-stat-value">{stats.totalParticipants}</div>
-          <div className="owner-stat-label">Total Participants</div>
+        <div className="admin-stat-card">
+          <div className="admin-stat-icon purple"><CheckCircle size={24} /></div>
+          <div className="admin-stat-info">
+            <h4>{stats.totalParticipants}</h4>
+            <p>Total Participants</p>
+          </div>
         </div>
         
-        <div className="owner-stat-card">
-          <div className="owner-stat-icon orange"><AlertTriangle size={24} /></div>
-          <div className="owner-stat-value">{stats.checkedIn}</div>
-          <div className="owner-stat-label">Checked In</div>
+        <div className="admin-stat-card">
+          <div className="admin-stat-icon orange"><AlertTriangle size={24} /></div>
+          <div className="admin-stat-info">
+            <h4>{stats.checkedIn}</h4>
+            <p>Checked In</p>
+          </div>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="owner-section">
-        <h3>Quick Actions</h3>
-        <div className="owner-actions">
-          <button className="owner-action-btn" onClick={() => onNavigate('tenants')}>
-            <Building2 size={18} />
-            <span>Manage Tenants</span>
-            <ArrowRight size={16} />
-          </button>
-          <button className="owner-action-btn" onClick={() => onNavigate('audit')}>
-            <CheckCircle size={18} />
-            <span>View Audit Logs</span>
-            <ArrowRight size={16} />
-          </button>
-          <button className="owner-action-btn" onClick={() => onNavigate('system')}>
-            <AlertTriangle size={18} />
-            <span>System Health</span>
-            <ArrowRight size={16} />
-          </button>
+      <div className="admin-section">
+        <div className="owner-section-subheader">
+          <span className="owner-section-kicker">Navigasi</span>
+          <h3 className="owner-section-title-sm">Aksi Cepat</h3>
+        </div>
+        <div className="admin-actions">
+          <Link to="/admin-panel/tenants" className="admin-action-btn">
+            <div className="admin-action-content">
+              <Building2 size={20} />
+              <span>Manage Tenants</span>
+            </div>
+          </Link>
+          <Link to="/admin-panel/audit" className="admin-action-btn">
+            <div className="admin-action-content">
+              <CheckCircle size={20} />
+              <span>View Audit Logs</span>
+            </div>
+          </Link>
+          <Link to="/admin-panel/system" className="admin-action-btn">
+            <div className="admin-action-content">
+              <AlertTriangle size={20} />
+              <span>System Health</span>
+            </div>
+          </Link>
         </div>
       </div>
 
       {/* System Status */}
-      <div className="owner-section">
-        <h3>System Status</h3>
-        <div className="owner-status-card">
-          <div className={`owner-status-indicator ${stats.systemStatus}`}>
-            <span className="owner-status-dot"></span>
-            <span className="owner-status-text">
+      <div className="admin-section">
+        <div className="owner-section-subheader">
+          <span className="owner-section-kicker">Monitoring</span>
+          <h3 className="owner-section-title-sm">Status Sistem</h3>
+        </div>
+        <div className="admin-status-card">
+          <div className={`admin-status-indicator ${stats.systemStatus}`}>
+            <span className="admin-status-dot"></span>
+            <span className="admin-status-text">
               {stats.systemStatus === 'healthy' ? 'All Systems Operational' : 'Issues Detected'}
             </span>
           </div>
-          <div className="owner-status-details">
+          <div className="admin-status-details">
             <p>Supabase: Connected</p>
             <p>Last sync: Just now</p>
           </div>

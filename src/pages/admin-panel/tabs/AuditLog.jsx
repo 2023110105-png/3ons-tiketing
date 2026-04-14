@@ -1,6 +1,13 @@
 import { useState, useMemo } from 'react'
 import { Search, Download, Clock, User, Info } from 'lucide-react'
 
+// Mock function - replace with actual implementation
+function getOwnerAuditLog() {
+  return [
+    { id: 1, timestamp: new Date().toISOString(), actor: 'admin@example.com', action: 'LOGIN', description: 'User login', meta: null },
+    { id: 2, timestamp: new Date().toISOString(), actor: 'admin@example.com', action: 'EXPORT', description: 'Exported participant data', meta: { count: 150 } },
+  ]
+}
 
 function formatMetaForViewer(meta) {
   try {
@@ -52,31 +59,26 @@ export default function AuditLog() {
 
   return (
     <div className="audit-log-container owner-fade-in-up">
-      <div className="owner-tab-intro">
-        <span className="page-kicker">Kepatuhan</span>
-        <h2>Riwayat aktivitas pemilik</h2>
-        <p>Ringkasan aksi dari akun pemilik platform: siapa, kapan, dan apa yang berubah. Unduh CSV untuk lampiran audit internal atau eksternal.</p>
-      </div>
       <div className="owner-toolbar">
-        <div className="owner-toolbar-left">
-          <div className="owner-search-input" style={{ flex: 1, maxWidth: '400px' }}>
-            <Search size={16} />
-            <input 
-              className="owner-form-input" 
-              placeholder="Cari di riwayat aktivitas..." 
+        <div className="owner-filters">
+          <div className="owner-search">
+            <input
+              type="text"
+              placeholder="Cari di log audit..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
-          <select 
-            className="owner-form-select" 
-            value={filterAction}
-            onChange={e => setFilterAction(e.target.value)}
-          >
-            {actionTypes.map(type => (
-              <option key={type} value={type}>{type === 'all' ? 'Semua Aksi' : type.toUpperCase()}</option>
-            ))}
-          </select>
+          <div className="owner-filter-group">
+            <select
+              value={filterAction}
+              onChange={e => setFilterAction(e.target.value)}
+            >
+              {actionTypes.map(type => (
+                <option key={type} value={type}>{type === 'all' ? 'Semua Aksi' : type.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="owner-toolbar-right">
           <button type="button" className="btn btn-ghost" onClick={handleExport} title="Unduh sebagai CSV">

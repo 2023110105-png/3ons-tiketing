@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/useAuth'
+import { useAuth } from '../contexts/AuthContextSaaS'
 import { humanizeUserMessage } from '../utils/userFriendlyMessage'
 
 export default function Login() {
