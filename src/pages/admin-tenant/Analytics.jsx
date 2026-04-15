@@ -105,22 +105,14 @@ function getAnalyticsData(day) {
 import { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
+  LineChart, Line, AreaChart, Area
 } from 'recharts';
 import { 
-  Users, UserCheck, Clock, TrendingUp, Activity, Target, 
-  Calendar, BarChart3, Download, RefreshCw, AlertCircle
+  Clock, Activity, TrendingUp, Calendar, Download, Users, UserCheck, Target
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { exportToCSV } from '../../utils/csvExport';
 import { analyticsStyles, analyticsAnimations } from './AnalyticsStyles';
-
-const CATEGORY_COLORS = {
-  VIP: '#e84040',
-  Dealer: '#4da6e8',
-  Media: '#f5c800',
-  Regular: '#2eab6e'
-};
 
 // StatCard component di luar render function
 function StatCard({ icon, title, value, subtext, color = 'blue', trend = null }) {
@@ -188,18 +180,10 @@ export default function Analytics() {
   
   const handleExport = () => {
     const exportData = [
-      ['Kategori', 'Total', 'Hadir', 'Persentase'],
-      ...Object.entries(data.byCategory).map(([cat, stats]) => [
-        cat, stats.total, stats.checkedIn, `${stats.percentage}%`
-      ]),
-      ['', '', '', ''],
-      ['Ringkasan', '', '', ''],
-      ['Total Peserta', data.summary.total, '', ''],
-      ['Sudah Check-in', data.summary.checkedIn, '', `${data.summary.percentage}%`],
-      ['Belum Check-in', data.summary.notCheckedIn, '', '']
+      ['Waktu', 'Total Check-in'],
+      ...data.hourlyData.filter(h => h.count > 0).map(h => [h.label, h.count])
     ];
-    
-    exportToCSV(exportData, `Analytics_Hari${selectedDay}_${new Date().toISOString().split('T')[0]}.csv`);
+    exportToCSV(exportData, `analytics-${selectedDay}.csv`);
     toast.success('Export berhasil', 'File analitik telah diunduh');
   };
   
@@ -307,27 +291,6 @@ export default function Analytics() {
           </div>
         </div>
         
-        {/* Category Breakdown */}
-        <div className="analytics-chart-card">
-          <div className="analytics-chart-header">
-            <BarChart3 size={18} />
-            <h3>Distribusi per Kategori</h3>
-          </div>
-          <div className="analytics-chart-body">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={Object.entries(data.byCategory).map(([name, stats]) => ({ name, ...stats }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e0d4" />
-                <XAxis dataKey="name" tick={{fontSize: 11}} />
-                <YAxis tick={{fontSize: 11}} />
-                <Tooltip 
-                  contentStyle={{background: 'white', border: '1px solid #e4e0d4', borderRadius: 8}}
-                />
-                <Bar dataKey="total" fill="#e4e0d4" radius={[4, 4, 0, 0]} name="Total" />
-                <Bar dataKey="checkedIn" fill="#e84040" radius={[4, 4, 0, 0]} name="Hadir" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
       
       {/* Heatmap Row */}
@@ -395,47 +358,6 @@ export default function Analytics() {
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Category Detail Table */}
-      <div className="analytics-table-card">
-        <div className="analytics-chart-header">
-          <Users size={18} />
-          <h3>Detail per Kategori</h3>
-        </div>
-        <table className="analytics-table">
-          <thead>
-            <tr>
-              <th>Kategori</th>
-              <th>Total</th>
-              <th>Hadir</th>
-              <th>Belum</th>
-              <th>Persentase</th>
-              <th>Progress</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(data.byCategory).map(([cat, stats]) => (
-              <tr key={cat}>
-                <td>
-                  <span className={`analytics-badge badge-${cat.toLowerCase()}`}>{cat}</span>
-                </td>
-                <td>{stats.total}</td>
-                <td className="text-green">{stats.checkedIn}</td>
-                <td className="text-muted">{stats.total - stats.checkedIn}</td>
-                <td>{stats.percentage}%</td>
-                <td>
-                  <div className="analytics-progress-bar">
-                    <div 
-                      className="analytics-progress-fill" 
-                      style={{width: `${stats.percentage}%`, background: CATEGORY_COLORS[cat] || '#2eab6e'}}
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
       
       {/* v2.0 Styles */}
