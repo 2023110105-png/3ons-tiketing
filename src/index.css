@@ -1,3 +1,8 @@
+/* Tailwind CSS Directives - REQUIRED */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Fonts loaded from index.html (avoids @import render block) */
 
 /* ============================================

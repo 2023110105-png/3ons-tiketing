@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense, lazy, useEffect, useRef } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContextSaaS'
 import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/Layout/Layout'
@@ -110,7 +110,7 @@ function ProtectedRoute({ children, allowedUserTypes = [], requireGatePermission
   if (allowedUserTypes.length > 0 && !allowedUserTypes.includes(user.user_type)) {
     // Redirect berdasarkan user type
     if (user.user_type === 'tenant_admin') {
-      return <Navigate to={ADMIN_FEATURES_ENABLED ? '/admin-panel' : '/operator'} replace />
+      return <Navigate to='/admin-tenant/dashboard' replace />
     }
     if (user.user_type === 'gate_user') {
       // Gate user hanya bisa ke gate yang diassign
@@ -194,6 +194,29 @@ function AutoRedirect() {
   }
 }
 
+/**
+ * AdminPanelRedirect - Redirect /admin-panel to /admin-panel/overview
+ * Uses useNavigate in useEffect to prevent infinite loop
+ */
+function AdminPanelRedirect() {
+  const navigate = useNavigate()
+  const redirected = useRef(false)
+  
+  useEffect(() => {
+    if (redirected.current) return
+    redirected.current = true
+    navigate('/admin-panel/overview', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - only run once
+  
+  return (
+    <div className="flex-center full-height-screen" style={{ flexDirection: 'column', gap: 12 }}>
+      <div className="spinner spinner-lg"></div>
+      <p style={{ color: '#666' }}>Redirecting to admin panel...</p>
+    </div>
+  )
+}
+
 function AppRoutes() {
   // Preload admin panel jika user adalah admin
   const { user } = useAuth()
@@ -217,9 +240,7 @@ function AppRoutes() {
       <Route path="/" element={<AutoRedirect />} />
 
       {/* Admin Panel Routes - SYSTEM ADMIN ONLY */}
-      <Route path="/admin-panel" element={
-        <Navigate to='/admin-panel/overview' replace />
-      } />
+      <Route path="/admin-panel" element={<AdminPanelRedirect />} />
       <Route path="/admin-panel/:activeTab" element={
         <ProtectedRoute allowedUserTypes={['system_admin']}>
           <Suspense fallback={<RouteFallback />}>
