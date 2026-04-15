@@ -1,41 +1,17 @@
-// ===== REAL FUNCTIONS FOR QR GENERATE =====
-import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getActiveTenantId,
+  getParticipants,
+  getActiveTenant as _getActiveTenant,
+  getAvailableDays as _getAvailableDays,
+  getCurrentDay
+} from '../../lib/tenantUtils';
+
+// Local workspace snapshot reference
 let _workspaceSnapshot = null;
 
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-function getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
-function _getActiveTenant() { return { id: getActiveTenantId() }; }
-function _getAvailableDays() { return [1]; }
-function getCurrentDay() { return 1; }
 function _simulateCheckIns() { 
   alert('Simulasi check-in dijalankan.'); 
 }
@@ -97,6 +73,7 @@ import { generateQRData, parseQRData } from '../../utils/qrSecurity'
 import BarcodeImport from './BarcodeImport'
 import ManualSendModal from '../../components/ManualSendModal'
 import { supabase } from '../../lib/supabase'
+import { qrStyles, qrAnimations } from './QRGenerateStyles'
 
 // VIBRANT Full Color Palette - Anti Monoton!
 const CATEGORY_STYLES = {
@@ -952,12 +929,12 @@ export default function QRGenerate() {
   // ===== MOBILE QR GENERATE =====
   if (isMobile) {
     return (
-      <div className="page-container">
-        <div className="m-section-header qr-mobile-header">
+      <div className="page-container" style={qrStyles.pageContainer}>
+        <div className="m-section-header qr-mobile-header" style={qrStyles.mobileHeader}>
           <div>
-            <span className="m-mobile-kicker">Tiket</span>
-            <h1 className="qr-mobile-title">QR & unduhan</h1>
-            <p className="qr-mobile-subtitle">{participants.length} peserta · hari {dayFilter}</p>
+            <span className="m-mobile-kicker" style={{...qrStyles.pageKicker, color: '#60a5fa'}}>Tiket</span>
+            <h1 className="qr-mobile-title" style={qrStyles.mobileTitle}>QR & unduhan</h1>
+            <p className="qr-mobile-subtitle" style={qrStyles.mobileSubtitle}>{participants.length} peserta · hari {dayFilter}</p>
           </div>
           <select className="m-filter-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             <option value={1}>Hari 1</option>
@@ -1147,7 +1124,7 @@ export default function QRGenerate() {
           participant={manualSendParticipant}
           qrImageUrl={qrUrl}
           onSendSuccess={handleManualSendSuccess}
-          tenantId="getActiveTenantId()"
+          tenantId={getActiveTenantId()}
         />
       </div>
     )
@@ -1155,11 +1132,11 @@ export default function QRGenerate() {
 
   // ===== DESKTOP QR GENERATE =====
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="page-kicker">Tiket</span>
-        <h1>Manajemen tiket QR</h1>
-        <p>Unduh tiket visual, bagikan ke WhatsApp, atau impor barcode massal. Token aman dapat diperbarui untuk seluruh hari sekaligus.</p>
+    <div className="page-container" style={qrStyles.pageContainer}>
+      <div className="page-header" style={qrStyles.pageHeader}>
+        <span className="page-kicker" style={qrStyles.pageKicker}>Tiket</span>
+        <h1 style={qrStyles.pageTitle}>Manajemen tiket QR</h1>
+        <p style={qrStyles.pageSubtitle}>Unduh tiket visual, bagikan ke WhatsApp, atau impor barcode massal. Token aman dapat diperbarui untuk seluruh hari sekaligus.</p>
       </div>
 
       <div className="qr-page-tabs" role="tablist" aria-label="Mode tiket">
@@ -1187,7 +1164,7 @@ export default function QRGenerate() {
       {/* ===== GENERATE TAB ===== */}
       {activeTab === 'generate' && (
         <>
-          <div className="qr-toolbar">
+          <div className="qr-toolbar" style={qrStyles.toolbar}>
             <select className="form-select qr-toolbar-select" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
               <option value={1}>Hari 1 ({dayCounts[1]} peserta)</option>
               <option value={2}>Hari 2 ({dayCounts[2]} peserta)</option>
@@ -1360,8 +1337,11 @@ export default function QRGenerate() {
         participant={manualSendParticipant}
         qrImageUrl={qrUrl}
         onSendSuccess={handleManualSendSuccess}
-        tenantId="getActiveTenantId()"
+        tenantId={getActiveTenantId()}
       />
+      
+      {/* v2.0 Styles */}
+      <style>{qrAnimations}</style>
     </div>
   )
 }

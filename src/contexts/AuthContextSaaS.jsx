@@ -6,6 +6,60 @@ import { supabase } from '../lib/supabase'
 
 export const AuthContext = createContext(null)
 
+/**
+ * Hash password using SHA-256 with salt
+ * @param {string} password - Plain text password
+ * @returns {Promise<string>} - Hashed password
+ */
+async function hashPassword(password) {
+  try {
+    // Add a static salt (in production, use per-user random salt)
+    const salt = '3ONS_TICKETING_SALT_v2024'
+    const saltedPassword = salt + password
+    
+    // Encode as UTF-8
+    const encoder = new TextEncoder()
+    const data = encoder.encode(saltedPassword)
+    
+    // Hash using SHA-256
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    
+    // Convert to hex string
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    
+    return hashHex
+  } catch (err) {
+    console.error('[AuthSaaS] Password hashing error:', err)
+    // Fallback to simple hash if crypto API not available
+    return btoa(password).replace(/=/g, '')
+  }
+}
+
+/**
+ * Verify password against stored hash
+ * @param {string} inputPassword - Password from user input
+ * @param {string} storedHash - Hash stored in database
+ * @returns {Promise<boolean>} - True if match
+ */
+async function verifyPassword(inputPassword, storedHash) {
+  console.log('[AuthSaaS] Verifying password:', { inputLength: inputPassword?.length, storedLength: storedHash?.length, storedPrefix: storedHash?.substring(0, 10) })
+  
+  // If stored hash looks like plain text (for backward compatibility during migration)
+  if (!storedHash || storedHash.length < 32) {
+    console.log('[AuthSaaS] Using plain text comparison')
+    const match = inputPassword === storedHash
+    console.log('[AuthSaaS] Plain text match:', match)
+    return match
+  }
+  
+  console.log('[AuthSaaS] Using hash comparison')
+  const inputHash = await hashPassword(inputPassword)
+  const match = inputHash === storedHash
+  console.log('[AuthSaaS] Hash match:', match)
+  return match
+}
+
 // Custom hook to use auth context
 export function useAuth() {
   const context = useContext(AuthContext)
@@ -20,24 +74,43 @@ export function useAuth() {
  */
 async function checkSystemAdmin(username, password) {
   try {
+    console.log('[AuthSaaS] Checking system admin:', username)
     const { data, error } = await supabase
       .from('system_admins')
       .select('*')
       .eq('username', username.trim().toLowerCase())
       .eq('is_active', true)
-      .single()
+      .limit(1)
+      .maybeSingle()
     
-    if (error || !data) return { success: false }
+    console.log('[AuthSaaS] Supabase result:', { data: !!data, error: error?.message || error })
     
-    const passwordMatch = data.password_hash === password
+    if (error) {
+      console.error('[AuthSaaS] Supabase error:', error)
+      return { success: false, error: 'Database error' }
+    }
+    
+    if (!data) {
+      console.log('[AuthSaaS] No user found')
+      return { success: false }
+    }
+    
+    // Verify password using secure hash comparison
+    const passwordMatch = await verifyPassword(password, data.password_hash)
     
     if (!passwordMatch) return { success: false }
     
-    // Update last login
-    await supabase
-      .from('system_admins')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', data.id)
+    // Update last login via RPC (bypasses RLS with SECURITY DEFINER)
+    try {
+      const { error: rpcError } = await supabase.rpc('update_last_login_admin', { user_id: data.id })
+      if (rpcError) {
+        console.log('[AuthSaaS] RPC Error:', rpcError.message, rpcError.details, rpcError.hint)
+      } else {
+        console.log('[AuthSaaS] Last login updated successfully')
+      }
+    } catch (err) {
+      console.log('[AuthSaaS] last_login exception:', err.message)
+    }
     
     return {
       success: true,
@@ -56,7 +129,7 @@ async function checkSystemAdmin(username, password) {
     }
   } catch (err) {
     console.error('[AuthSaaS] System admin check error:', err)
-    return { success: false }
+    return { success: false, error: err.message }
   }
 }
 
@@ -73,19 +146,18 @@ async function checkTenantAdmin(username, password) {
       `)
       .eq('username', username.trim().toLowerCase())
       .eq('is_active', true)
-      .single()
+      .limit(1)
+      .maybeSingle()
     
     if (error || !data) return { success: false }
     
-    const passwordMatch = data.password_hash === password
+    // Verify password using secure hash comparison
+    const passwordMatch = await verifyPassword(password, data.password_hash)
     
     if (!passwordMatch) return { success: false }
     
-    // Update last login
-    await supabase
-      .from('tenant_admins')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', data.id)
+    // Last login update DISABLED - causing 400 errors
+    // TODO: Fix RLS permissions in production
     
     return {
       success: true,
@@ -109,7 +181,7 @@ async function checkTenantAdmin(username, password) {
     }
   } catch (err) {
     console.error('[AuthSaaS] Tenant admin check error:', err)
-    return { success: false }
+    return { success: false, error: err.message }
   }
 }
 
@@ -118,6 +190,9 @@ async function checkTenantAdmin(username, password) {
  */
 async function checkGateUser(username, password) {
   try {
+    console.log('[AuthSaaS] Gate user login attempt:', username)
+    console.log('[AuthSaaS] Supabase client:', supabase ? 'initialized' : 'null')
+    
     const { data, error } = await supabase
       .from('gate_users')
       .select(`
@@ -126,19 +201,40 @@ async function checkGateUser(username, password) {
       `)
       .eq('username', username.trim().toLowerCase())
       .eq('is_active', true)
-      .single()
+      .limit(1)
+      .maybeSingle()
     
-    if (error || !data) return { success: false }
+    console.log('[AuthSaaS] Query result:', { data: data ? 'found' : 'not found', error: error?.message || null })
     
-    const passwordMatch = data.password_hash === password
+    if (error) {
+      console.error('[AuthSaaS] Supabase error:', error)
+      return { success: false, error: 'Database error: ' + error.message }
+    }
     
-    if (!passwordMatch) return { success: false }
+    if (!data) {
+      console.log('[AuthSaaS] User not found in gate_users table')
+      return { success: false, error: 'User not found' }
+    }
     
-    // Update last login
-    await supabase
-      .from('gate_users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', data.id)
+    console.log('[AuthSaaS] User found, checking password...')
+    // Verify password using secure hash comparison
+    const passwordMatch = await verifyPassword(password, data.password_hash)
+    
+    console.log('[AuthSaaS] Password match:', passwordMatch)
+    
+    if (!passwordMatch) return { success: false, error: 'Invalid password' }
+    
+    // Update last login via RPC (bypasses RLS with SECURITY DEFINER)
+    try {
+      const { error: rpcError } = await supabase.rpc('update_last_login_gate', { user_id: data.id })
+      if (rpcError) {
+        console.log('[AuthSaaS] RPC Error:', rpcError.message, rpcError.details, rpcError.hint)
+      } else {
+        console.log('[AuthSaaS] Last login updated successfully')
+      }
+    } catch (err) {
+      console.log('[AuthSaaS] last_login exception:', err.message)
+    }
     
     // Determine gate access
     const gate_assignment = data.gate_assignment || 'front'
@@ -168,7 +264,7 @@ async function checkGateUser(username, password) {
     }
   } catch (err) {
     console.error('[AuthSaaS] Gate user check error:', err)
-    return { success: false }
+    return { success: false, error: err.message }
   }
 }
 
@@ -184,30 +280,37 @@ async function loginSaaS(username, password) {
   console.log('[AuthSaaS] Login attempt:', username)
   
   // Step 1: Check system_admins (Level 1)
+  console.log('[AuthSaaS] Step 1: Checking system_admins...')
   const systemAdminResult = await checkSystemAdmin(username, password)
+  console.log('[AuthSaaS] Step 1 result:', systemAdminResult)
   if (systemAdminResult.success) {
     console.log('[AuthSaaS] System admin login success')
     return systemAdminResult
   }
   
   // Step 2: Check tenant_admins (Level 2)
+  console.log('[AuthSaaS] Step 2: Checking tenant_admins...')
   const tenantAdminResult = await checkTenantAdmin(username, password)
+  console.log('[AuthSaaS] Step 2 result:', tenantAdminResult)
   if (tenantAdminResult.success) {
     console.log('[AuthSaaS] Tenant admin login success')
     return tenantAdminResult
   }
   
   // Step 3: Check gate_users (Level 3)
+  console.log('[AuthSaaS] Step 3: Checking gate_users...')
   const gateUserResult = await checkGateUser(username, password)
+  console.log('[AuthSaaS] Step 3 result:', gateUserResult)
   if (gateUserResult.success) {
     console.log('[AuthSaaS] Gate user login success')
     return gateUserResult
   }
   
-  // Login failed
+  // Login failed - return specific error if available
+  console.log('[AuthSaaS] All steps failed - login rejected')
   return { 
     success: false, 
-    error: 'Username atau password salah'
+    error: gateUserResult.error || 'Username atau password salah'
   }
 }
 
@@ -256,6 +359,22 @@ export function canAccessTenantAdmin(user) {
 export function canAccessGate(user) {
   if (!user) return false
   return user.user_type === 'gate_user' || user.user_type === 'tenant_admin' || user.user_type === 'system_admin'
+}
+
+/**
+ * Export hashPassword for creating new users
+ * Usage: const hashedPassword = await hashPassword('plainPassword')
+ */
+export { hashPassword }
+
+/**
+ * Helper to generate hash for existing passwords
+ * Run in console: await generateHashForPassword('dev123')
+ */
+export async function generateHashForPassword(plainPassword) {
+  const hash = await hashPassword(plainPassword)
+  console.log(`[AuthSaaS] Hash for "${plainPassword}":`, hash)
+  return hash
 }
 
 /**

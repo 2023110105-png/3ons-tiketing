@@ -1,35 +1,16 @@
-// ===== REAL FUNCTIONS FOR WA DELIVERY =====
-import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
-let _workspaceSnapshot = null;
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  return 'default';
-}
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getActiveTenantId,
+  getParticipants,
+  getActiveTenant,
+  getCurrentDay
+} from '../../lib/tenantUtils';
 
-function getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
-function getActiveTenant() { return { id: getActiveTenantId() }; }
-function getCurrentDay() { return 1; }
+// Local workspace snapshot reference
+let _workspaceSnapshot = null;
+
 function getWaSendMode() { return 'message_only'; }
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
@@ -44,6 +25,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { generateWaMessage } from '../../utils/whatsapp'
 import { supabase } from '../../lib/supabase'
 import { generateQRData } from '../../utils/qrSecurity'
+import { waStyles, waAnimations } from './WaDeliveryStyles'
 
 // Load participants dari Supabase dengan filter day
 async function _loadParticipantsFromSupabase(day) {
@@ -1140,12 +1122,12 @@ export default function WaDelivery() {
   }
 
   return (
-    <div className="page-container animate-fade-in-up">
-      <div className="page-header">
+    <div className="page-container" style={waStyles.pageContainer}>
+      <div className="page-header" style={waStyles.pageHeader}>
         <div className="page-title-group">
-          <span className="page-kicker">Operasional</span>
-          <h1>WA Delivery Queue</h1>
-          <p>Pantau hasil kirim tiket via WhatsApp, lihat alasan gagal, dan lakukan pengiriman ulang tanpa harus membuka daftar peserta satu per satu.</p>
+          <span className="page-kicker" style={waStyles.pageKicker}>Operasional</span>
+          <h1 style={waStyles.pageTitle}>WA Delivery Queue</h1>
+          <p style={waStyles.pageSubtitle}>Pantau hasil kirim tiket via WhatsApp, lihat alasan gagal, dan lakukan pengiriman ulang tanpa harus membuka daftar peserta satu per satu.</p>
         </div>
         <div className="admin-actions-wrap">
           <button type="button" className="btn btn-primary" onClick={sendBatchToAll} disabled={batchSending || !waConn.isReady}>
@@ -1405,6 +1387,9 @@ export default function WaDelivery() {
           </table>
         </div>
       </div>
+      
+      {/* v2.0 Styles */}
+      <style>{waAnimations}</style>
     </div>
   )
 }

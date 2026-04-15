@@ -175,47 +175,68 @@ function startGlobalPolling(pollInterval) {
   globalSubState.pollTimer = setInterval(doPoll, pollInterval)
 }
 
-function setupGlobalRealtime(pollInterval) {
-  if (globalSubState.channel || globalSubState.isConnecting) return
+function setupGlobalRealtime(pollInterval = 10000) {
+  if (!supabase || globalSubState.isConnecting || globalSubState.channel) {
+    return
+  }
 
   globalSubState.isConnecting = true
 
-  const channel = supabase
-    .channel(`workspace:${WORKSPACE_ID}:${Date.now()}`, {
-      config: {
-        broadcast: { self: false },
-        presence: { key: '' }
+  try {
+    const channel = supabase
+      .channel(`workspace:${WORKSPACE_ID}:${Date.now()}`, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' }
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: WORKSPACE_SCHEMA,
+          table: WORKSPACE_TABLE,
+          filter: `id=eq.${WORKSPACE_ID}`
+        },
+        (payload) => {
+          notifyAllCallbacks(payload)
+        }
+      )
+
+    // Mark that we're about to subscribe
+    globalSubState.channelSubscribed = false
+    
+    // Track if we've already logged fallback (prevent spam)
+    let fallbackLogged = false
+    let successLogged = false
+    
+    channel.subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (!globalSubState.isSubscribed && !fallbackLogged) {
+          console.warn('[DataSync] realtime unavailable, using polling fallback:', err?.message || status)
+          console.info(`[DataSync] Auto-polling every ${pollInterval / 1000}s - data will sync automatically`)
+          fallbackLogged = true
+          startGlobalPolling(pollInterval)
+        }
+      } else if (status === 'SUBSCRIBED') {
+        globalSubState.isSubscribed = true
+        globalSubState.channelSubscribed = true
+        stopGlobalPolling()
+        if (!successLogged) {
+          console.info('[DataSync] realtime connected successfully, polling stopped')
+          successLogged = true
+        }
       }
+      globalSubState.isConnecting = false
     })
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: WORKSPACE_SCHEMA,
-        table: WORKSPACE_TABLE,
-        filter: `id=eq.${WORKSPACE_ID}`
-      },
-      (payload) => {
-        notifyAllCallbacks(payload)
-      }
-    )
 
-  channel.subscribe((status, err) => {
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-      if (!globalSubState.isSubscribed) {
-        console.warn('[DataSync] realtime unavailable, using polling fallback:', err?.message || status)
-        console.info(`[DataSync] Auto-polling every ${pollInterval / 1000}s - data will sync automatically`)
-        startGlobalPolling(pollInterval)
-      }
-    } else if (status === 'SUBSCRIBED') {
-      globalSubState.isSubscribed = true
-      stopGlobalPolling()
-      console.info('[DataSync] realtime connected successfully, polling stopped')
-    }
+    globalSubState.channel = channel
+  } catch (err) {
+    console.error('[DataSync] Failed to setup realtime:', err)
     globalSubState.isConnecting = false
-  })
-
-  globalSubState.channel = channel
+    // Fallback to polling
+    startGlobalPolling(pollInterval)
+  }
 }
 
 // === PUBLIC API ===

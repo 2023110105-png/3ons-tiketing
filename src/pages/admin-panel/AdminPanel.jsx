@@ -1,5 +1,5 @@
 import { useParams, Navigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, ClipboardList, Settings, Users } from 'lucide-react'
+import { LayoutDashboard, Building2, ClipboardList, Settings, Users, Database } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContextSaaS'
 
 // Admin Tabs
@@ -7,6 +7,7 @@ import AdminOverview from './tabs/AdminOverview'
 import AdminTenants from './tabs/AdminTenants'
 import AdminAudit from './tabs/AdminAudit'
 import AdminSystem from './tabs/AdminSystem'
+import SupabaseIntegration from './tabs/SupabaseIntegration'
 import GateUsers from './GateUsers'
 
 // All tabs config
@@ -50,6 +51,14 @@ const allTabsConfig = {
     icon: Settings,
     kicker: 'Infrastruktur',
     allowedTypes: ['system_admin'] // Only system admin
+  },
+  supabase: {
+    component: SupabaseIntegration,
+    title: 'Supabase Integration',
+    description: 'Tes koneksi read/write ke database Supabase.',
+    icon: Database,
+    kicker: 'Database',
+    allowedTypes: ['system_admin'] // Only system admin
   }
 }
 
@@ -66,7 +75,7 @@ export default function AdminPanel() {
   
   // Filter tabs based on user type
   const tabConfig = Object.fromEntries(
-    Object.entries(allTabsConfig).filter(([tabKey, config]) => 
+    Object.entries(allTabsConfig).filter(([, config]) => 
       config.allowedTypes.includes(userType)
     )
   )

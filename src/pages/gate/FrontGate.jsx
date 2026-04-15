@@ -1,23 +1,35 @@
-// ===== REAL FUNCTIONS FOR GATE SCAN =====
-import { fetchWorkspaceSnapshot, syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer as _bootstrapStoreFromServer,
+  setWorkspaceSnapshot,
+  getActiveTenantId as _getActiveTenantId
+} from '../../lib/tenantUtils';
+import { syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
+
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 let _pendingCheckIns = [];
 let _offlineQueueHistory = [];
 let _checkInCache = [];
 
-// Helper functions - akan di-override dengan dynamic tenant dari user context
-let _currentTenantId = 'Primavera Production';
-function getTenantId() { return _currentTenantId; }
-function setTenantId(tenantId) { _currentTenantId = tenantId; }
+// Helper functions - dynamic tenant dari user context
 function getEventId() { return 'event-default'; }
 function getUserName() { return localStorage.getItem('user_name') || 'Admin'; }
-function getActiveTenant() { return { id: _currentTenantId }; }
+
+// Dynamic tenant ID dari user yang login
+function getTenantId() {
+  // Prioritas: window.currentUser > localStorage > default
+  return _getActiveTenantId();
+}
+
+function getActiveTenant() { return { id: getTenantId() }; }
 function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
 
 async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
+  _workspaceSnapshot = await _bootstrapStoreFromServer();
+  setWorkspaceSnapshot(_workspaceSnapshot);
   return _workspaceSnapshot;
 }
 
@@ -390,10 +402,9 @@ function getAvailableDays() {
 }
 
 export default function FrontGate() {
-  const { user } = useAuth()
-  // Set tenant ID dari user context
-  const tenantId = user?.tenant_id || 'Primavera Production'
-  setTenantId(tenantId)
+  const { user: _user } = useAuth() // Auth check - user info available if needed
+  // Tenant ID otomatis dari getTenantId() via tenantUtils (reads from user context)
+  void getTenantId
   
   const availableDays = getAvailableDays()
   const defaultDay = availableDays[0] || 1
@@ -415,6 +426,12 @@ export default function FrontGate() {
   const lastScanRef = useRef({ data: null, time: 0 })
   const lastServerSyncRef = useRef(0)
   const scannerRef = useRef(null)
+  const selectedDayRef = useRef(selectedDay)
+  
+  // Keep selectedDayRef up to date
+  useEffect(() => {
+    selectedDayRef.current = selectedDay
+  }, [selectedDay])
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
 
   const refreshStats = useCallback(() => {
@@ -746,14 +763,17 @@ export default function FrontGate() {
   }, [])
 
   // Realtime subscription to capture admin data changes
+  // Only run once on mount to avoid subscribe/unsubscribe cycles
   useEffect(() => {
     // Subscribe to realtime changes from Supabase
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
       console.log('[FrontGate] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
       void bootstrapStoreFromServer().then(() => {
-        refreshStats();
-        refreshPendingState();
+        // Update stats and pending items directly using ref for current selectedDay
+        setStats(getStats(selectedDayRef.current));
+        setPendingCount(getPendingCheckIns().length);
+        setPendingItems(getPendingCheckIns());
         console.log('[FrontGate] Data refreshed from realtime update');
       });
     });
@@ -764,7 +784,7 @@ export default function FrontGate() {
         _unsubscribeRealtime = null;
       }
     };
-  }, [refreshStats, refreshPendingState])
+  }, []) // Empty deps - only subscribe once
 
   useEffect(() => {
     return () => { 

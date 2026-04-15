@@ -1,48 +1,35 @@
-// ===== REAL FUNCTIONS FOR DATA SYNC =====
-// V2.0: Using compatibility layer (bridges v1 API to v2 database)
-import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
-let _workspaceSnapshot = null;
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  getActiveTenantId,
+  bootstrapStoreFromServer,
+  getWorkspaceSnapshot,
+  getActiveTenant as _getActiveTenant,
+  setCurrentDay as _setCurrentDay
+} from '../../lib/tenantUtils';
+import { subscribeWorkspaceChanges } from '../../lib/dataSync';
+
+// Local subscription unsubscribe function
 let _unsubscribeRealtime = null;
 
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-
 function getAllParticipants() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return [];
   const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.['event-default']?.participants || [];
+  return snapshot.store.tenants?.[tenantId]?.events?.['event-default']?.participants || [];
 }
-
-function _getActiveTenant() { return { id: getActiveTenantId() }; }
-function _setCurrentDay() {}
 
 function getAllCheckInLogs() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return [];
   const tenantId = getActiveTenantId();
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.['event-default'];
+  const event = snapshot.store.tenants?.[tenantId]?.events?.['event-default'];
   return event?.checkInLogs || event?.checkin_logs || [];
 }
 
 function getStats() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {}, total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return { byCategory: {}, total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
   const participants = getAllParticipants();
   const checkInLogs = getAllCheckInLogs();
   const checkedInTicketIds = new Set(checkInLogs.map(log => log.ticket_id));
@@ -206,46 +193,53 @@ export default function Dashboard() {
     }
   }
 
-  // ===== MOBILE DASHBOARD =====
+  // ===== MOBILE DASHBOARD v2.0 =====
   if (isMobile) {
     return (
-      <div className="page-container">
+      <div style={dashboardStyles.page}>
+        {/* Animated Background */}
+        <div style={dashboardStyles.bgDecorative}>
+          <div style={dashboardStyles.bgGradient} />
+          <div style={dashboardStyles.floatingShape1} />
+          <div style={dashboardStyles.floatingShape2} />
+        </div>
+
         {/* Mobile Hero Counter */}
-        <div className="m-hero-card dashboard-hero-accent">
-          <div className="m-hero-title">KEHADIRAN</div>
-          <div className="m-hero-counter">
-            <span className="m-hero-num">{stats.checkedIn}</span>
-            <span className="m-hero-divider">/</span>
-            <span className="m-hero-total">{stats.total}</span>
+        <div style={mobileStyles.heroCard}>
+          <div style={mobileStyles.heroTitle}>KEHADIRAN REAL-TIME</div>
+          <div style={mobileStyles.heroCounter}>
+            <span style={mobileStyles.heroNum}>{stats.checkedIn}</span>
+            <span style={mobileStyles.heroDivider}>/</span>
+            <span style={mobileStyles.heroTotal}>{stats.total}</span>
           </div>
-          <div className="m-hero-label">Peserta Hadir</div>
-          <div className="m-hero-bar">
-            <div className="m-hero-bar-fill" style={{ width: `${stats.percentage}%` }}></div>
+          <div style={mobileStyles.heroLabel}>Peserta Hadir</div>
+          <div style={mobileStyles.heroBar}>
+            <div style={{...mobileStyles.heroBarFill, width: `${stats.percentage}%`}}></div>
           </div>
-          <div className="m-hero-pct">{stats.percentage}%</div>
+          <div style={mobileStyles.heroPct}>{stats.percentage}%</div>
         </div>
 
         {/* Mobile Category Chips */}
-        <div className="m-chips-row">
+        <div style={mobileStyles.chipsRow}>
           {Object.entries(stats.byCategory).map(([cat, data]) => (
-            <div key={cat} className={`m-chip m-chip-${cat.toLowerCase()}`}>
-              <span className="m-chip-num">{data.checkedIn}/{data.total}</span>
-              <span className="m-chip-label">{cat}</span>
+            <div key={cat} style={{...mobileStyles.chip, ...mobileStyles[`chip${cat}`]}}>
+              <span style={mobileStyles.chipNum}>{data.checkedIn}/{data.total}</span>
+              <span style={mobileStyles.chipLabel}>{cat}</span>
             </div>
           ))}
         </div>
 
         {/* Simulate Button */}
-        <button className="btn btn-secondary btn-sm dashboard-mobile-sim-btn" onClick={handleSimulate}>
+        <button style={mobileStyles.simBtn} onClick={handleSimulate}>
           <Zap size={14} /> Simulasi Check-in
         </button>
 
-        {/* Mobile Activity Feed - THIS IS THE PRIMARY CONTENT */}
-        <div className="m-section dashboard-activity-section">
-          <div className="m-section-header">
-            <span className="m-section-title">Aktivitas Terbaru</span>
-            <span className="badge badge-green dashboard-live-badge">
-              <span className="dashboard-live-dot" aria-hidden="true"></span>
+        {/* Mobile Activity Feed */}
+        <div style={mobileStyles.activitySection}>
+          <div style={mobileStyles.sectionHeader}>
+            <span style={mobileStyles.sectionTitle}>Aktivitas Terbaru</span>
+            <span style={mobileStyles.liveBadge}>
+              <span style={mobileStyles.liveDot}></span>
               LANGSUNG
             </span>
           </div>
@@ -283,43 +277,77 @@ export default function Dashboard() {
     )
   }
 
-  // ===== DESKTOP DASHBOARD (unchanged) =====
+  // ===== DESKTOP DASHBOARD v2.0 =====
   return (
-    <div className="page-container">
-      <div className="page-header dashboard-header dashboard-header-accent">
+    <div style={dashboardStyles.page}>
+      {/* Animated Background */}
+      <div style={dashboardStyles.bgDecorative}>
+        <div style={dashboardStyles.bgGradient} />
+        <div style={dashboardStyles.floatingShape1} />
+        <div style={dashboardStyles.floatingShape2} />
+      </div>
+
+      {/* Header */}
+      <div style={dashboardStyles.header}>
         <div>
-          <span className="page-kicker">Panel admin</span>
-          <h1>Ringkasan</h1>
-          <p>Kehadiran real-time semua peserta. Angka dan grafik di bawah menyamai data di pintu masuk.</p>
+          <span style={dashboardStyles.kicker}>📊 Panel Admin</span>
+          <h1 style={dashboardStyles.title}>Ringkasan Event</h1>
+          <p style={dashboardStyles.subtitle}>Monitoring kehadiran real-time semua peserta</p>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={handleSimulate}>
-          <Zap size={14} /> Simulasi Check-in
+        <button style={dashboardStyles.simulateBtn} onClick={handleSimulate}>
+          <Zap size={16} /> Simulasi Check-in
         </button>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card stagger-1">
-          <div className="stat-card-icon red"><Users size={22} /></div>
-          <div className="stat-card-value">{stats.total}</div>
-          <div className="stat-card-label">Total Peserta</div>
+      {/* Stats Grid v2.0 */}
+      <div style={dashboardStyles.statsGrid}>
+        {/* Total Participants */}
+        <div style={{...dashboardStyles.statCard, ...dashboardStyles.statCardBlue}}>
+          <div style={dashboardStyles.statIconWrap}>
+            <Users size={24} style={dashboardStyles.statIcon} />
+          </div>
+          <div style={dashboardStyles.statContent}>
+            <div style={dashboardStyles.statValue}>{stats.total}</div>
+            <div style={dashboardStyles.statLabel}>Total Peserta</div>
+          </div>
+          <div style={dashboardStyles.statTrend}>100%</div>
         </div>
-        <div className="stat-card stagger-2">
-          <div className="stat-card-icon green"><UserCheck size={22} /></div>
-          <div className="stat-card-value">{stats.checkedIn}</div>
-          <div className="stat-card-label">Sudah Hadir</div>
-          <div className="stat-card-change up">↑ {stats.percentage}%</div>
+
+        {/* Checked In */}
+        <div style={{...dashboardStyles.statCard, ...dashboardStyles.statCardGreen}}>
+          <div style={dashboardStyles.statIconWrap}>
+            <UserCheck size={24} style={dashboardStyles.statIcon} />
+          </div>
+          <div style={dashboardStyles.statContent}>
+            <div style={dashboardStyles.statValue}>{stats.checkedIn}</div>
+            <div style={dashboardStyles.statLabel}>Sudah Hadir</div>
+          </div>
+          <div style={dashboardStyles.statTrendUp}>↑ {stats.percentage}%</div>
         </div>
-        <div className="stat-card stagger-3">
-          <div className="stat-card-icon yellow"><Clock size={22} /></div>
-          <div className="stat-card-value">{stats.notCheckedIn}</div>
-          <div className="stat-card-label">Belum Hadir</div>
+
+        {/* Not Checked In */}
+        <div style={{...dashboardStyles.statCard, ...dashboardStyles.statCardOrange}}>
+          <div style={dashboardStyles.statIconWrap}>
+            <Clock size={24} style={dashboardStyles.statIcon} />
+          </div>
+          <div style={dashboardStyles.statContent}>
+            <div style={dashboardStyles.statValue}>{stats.notCheckedIn}</div>
+            <div style={dashboardStyles.statLabel}>Belum Hadir</div>
+          </div>
+          <div style={dashboardStyles.statTrendDown}>{100 - stats.percentage}%</div>
         </div>
-        <div className="stat-card stagger-4">
-          <div className="stat-card-icon blue"><TrendingUp size={22} /></div>
-          <div className="stat-card-value">{stats.percentage}%</div>
-          <div className="stat-card-label">Tingkat Kehadiran</div>
-          <div className="progress-bar mt-8">
-            <div className="progress-bar-fill" style={{ width: `${stats.percentage}%` }}></div>
+
+        {/* Attendance Rate */}
+        <div style={{...dashboardStyles.statCard, ...dashboardStyles.statCardPurple}}>
+          <div style={dashboardStyles.statIconWrap}>
+            <TrendingUp size={24} style={dashboardStyles.statIcon} />
+          </div>
+          <div style={dashboardStyles.statContent}>
+            <div style={dashboardStyles.statValue}>{stats.percentage}%</div>
+            <div style={dashboardStyles.statLabel}>Tingkat Kehadiran</div>
+            <div style={dashboardStyles.progressBar}>
+              <div style={{...dashboardStyles.progressFill, width: `${stats.percentage}%`}} />
+            </div>
           </div>
         </div>
       </div>
@@ -382,6 +410,378 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes gradientShift {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.6; }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) translateX(0); }
+          50% { transform: translateY(-20px) translateX(10px); }
+        }
+        @keyframes float2 {
+          0%, 100% { transform: translateY(0) translateX(0); }
+          50% { transform: translateY(15px) translateX(-10px); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
+        }
+      `}</style>
     </div>
   )
+}
+
+// Dashboard v2.0 Styles
+const dashboardStyles = {
+  page: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    padding: '24px',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  bgDecorative: {
+    position: 'fixed',
+    inset: 0,
+    pointerEvents: 'none',
+    overflow: 'hidden',
+    zIndex: 0,
+  },
+  bgGradient: {
+    position: 'absolute',
+    inset: 0,
+    background: 'linear-gradient(135deg, rgba(239,68,68,0.03) 0%, rgba(59,130,246,0.03) 50%, rgba(16,185,129,0.03) 100%)',
+    animation: 'gradientShift 15s ease infinite',
+  },
+  floatingShape1: {
+    position: 'absolute',
+    top: '10%',
+    right: '5%',
+    width: '300px',
+    height: '300px',
+    background: 'radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%)',
+    borderRadius: '50%',
+    animation: 'float 8s ease-in-out infinite',
+  },
+  floatingShape2: {
+    position: 'absolute',
+    bottom: '20%',
+    left: '10%',
+    width: '200px',
+    height: '200px',
+    background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)',
+    borderRadius: '50%',
+    animation: 'float2 10s ease-in-out infinite',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '32px',
+    position: 'relative',
+    zIndex: 1,
+  },
+  kicker: {
+    fontSize: '13px',
+    color: '#ef4444',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: '8px',
+    display: 'block',
+  },
+  title: {
+    fontSize: '32px',
+    fontWeight: 700,
+    color: '#1f2937',
+    marginBottom: '8px',
+    letterSpacing: '-0.5px',
+  },
+  subtitle: {
+    fontSize: '15px',
+    color: '#6b7280',
+  },
+  simulateBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(245,158,11,0.3)',
+    transition: 'all 0.2s ease',
+  },
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: '20px',
+    marginBottom: '32px',
+    position: 'relative',
+    zIndex: 1,
+  },
+  statCard: {
+    background: 'white',
+    borderRadius: '16px',
+    padding: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 4px 20px rgba(0,0,0,0.05)',
+    border: '1px solid rgba(0,0,0,0.04)',
+    transition: 'all 0.3s ease',
+    cursor: 'pointer',
+    ':hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
+    },
+  },
+  statCardBlue: {
+    borderLeft: '4px solid #3b82f6',
+  },
+  statCardGreen: {
+    borderLeft: '4px solid #10b981',
+  },
+  statCardOrange: {
+    borderLeft: '4px solid #f59e0b',
+  },
+  statCardPurple: {
+    borderLeft: '4px solid #8b5cf6',
+  },
+  statIconWrap: {
+    width: '52px',
+    height: '52px',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0.05) 100%)',
+  },
+  statIcon: {
+    color: '#3b82f6',
+  },
+  statContent: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: '28px',
+    fontWeight: 700,
+    color: '#1f2937',
+    marginBottom: '4px',
+  },
+  statLabel: {
+    fontSize: '14px',
+    color: '#6b7280',
+    fontWeight: 500,
+  },
+  statTrend: {
+    fontSize: '13px',
+    color: '#3b82f6',
+    fontWeight: 600,
+    padding: '4px 10px',
+    background: 'rgba(59,130,246,0.1)',
+    borderRadius: '20px',
+  },
+  statTrendUp: {
+    fontSize: '13px',
+    color: '#10b981',
+    fontWeight: 600,
+    padding: '4px 10px',
+    background: 'rgba(16,185,129,0.1)',
+    borderRadius: '20px',
+  },
+  statTrendDown: {
+    fontSize: '13px',
+    color: '#f59e0b',
+    fontWeight: 600,
+    padding: '4px 10px',
+    background: 'rgba(245,158,11,0.1)',
+    borderRadius: '20px',
+  },
+  progressBar: {
+    width: '100%',
+    height: '6px',
+    background: '#e5e7eb',
+    borderRadius: '3px',
+    marginTop: '12px',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%)',
+    borderRadius: '3px',
+    transition: 'width 0.5s ease',
+  },
+}
+
+// Mobile Dashboard v2.0 Styles
+const mobileStyles = {
+  heroCard: {
+    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+    borderRadius: '20px',
+    padding: '24px',
+    marginBottom: '20px',
+    boxShadow: '0 10px 40px rgba(239,68,68,0.3)',
+    color: 'white',
+    textAlign: 'center',
+    position: 'relative',
+    zIndex: 1,
+  },
+  heroTitle: {
+    fontSize: '12px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    opacity: 0.9,
+    marginBottom: '12px',
+  },
+  heroCounter: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: '8px',
+    marginBottom: '8px',
+  },
+  heroNum: {
+    fontSize: '48px',
+    fontWeight: 700,
+    lineHeight: 1,
+  },
+  heroDivider: {
+    fontSize: '32px',
+    opacity: 0.6,
+  },
+  heroTotal: {
+    fontSize: '24px',
+    fontWeight: 500,
+    opacity: 0.8,
+  },
+  heroLabel: {
+    fontSize: '14px',
+    opacity: 0.9,
+    marginBottom: '16px',
+  },
+  heroBar: {
+    width: '100%',
+    height: '8px',
+    background: 'rgba(255,255,255,0.3)',
+    borderRadius: '4px',
+    marginBottom: '8px',
+    overflow: 'hidden',
+  },
+  heroBarFill: {
+    height: '100%',
+    background: 'white',
+    borderRadius: '4px',
+    transition: 'width 0.5s ease',
+  },
+  heroPct: {
+    fontSize: '18px',
+    fontWeight: 600,
+  },
+  chipsRow: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '20px',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    position: 'relative',
+    zIndex: 1,
+  },
+  chip: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '12px 16px',
+    background: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+    minWidth: '80px',
+  },
+  chipVIP: {
+    borderLeft: '3px solid #ef4444',
+  },
+  chipDealer: {
+    borderLeft: '3px solid #3b82f6',
+  },
+  chipMedia: {
+    borderLeft: '3px solid #f59e0b',
+  },
+  chipRegular: {
+    borderLeft: '3px solid #6b7280',
+  },
+  chipNum: {
+    fontSize: '18px',
+    fontWeight: 700,
+    color: '#1f2937',
+  },
+  chipLabel: {
+    fontSize: '11px',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginTop: '4px',
+  },
+  simBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    width: '100%',
+    padding: '14px',
+    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 600,
+    marginBottom: '20px',
+    boxShadow: '0 4px 12px rgba(245,158,11,0.3)',
+    position: 'relative',
+    zIndex: 1,
+  },
+  activitySection: {
+    background: 'white',
+    borderRadius: '16px',
+    padding: '16px',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+    position: 'relative',
+    zIndex: 1,
+  },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+  },
+  sectionTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#1f2937',
+  },
+  liveBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 10px',
+    background: 'rgba(16,185,129,0.1)',
+    color: '#10b981',
+    borderRadius: '20px',
+    fontSize: '11px',
+    fontWeight: 600,
+  },
+  liveDot: {
+    width: '8px',
+    height: '8px',
+    background: '#10b981',
+    borderRadius: '50%',
+    animation: 'pulse 2s infinite',
+  },
 }

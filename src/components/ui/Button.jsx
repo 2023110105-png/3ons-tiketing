@@ -7,12 +7,12 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/ui'
 
 const variantStyles = {
-  primary: 'bg-3ons-500 hover:bg-3ons-600 active:bg-3ons-700 text-white shadow-md hover:shadow-lg',
-  secondary: 'bg-white hover:bg-secondary-50 text-secondary-700 border border-secondary-300 shadow-sm',
-  outline: 'bg-transparent hover:bg-3ons-50 text-3ons-600 border-2 border-3ons-500',
-  ghost: 'bg-transparent hover:bg-secondary-100 text-secondary-700',
-  danger: 'bg-error-500 hover:bg-error-600 text-white shadow-md',
-  success: 'bg-success-500 hover:bg-success-600 text-white shadow-md',
+  primary: 'bg-red-500 hover:bg-red-600 active:bg-red-700 text-white shadow-md hover:shadow-lg',
+  secondary: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm',
+  outline: 'bg-transparent hover:bg-red-50 text-red-600 border-2 border-red-500',
+  ghost: 'bg-transparent hover:bg-gray-100 text-gray-700',
+  danger: 'bg-red-600 hover:bg-red-700 text-white shadow-md',
+  success: 'bg-green-500 hover:bg-green-600 text-white shadow-md',
 }
 
 const sizeStyles = {
@@ -41,7 +41,7 @@ const Button = forwardRef(({
       className={cn(
         'inline-flex items-center justify-center font-medium rounded-lg',
         'transition-all duration-200 ease-out',
-        'focus:outline-none focus:ring-2 focus:ring-3ons-500 focus:ring-offset-2',
+        'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none',
         variantStyles[variant],
         sizeStyles[size],

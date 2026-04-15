@@ -1,65 +1,15 @@
-// ===== REAL FUNCTIONS FOR ANALYTICS =====
-import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
-let _workspaceSnapshot = null;
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getParticipants,
+  getCheckInLogs,
+  getAvailableDays,
+  getCurrentDay
+} from '../../lib/tenantUtils';
+
+// Local subscription unsubscribe function
 let _unsubscribeRealtime = null;
-
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-
-async function bootstrapStoreFromServer(force = false) {
-  if (_workspaceSnapshot && !force) return _workspaceSnapshot;
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-
-function getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
-
-function getCheckInLogs(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
-  const logs = event?.checkInLogs || event?.checkin_logs || [];
-  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
-}
-
-function getAvailableDays() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
-  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
-}
-
-function getCurrentDay() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
 
 function getAnalyticsData(day) {
   const participants = getParticipants(day);
@@ -163,6 +113,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { exportToCSV } from '../../utils/csvExport';
+import { analyticsStyles, analyticsAnimations } from './AnalyticsStyles';
 
 const CATEGORY_COLORS = {
   VIP: '#e84040',
@@ -253,11 +204,11 @@ export default function Analytics() {
   };
   
   return (
-    <div className="page-container analytics-page">
-      <div className="page-header">
-        <span className="page-kicker">Analitik</span>
-        <h1>Dashboard Analitik Event</h1>
-        <p>Monitor kehadiran real-time, analisis tren, dan perkiraan waktu penyelesaian.</p>
+    <div className="page-container analytics-page" style={analyticsStyles.pageContainer}>
+      <div className="page-header" style={analyticsStyles.pageHeader}>
+        <span className="page-kicker" style={analyticsStyles.pageKicker}>Analitik</span>
+        <h1 style={analyticsStyles.pageTitle}>Dashboard Analitik Event</h1>
+        <p style={analyticsStyles.pageSubtitle}>Monitor kehadiran real-time, analisis tren, dan perkiraan waktu penyelesaian.</p>
         
         <div className="analytics-header-actions">
           <select 
@@ -486,6 +437,9 @@ export default function Analytics() {
           </tbody>
         </table>
       </div>
+      
+      {/* v2.0 Styles */}
+      <style>{analyticsAnimations}</style>
     </div>
   );
 }

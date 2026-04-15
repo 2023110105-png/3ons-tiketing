@@ -1,16 +1,27 @@
-// ===== REAL FUNCTIONS FOR BACKGATE =====
-import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer as _bootstrapStoreFromServer,
+  setWorkspaceSnapshot,
+  getActiveTenantId as _getActiveTenantId
+} from '../../lib/tenantUtils';
+import { subscribeWorkspaceChanges } from '../../lib/dataSync';
+
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 
-// Helper functions - akan di-override dengan dynamic tenant dari user context
-let _currentTenantId = 'Primavera Production';
-function getTenantId() { return _currentTenantId; }
-function setTenantId(tenantId) { _currentTenantId = tenantId; }
+// Helper functions - dynamic tenant dari user context
 function getEventId() { return 'event-default'; }
 
+// Dynamic tenant ID dari user yang login
+function getTenantId() {
+  // Prioritas: window.currentUser > localStorage > default
+  return _getActiveTenantId();
+}
+
 async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
+  _workspaceSnapshot = await _bootstrapStoreFromServer();
+  setWorkspaceSnapshot(_workspaceSnapshot);
   return _workspaceSnapshot;
 }
 
@@ -86,7 +97,6 @@ function enrichLogsWithParticipantData(logs) {
   });
 }
 import { useState, useEffect } from 'react'
-import { useAuth } from '../../contexts/AuthContextSaaS'
 import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
@@ -94,10 +104,8 @@ import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 const REALTIME_REFRESH_MS = 2500
 
 export default function BackGate() {
-  const { user } = useAuth()
-  // Set tenant ID dari user context
-  const tenantId = user?.tenant_id || 'Primavera Production'
-  setTenantId(tenantId)
+  // Tenant ID otomatis dari getTenantId() yang membaca dari user context via tenantUtils
+  void getTenantId // Trigger getActiveTenantId() from tenantUtils
   
   const [selectedDay, setSelectedDay] = useState(1) // State untuk pilih Day 1 atau Day 2
   const [showLimitInfo, setShowLimitInfo] = useState(false)

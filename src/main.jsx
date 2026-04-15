@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './index.css'
+import { installErrorHandlers } from './config/debug.js'
+
+// Install console filters to suppress development noise
+installErrorHandlers()
 
 const CHUNK_RELOAD_KEY = 'ons_chunk_reload_once_saas'
 

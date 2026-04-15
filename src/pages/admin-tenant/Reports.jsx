@@ -1,73 +1,29 @@
-// ===== REAL FUNCTIONS FOR REPORTS =====
-import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
-let _workspaceSnapshot = null;
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getParticipants,
+  getAvailableDays,
+  getCurrentDay,
+  getCheckInLogs,
+  getStats,
+  getAdminLogs
+} from '../../lib/tenantUtils';
 
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-function getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
-function _getActiveTenant() { return { id: getActiveTenantId() }; }
-function getAvailableDays() { return [1]; }
-function getCurrentDay() { return 1; }
-function _setCurrentDay() {}
-function getCheckInLogs(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
-}
-function getStats(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {} };
-  void day;
-  const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.['event-default']?.stats || { byCategory: {} };
-}
-function getAdminLogs(limit) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const arr = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.admin_logs || [];
-  return typeof limit === 'number' ? arr.slice(0, limit) : arr;
-}
+// Reports-specific function (not in tenantUtils)
 function getPeakHours(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  // Stub - needs proper implementation
   void day;
-  const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.['event-default']?.peak_hours || [];
+  return [];
 }
+
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 import { useToast } from '../../contexts/ToastContext'
 import { exportToCSV, exportLogsToCSV, exportAdminLogsToCSV } from '../../utils/csvExport'
+import { reportsStyles, reportsAnimations } from './ReportsStyles'
 import { FileText, FileSpreadsheet, ClipboardList, Users, UserCheck, UserX, TrendingUp, CheckCircle, Activity, ShieldAlert, Search } from 'lucide-react'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 
@@ -552,32 +508,66 @@ export default function Reports() {
     )
   }
 
-  // ===== LAPORAN DESKTOP =====
+  // ===== LAPORAN DESKTOP v2.0 =====
   return (
-    <div className="page-container">
-      <div className="page-header admin-toolbar">
-        <div>
-          <span className="page-kicker">Analitik & ekspor</span>
-          <h1>Laporan kehadiran</h1>
-          <p>Grafik, daftar scan, dan log audit untuk arsip. Pilih hari acara, lalu unduh PDF atau spreadsheet sesuai kebutuhan.</p>
+    <div style={reportsStyles.page}>
+      {/* Animated Background */}
+      <div style={reportsStyles.bgDecorative}>
+        <div style={reportsStyles.bgGradient} />
+        <div style={reportsStyles.floatingShape1} />
+        <div style={reportsStyles.floatingShape2} />
+      </div>
+
+      {/* Header v2.0 */}
+      <div style={reportsStyles.header}>
+        <div style={reportsStyles.headerLeft}>
+          <span style={reportsStyles.kicker}>📊 Analitik & Ekspor</span>
+          <h1 style={reportsStyles.title}>Laporan Kehadiran</h1>
+          <p style={reportsStyles.subtitle}>Grafik, daftar scan, dan log audit untuk arsip event Anda</p>
         </div>
-        <div className="admin-actions-wrap">
-          <select className="form-select admin-select-auto" value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
+        <div style={reportsStyles.actionsWrap}>
+          <select style={reportsStyles.daySelect} value={dayFilter} onChange={e => setDayFilter(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
-          <button className="btn btn-primary" onClick={exportPDF}><FileText size={14} /> Unduh PDF</button>
-          <button className="btn btn-secondary" onClick={handleExcelParticipants}><FileSpreadsheet size={14} /> Unduh Excel</button>
-          <button className="btn btn-secondary" onClick={handleExcelLogs}><ClipboardList size={14} /> Unduh Riwayat</button>
-          <button className="btn btn-secondary" onClick={handleExcelAudit}><ShieldAlert size={14} /> Unduh Audit</button>
-          <button className="btn btn-secondary" onClick={exportAuditPDF}><FileText size={14} /> Unduh Audit PDF</button>
+          <button style={{...reportsStyles.actionBtn, ...reportsStyles.btnPrimary}} onClick={exportPDF}>
+            <FileText size={16} /> PDF
+          </button>
+          <button style={{...reportsStyles.actionBtn, ...reportsStyles.btnSecondary}} onClick={handleExcelParticipants}>
+            <FileSpreadsheet size={16} /> Excel
+          </button>
         </div>
       </div>
 
-      <div className="stats-grid mb-24">
-        <div className="stat-card"><div className="stat-card-icon red"><Users size={22} /></div><div className="stat-card-value">{stats.total}</div><div className="stat-card-label">Total Peserta</div></div>
-        <div className="stat-card"><div className="stat-card-icon green"><UserCheck size={22} /></div><div className="stat-card-value">{stats.checkedIn}</div><div className="stat-card-label">Hadir</div></div>
-        <div className="stat-card"><div className="stat-card-icon yellow"><UserX size={22} /></div><div className="stat-card-value">{stats.notCheckedIn}</div><div className="stat-card-label">Tidak Hadir</div></div>
-        <div className="stat-card"><div className="stat-card-icon blue"><TrendingUp size={22} /></div><div className="stat-card-value">{stats.percentage}%</div><div className="stat-card-label">Persentase</div></div>
+      {/* Stats Grid v2.0 */}
+      <div style={reportsStyles.statsGrid}>
+        <div style={{...reportsStyles.statCard, ...reportsStyles.statCardBlue}}>
+          <div style={reportsStyles.statIconWrap}>👥</div>
+          <div style={reportsStyles.statContent}>
+            <div style={reportsStyles.statValue}>{stats.total}</div>
+            <div style={reportsStyles.statLabel}>Total Peserta</div>
+          </div>
+        </div>
+        <div style={{...reportsStyles.statCard, ...reportsStyles.statCardGreen}}>
+          <div style={reportsStyles.statIconWrap}>✅</div>
+          <div style={reportsStyles.statContent}>
+            <div style={reportsStyles.statValue}>{stats.checkedIn}</div>
+            <div style={reportsStyles.statLabel}>Sudah Hadir</div>
+          </div>
+        </div>
+        <div style={{...reportsStyles.statCard, ...reportsStyles.statCardOrange}}>
+          <div style={reportsStyles.statIconWrap}>⏳</div>
+          <div style={reportsStyles.statContent}>
+            <div style={reportsStyles.statValue}>{stats.notCheckedIn}</div>
+            <div style={reportsStyles.statLabel}>Belum Hadir</div>
+          </div>
+        </div>
+        <div style={{...reportsStyles.statCard, ...reportsStyles.statCardPurple}}>
+          <div style={reportsStyles.statIconWrap}>📈</div>
+          <div style={reportsStyles.statContent}>
+            <div style={reportsStyles.statValue}>{stats.percentage}%</div>
+            <div style={reportsStyles.statLabel}>Persentase</div>
+          </div>
+        </div>
       </div>
 
       <div className="grid-2 mb-24">
@@ -704,6 +694,9 @@ export default function Reports() {
           </div>
         )}
       </div>
+
+      {/* CSS Animations */}
+      <style>{reportsAnimations}</style>
     </div>
   )
 }

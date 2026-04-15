@@ -1,9 +1,17 @@
-// ===== REAL FUNCTIONS FOR LAYOUT =====
-import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer as _bootstrapStoreFromServer,
+  setWorkspaceSnapshot
+} from '../../lib/tenantUtils';
+
+// Layout-specific functions using hardcoded tenant (Primavera Production)
 let _workspaceSnapshot = null;
 
 async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
+  _workspaceSnapshot = await _bootstrapStoreFromServer();
+  // Sync with tenantUtils
+  setWorkspaceSnapshot(_workspaceSnapshot);
   return _workspaceSnapshot;
 }
 
@@ -209,9 +217,6 @@ export default function Layout({ children }) {
     { path: '/admin-panel/system', icon: <Settings size={18} />, label: 'System' },
   ]
   
-  const adminNav = user?.user_type === 'system_admin' ? systemAdminNav : tenantAdminNav
-  const adminNavVisible = adminNav
-
   const mobileNavItems = getNavItems()
 
   const scopeLabels = {
@@ -270,23 +275,21 @@ export default function Layout({ children }) {
           )}
           
           {user?.user_type === 'tenant_admin' && (
-            <>
-              <div className="nav-section">
-                <div className="nav-section-title">Panel Admin</div>
-                {tenantAdminNav.map(item => (
-                  <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
-                    <span className="nav-icon">{item.icon}</span>
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </>
+            <div className="nav-section">
+              <div className="nav-section-title">Panel Admin</div>
+              {tenantAdminNav.map(item => (
+                <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
+                  <span className="nav-icon">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           )}
 
-          {(user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin') && (
+          {user?.user_type === 'system_admin' && (
             <div className="nav-section">
-              <div className="nav-section-title">Admin Panel</div>
-              {adminNavVisible.map(item => (
+              <div className="nav-section-title">System Admin</div>
+              {systemAdminNav.map(item => (
                 <Link key={item.path} to={item.path} className={`nav-item ${isActive(item.path) ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}

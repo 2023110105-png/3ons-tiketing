@@ -1,45 +1,27 @@
-// ===== REAL FUNCTIONS FOR PARTICIPANTS =====
-import { fetchWorkspaceSnapshot, syncParticipantUpsert } from "../../lib/dataSync";
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getWorkspaceSnapshot,
+  getActiveTenantId,
+  getActiveTenant,
+  getAvailableDays,
+  getCurrentDay,
+  setCurrentDay,
+  getParticipants
+} from '../../lib/tenantUtils';
+import { syncParticipantUpsert } from "../../lib/dataSync";
 import { generateQRData } from '../../utils/qrSecurity';
-let _workspaceSnapshot = null;
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-function getActiveTenantId() {
-  // Try to get from window.user first (set by component)
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  // Fallback: try to get from user in localStorage
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  // Last resort: try from workspace snapshot
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
 
-function getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
+// Local workspace snapshot reference (synced with tenantUtils)
+let _workspaceSnapshot = null;
+
+// CRUD Functions specific to Participants (not in tenantUtils)
 function createNewDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 2;
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return 2;
   const tenantId = getActiveTenantId();
-  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.['event-default']?.participants || [];
+  const participants = snapshot.store.tenants?.[tenantId]?.events?.['event-default']?.participants || [];
   const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
   const maxDay = Math.max(...days, 1);
   return maxDay + 1;
@@ -52,10 +34,11 @@ function deleteCurrentDay() {
 }
 
 function updateParticipant(participantId, updates) { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
   const eventId = 'event-default';
-  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+  const participants = snapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   const index = participants.findIndex(p => p.id === participantId || p.ticket_id === participantId);
   if (index >= 0) {
     participants[index] = { ...participants[index], ...updates };
@@ -65,10 +48,11 @@ function updateParticipant(participantId, updates) {
 }
 
 async function addParticipant(participantData) { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
   const eventId = 'event-default';
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (!event) return { success: false, error: 'Event not found' };
   
   if (!event.participants) event.participants = [];
@@ -113,10 +97,11 @@ async function addParticipant(participantData) {
 }
 
 function deleteParticipant(participantId) { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
   const eventId = 'event-default';
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (!event || !event.participants) return { success: false, error: 'Event not found' };
   
   const initialLength = event.participants.length;
@@ -143,31 +128,6 @@ async function bulkAddParticipants(participantsData) {
   return { ...results, syncPromise: Promise.resolve(true) };
 }
 
-function getActiveTenant() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: getActiveTenantId() };
-  return _workspaceSnapshot.store.tenants?.[getActiveTenantId()] || { id: getActiveTenantId() };
-}
-
-function setCurrentDay(day) {
-  if (_workspaceSnapshot?.store?.tenants?.[getActiveTenantId()]) {
-    _workspaceSnapshot.store.tenants[getActiveTenantId()].currentDay = day;
-  }
-}
-
-function getAvailableDays() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
-  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
-}
-
-function getCurrentDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from '../../contexts/ToastContext'
@@ -182,6 +142,7 @@ import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
+import { participantsStyles, participantsAnimations } from './ParticipantsStyles'
 
 export default function Participants() {
   const resolveTenantId = (userValue) => {
@@ -1948,17 +1909,30 @@ Terima kasih!`;
     )
   }
 
-  // ===== DESKTOP PARTICIPANTS =====
+  // ===== DESKTOP PARTICIPANTS v2.0 =====
   return (
-    <div className="page-container">
+    <div style={participantsStyles.page}>
+      {/* Animated Background */}
+      <div style={participantsStyles.bgDecorative}>
+        <div style={participantsStyles.bgGradient} />
+        <div style={participantsStyles.floatingShape1} />
+        <div style={participantsStyles.floatingShape2} />
+      </div>
+
       <FileInput />
       <ImportModal />
       <EditModal />
 
-      <div className="page-header">
-        <span className="page-kicker">Data acara</span>
-        <h1>Kelola peserta</h1>
-        <p>{allParticipants.length} peserta terdaftar · {checkedCount} sudah check-in. Import, broadcast WA, dan hapus memerlukan konfirmasi sesuai kebijakan Anda.</p>
+      {/* Header v2.0 */}
+      <div style={participantsStyles.header}>
+        <div style={participantsStyles.headerLeft}>
+          <span style={participantsStyles.kicker}>📋 Data Acara</span>
+          <h1 style={participantsStyles.title}>Kelola Peserta</h1>
+          <p style={participantsStyles.subtitle}>
+            {allParticipants.length} peserta terdaftar · {checkedCount} sudah check-in · 
+            Import, broadcast WA, dan hapus memerlukan konfirmasi
+          </p>
+        </div>
       </div>
 
       {showWaConnectBanner && (
@@ -1969,12 +1943,52 @@ Terima kasih!`;
         />
       )}
 
-      <div className="participants-toolbar">
-        <div className="search-bar participants-search">
-          <span className="search-bar-icon"><Search size={16} /></span>
-          <input id="participant-search" name="search" placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Stats Cards v2.0 */}
+      <div style={participantsStyles.statsGrid}>
+        <div style={participantsStyles.statCard}>
+          <div style={{...participantsStyles.statIconWrap, ...participantsStyles.statIconBlue}}>👥</div>
+          <div style={participantsStyles.statContent}>
+            <div style={participantsStyles.statValue}>{allParticipants.length}</div>
+            <div style={participantsStyles.statLabel}>Total Peserta</div>
+          </div>
         </div>
-        <select id="category-filter" name="category" className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+        <div style={participantsStyles.statCard}>
+          <div style={{...participantsStyles.statIconWrap, ...participantsStyles.statIconGreen}}>✅</div>
+          <div style={participantsStyles.statContent}>
+            <div style={participantsStyles.statValue}>{checkedCount}</div>
+            <div style={participantsStyles.statLabel}>Sudah Check-in</div>
+          </div>
+        </div>
+        <div style={participantsStyles.statCard}>
+          <div style={{...participantsStyles.statIconWrap, ...participantsStyles.statIconOrange}}>⏳</div>
+          <div style={participantsStyles.statContent}>
+            <div style={participantsStyles.statValue}>{allParticipants.length - checkedCount}</div>
+            <div style={participantsStyles.statLabel}>Belum Hadir</div>
+          </div>
+        </div>
+        <div style={participantsStyles.statCard}>
+          <div style={{...participantsStyles.statIconWrap, ...participantsStyles.statIconPurple}}>📊</div>
+          <div style={participantsStyles.statContent}>
+            <div style={participantsStyles.statValue}>
+              {allParticipants.length > 0 ? Math.round((checkedCount / allParticipants.length) * 100) : 0}%
+            </div>
+            <div style={participantsStyles.statLabel}>Tingkat Kehadiran</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar v2.0 */}
+      <div style={participantsStyles.toolbar}>
+        <div style={participantsStyles.searchBox}>
+          <Search size={18} style={participantsStyles.searchIcon} />
+          <input 
+            style={participantsStyles.searchInput}
+            placeholder="Cari nama atau ID tiket..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
+        </div>
+        <select style={participantsStyles.filterSelect} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">Semua Kategori</option>
           {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
@@ -2279,6 +2293,9 @@ Terima kasih!`;
           </div>
         </div>
       )}
+
+      {/* CSS Animations */}
+      <style>{participantsAnimations}</style>
     </div>
   )
 }

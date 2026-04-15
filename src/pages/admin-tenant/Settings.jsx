@@ -1,68 +1,23 @@
-// ===== REAL FUNCTIONS FOR SETTINGS =====
-import { fetchWorkspaceSnapshot, syncResetCheckInLogs, syncEventSnapshot } from "../../lib/dataSync";
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getActiveTenantId,
+  getParticipants as _getParticipants,
+  getActiveTenant as _getActiveTenant,
+  getAvailableDays as _getAvailableDays,
+  getCurrentDay as _getCurrentDay,
+  setCurrentDay as _setCurrentDay,
+  getAllEventData
+} from '../../lib/tenantUtils';
+import { syncResetCheckInLogs, syncEventSnapshot } from "../../lib/dataSync";
+
+// Local workspace snapshot reference
 let _workspaceSnapshot = null;
 
-function _getActiveTenantId() {
-  // Try to get from window.user first (set by component)
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  // Fallback: try to get from user in localStorage
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  // Last resort: try from workspace snapshot
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-
-function _getParticipants() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = _getActiveTenantId();
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-}
-
-function _getActiveTenant() { 
-  const tenantId = _getActiveTenantId();
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: tenantId };
-  return _workspaceSnapshot.store.tenants?.[tenantId] || { id: tenantId };
-}
-
-function _getAvailableDays() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
-  const tenantId = _getActiveTenantId();
-  const eventId = 'event-default';
-  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
-  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
-}
-
-function _getCurrentDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = _getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
-
-function _setCurrentDay(day) {
-  const tenantId = _getActiveTenantId();
-  if (_workspaceSnapshot?.store?.tenants?.[tenantId]) {
-    _workspaceSnapshot.store.tenants[tenantId].currentDay = day;
-  }
-}
-
 function getWaTemplate() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return `📋 *E-ATTENDANCE*
+  const snapshot = _workspaceSnapshot;
+  if (!snapshot || !snapshot.store) return `📋 *E-ATTENDANCE*
 🏛️ PALEMBANG VIOLIN COMPETITION
 
 ╭────────────────────────╮
@@ -83,28 +38,28 @@ Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
 • Harap hadir 30 menit sebelum jadwal tampil
 
 Terima kasih & semoga sukses! 🎻🎶`;
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
 }
 
 function getWaSendMode() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'message_only';
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waSendMode || 'message_only';
 }
 
 function getMaxPendingAttempts() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 3;
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offlineConfig?.maxPendingAttempts || 3;
 }
 
 function getEventsWithOptions(options = {}) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [{ id: 'event-default', name: 'Event Default', isArchived: false }];
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
   const eventList = Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
   if (!options.includeArchived) {
@@ -115,19 +70,19 @@ function getEventsWithOptions(options = {}) {
 
 function getCurrentEventId() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   return _workspaceSnapshot.store.tenants?.[tenantId]?.activeEventId || 'event-default';
 }
 
 function getStoreBackups() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   return _workspaceSnapshot.store.tenants?.[tenantId]?.backups || [];
 }
 
 async function resetCheckIns() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (event) {
@@ -149,7 +104,7 @@ async function resetCheckIns() {
 
 async function deleteAllParticipants() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (event) {
@@ -182,7 +137,7 @@ async function deleteAllParticipants() {
 }
 // eslint-disable-next-line no-unused-vars
 async function setWaTemplate(template, _user) {
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
@@ -210,7 +165,7 @@ async function setWaTemplate(template, _user) {
 
 // eslint-disable-next-line no-unused-vars
 async function setWaSendMode(mode, _user) {
-  const tenantId = _getActiveTenantId();
+  const tenantId = getActiveTenantId();
   const eventId = 'event-default';
   const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
@@ -245,46 +200,7 @@ function deleteStoreBackup() { return { success: true }; }
 function deleteInvalidStoreBackups() { return { success: true, deleted: 0 }; }
 
 // ===== BACKUP/EXPORT FUNCTIONS =====
-function getAllEventData() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return null;
-  const tenantId = _getActiveTenantId();
-  const eventId = 'event-default';
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
-  if (!event) return null;
-  
-  return {
-    event: {
-      id: eventId,
-      name: event.name || 'Event Default',
-      exportDate: new Date().toISOString(),
-      currentDay: event.currentDay || 1,
-      waTemplate: event.waTemplate || '',
-      waSendMode: event.waSendMode || 'message_only'
-    },
-    participants: event.participants || [],
-    checkInLogs: event.checkInLogs || event.checkin_logs || [],
-    adminLogs: event.adminLogs || [],
-    stats: {
-      totalParticipants: (event.participants || []).length,
-      totalCheckIns: (event.checkInLogs || event.checkin_logs || []).length,
-      byCategory: getCategoryStats(event.participants || [], event.checkInLogs || event.checkin_logs || [])
-    }
-  };
-}
-
-function getCategoryStats(participants, logs) {
-  const checkedInIds = new Set(logs.map(l => l.ticket_id));
-  const stats = {};
-  
-  participants.forEach(p => {
-    const cat = p.category || 'Regular';
-    if (!stats[cat]) stats[cat] = { total: 0, checkedIn: 0 };
-    stats[cat].total++;
-    if (checkedInIds.has(p.ticket_id)) stats[cat].checkedIn++;
-  });
-  
-  return stats;
-}
+// Note: getAllEventData and getCategoryStats are now imported from tenantUtils.js
 
 async function exportFullBackup(format = 'json') {
   const data = getAllEventData();
@@ -404,13 +320,12 @@ function downloadFile(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-const isSupabaseEnabled = true;
 import { useEffect, useState } from 'react'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContextSaaS'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
+import { settingsStyles, settingsAnimations } from './SettingsStyles'
 import { AlertCircle, RotateCcw, Trash2, ShieldAlert, History, Download, Search } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
 
 const BACKUP_AUTO_REFRESH_KEY = 'ons_backup_auto_refresh'
 const BACKUP_AUTO_REFRESH_INTERVAL_KEY = 'ons_backup_auto_refresh_interval'
@@ -472,7 +387,6 @@ export default function Settings() {
   const [backupRefreshCountdown, setBackupRefreshCountdown] = useState(() => Math.ceil(getInitialAutoRefreshInterval() / 1000))
   const [backupLastRefreshAgeSec, setBackupLastRefreshAgeSec] = useState(0)
   const [isBackupTabVisible, setIsBackupTabVisible] = useState(() => document.visibilityState === 'visible')
-  const [supabaseCheckRunning, setSupabaseCheckRunning] = useState(false)
   
   // State for Cleanup
   const [cleanupLoading, setCleanupLoading] = useState(false)
@@ -914,76 +828,25 @@ export default function Settings() {
     toast.success('Sukses', `${result.deleted} backup invalid berhasil dihapus`)
   }
 
-  const runSupabaseIntegrationCheck = async () => {
-    if (supabaseCheckRunning) return
-    setSupabaseCheckRunning(true)
-    try {
-      if (!isSupabaseEnabled || !supabase) {
-        toast.error('Supabase belum aktif', 'Periksa VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di environment.')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('workspace_state')
-        .select('id, tenant_registry, store, updated_at')
-        .eq('id', 'default')
-        .maybeSingle()
-
-      if (error) throw error
-      if (!data) {
-        toast.error('Workspace tidak ditemukan', 'Row id=default belum ada di tabel workspace_state.')
-        return
-      }
-
-      const probeAt = new Date().toISOString()
-      const nextTenantRegistry = {
-        ...(data.tenant_registry || {}),
-        integration_probe_at: probeAt
-      }
-
-      const { error: writeError } = await supabase
-        .from('workspace_state')
-        .upsert({
-          id: 'default',
-          tenant_registry: nextTenantRegistry,
-          store: data.store || { tenants: {} },
-          updated_at: probeAt
-        })
-
-      if (writeError) throw writeError
-
-      toast.success(
-        'Supabase terhubung',
-        `Read/Write berhasil. Probe tersimpan pada ${new Date(probeAt).toLocaleString('id-ID')}.`
-      )
-    } catch (err) {
-      toast.error('Supabase check gagal', humanizeUserMessage(err?.message || 'Gagal konek ke Supabase.', { fallback: 'Cek RLS policy dan environment variable.' }))
-    } finally {
-      setSupabaseCheckRunning(false)
-    }
-  }
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="page-kicker">Konfigurasi</span>
-        <h1>Pengaturan sistem</h1>
-        <p>Templat WhatsApp, acara aktif, zona berisiko, dan cadangan data. Perubahan di sini memengaruhi seluruh tenant yang Anda kelola.</p>
+    <div style={settingsStyles.page}>
+      {/* Animated Background */}
+      <div style={settingsStyles.bgDecorative}>
+        <div style={settingsStyles.bgGradient} />
+        <div style={settingsStyles.floatingShape1} />
+        <div style={settingsStyles.floatingShape2} />
+      </div>
+
+      {/* Header v2.0 */}
+      <div style={settingsStyles.header}>
+        <div style={settingsStyles.headerLeft}>
+          <span style={settingsStyles.kicker}>⚙️ Konfigurasi</span>
+          <h1 style={settingsStyles.title}>Pengaturan Sistem</h1>
+          <p style={settingsStyles.subtitle}>Templat WhatsApp, acara aktif, zona berisiko, dan cadangan data</p>
+        </div>
       </div>
 
       <div className="settings-wrap">
-        <div className="card card-pad">
-          <h3 className="card-title mb-16">Tes Integrasi Supabase</h3>
-          <p className="text-note">
-            Jalankan pengecekan satu klik untuk memastikan koneksi <strong>read + write</strong> ke tabel <code>workspace_state</code> berjalan normal.
-          </p>
-          <div className="actions-right">
-            <button type="button" className="btn btn-primary" onClick={runSupabaseIntegrationCheck} disabled={supabaseCheckRunning}>
-              {supabaseCheckRunning ? 'Mengecek Supabase...' : 'Tes Koneksi Supabase'}
-            </button>
-          </div>
-        </div>
-
         {/* BOT TEMPLATE EDITOR */}
         <div className="card card-pad">
           <h3 className="card-title mb-16 card-title-inline">
@@ -1447,6 +1310,9 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* CSS Animations */}
+      <style>{settingsAnimations}</style>
     </div>
   )
 }

@@ -38,7 +38,7 @@ const Card = forwardRef(({
         paddingStyles[padding],
         shadowStyles[shadow],
         hover && 'hover:shadow-lg transition-shadow duration-200',
-        bordered && 'border border-secondary-200',
+        bordered && 'border border-gray-200',
         className
       )}
       {...props}>
@@ -59,7 +59,7 @@ export const CardHeader = ({ children, className, actions }) => (
 
 // Card Title subcomponent
 export const CardTitle = ({ children, className }) => (
-  <h3 className={cn('text-lg font-semibold text-secondary-900', className)}>
+  <h3 className={cn('text-lg font-semibold text-gray-900', className)}>
     {children}
   </h3>
 )
@@ -71,7 +71,7 @@ export const CardContent = ({ children, className }) => (
 
 // Card Footer subcomponent
 export const CardFooter = ({ children, className }) => (
-  <div className={cn('mt-4 pt-4 border-t border-secondary-100', className)}>
+  <div className={cn('mt-4 pt-4 border-t border-gray-100', className)}>
     {children}
   </div>
 )

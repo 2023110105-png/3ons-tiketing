@@ -1,30 +1,13 @@
-// ===== REAL FUNCTIONS FOR CONNECT DEVICE =====
-import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getActiveTenantId,
+  getActiveTenant
+} from '../../lib/tenantUtils';
+
+// Local workspace snapshot reference
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-function getActiveTenant() {
-  const tenantId = getActiveTenantId();
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: tenantId };
-  return { id: tenantId };
-}
 import { useState, useEffect } from 'react'
 import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
@@ -32,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContextSaaS'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { supabase } from '../../lib/supabase'
+import { deviceStyles, deviceAnimations } from './ConnectDeviceStyles'
 
 // Load tenant WA connection status from Supabase (siap pakai untuk integrasi)
 async function _loadTenantWASettings(tenantId) {
@@ -402,18 +386,18 @@ export default function ConnectDevice() {
   }
 
   return (
-    <div className="page-container animate-fade-in-up">
-      <div className="page-header">
+    <div className="page-container" style={deviceStyles.pageContainer}>
+      <div className="page-header" style={deviceStyles.pageHeader}>
         <div className="page-title-group">
-          <span className="page-kicker">Integrasi</span>
-          <h1>Sambungkan WhatsApp</h1>
-          <p>Hubungkan nomor layanan untuk kirim tiket otomatis. Pastikan ponsel tetap berkuasa dan terhubung internet saat sesi kirim massal.</p>
+          <span className="page-kicker" style={deviceStyles.pageKicker}>Integrasi</span>
+          <h1 style={deviceStyles.pageTitle}>Sambungkan WhatsApp</h1>
+          <p style={deviceStyles.pageSubtitle}>Hubungkan nomor layanan untuk kirim tiket otomatis. Pastikan ponsel tetap berkuasa dan terhubung internet saat sesi kirim massal.</p>
         </div>
       </div>
 
           <div className="admin-grid-2">
         {/* Kolom Informasi & Status */}
-        <div className="card admin-panel">
+        <div className="card admin-panel" style={deviceStyles.card}>
           <div className="status-head">
             <div className={`status-bubble ${statusTone}`}>
               <Smartphone size={24} />
@@ -582,6 +566,9 @@ export default function ConnectDevice() {
           )}
         </div>
       )}
+      
+      {/* v2.0 Styles */}
+      <style>{deviceAnimations}</style>
     </div>
   )
 }

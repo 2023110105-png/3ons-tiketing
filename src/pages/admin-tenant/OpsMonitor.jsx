@@ -1,113 +1,23 @@
-// ===== REAL FUNCTIONS FOR OPS MONITOR =====
-import { fetchWorkspaceSnapshot, subscribeWorkspaceChanges } from '../../lib/dataSync';
-let _workspaceSnapshot = null;
+// ===== IMPORT SHARED UTILITIES =====
+// Using tenantUtils.js to avoid function duplication across pages
+import {
+  bootstrapStoreFromServer,
+  getParticipants as _getParticipants,
+  getAvailableDays as _getAvailableDays,
+  getCheckInLogs,
+  getStats,
+  getPendingCheckIns,
+  getOfflineQueueHistory
+} from '../../lib/tenantUtils';
+import { subscribeWorkspaceChanges } from '../../lib/dataSync';
+
+// Local subscription unsubscribe function
 let _unsubscribeRealtime = null;
 
-function getActiveTenantId() {
-  if (typeof window !== 'undefined' && window.currentUser?.tenant_id) {
-    return window.currentUser.tenant_id;
-  }
-  try {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-    if (session.user?.tenant_id) return session.user.tenant_id;
-    if (session.user?.tenant?.id) return session.user.tenant.id;
-  } catch { /* ignore */ }
-  if (_workspaceSnapshot?.store?.tenants) {
-    const firstTenant = Object.keys(_workspaceSnapshot.store.tenants)[0];
-    if (firstTenant) return firstTenant;
-  }
-  return 'default';
-}
-
-async function bootstrapStoreFromServer() {
-  _workspaceSnapshot = await fetchWorkspaceSnapshot();
-  return _workspaceSnapshot;
-}
-<<<<<<< HEAD
-function getCurrentDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = 'tenant-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-=======
-function _getParticipants(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants =
-    _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  if (typeof day === 'number') {
-    return participants.filter((p) => Number(p.day) === Number(day) || Number(p.day_number) === Number(day));
-  }
-  return participants;
-}
-function _getActiveTenant() { 
-  const tenantId = getActiveTenantId();
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: tenantId };
-  return _workspaceSnapshot.store.tenants?.[tenantId] || { id: tenantId };
-}
-function _getAvailableDays() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
-  const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
-  return days.length > 0 ? days.sort((a, b) => a - b) : [1];
-}
-function _setCurrentDay(day) {
-  const tenantId = getActiveTenantId();
-  if (_workspaceSnapshot?.store?.tenants?.[tenantId]) {
-    _workspaceSnapshot.store.tenants[tenantId].currentDay = day;
-  }
->>>>>>> 475bc2c54c314d4f22246fcff072c8a1f7e53d9a
-}
-function getCheckInLogs(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  // Support both field names for backward compatibility
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
-  const logs = event?.checkInLogs || event?.checkin_logs || [];
-  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
-}
-<<<<<<< HEAD
-function getStats() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || {};
-=======
-function getStats(day) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
-  
-  // Calculate stats dynamically based on selected day
-  const participants = _getParticipants(day);
-  const checkInLogs = getCheckInLogs(day);
-  const checkedInTicketIds = new Set(checkInLogs.map(log => String(log.ticket_id || '').trim().toLowerCase()));
-  
-  const total = participants.length;
-  const checkedIn = participants.filter(p => checkedInTicketIds.has(String(p.ticket_id || '').trim().toLowerCase())).length;
-  const notCheckedIn = total - checkedIn;
-  const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
-  
-  return { total, checkedIn, notCheckedIn, percentage };
->>>>>>> 475bc2c54c314d4f22246fcff072c8a1f7e53d9a
-}
-function getPendingCheckIns() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.pending_checkins || [];
-}
-function getOfflineQueueHistory(limit) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const arr = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offline_queue_history || [];
-  return typeof limit === 'number' ? arr.slice(0, limit) : arr;
-}
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Clock, FileText, RefreshCw, Signal, WifiOff } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
+import { opsMonitorStyles, opsMonitorAnimations } from './OpsMonitorStyles'
 
 const STALE_SCAN_WARN_MINUTES = 6
 
@@ -658,51 +568,68 @@ export default function OpsMonitor() {
   }
 
   return (
-    <div className="page-container animate-fade-in-up">
-      <div className="page-header">
-        <div className="page-title-group">
-          <span className="page-kicker">Operasional</span>
-          <h1>Scan Ops Monitor</h1>
-          <p>Pantau scan, antrean offline, dan aktivitas gate secara ringkas. Cocok untuk tim admin saat hari-H.</p>
+    <div style={opsMonitorStyles.page}>
+      {/* Animated Background */}
+      <div style={opsMonitorStyles.bgDecorative}>
+        <div style={opsMonitorStyles.bgGradient} />
+        <div style={opsMonitorStyles.floatingShape1} />
+        <div style={opsMonitorStyles.floatingShape2} />
+      </div>
+
+      {/* Live Badge */}
+      <div style={{...opsMonitorStyles.liveBadge, position: 'relative', zIndex: 1}}>
+        <span style={opsMonitorStyles.liveDot}></span>
+        LIVE MONITORING
+      </div>
+
+      {/* Header v2.0 */}
+      <div style={opsMonitorStyles.header}>
+        <div style={opsMonitorStyles.headerLeft}>
+          <span style={opsMonitorStyles.kicker}>📡 Operasional</span>
+          <h1 style={opsMonitorStyles.title}>Scan Ops Monitor</h1>
+          <p style={opsMonitorStyles.subtitle}>Pantau scan real-time, antrean offline, dan aktivitas gate</p>
         </div>
-        <div className="admin-actions-wrap">
-          <select className="form-select admin-select-auto" value={dayFilter} onChange={(e) => setDayFilter(Number(e.target.value))} title="Filter hari aktif">
+        <div style={opsMonitorStyles.actionsWrap}>
+          <select style={opsMonitorStyles.daySelect} value={dayFilter} onChange={(e) => setDayFilter(Number(e.target.value))} title="Filter hari aktif">
             {_getAvailableDays().map(d => (
               <option key={d} value={d}>Hari {d}</option>
             ))}
           </select>
-          <button type="button" className="btn btn-secondary" onClick={handlePrintAttendance} disabled={isPrinting} title="Cetak PDF kehadiran">
-            <FileText size={16} /> Cetak PDF
+          <button style={{...opsMonitorStyles.actionBtn, ...opsMonitorStyles.btnSecondary}} onClick={handlePrintAttendance} disabled={isPrinting} title="Cetak PDF kehadiran">
+            <FileText size={16} /> PDF
           </button>
-          <button type="button" className="btn btn-secondary" onClick={handleRefresh} disabled={isRefreshing} title="Muat data terbaru">
-            <RefreshCw size={16} className={isRefreshing ? 'spinner' : ''} /> Segarkan
+          <button style={{...opsMonitorStyles.actionBtn, ...opsMonitorStyles.btnSecondary}} onClick={handleRefresh} disabled={isRefreshing} title="Muat data terbaru">
+            <RefreshCw size={16} className={isRefreshing ? 'spinner' : ''} />
           </button>
         </div>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-card-icon"><Activity size={18} /></div>
-          <div className="stat-card-value">{stats.checkedIn}</div>
-          <div className="stat-card-label">Sudah masuk</div>
+      {/* Stats Grid v2.0 */}
+      <div style={opsMonitorStyles.statsGrid}>
+        <div style={{...opsMonitorStyles.statCard, ...opsMonitorStyles.statCardGreen}}>
+          <div style={{...opsMonitorStyles.statIconWrap, ...opsMonitorStyles.statIconGreen}}><Activity size={24} /></div>
+          <div style={opsMonitorStyles.statValue}>{stats.checkedIn}</div>
+          <div style={opsMonitorStyles.statLabel}>Sudah Masuk</div>
+          <div style={opsMonitorStyles.statTime}>{stats.percentage}% dari total</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-card-icon"><Signal size={18} /></div>
-          <div className="stat-card-value">{stats.total}</div>
-          <div className="stat-card-label">Total peserta (hari ini)</div>
+        <div style={{...opsMonitorStyles.statCard, ...opsMonitorStyles.statCardBlue}}>
+          <div style={{...opsMonitorStyles.statIconWrap, ...opsMonitorStyles.statIconBlue}}><Signal size={24} /></div>
+          <div style={opsMonitorStyles.statValue}>{stats.total}</div>
+          <div style={opsMonitorStyles.statLabel}>Total Peserta</div>
+          <div style={opsMonitorStyles.statTime}>Hari {dayFilter}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-card-icon"><WifiOff size={18} /></div>
-          <div className="stat-card-value">{pendingCount}</div>
-          <div className="stat-card-label">Antrean offline</div>
+        <div style={{...opsMonitorStyles.statCard, ...opsMonitorStyles.statCardOrange}}>
+          <div style={{...opsMonitorStyles.statIconWrap, ...opsMonitorStyles.statIconOrange}}><WifiOff size={24} /></div>
+          <div style={opsMonitorStyles.statValue}>{pendingCount}</div>
+          <div style={opsMonitorStyles.statLabel}>Antrean Offline</div>
+          <div style={opsMonitorStyles.statTime}>Menunggu sinkronisasi</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-card-icon"><Clock size={18} /></div>
-          <div className="stat-card-value" style={{ fontSize: '0.95rem', fontWeight: 800 }}>
-            {lastScanAt ? formatTime(lastScanAt) : '-'}
-          </div>
-          <div className="stat-card-label">
-            Scan terakhir{(staleMinutes != null && staleMinutes >= STALE_SCAN_WARN_MINUTES) ? ` · ${staleMinutes} menit lalu` : ''}
+        <div style={{...opsMonitorStyles.statCard, ...opsMonitorStyles.statCardRed}}>
+          <div style={{...opsMonitorStyles.statIconWrap, ...opsMonitorStyles.statIconRed}}><Clock size={24} /></div>
+          <div style={opsMonitorStyles.statValue}>{lastScanAt ? formatTime(lastScanAt).split(' ')[1].substring(0, 5) : '--:--'}</div>
+          <div style={opsMonitorStyles.statLabel}>Scan Terakhir</div>
+          <div style={opsMonitorStyles.statTime}>
+            {staleMinutes != null && staleMinutes >= STALE_SCAN_WARN_MINUTES ? `⚠️ ${staleMinutes} menit lalu` : 'Aktif'}
           </div>
         </div>
       </div>
@@ -878,6 +805,9 @@ export default function OpsMonitor() {
           </table>
         </div>
       </div>
+
+      {/* CSS Animations */}
+      <style>{opsMonitorAnimations}</style>
     </div>
   )
 }
