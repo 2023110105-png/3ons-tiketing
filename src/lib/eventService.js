@@ -79,7 +79,7 @@ export async function createEventInDB(tenantId, name, options = {}) {
 }
 
 /**
- * Update active event untuk tenant
+ * Update active event untuk tenant (stored in localStorage)
  * @param {string} tenantId - ID tenant
  * @param {string} eventId - ID event yang aktif
  * @returns {Promise<boolean>} - Success status
@@ -91,29 +91,18 @@ export async function setActiveEventInDB(tenantId, eventId) {
   }
 
   try {
-    // Update tenant active_event_id
-    const { error } = await supabase
-      .from('tenants')
-      .update({ 
-        active_event_id: eventId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', tenantId)
-
-    if (error) {
-      console.error('Error setting active event:', error)
-      return false
-    }
-
+    // Save to localStorage
+    const key = `active_event_${tenantId}`
+    localStorage.setItem(key, eventId)
     return true
   } catch (err) {
-    console.error('Exception setting active event:', err)
+    console.error('Error setting active event:', err)
     return false
   }
 }
 
 /**
- * Get active event ID untuk tenant
+ * Get active event ID untuk tenant (from localStorage)
  * @param {string} tenantId - ID tenant
  * @returns {Promise<string|null>} - Active event ID
  */
@@ -121,20 +110,11 @@ export async function getActiveEventIdFromDB(tenantId) {
   if (!tenantId) return null
 
   try {
-    const { data, error } = await supabase
-      .from('tenants')
-      .select('active_event_id')
-      .eq('id', tenantId)
-      .single()
-
-    if (error) {
-      console.error('Error getting active event:', error)
-      return null
-    }
-
-    return data?.active_event_id || null
+    // Get from localStorage
+    const key = `active_event_${tenantId}`
+    return localStorage.getItem(key)
   } catch (err) {
-    console.error('Exception getting active event:', err)
+    console.error('Error getting active event:', err)
     return null
   }
 }

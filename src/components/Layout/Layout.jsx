@@ -36,44 +36,13 @@ function _getAvailableDays() {
   return days.length > 0 ? days.sort((a, b) => a - b) : [1];
 }
 
-function getCurrentEventId() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
-  const tenantId = 'Primavera Production';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.activeEventId || 'event-default';
-}
-
 function getTenantBranding() { 
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
   const tenantId = 'Primavera Production';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.branding || { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
 }
 
-function getEvents() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [{ id: 'event-default', name: 'Event Default', isArchived: false }];
-  const tenantId = 'Primavera Production';
-  const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
-  return Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
-}
-
-function setCurrentEvent(eventId) {
-  if (_workspaceSnapshot?.store?.tenants?.['Primavera Production']) {
-    _workspaceSnapshot.store.tenants['Primavera Production'].activeEventId = eventId;
-  }
-}
-
-function createEvent(name) { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'event-default', name };
-  const tenantId = 'Primavera Production';
-  const newEventId = 'event-' + Date.now();
-  const newEvent = { id: newEventId, name, isArchived: false, participants: [], checkin_logs: [], created_at: new Date().toISOString() };
-  if (!_workspaceSnapshot.store.tenants[tenantId].events) {
-    _workspaceSnapshot.store.tenants[tenantId].events = {};
-  }
-  _workspaceSnapshot.store.tenants[tenantId].events[newEventId] = newEvent;
-  return newEvent;
-}
-
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContextSaaS'
 
@@ -115,7 +84,7 @@ export default function Layout({ children }) {
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
 
   // Get tenant ID from user context (dynamic, not hardcoded)
-  const getTenantId = () => user?.tenant_id || user?.tenantId || null
+  const getTenantId = useCallback(() => user?.tenant_id || user?.tenantId || null, [user?.tenant_id, user?.tenantId])
 
   // roleLabel not used anymore - using scopeLabels with user_type
 
@@ -143,7 +112,7 @@ export default function Layout({ children }) {
     }
 
     loadEvents()
-  }, [user?.tenant_id, user?.tenantId])
+  }, [user?.tenant_id, user?.tenantId, getTenantId])
 
   // Subscribe to realtime events changes
   useEffect(() => {
@@ -158,9 +127,9 @@ export default function Layout({ children }) {
     })
 
     return unsubscribe
-  }, [user?.tenant_id, user?.tenantId])
+  }, [user?.tenant_id, user?.tenantId, getTenantId])
 
-  const refreshEventState = async () => {
+  const refreshEventState = useCallback(async () => {
     const tenantId = getTenantId()
     if (!tenantId) return
 
@@ -173,7 +142,7 @@ export default function Layout({ children }) {
     } catch (err) {
       console.error('Error refreshing events:', err)
     }
-  }
+  }, [getTenantId])
 
   useEffect(() => {
     const refreshTenantBranding = () => setTenantBranding(getTenantBranding())
@@ -189,7 +158,7 @@ export default function Layout({ children }) {
       window.removeEventListener('ons-workspace-synced', onWorkspaceSynced)
       window.removeEventListener('focus', refreshTenantBranding)
     }
-  }, [])
+  }, [refreshEventState])
 
   useEffect(() => {
     if (user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin') return
@@ -436,11 +405,14 @@ export default function Layout({ children }) {
                   id="header-event-select"
                   name="event_id"
                   className="form-select header-event-select"
-                  value={activeEventId}
+                  value={activeEventId || ''}
                   onChange={(e) => handleEventChange(e.target.value)}
                   style={{ height: 34, fontSize: '0.8rem' }}
                   title="Pilih acara aktif"
                 >
+                  <option value="" disabled={events.length > 0}>
+                    {events.length === 0 ? 'Belum ada event' : 'Pilih event...'}
+                  </option>
                   {events.map(ev => (
                     <option key={ev.id} value={ev.id}>{ev.name}</option>
                   ))}
