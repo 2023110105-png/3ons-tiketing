@@ -1,8 +1,8 @@
 // ===== REAL FUNCTIONS FOR REPORTS =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function getParticipants(day) {
@@ -16,8 +16,10 @@ function getParticipants(day) {
   }
   return participants;
 }
-function getCurrentDay() { return 1; }
+function _getActiveTenant() { return { id: 'tenant-default' }; }
 function getAvailableDays() { return [1]; }
+function getCurrentDay() { return 1; }
+function _setCurrentDay() {}
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
@@ -26,9 +28,7 @@ function getCheckInLogs(day) {
 }
 function getStats() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {} };
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || { byCategory: {} };
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.stats || { byCategory: {} };
 }
 function getAdminLogs(limit) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
@@ -39,9 +39,7 @@ function getAdminLogs(limit) {
 }
 function getPeakHours() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'tenant-default';
-  const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.peak_hours || [];
+  return _workspaceSnapshot.store.tenants?.['tenant-default']?.events?.['event-default']?.peak_hours || [];
 }
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'
@@ -68,7 +66,7 @@ export default function Reports() {
     // Initial load data dari Supabase
     useEffect(() => {
       const load = async () => {
-        await bootstrapStoreFromFirebase();
+        await bootstrapStoreFromServer();
       };
       load();
     }, []);

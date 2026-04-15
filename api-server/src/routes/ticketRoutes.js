@@ -57,19 +57,57 @@ export function createTicketRoutes({ writeRateLimit }) {
         .doc('event-default')
         .collection('participants')
 
-      const participantDoc = await participantsRef.doc(ticketId).get()
+      let participantDoc = await participantsRef.doc(ticketId).get()
+      let participant = null
+      let matchedByName = false
+      let matchedParticipantId = ticketId
 
       if (!participantDoc.exists) {
-        requestLog(req, 'ticket_verify_not_found', { tenant_id, ticket_id: ticketId }, 'info')
-        return res.json({
-          success: true,
-          valid: false,
-          reason: 'ticket_not_found',
-          mode: 'server'
-        })
+        // AUTO-RECOGNITION: Try to match by name from QR data (for old QR codes after data reset)
+        const qrName = String(parsedQr?.n || '').trim()
+        
+        if (qrName) {
+          requestLog(req, 'ticket_verify_trying_name_match', { 
+            tenant_id, 
+            ticket_id: ticketId, 
+            qr_name: qrName,
+            qr_day: qrDay 
+          }, 'info')
+          
+          // Search participants by name and day
+          const nameQuery = await participantsRef
+            .where('name', '==', qrName)
+            .where('day_number', '==', qrDay)
+            .limit(1)
+            .get()
+          
+          if (!nameQuery.empty) {
+            participantDoc = nameQuery.docs[0]
+            participant = participantDoc.data()
+            matchedByName = true
+            matchedParticipantId = participantDoc.id
+            
+            requestLog(req, 'ticket_verify_name_match_success', { 
+              tenant_id, 
+              old_ticket_id: ticketId,
+              new_ticket_id: matchedParticipantId,
+              name: qrName 
+            }, 'info')
+          }
+        }
+        
+        if (!participant) {
+          requestLog(req, 'ticket_verify_not_found', { tenant_id, ticket_id: ticketId }, 'info')
+          return res.json({
+            success: true,
+            valid: false,
+            reason: 'ticket_not_found',
+            mode: 'server'
+          })
+        }
+      } else {
+        participant = participantDoc.data()
       }
-
-      const participant = participantDoc.data()
 
       // Check if ticket day matches
       const participantDay = Number(participant?.day || participant?.day_number || 1)
@@ -106,7 +144,7 @@ export function createTicketRoutes({ writeRateLimit }) {
         }
       }
 
-      // Check if already checked in
+      // Check if already checked in (gunakan matchedParticipantId yang benar)
       const checkInLogsRef = db
         .collection('tenants')
         .doc(tenant_id)
@@ -115,13 +153,13 @@ export function createTicketRoutes({ writeRateLimit }) {
         .collection('checkin_logs')
 
       const existingCheckIn = await checkInLogsRef
-        .where('ticket_id', '==', ticketId)
+        .where('ticket_id', '==', matchedParticipantId)
         .where('day', '==', qrDay)
         .limit(1)
         .get()
 
       if (!existingCheckIn.empty) {
-        requestLog(req, 'ticket_verify_duplicate', { tenant_id, ticket_id: ticketId }, 'info')
+        requestLog(req, 'ticket_verify_duplicate', { tenant_id, ticket_id: matchedParticipantId }, 'info')
         return res.json({
           success: true,
           valid: false,
@@ -131,17 +169,23 @@ export function createTicketRoutes({ writeRateLimit }) {
       }
 
       // All checks passed - ticket is valid
-      requestLog(req, 'ticket_verify_success', { tenant_id, ticket_id: ticketId }, 'info')
+      requestLog(req, 'ticket_verify_success', { 
+        tenant_id, 
+        ticket_id: matchedParticipantId,
+        name_matched: matchedByName 
+      }, 'info')
+      
       return res.json({
         success: true,
         valid: true,
         reason: 'ok',
         mode: 'server',
+        name_matched: matchedByName, // Info untuk frontend
         participant: {
           id: participantDoc.id,
           name: participant?.name || '',
           category: participant?.category || 'Regular',
-          ticket_id: ticketId,
+          ticket_id: matchedParticipantId, // Return the correct (new) ticket_id
           day: participantDay
         }
       })

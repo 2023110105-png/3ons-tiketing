@@ -1,5 +1,25 @@
 import { useState, useEffect, useRef } from 'react'
 
+// Dummy subscription function - replace with real implementation
+function subscribeToCheckIns(callback) {
+  // This is a placeholder - in production, this would connect to a real-time service
+  console.log('[useRealtime] subscribeToCheckIns called (dummy implementation)')
+  
+  // Simulate occasional events for testing
+  const interval = setInterval(() => {
+    callback({
+      type: 'checkin',
+      timestamp: new Date().toISOString(),
+      data: { ticketId: 'test', status: 'success' }
+    })
+  }, 30000) // Every 30 seconds
+  
+  return () => {
+    clearInterval(interval)
+    console.log('[useRealtime] unsubscribe called')
+  }
+}
+
 export function useRealtime() {
   const [events, setEvents] = useState([])
   const [lastEvent, setLastEvent] = useState(null)

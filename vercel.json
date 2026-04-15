@@ -59,5 +59,15 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "experimentalServices": {
+    "web": {
+      "routePrefix": "/",
+      "framework": "vite"
+    },
+    "api-server": {
+      "entrypoint": "api-server",
+      "routePrefix": "/_/api-server"
+    }
+  }
 }

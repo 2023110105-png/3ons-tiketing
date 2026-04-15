@@ -1,12 +1,20 @@
 // ===== REAL FUNCTIONS FOR GATE SCAN =====
-import { fetchFirebaseWorkspaceSnapshot, syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
 let _pendingCheckIns = [];
 let _offlineQueueHistory = [];
+let _checkInCache = [];
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+// Helper functions
+function getTenantId() { return 'tenant-default'; }
+function getEventId() { return 'event-default'; }
+function getUserName() { return localStorage.getItem('user_name') || 'Admin'; }
+function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
+
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
@@ -41,7 +49,10 @@ function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkInLogs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
+  // Support both field names for backward compatibility
+  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const logs = event?.checkInLogs || event?.checkin_logs || [];
+  return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
 
 function searchParticipants(query, day) {
@@ -86,62 +97,203 @@ function getMaxPendingAttempts() {
   return 5;
 }
 
-async function checkIn(ticketId, day, scannedBy) {
+async function checkIn(ticketId, day, scannedBy, qrName = '') {
   try {
-    // Cari peserta berdasarkan ticket_id
+    console.log(`[checkIn] Start: ticketId=${ticketId}, day=${day}`);
+    // Sync data from server first to ensure we have latest participants
+    await bootstrapStoreFromServer(true);
+
+    // Cari peserta berdasarkan ticket_id (case-insensitive)
     const participants = getParticipants(day);
-    const participant = participants.find(p => p.ticket_id === ticketId);
+    console.log(`[checkIn] Found ${participants.length} participants for day ${day}`);
+    console.log(`[checkIn] First few participants:`, participants.slice(0, 5).map(p => ({ tid: p.ticket_id, name: p.name, day: p.day_number || p.day })));
+    console.log(`[checkIn] All ticketIds for day ${day}:`, participants.map(p => p.ticket_id).slice(0, 10));
     
-    if (!participant) {
-      return { success: false, error: 'Peserta tidak ditemukan', status: 'not_found' };
+    // Case-insensitive ticket ID search
+    const searchTicketId = String(ticketId || '').trim().toLowerCase();
+    let participant = participants.find(p => String(p.ticket_id || '').trim().toLowerCase() === searchTicketId);
+    let matchedByName = false;
+    let finalTicketId = ticketId;
+
+    // AUTO-RECOGNITION: Jika tidak ditemukan, coba cocokkan berdasarkan nama (untuk QR lama)
+    if (!participant && qrName) {
+      const qrNameNormalized = String(qrName).trim().toLowerCase();
+      participant = participants.find(p => {
+        const pName = String(p.name || '').trim().toLowerCase();
+        return pName === qrNameNormalized && Number(p.day_number || p.day) === Number(day);
+      });
+      
+      if (participant) {
+        matchedByName = true;
+        finalTicketId = participant.ticket_id; // Gunakan ticket_id yang baru
+        console.log(`[checkIn] Auto-recognition by name: "${qrName}" -> ${finalTicketId}`);
+      }
     }
+
+    if (!participant) {
+      console.log(`[checkIn] Participant not found: ticketId=${ticketId}, day=${day}`);
+      // Coba cari di semua participants tanpa filter day (case-insensitive)
+      const allParticipants = getParticipants();
+      console.log(`[checkIn] Total participants (all days): ${allParticipants.length}`);
+      const foundInOtherDay = allParticipants.find(p => String(p.ticket_id || '').trim().toLowerCase() === searchTicketId);
+      if (foundInOtherDay) {
+        const foundDay = foundInOtherDay.day_number || foundInOtherDay.day || 'unknown';
+        console.log(`[checkIn] Found in other day:`, { tid: foundInOtherDay.ticket_id, name: foundInOtherDay.name, day: foundDay });
+        return { 
+          success: false, 
+          error: `Peserta terdaftar untuk Hari ${foundDay}, tapi scan untuk Hari ${day}.`, 
+          status: 'wrong_day', 
+          participant: foundInOtherDay,
+          expectedDay: foundDay,
+          scannedDay: day
+        };
+      }
+      return { success: false, error: 'Peserta tidak terdaftar (tidak ditemukan di data terbaru)', status: 'not_registered' };
+    }
+
+    // Verify participant is properly registered with required data
+    if (!participant.name || !participant.ticket_id) {
+      return { success: false, error: 'Data peserta tidak valid - belum terdaftar dengan lengkap', status: 'invalid_registration' };
+    }
+
+    console.log(`[checkIn] Participant found:`, { tid: participant.ticket_id, name: participant.name, day: participant.day_number || participant.day });
     
-    // Check if already checked in
+    // Check if already checked in (case-insensitive)
     const existingLogs = getCheckInLogs(day);
-    const alreadyCheckedIn = existingLogs.some(log => log.ticket_id === ticketId);
+    const finalTicketIdLower = String(finalTicketId || '').trim().toLowerCase();
+    const alreadyCheckedIn = existingLogs.some(log => String(log.ticket_id || '').trim().toLowerCase() === finalTicketIdLower);
     if (alreadyCheckedIn) {
       return { success: false, error: 'Peserta sudah check-in', alreadyCheckedIn: true, status: 'duplicate', participant };
     }
-    
+
     // Add to check-in logs
     const tenantId = 'tenant-default';
     const eventId = 'event-default';
+    // Use participant's actual ticket_id from database (not from QR) for consistency
+    const actualTicketId = participant.ticket_id || finalTicketId;
     const newLog = {
-      id: `${ticketId}_${Date.now()}`,
-      ticket_id: ticketId,
+      id: `${actualTicketId}_${Date.now()}`,
+      ticket_id: actualTicketId,
       scanned_by: scannedBy,
       timestamp: new Date().toISOString(),
       day: day,
       day_number: day,
       tenant_id: tenantId,
-      event_id: eventId
+      event_id: eventId,
+      // Participant info for BackGate/Monitor compatibility
+      participant_name: participant?.name || participant?.nama || 'Unknown',
+      participant_category: participant?.category || participant?.kategori || 'Regular',
+      participant_ticket: actualTicketId,
+      // Flag untuk auto-recognition
+      auto_recognized: matchedByName,
+      original_qr_ticket_id: matchedByName ? ticketId : null
     };
 
-    // Store in memory
+    // Store in memory (support both field names)
     if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
       const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
-      if (!event.checkInLogs) event.checkInLogs = [];
+      // Use checkInLogs (camelCase) as primary, fallback to checkin_logs
+      if (!event.checkInLogs) event.checkInLogs = event.checkin_logs || [];
       event.checkInLogs.push(newLog);
+      // Also update lowercase version for backward compatibility
+      event.checkin_logs = event.checkInLogs;
     }
 
     // Persist to database (async, don't block response)
     void syncCheckInLog({ tenantId, eventId, log: newLog });
 
-    return { success: true, ticket_id: ticketId, participant, status: 'success' };
-  } catch (error) {
+    console.log(`[checkIn] SUCCESS: ${participant.name} checked in for day ${day}`);
+
+    return { 
+      success: true, 
+      ticket_id: actualTicketId, 
+      participant, 
+      status: 'success',
+      auto_recognized: matchedByName,
+      message: matchedByName ? 'Tiket ditemukan berdasarkan nama (QR lama)' : null
+    };
+  } catch {
     return { success: false, error: 'Check-in failed', status: 'error' };
   }
 }
 
-async function manualCheckIn(ticketId, scannedBy) {
+// Force check-in (override wrong_day restriction)
+async function forceCheckIn(ticketId, day, scannedBy, qrName = '') {
+  try {
+    console.log(`[forceCheckIn] Override: ticketId=${ticketId}, day=${day}`);
+    await bootstrapStoreFromServer(true);
+
+    const participants = getParticipants();
+    const participant = participants.find(p => p.ticket_id === ticketId);
+    if (!participant) {
+      return { success: false, error: 'Peserta tidak ditemukan', status: 'error' };
+    }
+
+    const finalTicketId = participant.ticket_id;
+    const tenantId = getTenantId();
+    const eventId = getEventId();
+
+    // Generate offline UUID
+    const offlineId = generateOfflineId();
+    const timestamp = new Date().toISOString();
+
+    const newLog = {
+      id: offlineId,
+      ticket_id: finalTicketId,
+      day: day,
+      scanned_by: scannedBy,
+      timestamp: timestamp,
+      sync_status: 'pending',
+      synced_at: null,
+      qr_data: qrName || participant.name
+    };
+
+    _pendingCheckIns.push(newLog);
+    savePendingCheckIns();
+
+    const existingIndex = _checkInCache.findIndex(
+      log => log.ticket_id === finalTicketId && log.day === day
+    );
+    if (existingIndex !== -1) {
+      _checkInCache[existingIndex] = newLog;
+    } else {
+      _checkInCache.push(newLog);
+    }
+
+    void syncCheckInLog({ tenantId, eventId, log: newLog });
+
+    console.log(`[forceCheckIn] SUCCESS: ${participant.name} force checked in for day ${day}`);
+
+    return { 
+      success: true, 
+      ticket_id: finalTicketId, 
+      participant, 
+      status: 'success',
+      forced: true,
+      message: 'Check-in berhasil ( OVERRIDE - Salah Hari )'
+    };
+  } catch {
+    return { success: false, error: 'Force check-in failed', status: 'error' };
+  }
+}
+
+async function manualCheckIn(ticketId, scannedBy, day) {
+  // Sync data first to ensure we have latest participants
+  await bootstrapStoreFromServer(true);
+
   const participants = getParticipants();
   const participant = participants.find(p => p.ticket_id === ticketId);
   if (!participant) {
-    return { success: false, error: 'Peserta tidak ditemukan' };
+    return { success: false, error: 'Peserta tidak terdaftar (tidak ditemukan di data)', status: 'not_registered' };
   }
-  
-  const day = getCurrentDay();
-  return checkIn(ticketId, day, scannedBy);
+
+  // Verify participant is registered with proper data
+  if (!participant.name || !participant.ticket_id) {
+    return { success: false, error: 'Data peserta tidak valid (nama atau tiket ID kosong)', status: 'invalid_data' };
+  }
+
+  const checkDay = day || getCurrentDay();
+  return checkIn(ticketId, checkDay, scannedBy);
 }
 
 async function syncPendingCheckIns() {
@@ -151,9 +303,10 @@ async function syncPendingCheckIns() {
   for (const item of pending) {
     results.processed++;
     try {
-      // Parse QR data untuk mendapatkan ticket_id dan day
+      // Parse QR data untuk mendapatkan ticket_id, day, dan nama
       let ticketId = item.ticket_id;
       let day = item.day || 1;
+      let qrName = '';
       
       if (item.qr_data) {
         try {
@@ -171,6 +324,7 @@ async function syncPendingCheckIns() {
             if (isValid) {
               ticketId = parsed.ticketId || ticketId;
               day = parsed.dayNumber || day;
+              qrName = parsed.name || ''; // Ambil nama untuk auto-recognition
             }
           }
         } catch {
@@ -178,7 +332,7 @@ async function syncPendingCheckIns() {
         }
       }
       
-      const result = await checkIn(ticketId, day, item.scanned_by);
+      const result = await checkIn(ticketId, day, item.scanned_by, qrName);
       if (result.success) {
         results.synced++;
         removePendingCheckIn(item.ticket_id);
@@ -194,7 +348,7 @@ async function syncPendingCheckIns() {
           removePendingCheckIn(item.ticket_id);
         }
       }
-    } catch (error) {
+    } catch {
       item.attempts++;
     }
   }
@@ -215,16 +369,29 @@ import { useSound } from '../../hooks/useRealtime'
 import { CheckCircle, XCircle, AlertTriangle, Ban, Camera, Keyboard, Play, Square, Search, UserCheck, WifiOff, RefreshCw, Trash2, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 import { apiFetch } from '../../utils/api'
-import { parseQRData, verifyQRSignature } from '../../utils/qrSecurity'
+import { parseQRData, verifyQRSignature, generateQRData } from '../../utils/qrSecurity'
 
 const SAME_QR_DEBOUNCE_MS = 1200
 const VERIFY_TIMEOUT_MS = 2200
 const REALTIME_REFRESH_MS = 2500
 
+// Helper untuk ambil hari yang tersedia dari data
+function getAvailableDays() {
+  const participants = getParticipants()
+  const days = new Set()
+  participants.forEach(p => {
+    const day = Number(p.day_number || p.day || 1)
+    if (day > 0) days.add(day)
+  })
+  return Array.from(days).sort((a, b) => a - b)
+}
+
 export default function FrontGate() {
-  const currentDay = getCurrentDay()
+  const availableDays = getAvailableDays()
+  const defaultDay = availableDays[0] || 1
+  const [selectedDay, setSelectedDay] = useState(defaultDay)
   const [result, setResult] = useState(null)
-  const [stats, setStats] = useState(getStats(currentDay))
+  const [stats, setStats] = useState(getStats(selectedDay))
   const [manualInput, setManualInput] = useState('')
   const [scanMode, setScanMode] = useState('manual') // 'camera', 'manual', 'search'
   const [searchQuery, setSearchQuery] = useState('')
@@ -238,13 +405,13 @@ export default function FrontGate() {
   const [showLimitInfo, setShowLimitInfo] = useState(false)
   const [isLimitInfoFading, setIsLimitInfoFading] = useState(false)
   const lastScanRef = useRef({ data: null, time: 0 })
-  const lastFirebaseSyncRef = useRef(0)
+  const lastServerSyncRef = useRef(0)
   const scannerRef = useRef(null)
   const { playSuccess, playError, playVIPAlert, playWarning } = useSound()
 
   const refreshStats = useCallback(() => {
-    setStats(getStats(currentDay))
-  }, [currentDay])
+    setStats(getStats(selectedDay))
+  }, [selectedDay])
 
   const refreshPendingState = useCallback(() => {
     const items = getPendingCheckIns()
@@ -252,11 +419,11 @@ export default function FrontGate() {
     setPendingCount(items.length)
   }, [])
 
-  const refreshFromFirebaseIfStale = useCallback(async () => {
+  const refreshFromServerIfStale = useCallback(async () => {
     const now = Date.now()
-    if (now - lastFirebaseSyncRef.current < 2000) return
-    lastFirebaseSyncRef.current = now
-    void bootstrapStoreFromFirebase(true)
+    if (now - lastServerSyncRef.current < 2000) return
+    lastServerSyncRef.current = now
+    void bootstrapStoreFromServer(true)
   }, [])
 
   const getLimitBadgeClass = () => {
@@ -295,16 +462,16 @@ export default function FrontGate() {
   }, [isSyncing, refreshPendingState, refreshStats])
 
   const verifyScanWithServer = useCallback(async (qrData) => {
-    void refreshFromFirebaseIfStale()
+    void refreshFromServerIfStale()
 
     const parsed = parseQRData(qrData)
     if (!parsed) {
       return { valid: false, reason: 'invalid_payload', enforced: true }
     }
 
-    const normalizedQr = String(qrData || '').trim()
     const parsedTicketId = parsed.ticketId
-    const parsedSecureRef = parsed.secureRef
+    // eslint-disable-next-line no-unused-vars
+    const parsedSecureRef = parsed.secureRef  // Reserved for future security validation
     const participantPool = getParticipants()
     // Cari peserta berdasarkan ticket_id dari QR data (tidak cocokkan qr_data lengkap karena ada timestamp)
     const matched = participantPool.find(p => p.ticket_id === parsedTicketId)
@@ -341,7 +508,7 @@ export default function FrontGate() {
     } catch {
       return { valid: false, reason: 'verify_unreachable', enforced: false }
     }
-  }, [refreshFromFirebaseIfStale])
+  }, [refreshFromServerIfStale])
 
   const handleScan = useCallback(async (qrData) => {
     const now = Date.now()
@@ -350,7 +517,7 @@ export default function FrontGate() {
     }
     lastScanRef.current = { data: qrData, time: now }
 
-    void refreshFromFirebaseIfStale()
+    void refreshFromServerIfStale()
 
     if (!navigator.onLine) {
       enqueuePendingCheckIn(qrData, 'gate_front', scanMode)
@@ -369,30 +536,40 @@ export default function FrontGate() {
     // Verifikasi server (non-blocking - tidak menghentikan scan jika gagal)
     const verify = await verifyScanWithServer(qrData)
     if (!verify.valid) {
-      console.warn('Server verification warning:', verify.reason)
+      console.info(`[ServerVerify] Non-blocking: ${verify.reason} (check-in tetap dilanjutkan)`)
       // Tetap lanjutkan scan meskipun verifikasi server gagal
     }
 
-    // Parse QR data untuk mendapatkan ticket_id dan day
+    // Parse QR data untuk mendapatkan ticket_id, day, dan nama
     let ticketId = '';
     let day = 1;
+    let qrName = '';
     const parsed = parseQRData(qrData);
+    console.log(`[handleScan] Parsed QR:`, parsed);
     if (parsed && parsed.ticketId) {
       ticketId = parsed.ticketId;
       day = parsed.dayNumber || 1;
+      qrName = parsed.name || ''; // Ambil nama untuk auto-recognition
     } else {
       // Jika bukan JSON valid, gunakan qrData sebagai ticket_id langsung
       ticketId = qrData;
     }
+    console.log(`[handleScan] ticketId=${ticketId}, day=${day}, qrName=${qrName}`);
     
-    let res = await checkIn(ticketId, day, 'gate_front')
+    // Cek response dari server verify - jika ada name_matched, gunakan ticket_id dari server
+    if (verify?.valid && verify?.participant?.ticket_id) {
+      ticketId = verify.participant.ticket_id;
+      console.log(`[handleScan] Using server-matched ticket_id: ${ticketId}`);
+    }
+    
+    let res = await checkIn(ticketId, day, 'gate_front', qrName)
     if (!res.success && res.error?.toLowerCase().includes('tidak ditemukan')) {
       // New participants may still be in-flight from admin device sync.
       // Force a fresh pull and retry once so gate scan works without manual refresh.
       setIsResolvingLatestData(true)
       try {
-        await bootstrapStoreFromFirebase(true)
-        res = await checkIn(ticketId, day, 'gate_front')
+        await bootstrapStoreFromServer(true)
+        res = await checkIn(ticketId, day, 'gate_front', qrName)
       } finally {
         setIsResolvingLatestData(false)
       }
@@ -401,21 +578,23 @@ export default function FrontGate() {
     setShowResultDetail(false)
 
     if (res.success) {
-      // VIP gets special fanfare
+      triggerSuccessHaptic()
       if (res.participant?.category === 'VIP') {
         playVIPAlert()
       } else {
         playSuccess()
       }
     } else if (res.status === 'wrong_day') {
+      triggerErrorHaptic()
       playWarning()
     } else {
+      triggerErrorHaptic()
       playError()
     }
 
     refreshStats()
     setTimeout(() => setResult(null), getResultDismissMs(res))
-  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshFromFirebaseIfStale, refreshPendingState, refreshStats, verifyScanWithServer])
+  }, [playSuccess, playError, playVIPAlert, playWarning, scanMode, refreshFromServerIfStale, refreshPendingState, refreshStats, verifyScanWithServer])
 
   const handleManualSubmit = (e) => {
     e.preventDefault()
@@ -424,13 +603,16 @@ export default function FrontGate() {
     setManualInput('')
   }
 
-  // Manual check-in by participant ID
-  const handleManualCheckIn = (participant) => {
-    const res = manualCheckIn(participant.ticket_id, 'gate_front')
+  // Manual check-in by participant ID - now async with server sync
+  const handleManualCheckIn = async (participant) => {
+    setIsResolvingLatestData(true)
+    const res = await manualCheckIn(participant.ticket_id, 'gate_front', selectedDay)
+    setIsResolvingLatestData(false)
     setResult(res)
     setShowResultDetail(false)
 
     if (res.success) {
+      triggerSuccessHaptic()
       if (res.participant?.category === 'VIP') {
         playVIPAlert()
       } else {
@@ -440,6 +622,7 @@ export default function FrontGate() {
         p.ticket_id === participant.ticket_id ? { ...p, is_checked_in: true } : p
       ))
     } else {
+      triggerErrorHaptic()
       playError()
     }
 
@@ -447,32 +630,87 @@ export default function FrontGate() {
     setTimeout(() => setResult(null), getResultDismissMs(res))
   }
 
-  // Search handler
-  const handleSearch = (query) => {
+  // Search handler with sync - ensures data is fresh from server before searching
+  const handleSearch = useCallback(async (query) => {
     setSearchQuery(query)
     if (query.trim().length >= 2) {
-      const results = searchParticipants(query, currentDay)
-      setSearchResults(results)
+      // Sync data from server first to ensure we have latest participants
+      setIsResolvingLatestData(true)
+      try {
+        await bootstrapStoreFromServer(true)
+        refreshStats()
+      } catch (err) {
+        console.error('[FrontGate] Failed to sync before search:', err)
+      } finally {
+        setIsResolvingLatestData(false)
+      }
+      // Search with fresh data
+      const results = searchParticipants(query, selectedDay)
+      // Mark participants as registered if found in data
+      const resultsWithSyncStatus = results.map(p => ({
+        ...p,
+        is_registered: true,
+        registration_status: 'terdaftar'
+      }))
+      setSearchResults(resultsWithSyncStatus)
     } else {
       setSearchResults([])
     }
-  }
+  }, [selectedDay, refreshStats])
 
   // Camera scanner
   const startCamera = async () => {
     try {
+      // Tunggu sebentar agar DOM element siap
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Cek apakah element qr-reader sudah ada
+      const qrElement = document.getElementById('qr-reader')
+      if (!qrElement) {
+        console.error('[Camera] qr-reader element not found')
+        alert('Komponen scanner belum siap. Coba lagi.')
+        return
+      }
+      
       const { Html5Qrcode } = await import('html5-qrcode')
+      if (!Html5Qrcode) {
+        throw new Error('Library html5-qrcode gagal di-load')
+      }
+      console.log('[Camera] Html5Qrcode loaded successfully')
       const scanner = new Html5Qrcode('qr-reader')
       scannerRef.current = scanner
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => handleScan(decodedText),
-        () => {}
+        (errorMessage) => { console.log('[Camera] Scan error:', errorMessage) }
       )
     } catch (err) {
-      console.error('Camera error:', err)
-      setScanMode('manual')
+      console.error('[Camera] Full error:', err)
+      console.error('[Camera] Error type:', typeof err)
+      console.error('[Camera] Error string:', String(err))
+      console.error('[Camera] Error keys:', Object.keys(err || {}))
+      console.error('[Camera] Error name:', err?.name)
+      console.error('[Camera] Error message:', err?.message)
+      console.error('[Camera] Error stack:', err?.stack)
+      
+      // Parse error string untuk mendapatkan pesan yang lebih baik
+      const errStr = String(err)
+      let userMsg = 'Gagal mengakses kamera'
+      
+      if (errStr.includes('NotAllowedError')) {
+        userMsg = 'Izin kamera ditolak. Klik Allow saat browser meminta izin.'
+      } else if (errStr.includes('NotFoundError')) {
+        userMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
+      } else if (errStr.includes('NotReadableError')) {
+        userMsg = 'Kamera sedang digunakan aplikasi lain. Tutup Zoom/Teams dulu.'
+      } else if (errStr.includes('AbortError')) {
+        userMsg = 'Akses kamera dibatalkan.'
+      } else {
+        userMsg = `Gagal mengakses kamera: ${errStr}`
+      }
+      
+      alert(userMsg)
     }
   }
 
@@ -480,8 +718,9 @@ export default function FrontGate() {
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop()
-      } catch {
-        // Scanner may already be stopped.
+        console.log('[Camera] Scanner stopped successfully')
+      } catch (err) {
+        console.log('[Camera] Stop error (may already be stopped):', err?.message)
       }
       scannerRef.current = null
     }
@@ -490,11 +729,12 @@ export default function FrontGate() {
   // Initial data load from Supabase
   useEffect(() => {
     const loadData = async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       refreshStats();
       refreshPendingState();
     };
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Realtime subscription to capture admin data changes
@@ -503,7 +743,7 @@ export default function FrontGate() {
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
       console.log('[FrontGate] Realtime update received:', payload?.eventType);
       // Refresh workspace snapshot when data changes
-      void bootstrapStoreFromFirebase().then(() => {
+      void bootstrapStoreFromServer().then(() => {
         refreshStats();
         refreshPendingState();
         console.log('[FrontGate] Data refreshed from realtime update');
@@ -519,7 +759,10 @@ export default function FrontGate() {
   }, [refreshStats, refreshPendingState])
 
   useEffect(() => {
-    return () => { stopCamera() }
+    return () => { 
+      stopCamera()
+      console.log('[FrontGate] Component unmounted, camera stopped')
+    }
   }, [])
 
   useEffect(() => {
@@ -528,12 +771,12 @@ export default function FrontGate() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void refreshFromFirebaseIfStale()
+      void refreshFromServerIfStale()
       refreshStats()
       refreshPendingState()
     }, REALTIME_REFRESH_MS)
     return () => window.clearInterval(intervalId)
-  }, [refreshFromFirebaseIfStale, refreshPendingState, refreshStats])
+  }, [refreshFromServerIfStale, refreshPendingState, refreshStats])
 
   useEffect(() => {
     const goOnline = () => {
@@ -566,10 +809,30 @@ export default function FrontGate() {
   const handleModeSwitch = (mode) => {
     if (mode === 'camera' && scanMode !== 'camera') {
       setScanMode('camera')
-      setTimeout(startCamera, 100)
+      // Delay lebih lama agar DOM element qr-reader siap
+      setTimeout(startCamera, 500)
     } else if (mode !== 'camera') {
       stopCamera()
       setScanMode(mode)
+    }
+  }
+
+  // Haptic feedback helper for mobile
+  const triggerHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(10) // Short 10ms vibration
+    }
+  }
+  
+  const triggerSuccessHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([50, 30, 50]) // Pattern: short, pause, short
+    }
+  }
+  
+  const triggerErrorHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([100, 50, 100]) // Pattern: long, pause, long
     }
   }
 
@@ -600,7 +863,11 @@ export default function FrontGate() {
     if (result.status === 'invalid_server') return 'VERIFIKASI DI SERVER GAGAL'
     if (result.success) return 'CHECK-IN BERHASIL'
     if (result.status === 'duplicate') return 'SUDAH CHECK-IN'
-    if (result.status === 'wrong_day') return 'SALAH HARI'
+    if (result.status === 'wrong_day') {
+      return `SALAH HARI (Tiket Hari ${result.expectedDay})`;
+    }
+    if (result.status === 'not_registered') return 'PESERTA BELUM TERDAFTAR'
+    if (result.status === 'invalid_registration') return 'REGISTRASI TIDAK VALID'
     if (result.status === 'not_found') return 'PESERTA TIDAK DITEMUKAN'
     return 'TIDAK VALID'
   }
@@ -626,8 +893,12 @@ export default function FrontGate() {
     if (result.status === 'sync_partial') return 'Sebagian gagal. Coba sinkron ulang saat koneksi stabil.'
     if (result.success) return 'Silakan peserta masuk.'
     if (result.status === 'duplicate') return 'Arahkan peserta ke helpdesk untuk verifikasi ulang.'
-    if (result.status === 'wrong_day') return 'Informasikan hari tiket yang benar.'
+    if (result.status === 'wrong_day') {
+      return `Tiket untuk Hari ${result.expectedDay}. Saat ini Hari ${result.scannedDay}.`;
+    }
     if (result.status === 'invalid_server') return 'Periksa koneksi server atau arahkan ke helpdesk.'
+    if (result.status === 'not_registered') return 'Peserta belum terdaftar di sistem. Arahkan ke helpdesk untuk registrasi.'
+    if (result.status === 'invalid_registration') return 'Data registrasi peserta tidak lengkap. Arahkan ke helpdesk.'
     if (result.status === 'not_found') return 'Data peserta tidak ditemukan. Arahkan ke helpdesk.'
     return 'Tiket ditolak. Arahkan ke helpdesk.'
   }
@@ -685,6 +956,52 @@ export default function FrontGate() {
     setTimeout(() => setResult(null), 2500)
   }
 
+  const handleForceCheckIn = async () => {
+    if (!result || result.status !== 'wrong_day' || !result.participant) {
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `⚠️ Check-in Override\n\n` +
+      `Nama: ${result.participant.name}\n` +
+      `Tiket: ${result.participant.ticket_id}\n\n` +
+      `Tiket untuk Hari ${result.expectedDay}, tapi akan check-in untuk Hari ${result.scannedDay}.\n\n` +
+      `Lanjutkan check-in?`
+    );
+    
+    if (!confirmed) return;
+    
+    triggerSuccessHaptic();
+    
+    const res = await forceCheckIn(
+      result.participant.ticket_id,
+      result.scannedDay,
+      getUserName(),
+      result.participant.name
+    );
+    
+    if (res.success) {
+      refreshStats();
+      setResult({
+        success: true,
+        status: 'forced',
+        message: 'Check-in berhasil (OVERRIDE)',
+        participant: result.participant,
+        scannedDay: result.scannedDay,
+        expectedDay: result.expectedDay
+      });
+      setTimeout(() => setResult(null), 3000);
+    } else {
+      triggerErrorHaptic();
+      setResult({
+        success: false,
+        status: 'error',
+        message: res.error || 'Force check-in gagal'
+      });
+      setTimeout(() => setResult(null), 3000);
+    }
+  };
+
   const handleExportOfflineReport = async () => {
     const ok = await exportOfflineQueueReportToCSV(getPendingCheckIns(), getOfflineQueueHistory(1000))
     if (ok) {
@@ -719,18 +1036,70 @@ export default function FrontGate() {
             </button>
           )}
         </div>
+
+        {/* Day Selector - Dropdown */}
+        <div className="day-selector" style={{ 
+          display: 'flex', 
+          gap: '12px', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          marginTop: '16px',
+          padding: '12px 16px',
+          background: 'var(--bg-secondary, #f8fafc)',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color, #e2e8f0)'
+        }}>
+          <label htmlFor="day-selector" style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Pilih Hari:
+          </label>
+          <select
+            id="day-selector"
+            name="day"
+            value={selectedDay}
+            onChange={(e) => setSelectedDay(Number(e.target.value))}
+            style={{
+              padding: '10px 16px',
+              fontSize: '16px',
+              fontWeight: '600',
+              borderRadius: '8px',
+              border: '2px solid var(--brand-primary, #3b82f6)',
+              background: 'white',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              minWidth: '120px'
+            }}
+          >
+            {availableDays.length > 0 ? (
+              availableDays.map(day => (
+                <option key={day} value={day}>Hari {day}</option>
+              ))
+            ) : (
+              <option value={1}>Hari 1</option>
+            )}
+          </select>
+          <div style={{
+            padding: '8px 16px',
+            background: 'var(--brand-primary, #3b82f6)',
+            color: 'white',
+            borderRadius: '8px',
+            fontWeight: '700',
+            fontSize: '14px'
+          }}>
+            Aktif: Hari {selectedDay}
+          </div>
+        </div>
       </div>
 
       {/* Mode Tabs - 3 tabs now */}
       <div className="tabs scanner-tabs">
-        <button className={`tab ${scanMode === 'camera' ? 'active' : ''}`} onClick={() => handleModeSwitch('camera')}>
+        <button className={`tab touch-feedback ${scanMode === 'camera' ? 'active' : ''}`} onClick={() => { triggerHaptic(); handleModeSwitch('camera'); }}>
           <Camera size={16} /> Kamera
         </button>
-        <button className={`tab ${scanMode === 'manual' ? 'active' : ''}`} onClick={() => handleModeSwitch('manual')}>
+        <button className={`tab touch-feedback ${scanMode === 'manual' ? 'active' : ''}`} onClick={() => { triggerHaptic(); handleModeSwitch('manual'); }}>
           <Keyboard size={16} /> Manual
         </button>
-        <button className={`tab ${scanMode === 'search' ? 'active' : ''}`} onClick={() => handleModeSwitch('search')}>
-          <Search size={16} /> Cari Nama
+        <button className={`tab touch-feedback ${scanMode === 'search' ? 'active' : ''}`} onClick={() => { triggerHaptic(); handleModeSwitch('search'); }}>
+          <Search size={16} /> Cari
         </button>
       </div>
 
@@ -744,7 +1113,26 @@ export default function FrontGate() {
               <div className="scanner-result-text">
                 {getResultTitle()}
               </div>
+              {/* Tampilkan nama dan tiket langsung saat success */}
+              {result.success && result.participant && (
+                <div className="scanner-result-participant">
+                  <div className="scanner-result-name">{result.participant.name}</div>
+                  <div className="scanner-result-ticket">{result.participant.ticket_id}</div>
+                </div>
+              )}
               <div className="scanner-result-action">{getResultActionHint()}</div>
+              
+              {/* Tombol Check-in Tetap untuk kasus wrong_day */}
+              {result && result.status === 'wrong_day' && result.participant && (
+                <button 
+                  className="btn btn-warning btn-sm scanner-force-checkin-btn" 
+                  onClick={handleForceCheckIn}
+                  style={{ marginTop: '12px' }}
+                >
+                  <AlertTriangle size={16} /> Check-in Tetap
+                </button>
+              )}
+              
               {canShowDetailToggle && (
                 <button className="btn btn-ghost btn-sm scanner-detail-toggle" onClick={() => setShowResultDetail(prev => !prev)}>
                   {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
@@ -752,9 +1140,6 @@ export default function FrontGate() {
               )}
               {canShowDetailToggle && showResultDetail && (
                 <>
-                  {result.participant && (
-                    <div className="scanner-result-detail">{result.participant.name}</div>
-                  )}
                   {result.security && (
                     <div className="scanner-result-detail scanner-result-subdetail">
                       Security: {result.security.mode} · Ref {result.security.secure_ref_mask}
@@ -777,6 +1162,8 @@ export default function FrontGate() {
             <h3 className="card-title mb-16">Input QR Data Manual</h3>
             <form onSubmit={handleManualSubmit} className="scanner-inline-form">
               <input
+                id="qr-input"
+                name="qr_data"
                 className="form-input"
                 placeholder='Paste QR data atau ketik JSON...'
                 value={manualInput}
@@ -795,7 +1182,7 @@ export default function FrontGate() {
             <p className="scanner-note scanner-note-tight">
               Klik untuk simulasi scan peserta
             </p>
-            <QuickScanButtons currentDay={currentDay} onScan={handleScan} />
+            <QuickScanButtons currentDay={selectedDay} onScan={handleScan} />
           </div>
 
           {result && (
@@ -805,7 +1192,26 @@ export default function FrontGate() {
                 <h2 className={`scanner-feedback-title scanner-feedback-title-lg scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
+                {/* Tampilkan nama dan tiket langsung saat success */}
+                {result.success && result.participant && (
+                  <div className="scanner-feedback-participant-highlight">
+                    <div className="scanner-feedback-name-highlight">{result.participant.name}</div>
+                    <div className="scanner-feedback-ticket-highlight">{result.participant.ticket_id}</div>
+                  </div>
+                )}
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
+                
+                {/* Tombol Check-in Tetap untuk kasus wrong_day */}
+                {result && result.status === 'wrong_day' && result.participant && (
+                  <button 
+                    className="scanner-force-checkin-btn" 
+                    onClick={handleForceCheckIn}
+                    style={{ marginTop: '12px', marginBottom: '8px' }}
+                  >
+                    <AlertTriangle size={16} /> Check-in Tetap (Override)
+                  </button>
+                )}
+                
                 {canShowDetailToggle && (
                   <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
                     {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
@@ -844,6 +1250,8 @@ export default function FrontGate() {
             <div className="scanner-search-input-wrap">
               <Search size={16} className="scanner-search-icon" />
               <input
+                id="search-input"
+                name="search_query"
                 type="text"
                 className="form-input scanner-search-input"
                 placeholder="Ketik nama atau ticket ID..."
@@ -865,7 +1273,7 @@ export default function FrontGate() {
             <div className="card">
               <div className="card-header scanner-results-header">
                 <h3 className="card-title scanner-results-title">
-                  {searchResults.length > 0 ? `${searchResults.length} hasil ditemukan` : 'Tidak ada hasil'}
+                  {searchResults.length > 0 ? `${searchResults.length} hasil ditemukan (Data Tersinkron)` : 'Tidak ada hasil (Cek koneksi atau data belum terdaftar)'}
                 </h3>
               </div>
               <div className="scanner-results-scroll">
@@ -878,6 +1286,7 @@ export default function FrontGate() {
                       <div className="scanner-search-name">{p.name}</div>
                       <div className="scanner-search-meta">
                         <span className={`badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'gray'}`}>{p.category}</span>
+                        <span className="badge badge-green">{p.registration_status || 'Terdaftar'}</span>
                         {p.ticket_id}
                       </div>
                     </div>
@@ -907,7 +1316,26 @@ export default function FrontGate() {
                 <h2 className={`scanner-feedback-title scanner-feedback-title-${getResultTone()}`}>
                   {getResultTitle()}
                 </h2>
+                {/* Tampilkan nama dan tiket langsung saat success */}
+                {result.success && result.participant && (
+                  <div className="scanner-feedback-participant-highlight">
+                    <div className="scanner-feedback-name-highlight">{result.participant.name}</div>
+                    <div className="scanner-feedback-ticket-highlight">{result.participant.ticket_id}</div>
+                  </div>
+                )}
                 <p className="scanner-feedback-action">{getResultActionHint()}</p>
+                
+                {/* Tombol Check-in Tetap untuk kasus wrong_day */}
+                {result && result.status === 'wrong_day' && result.participant && (
+                  <button 
+                    className="scanner-force-checkin-btn" 
+                    onClick={handleForceCheckIn}
+                    style={{ marginTop: '12px', marginBottom: '8px' }}
+                  >
+                    <AlertTriangle size={16} /> Check-in Tetap (Override)
+                  </button>
+                )}
+                
                 {canShowDetailToggle && (
                   <button className="btn btn-ghost btn-sm scanner-detail-toggle scanner-detail-toggle-inline" onClick={() => setShowResultDetail(prev => !prev)}>
                     {showResultDetail ? 'Sembunyikan Detail' : 'Lihat Detail'}
@@ -1023,6 +1451,17 @@ function QuickScanButtons({ currentDay, onScan }) {
   const unchecked = participants.filter(p => !checkedInTicketIds.has(p.ticket_id)).slice(0, 6)
   const checked = participants.filter(p => checkedInTicketIds.has(p.ticket_id)).slice(0, 2)
 
+  // Generate fresh QR data untuk konsistensi
+  const getFreshQRData = (p) => {
+    // Generate QR data baru berdasarkan ticket_id dan day yang ada di data
+    return generateQRData({
+      ticket_id: p.ticket_id,
+      day_number: p.day_number || p.day || currentDay,
+      name: p.name,
+      category: p.category
+    }, 'tenant-default', 'event-default')
+  }
+
   return (
     <div className="quick-scan-list">
       {unchecked.length > 0 && (
@@ -1031,7 +1470,7 @@ function QuickScanButtons({ currentDay, onScan }) {
             Belum Check-in:
           </div>
           {unchecked.map(p => (
-            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn" onClick={() => onScan(p.qr_data)}>
+            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn" onClick={() => onScan(getFreshQRData(p))}>
               <span className="quick-scan-icon success"><Play size={12} /></span>
               {p.name}
               <span className="quick-scan-ticket">{p.ticket_id}</span>
@@ -1045,7 +1484,7 @@ function QuickScanButtons({ currentDay, onScan }) {
             Sudah Check-in (test duplikat):
           </div>
           {checked.map(p => (
-            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn quick-scan-btn-muted" onClick={() => onScan(p.qr_data)}>
+            <button key={p.id} className="btn btn-secondary btn-sm quick-scan-btn quick-scan-btn-muted" onClick={() => onScan(getFreshQRData(p))}>
               <span className="quick-scan-icon danger"><Square size={10} /></span>
               {p.name}
               <span className="quick-scan-ticket">{p.ticket_id}</span>

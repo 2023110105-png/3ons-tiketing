@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR PARTICIPANTS =====
-import { fetchFirebaseWorkspaceSnapshot, syncParticipantUpsert } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot, syncParticipantUpsert } from '../../lib/dataSync';
 import { generateQRData } from '../../utils/qrSecurity';
 let _workspaceSnapshot = null;
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 function getParticipants(day) {
@@ -153,8 +153,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/useAuth'
-import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus } from 'lucide-react'
-import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
+import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus, Copy, ExternalLink } from 'lucide-react'
+import { getWhatsAppShareLink } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { useNavigate, Link } from 'react-router-dom'
@@ -162,6 +162,7 @@ import { useWaStatus } from '../../hooks/useWaStatus'
 import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
 
 export default function Participants() {
   const resolveTenantId = (userValue) => {
@@ -177,6 +178,7 @@ export default function Participants() {
   const [availableDays, setAvailableDays] = useState(getAvailableDays())
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState(null)
@@ -494,7 +496,7 @@ export default function Participants() {
 
   const refreshData = useCallback(async (forceFirebase = false) => {
     if (forceFirebase) {
-      await bootstrapStoreFromFirebase(true)
+      await bootstrapStoreFromServer(true)
     }
     setAvailableDays(getAvailableDays())
     // Let dayFilter effect handle participant setting
@@ -537,7 +539,7 @@ export default function Participants() {
   // Initial load & refresh on dayFilter change
   useEffect(() => {
     const load = async () => {
-      await bootstrapStoreFromFirebase();
+      await bootstrapStoreFromServer();
       setParticipants(getParticipants(dayFilter));
       setAvailableDays(getAvailableDays());
     };
@@ -682,6 +684,124 @@ export default function Participants() {
     if (result?.success) toast.success('Terkirim!', `Tiket berhasil masuk antrean kirim untuk ${participant.name}`);
     else toast.error('Gagal', humanizeUserMessage(result?.error, { fallback: 'Layanan pengiriman sedang tidak aktif.' }));
   }
+
+  const handleCopyPasteMode = (participant) => {
+    const waMessage = generateWaMessage(participant);
+    setCopyPasteData({
+      participant,
+      message: waMessage,
+      phone: participant.phone
+    });
+    setCopyPasteModalOpen(true);
+  };
+
+  const generateWaMessage = (p) => {
+    const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `Halo ${p.name},
+
+Ini tiket masuk Anda:
+
+Event: Yamaha Music School
+Tanggal: ${dateStr}
+Hari: ${p.day_number}
+Ticket ID: ${p.ticket_id}
+Kategori: ${p.category}
+
+*Petunjuk:*
+- Tunjukkan QR code ini ke petugas
+- Tidak boleh screenshot
+
+Terima kasih!`;
+  };
+
+  const handleCopyToClipboard = () => {
+    if (copyTextRef.current) {
+      copyTextRef.current.select();
+      document.execCommand('copy');
+      toast.success('Tersalin!', 'Pesan WA sudah di-copy. Buka WA dan paste.');
+    }
+  };
+
+  const handleCopyPasteModalClose = () => {
+    setCopyPasteModalOpen(false);
+    setCopyPasteData(null);
+  };
+
+  const [copyPasteModalOpen, setCopyPasteModalOpen] = useState(false);
+  const [copyPasteData, setCopyPasteData] = useState(null);
+  const copyTextRef = useRef(null);
+
+  // ===== DOWNLOAD ALL TICKETS AS ZIP =====
+  const handleDownloadAllTicketsZip = async () => {
+    if (participants.length === 0) {
+      toast.error('Tidak ada peserta', 'Tidak ada tiket untuk di-download');
+      return;
+    }
+
+    setIsDownloadingZip(true);
+    toast.info('Membuat ZIP...', `Mengumpulkan ${participants.length} tiket...`);
+
+    try {
+      const zip = new JSZip();
+      const baseUrl = window.location.origin.includes('localhost') 
+        ? 'http://localhost:3001' 
+        : window.location.origin;
+      
+      // Folder untuk tiket
+      const folder = zip.folder(`Tiket_Hari_${dayFilter}_${new Date().toISOString().split('T')[0]}`);
+
+      // Download semua gambar tiket
+      let successCount = 0;
+      for (const p of participants) {
+        try {
+          const ticketUrl = `${baseUrl}/ticket-qr/${p.ticket_id}?size=400&name=${encodeURIComponent(p.name || '')}&category=${encodeURIComponent(p.category || '')}&day=${encodeURIComponent(p.day_number || '1')}`;
+          const response = await fetch(ticketUrl);
+          
+          if (!response.ok) {
+            console.warn(`[ZIP] Failed to fetch ticket ${p.ticket_id}: ${response.status}`);
+            continue;
+          }
+
+          const blob = await response.blob();
+          
+          // Format nama file: NamaPeserta_TicketID.png
+          const safeName = (p.name || 'Unknown').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 30);
+          const filename = `${safeName}_${p.ticket_id}.png`;
+          
+          folder.file(filename, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`[ZIP] Error fetching ticket ${p.ticket_id}:`, err);
+        }
+      }
+
+      if (successCount === 0) {
+        toast.error('Gagal', 'Tidak bisa mengunduh tiket. Pastikan bot berjalan.');
+        setIsDownloadingZip(false);
+        return;
+      }
+
+      // Generate ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.download = `Tiket_Hari_${dayFilter}_${successCount}peserta_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(zipUrl);
+
+      toast.success('Berhasil!', `${successCount} tiket telah di-download sebagai ZIP`);
+    } catch (err) {
+      console.error('[ZIP] Error:', err);
+      toast.error('Gagal', 'Error saat membuat ZIP: ' + err.message);
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
 
   const handleBroadcast = () => {
     if (!waConn.isReady) {
@@ -1449,25 +1569,27 @@ export default function Participants() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Nama</label>
-                <input className="form-input" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} required autoFocus />
+                <label className="form-label" htmlFor="edit-name">Nama</label>
+                <input id="edit-name" name="name" className="form-input" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} required autoFocus />
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Telepon (WA)</label>
-                  <input className="form-input" value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
+                  <label className="form-label" htmlFor="edit-phone">Telepon (WA)</label>
+                  <input id="edit-phone" name="phone" className="form-input" value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Email</label>
-                  <input className="form-input" type="email" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
+                  <label className="form-label" htmlFor="edit-email">Email</label>
+                  <input id="edit-email" name="email" className="form-input" type="email" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
                 </div>
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Hari Tiket</label>
+                  <label className="form-label" htmlFor="edit-day">Hari Tiket</label>
                   <input
+                    id="edit-day"
+                    name="day_number"
                     className="form-input"
                     type="number"
                     min="1"
@@ -1478,8 +1600,8 @@ export default function Participants() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Kategori (bebas)</label>
-                  <input className="form-input" value={editData.category} onChange={e => setEditData({ ...editData, category: e.target.value })} />
+                  <label className="form-label" htmlFor="edit-category">Kategori (bebas)</label>
+                  <input id="edit-category" name="category" className="form-input" value={editData.category} onChange={e => setEditData({ ...editData, category: e.target.value })} />
                 </div>
               </div>
 
@@ -1551,6 +1673,8 @@ export default function Participants() {
         <div className="m-participant-search">
           <Search size={16} className="m-participant-search-icon" />
           <input
+            id="mobile-participant-search"
+            name="mobile_search"
             className="form-input m-participant-search-input"
             placeholder="Cari nama atau tiket..."
             value={search}
@@ -1560,7 +1684,7 @@ export default function Participants() {
 
         <div className="m-filter-chips">
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <select className="m-filter-select" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
+            <select id="mobile-day-filter" name="mobile_day" className="m-filter-select" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
               {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
             </select>
             <button className="btn btn-ghost btn-sm m-filter-select" onClick={handleAddNewDay} title="Tambah Hari" style={{ padding: '0 8px' }}>
@@ -1591,38 +1715,74 @@ export default function Participants() {
               <p>Tidak ada data ditemukan</p>
             </div>
           ) : (
-            visibleParticipants.map(p => (
-              <div key={p.id} className="m-participant-card">
-                <div className={`m-p-avatar ${p.is_checked_in ? 'm-p-avatar-checked' : 'm-p-avatar-pending'}`}>
-                  {p.is_checked_in ? <CheckCircle size={16} /> : p.name.charAt(0)}
-                </div>
-                <div className="m-p-info">
-                  <div className="m-p-name">{p.name}</div>
-                  <div className="m-p-meta">
-                    <span className={`badge ${getCategoryBadge(p.category)}`}>{p.category}</span>
-                    <span className="m-p-ticket">{p.ticket_id}</span>
+            visibleParticipants.map((p) => (
+              <div key={p.id} className="m-participant-card-v2">
+                {/* Row 1: Avatar + Info */}
+                <div className="m-card-row-main">
+                  <div className={`m-card-avatar ${p.is_checked_in ? 'm-p-avatar-checked' : 'm-p-avatar-pending'}`}>
+                    {p.is_checked_in ? <CheckCircle size={18} /> : p.name.charAt(0).toUpperCase()}
                   </div>
-                  {getMetaPreview(p.meta) && (
-                    <div className="m-p-extra">{getMetaPreview(p.meta)}</div>
-                  )}
-                  {p.checked_in_at && (
-                    <div className="m-p-time">
-                      Check-in {new Date(p.checked_in_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  <div className="m-card-info">
+                    <div className="m-card-name-row">
+                      <span className="m-card-name">{p.name}</span>
+                      {p.is_checked_in && (
+                        <span className="m-card-status">
+                          <span className="status-dot"></span>
+                        </span>
+                      )}
                     </div>
-                  )}
+                    <div className="m-card-subtitle">
+                      <span className={`m-card-badge badge-${p.category === 'VIP' ? 'red' : p.category === 'Dealer' ? 'blue' : p.category === 'Media' ? 'yellow' : 'green'}`}>
+                        {p.category || 'Regular'}
+                      </span>
+                      <span className="m-card-ticket">{p.ticket_id}</span>
+                      {p.phone && (
+                        <span className="m-card-phone">📞 {p.phone}</span>
+                      )}
+                    </div>
+                    {p.checked_in_at && (
+                      <div className="m-card-time">
+                        ✓ Check-in {new Date(p.checked_in_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="m-p-actions">
-                  <button className="m-p-delete m-p-delete-bot" onClick={() => handleSingleBotSend(p)} title="Kirim otomatis">
-                    <Bot size={16} />
+                
+                {/* Row 2: Actions */}
+                <div className="m-card-actions">
+                  <button 
+                    className="m-card-btn m-card-btn-bot" 
+                    onClick={() => handleSingleBotSend(p)} 
+                    title="Kirim otomatis"
+                  >
+                    <Bot size={14} />
+                    <span>Bot</span>
                   </button>
-                  <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="m-p-delete m-p-delete-wa" title="Kirim WA">
-                    <MessageCircle size={16} />
+                  <a 
+                    href={getWhatsAppShareLink(p)} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="m-card-btn m-card-btn-wa" 
+                    title="Kirim WA"
+                  >
+                    <MessageCircle size={14} />
+                    <span>WA</span>
                   </a>
-                  <button className="m-p-delete m-p-delete-edit" onClick={() => openEditParticipant(p)} title="Ubah data">
-                    <Edit3 size={16} />
+                  <button 
+                    className="m-card-btn m-card-btn-edit" 
+                    onClick={() => openEditParticipant(p)} 
+                    title="Ubah data"
+                  >
+                    <Edit3 size={14} />
+                    <span>Edit</span>
                   </button>
-                  <button className="m-p-delete" onClick={() => handleDelete(p)} title="Hapus">
-                    <Trash2 size={16} />
+                  <button 
+                    className="m-card-btn m-card-btn-delete" 
+                    onClick={() => handleDelete(p)} 
+                    title="Hapus"
+                  >
+                    <Trash2 size={14} />
+                    <span>Hapus</span>
                   </button>
                 </div>
               </div>
@@ -1712,11 +1872,11 @@ export default function Participants() {
               </div>
               <form onSubmit={handleAdd}>
                 <div className="modal-body">
-                  <div className="form-group"><label className="form-label">Nama</label><input className="form-input" placeholder="Nama lengkap" value={newParticipant.name} onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })} required autoFocus /></div>
-                  <div className="form-group"><label className="form-label">Telepon (WA)</label><input className="form-input" placeholder="08xxx (untuk WA)" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">Hari Tiket</label><input className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
-                  <div className="form-group"><label className="form-label">Kategori</label><input className="form-input" placeholder="Kategori (bebas)" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-name">Nama</label><input id="add-name" name="name" className="form-input" placeholder="Nama lengkap" value={newParticipant.name} onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })} required autoFocus /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-phone">Telepon (WA)</label><input id="add-phone" name="phone" className="form-input" placeholder="08xxx (untuk WA)" value={newParticipant.phone} onChange={e => setNewParticipant({ ...newParticipant, phone: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-email">Email</label><input id="add-email" name="email" className="form-input" type="email" placeholder="email@contoh.com" value={newParticipant.email} onChange={e => setNewParticipant({ ...newParticipant, email: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-day">Hari Tiket</label><input id="add-day" name="day_number" className="form-input" type="number" min="1" placeholder="Contoh: 1" value={newParticipant.day_number} onChange={e => setNewParticipant({ ...newParticipant, day_number: Number(e.target.value) || '' })} required /></div>
+                  <div className="form-group"><label className="form-label" htmlFor="add-category">Kategori</label><input id="add-category" name="category" className="form-input" placeholder="Kategori (bebas)" value={newParticipant.category} onChange={e => setNewParticipant({ ...newParticipant, category: e.target.value })} /></div>
                   <div className="form-group">
                     <label className="form-label">Data Tambahan (opsional)</label>
                     <ExtraFieldsEditor
@@ -1750,12 +1910,12 @@ export default function Participants() {
               <div className="modal-body">
                 <p>Anda yakin ingin menghapus peserta <b>{deleteTarget.name}</b>?</p>
                 <div className="form-group mt-16">
-                  <label className="form-label">Alasan Penghapusan <span style={{color: 'red'}}>*</span></label>
-                  <textarea className="form-input" placeholder="Masukkan alasan minimal 15 karakter" value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3} required />
+                  <label className="form-label" htmlFor="delete-reason">Alasan Penghapusan <span style={{color: 'red'}}>*</span></label>
+                  <textarea id="delete-reason" name="delete_reason" className="form-input" placeholder="Masukkan alasan minimal 15 karakter" value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3} required />
                 </div>
                 <div className="form-group mt-16">
-                  <label className="form-label">Konfirmasi Kedua <span style={{color: 'red'}}>*</span></label>
-                  <input className="form-input" placeholder="Ketik SETUJU untuk melanjutkan" value={deleteApproval} onChange={e => setDeleteApproval(e.target.value)} required />
+                  <label className="form-label" htmlFor="delete-confirm">Konfirmasi Kedua <span style={{color: 'red'}}>*</span></label>
+                  <input id="delete-confirm" name="delete_confirm" className="form-input" placeholder="Ketik SETUJU untuk melanjutkan" value={deleteApproval} onChange={e => setDeleteApproval(e.target.value)} required />
                 </div>
               </div>
               <div className="modal-footer">
@@ -1793,14 +1953,14 @@ export default function Participants() {
       <div className="participants-toolbar">
         <div className="search-bar participants-search">
           <span className="search-bar-icon"><Search size={16} /></span>
-          <input placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input id="participant-search" name="search" placeholder="Cari nama atau ID tiket..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+        <select id="category-filter" name="category" className="form-select select-sm" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">Semua Kategori</option>
           {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <select className="form-select select-sm" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
+          <select id="day-filter" name="day" className="form-select select-sm" value={dayFilter} onChange={e => handleDayFilterChange(Number(e.target.value))}>
             {availableDays.map(day => <option key={day} value={day}>Hari {day}</option>)}
           </select>
           <button className="btn btn-ghost btn-sm" onClick={handleAddNewDay} title="Tambah Hari Baru" style={{ padding: '6px 8px' }}>
@@ -1812,7 +1972,7 @@ export default function Participants() {
             </button>
           )}
         </div>
-        <select className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+        <select id="status-filter" name="status" className="form-select select-md" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="all">Semua Status</option>
           <option value="checked">Sudah Check-in</option>
           <option value="unchecked">Belum Hadir</option>
@@ -1825,6 +1985,14 @@ export default function Participants() {
         </button>
         <button className="btn btn-ghost btn-sm btn-inline-icon" onClick={downloadTemplate} title="Download template Excel">
           <Download size={14} /> Template Excel
+        </button>
+        <button 
+          className="btn btn-ghost btn-sm btn-inline-icon btn-blue" 
+          onClick={handleDownloadAllTicketsZip} 
+          disabled={isDownloadingZip}
+          title="Download semua tiket sebagai ZIP"
+        >
+          <Download size={14} /> {isDownloadingZip ? 'Membuat ZIP...' : 'Download Tiket ZIP'}
         </button>
         <button className="btn btn-primary" onClick={openAddModal}><UserPlus size={14} /> Tambah Peserta</button>
       </div>
@@ -1856,6 +2024,9 @@ export default function Participants() {
                 <td className="actions-cell">
                   <button className="btn btn-ghost btn-blue btn-sm" onClick={() => handleSingleBotSend(p)} title="Kirim Otomatis">
                     <Bot size={14} />
+                  </button>
+                  <button className="btn btn-ghost btn-green btn-sm" onClick={() => handleCopyPasteMode(p)} title="Copy-Paste Mode (Cepat & Aman)">
+                    <Copy size={14} />
                   </button>
                   <a href={getWhatsAppShareLink(p)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-whatsapp btn-sm" title="Kirim Manual (WA Web)">
                     <MessageCircle size={14} />
@@ -2005,6 +2176,86 @@ export default function Participants() {
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Batal</button>
               <button type="button" className="btn btn-danger" onClick={confirmDeleteParticipant}>Hapus Peserta</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== COPY-PASTE MODAL (Kirim Manual Cepat) ===== */}
+      {copyPasteModalOpen && copyPasteData && (
+        <div className="modal-overlay" onClick={handleCopyPasteModalClose}>
+          <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">📋 Copy-Paste Mode (Cepat & Aman)</h3>
+              <button className="modal-close" onClick={handleCopyPasteModalClose}><X size={14} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">👤 Penerima</label>
+                <div className="participant-info" style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '16px' }}>
+                  <strong>{copyPasteData.participant.name}</strong>
+                  <div style={{ color: '#666', fontSize: '14px' }}>{copyPasteData.participant.phone}</div>
+                  <div style={{ color: '#888', fontSize: '12px' }}>Ticket ID: {copyPasteData.participant.ticket_id}</div>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">💬 Pesan WhatsApp Siap Kirim</label>
+                <textarea
+                  ref={copyTextRef}
+                  className="form-input"
+                  value={copyPasteData.message}
+                  readOnly
+                  rows={12}
+                  style={{ fontFamily: 'monospace', fontSize: '14px', background: '#f8f9fa' }}
+                />
+              </div>
+              <div className="alert alert-info" style={{ marginTop: '12px' }}>
+                <strong>Cara pakai:</strong>
+                <ol style={{ margin: '8px 0 0 16px', fontSize: '14px' }}>
+                  <li>Klik "Copy Pesan" di bawah</li>
+                  <li>Buka WhatsApp di HP Anda</li>
+                  <li>Cari kontak: <strong>{copyPasteData.participant.phone}</strong></li>
+                  <li>Paste pesan dan kirim</li>
+                </ol>
+              </div>
+              
+              {/* Preview Tiket */}
+              <div className="form-group" style={{ marginTop: '20px' }}>
+                <label className="form-label">🎫 Preview Tiket (bisa di-download)</label>
+                <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '10px', background: '#f8f9fa' }}>
+                  <img 
+                    src={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/ticket-qr/${copyPasteData.participant.ticket_id}?size=400&name=${encodeURIComponent(copyPasteData.participant.name || '')}&category=${encodeURIComponent(copyPasteData.participant.category || '')}&day=${encodeURIComponent(copyPasteData.participant.day_number || '1')}`}
+                    alt="Tiket QR"
+                    style={{ width: '100%', maxWidth: '400px', display: 'block', margin: '0 auto', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={handleCopyPasteModalClose}>Tutup</button>
+              <a 
+                href={`${window.location.origin.includes('localhost') ? 'http://localhost:3001' : window.location.origin}/ticket-qr/${copyPasteData.participant.ticket_id}?size=400&name=${encodeURIComponent(copyPasteData.participant.name || '')}&category=${encodeURIComponent(copyPasteData.participant.category || '')}&day=${encodeURIComponent(copyPasteData.participant.day_number || '1')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                download={`Tiket_${copyPasteData.participant.ticket_id}.png`}
+              >
+                <Download size={14} style={{ marginRight: '6px' }} />
+                Download Tiket
+              </a>
+              <button type="button" className="btn btn-primary" onClick={handleCopyToClipboard}>
+                <Copy size={14} style={{ marginRight: '6px' }} />
+                Copy Pesan
+              </button>
+              <a 
+                href={`https://wa.me/${copyPasteData.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(copyPasteData.message)}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-whatsapp"
+              >
+                <ExternalLink size={14} style={{ marginRight: '6px' }} />
+                Buka WA Web
+              </a>
             </div>
           </div>
         </div>

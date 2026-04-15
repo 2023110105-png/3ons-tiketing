@@ -1,10 +1,42 @@
-import * as supabaseSync from './supabaseSync.js'
-import { isSupabaseEnabled } from './supabase.js'
+import { supabase, isSupabaseEnabled } from './supabase.js'
 
 const DEFAULT_TENANT_ID = 'tenant-default'
+const WORKSPACE_TABLE = 'workspace_state'
+const WORKSPACE_ID = 'default'
+const WORKSPACE_SCHEMA = 'public'
 
-function provider() {
-  return supabaseSync
+// Singleton state for shared subscription
+const globalSubState = {
+  callbacks: new Set(),
+  isSubscribed: false,
+  isConnecting: false,
+  isPolling: false,
+  pollTimer: null,
+  lastData: null,
+  channel: null
+}
+
+function noopPromise() {
+  return Promise.resolve(false)
+}
+
+function cloneJson(value) {
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch {
+    return null
+  }
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function createEmptySnapshot() {
+  return {
+    tenantRegistry: { activeTenantId: '', tenants: {} },
+    store: { tenants: {} }
+  }
 }
 
 export function isWorkspaceSyncEnabled() {
@@ -23,63 +55,229 @@ function scopeTenantPayload(payload = {}) {
   return next
 }
 
-export function fetchFirebaseWorkspaceSnapshot() {
-  return provider().fetchFirebaseWorkspaceSnapshot()
+// Workspace helpers
+async function readWorkspaceRow() {
+  if (!isSupabaseEnabled || !supabase) return null
+  const { data, error } = await supabase
+    .from(WORKSPACE_TABLE)
+    .select('tenant_registry, store')
+    .eq('id', WORKSPACE_ID)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return createEmptySnapshot()
+  return {
+    tenantRegistry: data.tenant_registry || { activeTenantId: '', tenants: {} },
+    store: data.store || { tenants: {} }
+  }
 }
 
-export function subscribeWorkspaceChanges(onChange) {
-  if (typeof provider().subscribeWorkspaceChanges !== 'function') {
+async function writeWorkspaceRow(snapshot) {
+  if (!isSupabaseEnabled || !supabase) return false
+  const { error } = await supabase
+    .from(WORKSPACE_TABLE)
+    .upsert({
+      id: WORKSPACE_ID,
+      tenant_registry: snapshot.tenantRegistry || { activeTenantId: '', tenants: {} },
+      store: snapshot.store || { tenants: {} },
+      updated_at: new Date().toISOString()
+    })
+  if (error) throw error
+  return true
+}
+
+function ensureTenantRegistry(snapshot) {
+  if (!snapshot.tenantRegistry || typeof snapshot.tenantRegistry !== 'object') {
+    snapshot.tenantRegistry = { activeTenantId: '', tenants: {} }
+  }
+  if (!snapshot.tenantRegistry.tenants || typeof snapshot.tenantRegistry.tenants !== 'object') {
+    snapshot.tenantRegistry.tenants = {}
+  }
+}
+
+function ensureStore(snapshot) {
+  if (!snapshot.store || typeof snapshot.store !== 'object') snapshot.store = { tenants: {} }
+  if (!snapshot.store.tenants || typeof snapshot.store.tenants !== 'object') snapshot.store.tenants = {}
+}
+
+function ensureTenantStoreBucket(snapshot, tenantId) {
+  ensureStore(snapshot)
+  if (!snapshot.store.tenants[tenantId] || typeof snapshot.store.tenants[tenantId] !== 'object') {
+    snapshot.store.tenants[tenantId] = { activeEventId: null, events: {} }
+  }
+  const bucket = snapshot.store.tenants[tenantId]
+  if (!bucket.events || typeof bucket.events !== 'object') bucket.events = {}
+  return bucket
+}
+
+function ensureEvent(snapshot, tenantId, eventId) {
+  const bucket = ensureTenantStoreBucket(snapshot, tenantId)
+  if (!bucket.events[eventId] || typeof bucket.events[eventId] !== 'object') {
+    bucket.events[eventId] = {
+      id: eventId,
+      name: 'Event Platform',
+      currentDay: 1,
+      isArchived: false,
+      participants: [],
+      deletedParticipantIds: {},
+      checkInLogs: [],
+      adminLogs: [],
+      pendingCheckIns: [],
+      offlineQueueHistory: [],
+      offlineConfig: { maxPendingAttempts: 5 }
+    }
+  }
+  return bucket.events[eventId]
+}
+
+async function mutateWorkspace(mutator) {
+  if (!isSupabaseEnabled || !supabase) return false
+  const current = await readWorkspaceRow()
+  const snapshot = cloneJson(current) || createEmptySnapshot()
+  ensureTenantRegistry(snapshot)
+  ensureStore(snapshot)
+  mutator(snapshot)
+  return writeWorkspaceRow(snapshot)
+}
+
+// Subscription helpers
+function notifyAllCallbacks(payload) {
+  globalSubState.callbacks.forEach((cb) => {
+    try {
+      cb(payload)
+    } catch (err) {
+      console.error('[DataSync] callback error:', err?.message)
+    }
+  })
+}
+
+function stopGlobalPolling() {
+  if (globalSubState.pollTimer) {
+    clearInterval(globalSubState.pollTimer)
+    globalSubState.pollTimer = null
+    globalSubState.isPolling = false
+  }
+}
+
+function startGlobalPolling(pollInterval) {
+  if (globalSubState.isPolling) return
+  globalSubState.isPolling = true
+
+  const doPoll = async () => {
+    try {
+      const snapshot = await readWorkspaceRow()
+      if (snapshot) {
+        const snapshotJson = JSON.stringify(snapshot)
+        if (snapshotJson !== globalSubState.lastData) {
+          globalSubState.lastData = snapshotJson
+          notifyAllCallbacks({ new: snapshot, old: null, eventType: 'POLL_UPDATE' })
+        }
+      }
+    } catch (err) {
+      console.warn('[DataSync] poll fetch failed:', err?.message)
+    }
+  }
+
+  doPoll()
+  globalSubState.pollTimer = setInterval(doPoll, pollInterval)
+}
+
+function setupGlobalRealtime(pollInterval) {
+  if (globalSubState.channel || globalSubState.isConnecting) return
+
+  globalSubState.isConnecting = true
+
+  const channel = supabase
+    .channel(`workspace:${WORKSPACE_ID}:${Date.now()}`, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: '' }
+      }
+    })
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: WORKSPACE_SCHEMA,
+        table: WORKSPACE_TABLE,
+        filter: `id=eq.${WORKSPACE_ID}`
+      },
+      (payload) => {
+        notifyAllCallbacks(payload)
+      }
+    )
+
+  channel.subscribe((status, err) => {
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      if (!globalSubState.isSubscribed) {
+        console.warn('[DataSync] realtime unavailable, using polling fallback:', err?.message || status)
+        console.info(`[DataSync] Auto-polling every ${pollInterval / 1000}s - data will sync automatically`)
+        startGlobalPolling(pollInterval)
+      }
+    } else if (status === 'SUBSCRIBED') {
+      globalSubState.isSubscribed = true
+      stopGlobalPolling()
+      console.info('[DataSync] realtime connected successfully, polling stopped')
+    }
+    globalSubState.isConnecting = false
+  })
+
+  globalSubState.channel = channel
+}
+
+// === PUBLIC API ===
+
+export async function fetchWorkspaceSnapshot() {
+  if (!supabase) {
+    console.error('[DataSync] Supabase client not available')
+    return null
+  }
+  try {
+    const snapshot = await readWorkspaceRow()
+    if (!snapshot?.tenantRegistry || !snapshot?.store) {
+      console.error('[DataSync] Snapshot missing tenantRegistry or store:', snapshot)
+      return null
+    }
+    return snapshot
+  } catch (err) {
+    console.error('[DataSync] fetch snapshot failed:', err?.message || err, err)
+    return null
+  }
+}
+
+export function subscribeWorkspaceChanges(onChange, options = {}) {
+  if (!isSupabaseEnabled || !supabase || typeof onChange !== 'function') {
     return () => {}
   }
-  return provider().subscribeWorkspaceChanges(onChange)
-}
 
-export function syncAuditLog(payload) {
-  return provider().syncAuditLog(scopeTenantPayload(payload))
-}
+  const { pollInterval = 10000 } = options
 
-export function syncCheckInLog(payload) {
-  return provider().syncCheckInLog(scopeTenantPayload(payload))
-}
+  globalSubState.callbacks.add(onChange)
 
-export function syncResetCheckInLogs(payload) {
-  return provider().syncResetCheckInLogs(scopeTenantPayload(payload))
-}
-
-export function syncResetAdminLogs(payload) {
-  return provider().syncResetAdminLogs(scopeTenantPayload(payload))
-}
-
-export function syncEventDelete(payload) {
-  return provider().syncEventDelete(scopeTenantPayload(payload))
-}
-
-export function syncEventSnapshot(payload) {
-  return provider().syncEventSnapshot(scopeTenantPayload(payload))
-}
-
-export function syncParticipantDelete(payload) {
-  return provider().syncParticipantDelete(scopeTenantPayload(payload))
-}
-
-export function syncParticipantUpsert(payload) {
-  return provider().syncParticipantUpsert(scopeTenantPayload(payload))
-}
-
-export function syncTenantDelete(tenantId) {
-  const scopedTenantId = String(tenantId || '').trim()
-  if (scopedTenantId && scopedTenantId !== DEFAULT_TENANT_ID) {
-    return Promise.resolve(false)
+  if (!globalSubState.channel && !globalSubState.isSubscribed && !globalSubState.isPolling) {
+    setupGlobalRealtime(pollInterval)
   }
-  return provider().syncTenantDelete(DEFAULT_TENANT_ID)
-}
 
-export function syncTenantUserDelete(payload) {
-  return provider().syncTenantUserDelete(scopeTenantPayload(payload))
-}
+  return () => {
+    globalSubState.callbacks.delete(onChange)
 
-export function syncTenantUserUpsert(payload) {
-  return provider().syncTenantUserUpsert(scopeTenantPayload(payload))
+    if (globalSubState.callbacks.size === 0) {
+      stopGlobalPolling()
+      const channelToRemove = globalSubState.channel
+      globalSubState.channel = null
+      globalSubState.isSubscribed = false
+      globalSubState.isConnecting = false
+
+      if (channelToRemove) {
+        setTimeout(() => {
+          try {
+            supabase.removeChannel(channelToRemove).catch(() => {})
+          } catch {
+            // Channel removal error - ignore
+          }
+        }, 500)
+      }
+    }
+  }
 }
 
 export function syncTenantUpsert(tenant) {
@@ -87,6 +285,239 @@ export function syncTenantUpsert(tenant) {
     ...(tenant || {}),
     id: DEFAULT_TENANT_ID
   }
-  return provider().syncTenantUpsert(nextTenant)
+  if (!nextTenant?.id) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    ensureTenantRegistry(snapshot)
+    snapshot.tenantRegistry.tenants[nextTenant.id] = {
+      ...(snapshot.tenantRegistry.tenants[nextTenant.id] || {}),
+      ...nextTenant
+    }
+    if (!snapshot.tenantRegistry.activeTenantId) {
+      snapshot.tenantRegistry.activeTenantId = nextTenant.id
+    }
+    ensureTenantStoreBucket(snapshot, nextTenant.id)
+  }).catch((err) => {
+    console.error('[DataSync] tenant upsert failed:', err?.message || err)
+    return false
+  })
 }
+
+export function syncTenantDelete(tenantId) {
+  const scopedTenantId = String(tenantId || '').trim()
+  if (scopedTenantId && scopedTenantId !== DEFAULT_TENANT_ID) {
+    return Promise.resolve(false)
+  }
+  if (!DEFAULT_TENANT_ID) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    ensureTenantRegistry(snapshot)
+    ensureStore(snapshot)
+    delete snapshot.tenantRegistry.tenants[DEFAULT_TENANT_ID]
+    delete snapshot.store.tenants[DEFAULT_TENANT_ID]
+    if (snapshot.tenantRegistry.activeTenantId === DEFAULT_TENANT_ID) {
+      snapshot.tenantRegistry.activeTenantId = Object.keys(snapshot.tenantRegistry.tenants)[0] || ''
+    }
+  }).catch((err) => {
+    console.error('[DataSync] tenant delete failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncTenantUserUpsert(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.user?.id) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    ensureTenantRegistry(snapshot)
+    const tenant = snapshot.tenantRegistry.tenants[scoped.tenantId] || { id: scoped.tenantId }
+    const users = asArray(tenant.users)
+    const idx = users.findIndex((item) => item?.id === scoped.user.id)
+    if (idx >= 0) users[idx] = { ...users[idx], ...scoped.user }
+    else users.push(scoped.user)
+    tenant.users = users
+    snapshot.tenantRegistry.tenants[scoped.tenantId] = tenant
+  }).catch((err) => {
+    console.error('[DataSync] tenant user upsert failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncTenantUserDelete(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.userId) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    ensureTenantRegistry(snapshot)
+    const tenant = snapshot.tenantRegistry.tenants[scoped.tenantId]
+    if (!tenant) return
+    tenant.users = asArray(tenant.users).filter((item) => String(item?.id || '') !== String(scoped.userId))
+    snapshot.tenantRegistry.tenants[scoped.tenantId] = tenant
+  }).catch((err) => {
+    console.error('[DataSync] tenant user delete failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncParticipantUpsert(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId || !scoped?.participant?.id) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    const participants = asArray(event.participants)
+    const idx = participants.findIndex((item) => item?.id === scoped.participant.id)
+    if (idx >= 0) participants[idx] = { ...participants[idx], ...scoped.participant }
+    else participants.push(scoped.participant)
+    event.participants = participants
+    if (event.deletedParticipantIds && event.deletedParticipantIds[scoped.participant.id]) {
+      delete event.deletedParticipantIds[scoped.participant.id]
+    }
+  }).catch((err) => {
+    console.error('[DataSync] participant upsert failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncParticipantDelete(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId || !scoped?.participantId) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    event.participants = asArray(event.participants).filter((item) => item?.id !== scoped.participantId)
+    if (!event.deletedParticipantIds || typeof event.deletedParticipantIds !== 'object') {
+      event.deletedParticipantIds = {}
+    }
+    event.deletedParticipantIds[scoped.participantId] = new Date().toISOString()
+  }).catch((err) => {
+    console.error('[DataSync] participant delete failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncCheckInLog(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId || !scoped?.log?.id) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    const logs = asArray(event.checkInLogs)
+    const idx = logs.findIndex((item) => item?.id === scoped.log.id)
+    if (idx >= 0) logs[idx] = { ...logs[idx], ...scoped.log }
+    else logs.push(scoped.log)
+    event.checkInLogs = logs
+  }).catch((err) => {
+    console.error('[DataSync] checkin log sync failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncResetCheckInLogs(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    event.checkInLogs = []
+  }).catch((err) => {
+    console.error('[DataSync] reset checkin logs failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncResetAdminLogs(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    event.adminLogs = []
+  }).catch((err) => {
+    console.error('[DataSync] reset admin logs failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncAuditLog(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId || !scoped?.log?.id) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    const logs = asArray(event.adminLogs)
+    const idx = logs.findIndex((item) => item?.id === scoped.log.id)
+    if (idx >= 0) logs[idx] = { ...logs[idx], ...scoped.log }
+    else logs.push(scoped.log)
+    event.adminLogs = logs
+  }).catch((err) => {
+    console.error('[DataSync] audit log sync failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncCurrentDay(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId || typeof scoped?.day !== 'number') return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const event = ensureEvent(snapshot, scoped.tenantId, scoped.eventId)
+    event.currentDay = scoped.day
+  }).catch((err) => {
+    console.error('[DataSync] current day sync failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncEventSnapshot(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.event?.id) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const bucket = ensureTenantStoreBucket(snapshot, scoped.tenantId)
+    const current = ensureEvent(snapshot, scoped.tenantId, scoped.event.id)
+    const participantsNext = Array.isArray(scoped.event?.participants)
+      ? (cloneJson(scoped.event.participants) ?? asArray(current.participants))
+      : asArray(current.participants)
+    const checkInLogsNext = Array.isArray(scoped.event?.checkInLogs)
+      ? (cloneJson(scoped.event.checkInLogs) ?? asArray(current.checkInLogs))
+      : asArray(current.checkInLogs)
+    const adminLogsNext = Array.isArray(scoped.event?.adminLogs)
+      ? (cloneJson(scoped.event.adminLogs) ?? asArray(current.adminLogs))
+      : asArray(current.adminLogs)
+    bucket.events[scoped.event.id] = {
+      ...current,
+      id: scoped.event.id,
+      name: scoped.event.name,
+      currentDay: scoped.event.currentDay,
+      isArchived: !!scoped.event.isArchived,
+      participants: participantsNext,
+      checkInLogs: checkInLogsNext,
+      adminLogs: adminLogsNext,
+      deletedParticipantIds: (scoped.event?.deletedParticipantIds && typeof scoped.event.deletedParticipantIds === 'object')
+        ? scoped.event.deletedParticipantIds
+        : (current.deletedParticipantIds || {}),
+      waTemplate: String(scoped.event?.waTemplate || '').trim() || null,
+      waSendMode: String(scoped.event?.waSendMode || '').trim() || 'message_with_barcode',
+      offlineConfig: {
+        maxPendingAttempts: Number.isInteger(scoped.event?.offlineConfig?.maxPendingAttempts) && scoped.event.offlineConfig.maxPendingAttempts >= 1
+          ? scoped.event.offlineConfig.maxPendingAttempts
+          : (current?.offlineConfig?.maxPendingAttempts || 5)
+      },
+      pendingCheckIns: Array.isArray(scoped.event?.pendingCheckIns) ? scoped.event.pendingCheckIns : (current?.pendingCheckIns || []),
+      offlineQueueHistory: Array.isArray(scoped.event?.offlineQueueHistory) ? scoped.event.offlineQueueHistory : (current?.offlineQueueHistory || []),
+      updated_at: new Date().toISOString()
+    }
+    if (!bucket.activeEventId) bucket.activeEventId = scoped.event.id
+  }).catch((err) => {
+    console.error('[DataSync] event snapshot sync failed:', err?.message || err)
+    return false
+  })
+}
+
+export function syncEventDelete(payload) {
+  const scoped = scopeTenantPayload(payload)
+  if (!scoped?.tenantId || !scoped?.eventId) return noopPromise()
+  return mutateWorkspace((snapshot) => {
+    const bucket = ensureTenantStoreBucket(snapshot, scoped.tenantId)
+    delete bucket.events[scoped.eventId]
+    if (bucket.activeEventId === scoped.eventId) {
+      bucket.activeEventId = Object.keys(bucket.events)[0] || null
+    }
+  }).catch((err) => {
+    console.error('[DataSync] event delete failed:', err?.message || err)
+    return false
+  })
+}
+
+// Backward compatibility alias
+export const fetchFirebaseWorkspaceSnapshot = fetchWorkspaceSnapshot
 

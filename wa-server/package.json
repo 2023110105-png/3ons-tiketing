@@ -1,21 +1,23 @@
 {
   "name": "wa-server",
   "version": "1.0.0",
-  "description": "3oNs Digital - Local API server for WhatsApp and Email automations",
+  "description": "3oNs Digital - Local API server for WhatsApp and Email automations (No Canvas - Windows Compatible)",
   "main": "index.js",
   "scripts": {
+    "prestart": "powershell -Command \"try { Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue; Write-Host ('Killed PID: ' + $_.OwningProcess) } } catch {}\" || echo 'Port cleanup done'",
     "start": "node index.js",
-    "start:safe": "bash ../start-wa-safe.sh"
+    "start:clean": "npm run prestart && npm start"
   },
   "dependencies": {
-    "canvas": "^2.11.2",
+    "@supabase/supabase-js": "^2.103.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "jimp": "^0.22.12",
+    "jimp": "0.22.12",
     "jsqr": "^1.4.0",
-    "nodemailer": "^6.9.11",
+    "jszip": "^3.10.1",
+    "nodemailer": "^8.0.5",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "npm:whatsapp-web.js@latest"
+    "whatsapp-web.js": "1.23.0"
   }
 }

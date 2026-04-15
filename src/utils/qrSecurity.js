@@ -17,9 +17,8 @@ export function buildQRPayload({ ticketId, tenantId, eventId, dayNumber, name = 
   // Build DETERMINISTIC signature - no timestamp, no random values
   // Same ticket_id + tenant + event + day = same signature always
   const payloadString = `${t}|${e}|${tid}|${d}|event-2026`;
-  const sig = typeof window !== 'undefined' 
-    ? btoa(payloadString)  // Browser
-    : Buffer.from(payloadString).toString('base64'); // Node.js
+  // Browser only - btoa is available in all modern browsers
+  const sig = btoa(payloadString);
   
   return {
     tid,
@@ -95,9 +94,7 @@ export function verifyQRSignature({ tenantId, eventId, ticketId, dayNumber, sign
   if (!signature) return false;
   
   const expectedPayload = `${tenantId}|${eventId}|${ticketId}|${dayNumber}|event-2026`;
-  const expectedSig = typeof window !== 'undefined'
-    ? btoa(expectedPayload)
-    : Buffer.from(expectedPayload).toString('base64');
+  const expectedSig = btoa(expectedPayload);
   
   return signature === expectedSig;
 }

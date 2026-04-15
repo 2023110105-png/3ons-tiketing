@@ -1,9 +1,9 @@
 // ===== REAL FUNCTIONS FOR LAYOUT =====
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 let _workspaceSnapshot = null;
 
-async function bootstrapStoreFromFirebase() {
-  _workspaceSnapshot = await fetchFirebaseWorkspaceSnapshot();
+async function bootstrapStoreFromServer() {
+  _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
 
@@ -26,18 +26,6 @@ function _getAvailableDays() {
   const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
   return days.length > 0 ? days.sort((a, b) => a - b) : [1];
-}
-
-function getCurrentDay() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
-  const tenantId = 'tenant-default';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
-}
-
-function setCurrentDay(day) {
-  if (_workspaceSnapshot?.store?.tenants?.['tenant-default']) {
-    _workspaceSnapshot.store.tenants['tenant-default'].currentDay = day;
-  }
 }
 
 function getCurrentEventId() { 
@@ -77,12 +65,6 @@ function createEvent(name) {
   return newEvent;
 }
 
-let events = getEvents();
-let dayInput = '1';
-let currentDay = 1;
-function setEvents() {}
-function setDay() {}
-function setDayInput() {}
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
@@ -91,7 +73,7 @@ import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import {
   LayoutDashboard, Users, Camera, MonitorSmartphone,
   BarChart3, QrCode, LogOut, Settings, X, Menu, Smartphone, Plus, ShieldCheck,
-  FileText, Eye, History, Activity, Database, Bell, MessageCircle
+  FileText, Eye, History, Activity, Database, Bell, MessageCircle, TrendingUp
 } from 'lucide-react'
 
 const RELEASE_MORNING_MODE = true
@@ -106,15 +88,11 @@ const OWNER_RELEASE_VISIBLE_PATHS = new Set([
 ])
 
 export default function Layout({ children }) {
-  // ===== DUMMY USER AGAR ERROR HILANG =====
-  const user = { role: 'super_admin', name: 'Admin' }
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // const [currentDay, setDay] = useState(getCurrentDay())
-  // const [dayInput, setDayInput] = useState(String(getCurrentDay()))
-  // const [events, setEvents] = useState(getEvents())
+  const [events, setEvents] = useState(getEvents())
   const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
   const isMobile = useIsMobileLayout()
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
@@ -130,9 +108,6 @@ export default function Layout({ children }) {
   const refreshEventState = () => {
     setEvents(getEvents())
     setActiveEventId(getCurrentEventId())
-    const d = getCurrentDay()
-    setDay(d)
-    setDayInput(String(d))
   }
 
   useEffect(() => {
@@ -158,7 +133,7 @@ export default function Layout({ children }) {
 
     const pullLatestWorkspace = async () => {
       try {
-        const changed = await bootstrapStoreFromFirebase(true)
+        const changed = await bootstrapStoreFromServer(true)
         if (!changed || stopped) return
 
         refreshEventState()
@@ -178,12 +153,6 @@ export default function Layout({ children }) {
     }
   }, [user?.role])
 
-  const handleDayChange = (day) => {
-    setCurrentDay(day, user)
-    setDay(day)
-    setDayInput(String(day))
-  }
-
   const handleEventChange = (eventId) => {
     setCurrentEvent(eventId, user)
     refreshEventState()
@@ -197,16 +166,6 @@ export default function Layout({ children }) {
     refreshEventState()
   }
 
-  const handleDaySubmit = (e) => {
-    e.preventDefault()
-    const day = Number(dayInput)
-    if (!Number.isInteger(day) || day < 1) {
-      setDayInput(String(currentDay))
-      return
-    }
-    handleDayChange(day)
-  }
-
   const handleLogout = () => {
     logout()
     navigate('/login')
@@ -215,7 +174,7 @@ export default function Layout({ children }) {
   const isActive = (path) => location.pathname === path
 
   const getNavItems = () => {
-    if (user?.role === 'super_admin' || user?.role === 'admin_client') {
+    if (user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') {
       return [
         { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
         { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
@@ -237,6 +196,7 @@ export default function Layout({ children }) {
   const adminNav = [
     { path: '/admin', icon: <LayoutDashboard size={18} />, label: 'Ringkasan' },
     { path: '/admin/participants', icon: <Users size={18} />, label: 'Peserta' },
+    { path: '/admin/analytics', icon: <TrendingUp size={18} />, label: 'Analitik' },
     { path: '/admin/ops', icon: <Activity size={18} />, label: 'Ops Monitor' },
     { path: '/admin/wa-delivery', icon: <MessageCircle size={18} />, label: 'WA Delivery' },
     { path: '/admin/connect', icon: <Smartphone size={18} />, label: 'Sambungkan Perangkat' },
@@ -313,7 +273,7 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
+          {(user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') && (
             <>
               <div className="nav-section">
                 <div className="nav-section-title">Panel Admin</div>
@@ -409,9 +369,11 @@ export default function Layout({ children }) {
             </Link>
           </div>
           <div className="header-right">
-            {user?.role === 'super_admin' && (
+            {(user?.role === 'super_admin' || user?.role === 'admin') && (
               <>
                 <select
+                  id="header-event-select"
+                  name="event_id"
                   className="form-select header-event-select"
                   value={activeEventId}
                   onChange={(e) => handleEventChange(e.target.value)}
@@ -426,21 +388,6 @@ export default function Layout({ children }) {
                   <Plus size={16} />
                 </button>
               </>
-            )}
-            {user?.role !== 'owner' && (
-              <form className="header-day-form" onSubmit={handleDaySubmit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="header-day-label" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARI</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={dayInput}
-                  onChange={(e) => setDayInput(e.target.value)}
-                  onBlur={handleDaySubmit}
-                  className="form-input header-day-input"
-                  style={{ height: 34, padding: '6px 10px', fontWeight: 700 }}
-                  title="Isi hari aktif acara"
-                />
-              </form>
             )}
             <button className="header-btn danger" onClick={handleLogout} title="Keluar">
               <LogOut size={16} />
@@ -478,7 +425,7 @@ export default function Layout({ children }) {
               {isActive(item.path) && <span className="mobile-nav-indicator"></span>}
             </Link>
           ))}
-          {(user?.role === 'super_admin' || user?.role === 'admin_client') && (
+          {(user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin') && (
             <button className="mobile-nav-item" onClick={() => setSidebarOpen(true)}>
               <span className="mobile-nav-icon"><Menu size={18} /></span>
               <span className="mobile-nav-label">Lainnya</span>

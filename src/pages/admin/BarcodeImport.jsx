@@ -1,5 +1,5 @@
 
-import { fetchFirebaseWorkspaceSnapshot } from '../../lib/dataSync';
+import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
 import { useState, useEffect } from 'react';
 // import { apiFetch } from '../../utils/api';
 // import { useAuth } from '../../contexts/useAuth';
@@ -12,7 +12,7 @@ export default function BarcodeImport() {
 
   useEffect(() => {
     const load = async () => {
-      const snapshot = await fetchFirebaseWorkspaceSnapshot();
+      const snapshot = await fetchWorkspaceSnapshot();
       const tenantId = 'tenant-default';
       const eventId = 'event-default';
       const data = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.participants || [];

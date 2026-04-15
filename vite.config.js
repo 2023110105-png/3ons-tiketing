@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const ENABLE_PWA = true
+const ENABLE_HTTPS = false  // Disabled: mkcert not available in production build
 
 export default defineConfig({
   test: {
@@ -13,11 +14,15 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5174,
+    https: ENABLE_HTTPS,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3001',
         changeOrigin: true
       }
+    },
+    headers: {
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://cdn.jsdelivr.net; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.railway.app https://*.supabase.co wss://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:3001; frame-src 'self';"
     }
   },
   build: {
