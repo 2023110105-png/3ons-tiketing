@@ -12,9 +12,18 @@ import {
 } from '../../lib/tenantUtils';
 import { syncParticipantUpsert } from "../../lib/dataSync";
 import { generateQRData } from '../../utils/qrSecurity';
+import { addParticipantToDB, fetchParticipants } from '../../lib/participantService';
 
 // Local workspace snapshot reference (synced with tenantUtils)
 let _workspaceSnapshot = null;
+
+// Helper: Get active event ID from localStorage (same as Layout.jsx)
+function getActiveEventId() {
+  const tenantId = getActiveTenantId();
+  if (!tenantId) return null;
+  const key = `active_event_${tenantId}`;
+  return localStorage.getItem(key);
+}
 
 // CRUD Functions specific to Participants (not in tenantUtils)
 function createNewDay() { 
@@ -51,9 +60,13 @@ async function addParticipant(participantData) {
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  
+  // Get active event ID from localStorage (set by Layout.jsx event dropdown)
+  const eventId = getActiveEventId();
+  if (!eventId) return { success: false, error: 'Tidak ada event yang aktif. Silakan pilih event di header.' };
+  
   const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
-  if (!event) return { success: false, error: 'Event not found' };
+  if (!event) return { success: false, error: 'Event tidak ditemukan' };
   
   if (!event.participants) event.participants = [];
   
@@ -67,7 +80,7 @@ async function addParticipant(participantData) {
     name: participantData.name,
     day_number: finalDay,
     category: participantData.category
-  }, getActiveTenantId(), 'event-default');
+  }, tenantId, eventId);
   
   const newParticipant = {
     id: participantData.id || 'p_' + Date.now(),
@@ -84,7 +97,7 @@ async function addParticipant(participantData) {
   // Add to local state
   event.participants.push(newParticipant);
   
-  // Sync to backend
+  // Sync to backend (use eventId from active event)
   try {
     await syncParticipantUpsert({ tenantId, eventId, participant: newParticipant });
     console.log(`[addParticipant] Saved participant ${finalTicketId} with qr_data`);
@@ -555,36 +568,52 @@ export default function Participants() {
       return
     }
 
-    const extras = parseExtraFieldsText(newParticipant.extraFieldsText)
-    const result = await addParticipant({
-      name: newParticipant.name,
-      phone: newParticipant.phone,
-      email: newParticipant.email,
-      category: newParticipant.category,
-      day_number: safeDay,
-      auto_send: newParticipant.auto_send,
-      actor: user,
-      ...extras
-    })
+    // Get tenant and event IDs
+    const tenantId = resolveTenantId(user)
+    const eventId = getActiveEventId()
     
-    if (!result.success) {
-      toast.error('Gagal menambahkan', result.error || 'Terjadi kesalahan')
+    if (!tenantId || !eventId) {
+      toast.error('Gagal menambahkan', 'Tidak ada tenant atau event yang aktif. Silakan pilih event di header.')
       return
     }
-    
-    const p = result.participant
-    if (newParticipant.auto_send) {
-      toast.success('Peserta ditambahkan', `${p.name} — sedang dikirim lewat WhatsApp…`)
-      // Actually send the ticket via WA bot (wait for sync to complete)
-      setTimeout(() => {
-        handleSingleBotSend(p)
-      }, 800)
-    } else {
-      toast.success('Peserta ditambahkan', `${p.name} (${p.ticket_id})`)
+
+    try {
+      // Add participant directly to database
+      const participant = await addParticipantToDB(tenantId, eventId, {
+        name: newParticipant.name,
+        phone: newParticipant.phone,
+        email: newParticipant.email,
+        category: newParticipant.category,
+        day_number: safeDay,
+        ticket_id: `T${Date.now()}`,
+        qr_data: generateQRData({
+          ticket_id: `T${Date.now()}`,
+          name: newParticipant.name,
+          day_number: safeDay,
+          category: newParticipant.category
+        }, tenantId, eventId)
+      })
+      
+      if (newParticipant.auto_send) {
+        toast.success('Peserta ditambahkan', `${participant.name} — sedang dikirim lewat WhatsApp…`)
+        // Actually send the ticket via WA bot (wait for sync to complete)
+        setTimeout(() => {
+          handleSingleBotSend(participant)
+        }, 800)
+      } else {
+        toast.success('Peserta ditambahkan', `${participant.name} (${participant.ticket_id})`)
+      }
+      
+      // Refresh participant list
+      refreshData()
+      
+      setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false, extraFieldsText: '' })
+      setAddExtraRows([])
+      setShowModal(false)
+    } catch (err) {
+      console.error('Error adding participant:', err)
+      toast.error('Gagal menambahkan', err.message || 'Terjadi kesalahan saat menyimpan ke database')
     }
-    setNewParticipant({ name: '', phone: '', email: '', category: 'Regular', day_number: dayFilter, auto_send: false, extraFieldsText: '' })
-    setAddExtraRows([])
-    setShowModal(false)
   }
 
   // --- BOT BROADCAST FEATURES ---
