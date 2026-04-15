@@ -85,6 +85,15 @@ import {
   Building2, ClipboardList
 } from 'lucide-react'
 
+// Import Event Service for Supabase integration
+import {
+  fetchEventsByTenant,
+  createEventInDB,
+  setActiveEventInDB,
+  getActiveEventIdFromDB,
+  subscribeToEvents
+} from '../../lib/eventService'
+
 const RELEASE_MORNING_MODE = true
 const REALTIME_SYNC_INTERVAL_MS = 2500
 const ADMIN_FEATURES_ENABLED = String(import.meta.env.VITE_ENABLE_ADMIN_FEATURES || 'true').trim().toLowerCase() === 'true'
@@ -100,16 +109,70 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [events, setEvents] = useState(getEvents())
-  const [activeEventId, setActiveEventId] = useState(getCurrentEventId())
+  const [events, setEvents] = useState([])
+  const [activeEventId, setActiveEventId] = useState(null)
   const isMobile = useIsMobileLayout()
   const [tenantBranding, setTenantBranding] = useState(getTenantBranding())
 
+  // Get tenant ID from user context (dynamic, not hardcoded)
+  const getTenantId = () => user?.tenant_id || user?.tenantId || null
+
   // roleLabel not used anymore - using scopeLabels with user_type
 
-  const refreshEventState = () => {
-    setEvents(getEvents())
-    setActiveEventId(getCurrentEventId())
+  // Fetch events from Supabase on mount and when tenant changes
+  useEffect(() => {
+    const loadEvents = async () => {
+      const tenantId = getTenantId()
+      if (!tenantId) return
+
+      try {
+        const fetchedEvents = await fetchEventsByTenant(tenantId)
+        setEvents(fetchedEvents)
+
+        // Get active event from DB
+        const activeId = await getActiveEventIdFromDB(tenantId)
+        if (activeId) {
+          setActiveEventId(activeId)
+        } else if (fetchedEvents.length > 0) {
+          // If no active event set, use first event
+          setActiveEventId(fetchedEvents[0].id)
+        }
+      } catch (err) {
+        console.error('Error loading events:', err)
+      }
+    }
+
+    loadEvents()
+  }, [user?.tenant_id, user?.tenantId])
+
+  // Subscribe to realtime events changes
+  useEffect(() => {
+    const tenantId = getTenantId()
+    if (!tenantId) return
+
+    const unsubscribe = subscribeToEvents(tenantId, (payload) => {
+      // Refresh events when there's a change
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+        fetchEventsByTenant(tenantId).then(setEvents)
+      }
+    })
+
+    return unsubscribe
+  }, [user?.tenant_id, user?.tenantId])
+
+  const refreshEventState = async () => {
+    const tenantId = getTenantId()
+    if (!tenantId) return
+
+    try {
+      const fetchedEvents = await fetchEventsByTenant(tenantId)
+      setEvents(fetchedEvents)
+
+      const activeId = await getActiveEventIdFromDB(tenantId)
+      if (activeId) setActiveEventId(activeId)
+    } catch (err) {
+      console.error('Error refreshing events:', err)
+    }
   }
 
   useEffect(() => {
@@ -155,17 +218,45 @@ export default function Layout({ children }) {
     }
   }, [user?.user_type])
 
-  const handleEventChange = (eventId) => {
-    setCurrentEvent(eventId, user)
-    refreshEventState()
+  const handleEventChange = async (eventId) => {
+    const tenantId = getTenantId()
+    if (!tenantId) return
+
+    try {
+      // Update active event in database
+      const success = await setActiveEventInDB(tenantId, eventId)
+      if (success) {
+        setActiveEventId(eventId)
+      }
+    } catch (err) {
+      console.error('Error changing event:', err)
+    }
   }
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = async () => {
+    const tenantId = getTenantId()
+    if (!tenantId) {
+      alert('Tenant ID tidak ditemukan')
+      return
+    }
+
     const name = window.prompt('Nama event baru:', '')
-    if (name === null) return
-    const result = createEvent(name, user)
-    setCurrentEvent(result.id, user)
-    refreshEventState()
+    if (!name || name.trim() === '') return
+
+    try {
+      // Create event in database
+      const newEvent = await createEventInDB(tenantId, name.trim())
+      if (newEvent) {
+        // Refresh events list
+        await refreshEventState()
+        // Set new event as active
+        await handleEventChange(newEvent.id)
+        alert(`Event "${newEvent.name}" berhasil dibuat!`)
+      }
+    } catch (err) {
+      console.error('Error creating event:', err)
+      alert('Gagal membuat event. Silakan coba lagi.')
+    }
   }
 
   const handleLogout = () => {
