@@ -23,6 +23,12 @@ async function bootstrapStoreFromServer() {
   _workspaceSnapshot = await fetchWorkspaceSnapshot();
   return _workspaceSnapshot;
 }
+<<<<<<< HEAD
+function getCurrentDay() { 
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 1;
+  const tenantId = 'tenant-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.currentDay || 1;
+=======
 function _getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = getActiveTenantId();
@@ -52,6 +58,7 @@ function _setCurrentDay(day) {
   if (_workspaceSnapshot?.store?.tenants?.[tenantId]) {
     _workspaceSnapshot.store.tenants[tenantId].currentDay = day;
   }
+>>>>>>> 475bc2c54c314d4f22246fcff072c8a1f7e53d9a
 }
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
@@ -62,6 +69,13 @@ function getCheckInLogs(day) {
   const logs = event?.checkInLogs || event?.checkin_logs || [];
   return logs.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day));
 }
+<<<<<<< HEAD
+function getStats() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return {};
+  const tenantId = 'tenant-default';
+  const eventId = 'event-default';
+  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.stats || {};
+=======
 function getStats(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { total: 0, checkedIn: 0, notCheckedIn: 0, percentage: 0 };
   
@@ -76,6 +90,7 @@ function getStats(day) {
   const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
   
   return { total, checkedIn, notCheckedIn, percentage };
+>>>>>>> 475bc2c54c314d4f22246fcff072c8a1f7e53d9a
 }
 function getPendingCheckIns() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];

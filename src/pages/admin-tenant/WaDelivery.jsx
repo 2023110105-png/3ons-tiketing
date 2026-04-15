@@ -260,7 +260,6 @@ export default function WaDelivery() {
   const [regeneratingQR, setRegeneratingQR] = useState(false)
   const [qrRegenProgress, setQrRegenProgress] = useState({ current: 0, total: 0 })
   const [syncingToGates, setSyncingToGates] = useState(false)
-
   const loadLogs = useCallback(async () => {
     setLoading(true)
     try {

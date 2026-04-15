@@ -656,7 +656,7 @@ export default function QRGenerate() {
     
     infoBoxes.forEach((box, i) => {
       const boxX = contentX + (colWidth * i)
-      
+
       // Box shadow
       ctx.save()
       ctx.shadowColor = 'rgba(0,0,0,0.1)'
@@ -664,32 +664,32 @@ export default function QRGenerate() {
       ctx.shadowOffsetY = 3
       fillRoundedRect(boxX + 2, infoY + 2, colWidth - 10, boxHeight, 10, 'rgba(0,0,0,0.05)')
       ctx.restore()
-      
+
       // Box background with vibrant color
       fillRoundedRect(boxX, infoY, colWidth - 10, boxHeight, 10, box.bg)
-      
+
       // Box border - colorful
       ctx.strokeStyle = box.border
       ctx.lineWidth = 2
       ctx.beginPath()
       ctx.roundRect(boxX, infoY, colWidth - 10, boxHeight, 10)
       ctx.stroke()
-      
+
       // Top colorful border
       ctx.fillStyle = box.border
       ctx.fillRect(boxX, infoY, colWidth - 10, 4)
-      
+
       // Label - colorful
       ctx.fillStyle = box.text
       ctx.font = 'bold 11px "Arial", sans-serif'
       ctx.fillText(box.label, boxX + 12, infoY + 22)
-      
+
       // Value
       ctx.fillStyle = '#2c3e50'
       ctx.font = 'bold 16px "Arial", sans-serif'
       drawClampText(box.value, boxX + 12, infoY + 48, colWidth - 28)
     })
-    
+
     // === DIVIDER ===
     const dividerY = infoY + boxHeight + 35
     ctx.strokeStyle = COLORS.divider
