@@ -9,8 +9,9 @@ import {
 // Local workspace snapshot reference
 let _workspaceSnapshot = null;
 import { useState, useEffect } from 'react'
-import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert } from 'lucide-react'
+import { MessageCircle, CheckCircle, RefreshCw, Smartphone, LogOut, ShieldAlert, Camera } from 'lucide-react'
 import { useToast } from '../../contexts/ToastContext'
+import DeviceScannerPanel from '../../components/DeviceScannerPanel'
 import { useAuth } from '../../contexts/AuthContextSaaS'
 import { apiFetch, getApiBaseUrl } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
@@ -95,6 +96,10 @@ export default function ConnectDevice() {
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRegeneratingQr, setIsRegeneratingQr] = useState(false)
   const [lastError, setLastError] = useState('')
+  
+  // Device Scanner State
+  const [activeTab, setActiveTab] = useState('wa') // 'wa' | 'scanner'
+  
   const toast = useToast()
   const { user } = useAuth()
   const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
@@ -390,12 +395,54 @@ export default function ConnectDevice() {
       <div className="page-header" style={deviceStyles.pageHeader}>
         <div className="page-title-group">
           <span className="page-kicker" style={deviceStyles.pageKicker}>Integrasi</span>
-          <h1 style={deviceStyles.pageTitle}>Sambungkan WhatsApp</h1>
-          <p style={deviceStyles.pageSubtitle}>Hubungkan nomor layanan untuk kirim tiket otomatis. Pastikan ponsel tetap berkuasa dan terhubung internet saat sesi kirim massal.</p>
+          <h1 style={deviceStyles.pageTitle}>Sambungkan WhatsApp & Scanner</h1>
+          <p style={deviceStyles.pageSubtitle}>Hubungkan nomor layanan untuk kirim tiket otomatis dan gunakan scanner untuk check-in peserta.</p>
         </div>
       </div>
 
-          <div className="admin-grid-2">
+      {/* Tab Navigation */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '2px solid #e5e7eb' }}>
+        <button
+          onClick={() => setActiveTab('wa')}
+          style={{
+            padding: '12px 24px',
+            border: 'none',
+            background: activeTab === 'wa' ? '#3b82f6' : 'transparent',
+            color: activeTab === 'wa' ? 'white' : '#374151',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: '500'
+          }}
+        >
+          <Smartphone size={18} style={{ marginRight: '8px', display: 'inline' }} />
+          WhatsApp
+        </button>
+        <button
+          onClick={() => setActiveTab('scanner')}
+          style={{
+            padding: '12px 24px',
+            border: 'none',
+            background: activeTab === 'scanner' ? '#3b82f6' : 'transparent',
+            color: activeTab === 'scanner' ? 'white' : '#374151',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: '500'
+          }}
+        >
+          <Camera size={18} style={{ marginRight: '8px', display: 'inline' }} />
+          Device Scanner
+        </button>
+      </div>
+
+      {activeTab === 'scanner' ? (
+        <DeviceScannerPanel 
+          tenantId={tenantId} 
+          userName={user?.name} 
+          apiFetch={apiFetch} 
+        />
+      ) : (
+        // WhatsApp Tab
+        <div className="admin-grid-2">
         {/* Kolom Informasi & Status */}
         <div className="card admin-panel" style={deviceStyles.card}>
           <div className="status-head">
@@ -483,8 +530,10 @@ export default function ConnectDevice() {
             </div>
           )}
         </div>
-      </div>
-
+        </div>
+      )}
+      
+      {/* Monitor All Sessions */}
       {canMonitorAllSessions && (
         <div className="card mt-16">
           <div className="card-header">
