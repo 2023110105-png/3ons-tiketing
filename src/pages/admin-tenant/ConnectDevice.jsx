@@ -103,8 +103,8 @@ export default function ConnectDevice() {
   const toast = useToast()
   const { user } = useAuth()
   const [tenantId, setTenantId] = useState(() => resolveTenantId(user))
-  const canMonitorAllSessions = user?.role === 'owner'
-  const canAccessConnectDevice = user?.role === 'owner' || user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin'
+  const canMonitorAllSessions = user?.user_type === 'owner' || user?.role === 'owner'
+  const canAccessConnectDevice = user?.user_type === 'system_admin' || user?.user_type === 'tenant_admin' || user?.role === 'owner' || user?.role === 'super_admin' || user?.role === 'admin_client' || user?.role === 'admin'
   const normalizedWaStatus = String(waState?.status || '').toLowerCase()
   const isOfflineState = normalizedWaStatus === 'offline' || normalizedWaStatus === 'disconnected'
   const statusTone = isOfflineState ? 'offline' : waState.isReady ? 'ready' : 'pending'
@@ -384,7 +384,7 @@ export default function ConnectDevice() {
         <div className="card" style={{ margin: '20px auto', maxWidth: '500px', textAlign: 'center' }}>
           <h2>Akses Ditolak</h2>
           <p>Anda tidak memiliki izin untuk mengakses halaman Sambungkan WhatsApp. Hubungi admin untuk mendapatkan akses.</p>
-          <p><small>Peran akun: {user?.role === 'super_admin' ? 'Admin utama' : user?.role === 'admin_client' ? 'Admin acara' : user?.role === 'admin' ? 'Admin' : user?.role === 'owner' ? 'Pemilik platform' : user?.role === 'gate_front' ? 'Petugas pintu depan' : user?.role === 'gate_back' ? 'Petugas pintu belakang' : 'Tidak diketahui'}</small></p>
+          <p><small>Tipe akun: {user?.user_type === 'system_admin' ? 'Admin Sistem' : user?.user_type === 'tenant_admin' ? 'Admin Tenant' : user?.user_type === 'gate_user' ? 'Gate User' : user?.role === 'super_admin' ? 'Admin utama' : user?.role === 'admin_client' ? 'Admin acara' : user?.role === 'admin' ? 'Admin' : user?.role === 'owner' ? 'Pemilik platform' : user?.role === 'gate_front' ? 'Petugas pintu depan' : user?.role === 'gate_back' ? 'Petugas pintu belakang' : 'Tidak diketahui'} ({user?.user_type || user?.role || 'N/A'})</small></p>
         </div>
       </div>
     )
