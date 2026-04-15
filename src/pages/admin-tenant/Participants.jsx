@@ -491,16 +491,32 @@ export default function Participants() {
     if (forceFirebase) {
       await bootstrapStoreFromServer(true)
     }
+    
+    // Fetch participants from database
+    const tenantId = resolveTenantId(user)
+    const eventId = getActiveEventId()
+    
+    if (tenantId && eventId) {
+      try {
+        const dbParticipants = await fetchParticipants(tenantId, eventId)
+        setParticipants(dbParticipants)
+      } catch (err) {
+        console.error('Error fetching participants:', err)
+      }
+    }
+    
     setAvailableDays(getAvailableDays())
-    // Let dayFilter effect handle participant setting
-  }, [])
+  }, [user])
 
   const updateLocalView = useCallback((dayOverride) => {
     const d =
       dayOverride !== undefined && dayOverride !== null && Number.isFinite(Number(dayOverride))
         ? Number(dayOverride)
         : dayFilter
-    setParticipants(getParticipants(d))
+    
+    // Filter participants by day (for local view)
+    // Note: full refresh happens in refreshData
+    setParticipants(prev => prev.filter(p => p.day_number === d || (!p.day_number && d === 1)))
     setAvailableDays(getAvailableDays())
   }, [dayFilter])
 
@@ -533,7 +549,24 @@ export default function Participants() {
   useEffect(() => {
     const load = async () => {
       await bootstrapStoreFromServer();
-      setParticipants(getParticipants(dayFilter));
+      
+      // Fetch participants from database
+      const tenantId = resolveTenantId(user)
+      const eventId = getActiveEventId()
+      
+      if (tenantId && eventId) {
+        try {
+          const dbParticipants = await fetchParticipants(tenantId, eventId)
+          setParticipants(dbParticipants)
+        } catch (err) {
+          console.error('Error loading participants:', err)
+          // Fallback to local state
+          setParticipants(getParticipants(dayFilter))
+        }
+      } else {
+        setParticipants(getParticipants(dayFilter))
+      }
+      
       setAvailableDays(getAvailableDays());
     };
     load();
