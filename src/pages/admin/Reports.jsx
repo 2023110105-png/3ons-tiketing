@@ -16,17 +16,15 @@ function getParticipants(day) {
   }
   return participants;
 }
-function getActiveTenant() { return { id: 'tenant-default' }; }
-function getAvailableDays() { return [1]; }
 function getCurrentDay() { return 1; }
-function setCurrentDay() {}
+function getAvailableDays() { return [1]; }
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.checkin_logs?.filter(l => !day || Number(l.day) === Number(day) || Number(l.day_number) === Number(day)) || [];
 }
-function getStats(day) {
+function getStats() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { byCategory: {} };
   const tenantId = 'tenant-default';
   const eventId = 'event-default';
@@ -39,7 +37,7 @@ function getAdminLogs(limit) {
   const arr = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.admin_logs || [];
   return typeof limit === 'number' ? arr.slice(0, limit) : arr;
 }
-function getPeakHours(day) {
+function getPeakHours() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = 'tenant-default';
   const eventId = 'event-default';

@@ -447,7 +447,7 @@ export default function QRGenerate() {
     ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 15px "Arial"'
     ctx.textAlign = 'center'
-    ctx.fillText(String(categoryLabel).toUpperCase(), leftX + 22 + 80, leftY + 142)
+    ctx.fillText(String(style.label).toUpperCase(), leftX + 22 + 80, leftY + 142)
     ctx.textAlign = 'left'
 
     // === PARTICIPANT NAME ===
@@ -473,7 +473,7 @@ export default function QRGenerate() {
     ctx.font = 'bold 16px "Arial"'
     ctx.fillText(String(participant.day_number || '-'), leftX + 22 + colWidth, infoY + 18)
     ctx.font = 'bold 16px "Arial"'
-    drawClampText(String(participant.category || categoryLabel || '-'), leftX + 22 + colWidth * 2, infoY + 18, colWidth - 10)
+    drawClampText(String(participant.category || style.label || '-'), leftX + 22 + colWidth * 2, infoY + 18, colWidth - 10)
 
     // === DIVIDER ===
     ctx.fillStyle = '#e5e7eb'
@@ -593,13 +593,13 @@ export default function QRGenerate() {
       setQrUrl(url)
       setManualSendParticipant(participantWithQR)
       setIsManualSendOpen(true)
-    } catch (err) {
+    } catch {
       toast.error('Gagal', 'Tidak bisa membuat preview tiket')
     }
   }
 
   // Handle successful manual send
-  const handleManualSendSuccess = ({ participant, phone, attempts }) => {
+  const handleManualSendSuccess = ({ participant }) => {
     // Mark participant as sent (update local state)
     setParticipants(prev => prev.map(p => 
       p.id === participant.id 

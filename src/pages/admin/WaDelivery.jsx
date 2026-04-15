@@ -10,6 +10,9 @@ import WaConnectBanner from '../../components/WaConnectBanner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { generateWaMessage } from '../../utils/whatsapp'
 import { supabase } from '../../lib/supabase'
+function getWaSendMode() {
+  return 'message_only';
+}
 
 // Helper untuk fetch peserta langsung dari Supabase
 async function fetchParticipantByTicketId(ticketId) {
@@ -32,9 +35,14 @@ async function fetchParticipantByTicketId(ticketId) {
 const RETRY_DELAYS = [1000, 2000, 4000, 8000];
 const MAX_RETRIES = 4;
 
-// Helper function to get active tenant (same as other admin pages)
+// Helper function to get active tenant (used across admin pages)
 function getActiveTenant() { 
   return { id: 'tenant-default' };
+}
+
+// Helper function to get current day
+function getCurrentDay() {
+  return 1;
 }
 
 // Pre-validate participant data before sending
@@ -141,13 +149,6 @@ function statusTone(status) {
 }
 
 export default function WaDelivery() {
-    // Initial load peserta dari Supabase
-    useEffect(() => {
-      const load = async () => {
-        await bootstrapStoreFromFirebase();
-      };
-      load();
-    }, []);
   const resolveTenantId = (userValue) => {
     const fromStore = String(getActiveTenant()?.id || '').trim()
     if (fromStore) return fromStore
@@ -194,23 +195,6 @@ export default function WaDelivery() {
       window.removeEventListener('orientationchange', h)
     }
   }, [])
-
-  const [allParticipants, setAllParticipants] = useState([])
-  
-  // Load participants from Supabase on mount
-  useEffect(() => {
-    const load = async () => {
-      const data = await loadParticipantsFromSupabase(null)
-      setAllParticipants(data)
-    }
-    load()
-  }, [])
-  
-  const participantIndex = useMemo(() => {
-    const map = new Map()
-    allParticipants.forEach(p => map.set(String(p.ticket_id || ''), p))
-    return map
-  }, [allParticipants])
 
   const loadLogs = useCallback(async () => {
     setLoading(true)
