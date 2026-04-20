@@ -16,7 +16,6 @@ let _offlineQueueHistory = [];
 let _checkInCache = [];
 
 // Helper functions - dynamic tenant dari user context
-function getEventId() { return 'event-default'; }
 function getUserName() { return localStorage.getItem('user_name') || 'Admin'; }
 
 // Dynamic tenant ID dari user yang login
@@ -29,27 +28,38 @@ function getActiveTenant() { return { id: getTenantId() }; }
 function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
 
-async function bootstrapStoreFromServer(force = false) {
+async function bootstrapStoreFromServer() {
   _workspaceSnapshot = await _bootstrapStoreFromServer();
   
   // Also fetch participants directly from Supabase for realtime data
   const tenantId = getTenantId();
-  const eventId = getActiveEventId ? getActiveEventId() : (getEventId() === 'event-default' ? null : getEventId());
+  const eventId = getActiveEventId();
   
   if (tenantId && eventId) {
     try {
       const dbParticipants = await fetchParticipants(tenantId, eventId);
-      console.log(`[FrontGate] Fetched ${dbParticipants.length} participants directly from DB`);
+      console.log(`[FrontGate] Fetched ${dbParticipants.length} participants directly from DB for event ${eventId}`);
       
-      // Merge DB participants into workspace snapshot
-      if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
-        const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
-        // Use DB participants as source of truth
-        event.participants = dbParticipants;
+      // Ensure workspace structure exists and merge DB participants
+      if (!_workspaceSnapshot) _workspaceSnapshot = { store: { tenants: {} } };
+      if (!_workspaceSnapshot.store) _workspaceSnapshot.store = { tenants: {} };
+      if (!_workspaceSnapshot.store.tenants[tenantId]) {
+        _workspaceSnapshot.store.tenants[tenantId] = { events: {} };
       }
+      if (!_workspaceSnapshot.store.tenants[tenantId].events) {
+        _workspaceSnapshot.store.tenants[tenantId].events = {};
+      }
+      if (!_workspaceSnapshot.store.tenants[tenantId].events[eventId]) {
+        _workspaceSnapshot.store.tenants[tenantId].events[eventId] = {};
+      }
+      
+      // Use DB participants as source of truth
+      _workspaceSnapshot.store.tenants[tenantId].events[eventId].participants = dbParticipants;
     } catch (err) {
       console.error('[FrontGate] Failed to fetch participants from DB:', err);
     }
+  } else {
+    console.error('[FrontGate] Missing tenantId or eventId:', { tenantId, eventId });
   }
   
   setWorkspaceSnapshot(_workspaceSnapshot);
@@ -59,7 +69,11 @@ async function bootstrapStoreFromServer(force = false) {
 function getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = getTenantId();
-  const eventId = getEventId();
+  const eventId = getActiveEventId();
+  if (!eventId) {
+    console.error('[getParticipants] No active event ID found');
+    return [];
+  }
   const participants =
     _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   if (typeof day === 'number') {
@@ -85,7 +99,11 @@ function getStats(day) {
 function getCheckInLogs(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = getTenantId();
-  const eventId = getEventId();
+  const eventId = getActiveEventId();
+  if (!eventId) {
+    console.error('[getCheckInLogs] No active event ID found');
+    return [];
+  }
   // Support both field names for backward compatibility
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   const logs = event?.checkInLogs || event?.checkin_logs || [];
@@ -138,7 +156,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
   try {
     console.log(`[checkIn] Start: ticketId=${ticketId}, day=${day}`);
     // Sync data from server first to ensure we have latest participants
-    await bootstrapStoreFromServer(true);
+    await bootstrapStoreFromServer();
 
     // Cari peserta berdasarkan ticket_id (case-insensitive)
     const participants = getParticipants(day);
@@ -205,7 +223,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
 
     // Add to check-in logs
     const tenantId = getTenantId();
-    const eventId = getEventId();
+    const eventId = getActiveEventId();
     // Use participant's actual ticket_id from database (not from QR) for consistency
     const actualTicketId = participant.ticket_id || finalTicketId;
     const newLog = {
@@ -258,7 +276,7 @@ async function checkIn(ticketId, day, scannedBy, qrName = '') {
 async function forceCheckIn(ticketId, day, scannedBy, qrName = '') {
   try {
     console.log(`[forceCheckIn] Override: ticketId=${ticketId}, day=${day}`);
-    await bootstrapStoreFromServer(true);
+    await bootstrapStoreFromServer();
 
     const participants = getParticipants();
     const participant = participants.find(p => p.ticket_id === ticketId);
@@ -268,7 +286,7 @@ async function forceCheckIn(ticketId, day, scannedBy, qrName = '') {
 
     const finalTicketId = participant.ticket_id;
     const tenantId = getTenantId();
-    const eventId = getEventId();
+    const eventId = getActiveEventId();
 
     // Generate offline UUID
     const offlineId = generateOfflineId();
