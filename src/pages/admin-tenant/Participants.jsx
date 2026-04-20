@@ -19,9 +19,27 @@ let _workspaceSnapshot = null;
 // Helper: Get active event ID from localStorage (same as Layout.jsx)
 function getActiveEventId() {
   const tenantId = getActiveTenantId();
-  if (!tenantId) return null;
+  if (!tenantId) {
+    console.log('[getActiveEventId] No tenant ID found');
+    return null;
+  }
   const key = `active_event_${tenantId}`;
-  return localStorage.getItem(key);
+  const eventId = localStorage.getItem(key);
+  console.log(`[getActiveEventId] Key: ${key}, Value: ${eventId}`);
+  
+  // Fallback: try to get from available events in workspace
+  if (!eventId) {
+    const snapshot = getWorkspaceSnapshot();
+    if (snapshot?.store?.tenants?.[tenantId]?.events) {
+      const events = Object.keys(snapshot.store.tenants[tenantId].events);
+      if (events.length > 0) {
+        console.log(`[getActiveEventId] Fallback to first event: ${events[0]}`);
+        return events[0];
+      }
+    }
+  }
+  
+  return eventId;
 }
 
 // CRUD Functions specific to Participants (not in tenantUtils)
