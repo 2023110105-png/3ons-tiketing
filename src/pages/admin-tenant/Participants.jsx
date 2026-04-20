@@ -1303,8 +1303,7 @@ Terima kasih!`;
       const matchBy = importDuplicatePolicy === 'allow' ? 'none' : 'phone';
       result = await bulkAddParticipants(
         finalRows,
-        dayFilter,
-        user,
+        null, // Let bulkAddParticipants auto-fetch the correct event ID
         { duplicatesPolicy, matchBy }
       );
       console.log('[IMPORT DEBUG] Hasil bulkAddParticipants:', result);
@@ -1413,8 +1412,20 @@ Terima kasih!`;
     // updateLocalView akan filter participants dan hapus data baru
   }
 
-  const confirmImport = () => {
+  const confirmImport = async () => {
     if (!importPreview) return
+    
+    // Check if valid event exists
+    const currentEventId = getActiveEventId();
+    if (!currentEventId) {
+      // Try to create event automatically
+      const newEventId = await getOrCreateDefaultEvent();
+      if (!newEventId) {
+        alert('Tidak ada event aktif. Silakan buat event terlebih dahulu di menu Pengaturan.');
+        return;
+      }
+    }
+    
     const dup = detectDuplicatesAgainstStore(importPreview.rows)
     if (dup.count > 0) {
       setDuplicateInfo(dup)
