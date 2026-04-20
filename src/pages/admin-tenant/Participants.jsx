@@ -12,6 +12,7 @@ import {
 } from '../../lib/tenantUtils';
 import { generateQRData } from '../../utils/qrSecurity';
 import { addParticipantToDB, fetchParticipants } from '../../lib/participantService';
+import { fetchEventsByTenant, createEventInDB, setActiveEventInDB } from '../../lib/eventService';
 
 // Local workspace snapshot reference (synced with tenantUtils)
 let _workspaceSnapshot = null;
@@ -40,6 +41,49 @@ function getActiveEventId() {
   }
   
   return eventId;
+}
+
+// Helper: Get or create default event for tenant (async)
+async function getOrCreateDefaultEvent() {
+  const tenantId = getActiveTenantId();
+  if (!tenantId) {
+    console.log('[getOrCreateDefaultEvent] No tenant ID');
+    return null;
+  }
+  
+  // Try localStorage first
+  let eventId = getActiveEventId();
+  if (eventId) {
+    console.log(`[getOrCreateDefaultEvent] Found in localStorage: ${eventId}`);
+    return eventId;
+  }
+  
+  // Try fetch from database
+  try {
+    const events = await fetchEventsByTenant(tenantId);
+    console.log(`[getOrCreateDefaultEvent] Found ${events.length} events in DB`);
+    
+    if (events.length > 0) {
+      eventId = events[0].id;
+      // Save to localStorage for future
+      await setActiveEventInDB(tenantId, eventId);
+      console.log(`[getOrCreateDefaultEvent] Using event: ${eventId}`);
+      return eventId;
+    }
+    
+    // No events found, create default event
+    console.log('[getOrCreateDefaultEvent] Creating default event...');
+    const newEvent = await createEventInDB(tenantId, 'Event Default', { currentDay: 1 });
+    if (newEvent?.id) {
+      await setActiveEventInDB(tenantId, newEvent.id);
+      console.log(`[getOrCreateDefaultEvent] Created: ${newEvent.id}`);
+      return newEvent.id;
+    }
+  } catch (err) {
+    console.error('[getOrCreateDefaultEvent] Error:', err);
+  }
+  
+  return null;
 }
 
 // CRUD Functions specific to Participants (not in tenantUtils)
@@ -73,13 +117,13 @@ function updateParticipant(participantId, updates) {
   return { success: false, error: 'Participant not found' };
 }
 
-async function addParticipant(participantData) { 
+async function addParticipant(participantData, explicitEventId = null) { 
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
   
-  // Get active event ID from localStorage (set by Layout.jsx event dropdown)
-  const eventId = getActiveEventId();
+  // Get active event ID from parameter or localStorage
+  let eventId = explicitEventId || getActiveEventId();
   if (!eventId) return { success: false, error: 'Tidak ada event yang aktif. Silakan pilih event di header.' };
   
   // Generate ticket_id first to ensure consistency
@@ -162,8 +206,24 @@ function mapRowToParticipant(row) {
   }
 }
 
-async function bulkAddParticipants(participantsData) { 
+async function bulkAddParticipants(participantsData, explicitEventId = null) { 
   const results = { added: [], updated: [], skipped: [], errors: [] };
+  
+  // Get event ID once for all participants
+  let eventId = explicitEventId;
+  if (!eventId) {
+    eventId = await getOrCreateDefaultEvent();
+  }
+  
+  if (!eventId) {
+    // Return error for all rows if no event
+    for (const data of participantsData) {
+      results.errors.push({ data, error: 'Tidak ada event yang aktif. Silakan pilih event di header.' });
+    }
+    return { ...results, syncPromise: Promise.resolve(true) };
+  }
+  
+  console.log(`[bulkAddParticipants] Using eventId: ${eventId}`);
   
   for (const data of participantsData) {
     try {
@@ -173,7 +233,7 @@ async function bulkAddParticipants(participantsData) {
         results.errors.push({ data, error: 'Nama peserta tidak ditemukan' })
         continue
       }
-      const result = await addParticipant(participantData)
+      const result = await addParticipant(participantData, eventId)
       if (result.success) {
         results.added.push(result.participant)
       } else {
