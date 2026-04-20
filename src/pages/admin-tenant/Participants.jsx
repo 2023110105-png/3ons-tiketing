@@ -17,6 +17,14 @@ import { fetchEventsByTenant, createEventInDB, setActiveEventInDB } from '../../
 // Local workspace snapshot reference (synced with tenantUtils)
 let _workspaceSnapshot = null;
 
+// Helper: Check if string is valid UUID
+function isValidUUID(str) {
+  if (!str || typeof str !== 'string') return false;
+  // UUID regex pattern
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
 // Helper: Get active event ID from localStorage (same as Layout.jsx)
 function getActiveEventId() {
   const tenantId = getActiveTenantId();
@@ -26,21 +34,28 @@ function getActiveEventId() {
   }
   const key = `active_event_${tenantId}`;
   const eventId = localStorage.getItem(key);
-  console.log(`[getActiveEventId] Key: ${key}, Value: ${eventId}`);
+  console.log(`[getActiveEventId] Key: ${key}, Value: ${eventId}, Valid UUID: ${isValidUUID(eventId)}`);
+  
+  // Check if valid UUID
+  if (eventId && isValidUUID(eventId)) {
+    return eventId;
+  }
   
   // Fallback: try to get from available events in workspace
-  if (!eventId) {
-    const snapshot = getWorkspaceSnapshot();
-    if (snapshot?.store?.tenants?.[tenantId]?.events) {
-      const events = Object.keys(snapshot.store.tenants[tenantId].events);
-      if (events.length > 0) {
-        console.log(`[getActiveEventId] Fallback to first event: ${events[0]}`);
-        return events[0];
-      }
+  const snapshot = getWorkspaceSnapshot();
+  if (snapshot?.store?.tenants?.[tenantId]?.events) {
+    const events = Object.keys(snapshot.store.tenants[tenantId].events);
+    // Find first valid UUID
+    const validEvent = events.find(e => isValidUUID(e));
+    if (validEvent) {
+      console.log(`[getActiveEventId] Fallback to valid UUID event: ${validEvent}`);
+      return validEvent;
     }
   }
   
-  return eventId;
+  // Return null to trigger event creation
+  console.log('[getActiveEventId] No valid UUID event found, will create new');
+  return null;
 }
 
 // Helper: Get or create default event for tenant (async)
