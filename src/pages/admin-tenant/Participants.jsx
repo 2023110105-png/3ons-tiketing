@@ -1380,11 +1380,21 @@ Terima kasih!`;
         return [...newParticipants, ...updatedParticipants];
       });
       
-      // Delayed background refresh (5 seconds later) to ensure data consistency
-      setTimeout(() => {
-        console.log('[IMPORT DEBUG] Running delayed refreshData');
-        refreshData();
-      }, 5000);
+      // Immediate refresh from DB to ensure UI shows latest data
+      setTimeout(async () => {
+        console.log('[IMPORT DEBUG] Running immediate refresh from DB');
+        const currentTenantId = resolveTenantId(user);
+        const currentEventId = getActiveEventId();
+        if (currentTenantId && currentEventId) {
+          try {
+            const freshParticipants = await fetchParticipants(currentTenantId, currentEventId);
+            console.log('[IMPORT DEBUG] Fetched fresh participants:', freshParticipants.length);
+            setParticipants(freshParticipants);
+          } catch (err) {
+            console.error('[IMPORT DEBUG] Error fetching fresh participants:', err);
+          }
+        }
+      }, 500);
     } else {
       setDayFilter(listDay);
     }
