@@ -108,7 +108,7 @@ import {
   LineChart, Line, AreaChart, Area
 } from 'recharts';
 import { 
-  Clock, Activity, TrendingUp, Calendar, Download, Users, UserCheck, Target
+  Clock, Activity, TrendingUp, Calendar, Download, Users, UserCheck, Target, RefreshCw
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { exportToCSV } from '../../utils/csvExport';

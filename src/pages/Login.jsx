@@ -47,16 +47,19 @@ export default function Login() {
     try {
       const result = await login(username, password)
       if (result.success) {
-        const role = result.user.role
+        const userType = result.user.user_type
         // Show success animation
         setSuccess(true)
-        // Navigate after short delay
+        // Navigate after short delay based on user_type
         setTimeout(() => {
-          if (role === 'owner') navigate('/owner')
-          else if (role === 'super_admin' || role === 'admin_client' || role === 'admin') navigate('/admin')
-          else if (role === 'gate_front') navigate('/gate/scan')
-          else if (role === 'gate_back') navigate('/gate/monitor')
-          else navigate('/admin') // Default fallback
+          if (userType === 'system_admin') navigate('/admin-panel')
+          else if (userType === 'tenant_admin') navigate('/admin-tenant/dashboard')
+          else if (userType === 'gate_user') {
+            const gate = result.user.gate_assignment || 'front'
+            if (gate === 'back') navigate('/gate/back')
+            else navigate('/gate/front')
+          }
+          else navigate('/login') // Default fallback
         }, 800)
       } else {
         setError(getFriendlyLoginError(result.error))

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContextSaaS'
 import { ToastProvider } from './contexts/ToastContext'
@@ -84,10 +84,23 @@ function RouteFallback() {
  */
 function ProtectedRoute({ children, allowedUserTypes = [], requireGatePermission = null }) {
   const { user, loading, hasGatePermission } = useAuth()
+  const [waitForUser, setWaitForUser] = useState(true)
   
-  console.log('[ProtectedRouteSaaS] loading:', loading, 'user:', user?.user_type || 'null')
+  // Extra wait to ensure session is restored from localStorage
+  useEffect(() => {
+    // Always use setTimeout to avoid synchronous setState
+    const timer = setTimeout(() => {
+      if (!loading) {
+        console.log('[ProtectedRouteSaaS] Wait complete, user:', user?.user_type || 'null')
+        setWaitForUser(false)
+      }
+    }, loading ? 100 : 300)
+    return () => clearTimeout(timer)
+  }, [loading, user])
   
-  if (loading) {
+  console.log('[ProtectedRouteSaaS] loading:', loading, 'user:', user?.user_type || 'null', 'waitForUser:', waitForUser)
+  
+  if (loading || waitForUser) {
     return (
       <div className="flex-center full-height-screen" style={{ flexDirection: 'column', gap: 12 }}>
         <div className="spinner spinner-lg"></div>
@@ -152,8 +165,22 @@ function ProtectedRoute({ children, allowedUserTypes = [], requireGatePermission
  */
 function AutoRedirect() {
   const { user, loading } = useAuth()
+  const [waitForUser, setWaitForUser] = useState(true)
   
-  if (loading) {
+  // Extra wait to ensure session is restored from localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!loading) {
+        console.log('[AutoRedirect] Wait complete, user:', user?.user_type || 'null')
+        setWaitForUser(false)
+      }
+    }, loading ? 100 : 300)
+    return () => clearTimeout(timer)
+  }, [loading, user])
+  
+  console.log('[AutoRedirect] loading:', loading, 'user:', user?.user_type || 'null', 'waitForUser:', waitForUser)
+  
+  if (loading || waitForUser) {
     return (
       <div className="flex-center full-height-screen" style={{ flexDirection: 'column', gap: 12 }}>
         <div className="spinner spinner-lg"></div>
@@ -163,6 +190,7 @@ function AutoRedirect() {
   }
 
   if (!user) {
+    console.log('[AutoRedirect] No user, redirecting to login')
     return <Navigate to="/login" replace />
   }
 

@@ -55,11 +55,13 @@ export const validators = {
     return null;
   },
   
-  // Validate category
+  // Validate category - accepts any custom category
   category: (value) => {
-    const validCategories = ['VIP', 'Dealer', 'Media', 'Regular', 'Staff'];
-    if (!value || !validCategories.includes(value)) {
-      return `Category must be one of: ${validCategories.join(', ')}`;
+    if (!value || typeof value !== 'string' || value.trim() === '') {
+      return 'Category is required';
+    }
+    if (value.trim().length > 50) {
+      return 'Category must not exceed 50 characters';
     }
     return null;
   }

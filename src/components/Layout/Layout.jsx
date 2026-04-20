@@ -185,7 +185,7 @@ export default function Layout({ children }) {
       stopped = true
       window.clearInterval(id)
     }
-  }, [user?.user_type])
+  }, [user?.user_type, refreshEventState])
 
   const handleEventChange = async (eventId) => {
     const tenantId = getTenantId()

@@ -24,7 +24,7 @@ export async function fetchParticipants(tenantId, eventId) {
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('event_id', eventId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
 
     if (error) {
       console.error('Error fetching participants:', error)
@@ -146,6 +146,70 @@ export async function deleteParticipantFromDB(participantId) {
 }
 
 /**
+ * Delete all participants for a tenant and event (bulk delete)
+ * @param {string} tenantId - Tenant ID
+ * @param {string} eventId - Event ID
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function deleteAllParticipantsFromDB(tenantId, eventId) {
+  if (!tenantId || !eventId) {
+    console.error('Tenant ID and Event ID are required for bulk delete')
+    return false
+  }
+
+  try {
+    const { error } = await supabase
+      .from('participants')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('event_id', eventId)
+
+    if (error) {
+      console.error('Error deleting all participants:', error)
+      return false
+    }
+
+    console.log(`[deleteAllParticipantsFromDB] Deleted all participants for tenant ${tenantId}, event ${eventId}`)
+    return true
+  } catch (err) {
+    console.error('Exception deleting all participants:', err)
+    return false
+  }
+}
+
+/**
+ * Delete all checkin logs for a tenant and event (bulk delete)
+ * @param {string} tenantId - Tenant ID
+ * @param {string} eventId - Event ID
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function deleteAllCheckinLogsFromDB(tenantId, eventId) {
+  if (!tenantId || !eventId) {
+    console.error('Tenant ID and Event ID are required for bulk delete checkin logs')
+    return false
+  }
+
+  try {
+    const { error } = await supabase
+      .from('checkin_logs')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('event_id', eventId)
+
+    if (error) {
+      console.error('Error deleting all checkin logs:', error)
+      return false
+    }
+
+    console.log(`[deleteAllCheckinLogsFromDB] Deleted all checkin logs for tenant ${tenantId}, event ${eventId}`)
+    return true
+  } catch (err) {
+    console.error('Exception deleting all checkin logs:', err)
+    return false
+  }
+}
+
+/**
  * Subscribe to realtime participant changes
  * @param {string} tenantId - Tenant ID
  * @param {string} eventId - Event ID
@@ -180,5 +244,7 @@ export default {
   addParticipantToDB,
   checkInParticipant,
   deleteParticipantFromDB,
+  deleteAllParticipantsFromDB,
+  deleteAllCheckinLogsFromDB,
   subscribeToParticipants
 }

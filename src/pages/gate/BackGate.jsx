@@ -3,9 +3,11 @@
 import {
   bootstrapStoreFromServer as _bootstrapStoreFromServer,
   setWorkspaceSnapshot,
-  getActiveTenantId as _getActiveTenantId
+  getActiveTenantId as _getActiveTenantId,
+  getActiveEventId
 } from '../../lib/tenantUtils';
 import { subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchParticipants } from '../../lib/participantService';
 
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
@@ -21,6 +23,27 @@ function getTenantId() {
 
 async function bootstrapStoreFromServer() {
   _workspaceSnapshot = await _bootstrapStoreFromServer();
+  
+  // Also fetch participants directly from Supabase for realtime data
+  const tenantId = getTenantId();
+  const eventId = getActiveEventId ? getActiveEventId() : (getEventId() === 'event-default' ? null : getEventId());
+  
+  if (tenantId && eventId) {
+    try {
+      const dbParticipants = await fetchParticipants(tenantId, eventId);
+      console.log(`[BackGate] Fetched ${dbParticipants.length} participants directly from DB`);
+      
+      // Merge DB participants into workspace snapshot
+      if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+        const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
+        // Use DB participants as source of truth
+        event.participants = dbParticipants;
+      }
+    } catch (err) {
+      console.error('[BackGate] Failed to fetch participants from DB:', err);
+    }
+  }
+  
   setWorkspaceSnapshot(_workspaceSnapshot);
   return _workspaceSnapshot;
 }

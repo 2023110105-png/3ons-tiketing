@@ -146,6 +146,58 @@ if (typeof window !== 'undefined') {
   console.log('  window.debugHelper.testParticipantLifecycle()');
   console.log('  window.debugHelper.testRealtime()');
   console.log('  window.debugHelper.logState()');
+  console.log('  window.debugHelper.testSessionPersistence()');
 }
+
+/**
+ * Test session persistence - simulates login and verifies storage
+ */
+export function testSessionPersistence() {
+  const testUser = {
+    id: 'test-123',
+    username: 'testuser',
+    name: 'Test User',
+    user_type: 'tenant_admin',
+    tenant_id: 'test-tenant',
+    tenant: { id: 'test-tenant', name: 'Test Tenant' }
+  };
+  
+  // Save session
+  const sessionData = {
+    user: testUser,
+    loginAt: new Date().toISOString()
+  };
+  localStorage.setItem('user_session', JSON.stringify(sessionData));
+  console.log('[SessionTest] Session saved:', sessionData);
+  
+  // Verify saved
+  const stored = localStorage.getItem('user_session');
+  if (!stored) {
+    console.error('[SessionTest] FAILED: Session not found in localStorage');
+    return false;
+  }
+  
+  // Parse and validate
+  try {
+    const parsed = JSON.parse(stored);
+    if (parsed.user && parsed.user.username === 'testuser') {
+      console.log('[SessionTest] PASSED: Session persisted correctly');
+      console.log('[SessionTest] To test refresh:');
+      console.log('  1. Refresh browser (F5)');
+      console.log('  2. Check console for [AuthSaaS] logs');
+      console.log('  3. Run window.debugHelper.logState()');
+      return true;
+    } else {
+      console.error('[SessionTest] FAILED: Invalid session data');
+      return false;
+    }
+  } catch (e) {
+    console.error('[SessionTest] FAILED:', e.message);
+    return false;
+  }
+}
+
+// Add to debugHelper
+debugHelper.testSessionPersistence = testSessionPersistence;
 
 export default debugHelper;

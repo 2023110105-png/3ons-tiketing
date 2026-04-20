@@ -1,7 +1,7 @@
 // ===== AUTH CONTEXT SaaS - Multi-Tenant Architecture =====
 // 3 Levels: system_admin → tenant_admin → gate_user
 // Tables: system_admins, tenant_admins, gate_users
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 export const AuthContext = createContext(null)
@@ -377,48 +377,116 @@ export async function generateHashForPassword(plainPassword) {
   return hash
 }
 
+// Session config
+const SESSION_KEY = 'user_session'
+const SESSION_EXPIRY_HOURS = 8
+
+/**
+ * Validate session - check if session exists and not expired
+ * @param {Object} session - Parsed session object
+ * @returns {Object|null} - Valid user or null
+ */
+function validateSession(session) {
+  if (!session || !session.user || !session.loginAt) {
+    return null
+  }
+  
+  // Check expiry
+  const loginTime = new Date(session.loginAt).getTime()
+  const expiryTime = loginTime + (SESSION_EXPIRY_HOURS * 60 * 60 * 1000)
+  
+  if (Date.now() > expiryTime) {
+    console.log('[AuthSaaS] Session expired')
+    localStorage.removeItem(SESSION_KEY)
+    return null
+  }
+  
+  return session.user
+}
+
 /**
  * AuthProvider Component
  */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const restoredRef = useRef(false)
 
   // Load user session on mount
   useEffect(() => {
-    const session = localStorage.getItem('user_session')
-    if (session) {
-      try {
-        const parsed = JSON.parse(session)
-        // Use setTimeout to avoid synchronous setState in effect
-        setTimeout(() => {
-          setUser(parsed.user)
-          setLoading(false)
-        }, 0)
-      } catch (e) {
-        console.error('Failed to parse session:', e)
-        localStorage.removeItem('user_session')
-        setTimeout(() => setLoading(false), 0)
-      }
-    } else {
-      setTimeout(() => setLoading(false), 0)
+    // Guard against double execution in React StrictMode
+    if (restoredRef.current) {
+      console.log('[AuthSaaS] Session already restored, skipping')
+      return
     }
+    restoredRef.current = true
+    
+    const restoreSession = () => {
+      console.log('[AuthSaaS] Restoring session...')
+      try {
+        const stored = localStorage.getItem(SESSION_KEY)
+        console.log('[AuthSaaS] Stored session:', stored ? 'found' : 'not found')
+        
+        if (!stored) {
+          console.log('[AuthSaaS] No session in localStorage')
+          setLoading(false)
+          return
+        }
+        
+        const session = JSON.parse(stored)
+        console.log('[AuthSaaS] Parsed session:', { 
+          hasUser: !!session.user, 
+          loginAt: session.loginAt,
+          userType: session.user?.user_type 
+        })
+        
+        const validUser = validateSession(session)
+        
+        if (validUser) {
+          console.log('[AuthSaaS] Session valid, restoring user:', validUser.username)
+          setUser(validUser)
+          // Sync to window for legacy compatibility
+          if (typeof window !== 'undefined') {
+            window.currentUser = validUser
+            console.log('[AuthSaaS] window.currentUser set:', validUser.username)
+          }
+        } else {
+          console.log('[AuthSaaS] Session invalid or expired')
+          localStorage.removeItem(SESSION_KEY)
+        }
+      } catch (e) {
+        console.error('[AuthSaaS] Failed to restore session:', e)
+        localStorage.removeItem(SESSION_KEY)
+      } finally {
+        setLoading(false)
+        console.log('[AuthSaaS] Loading finished')
+      }
+    }
+    
+    // Synchronous restore to minimize loading time
+    restoreSession()
   }, [])
 
   const login = useCallback(async (username, password) => {
+    console.log('[AuthSaaS] Login called for:', username)
     const result = await loginSaaS(username, password)
     
     if (result.success) {
+      console.log('[AuthSaaS] Login success, saving session for:', result.user.username)
       setUser(result.user)
       // Save to localStorage for persistence
-      localStorage.setItem('user_session', JSON.stringify({
+      const sessionData = {
         user: result.user,
         loginAt: new Date().toISOString()
-      }))
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData))
+      console.log('[AuthSaaS] Session saved to localStorage')
       // Set window.currentUser for operator pages
       if (typeof window !== 'undefined') {
         window.currentUser = result.user
       }
+    } else {
+      console.log('[AuthSaaS] Login failed:', result.error)
     }
     
     return result
@@ -426,7 +494,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     setUser(null)
-    localStorage.removeItem('user_session')
+    localStorage.removeItem(SESSION_KEY)
     if (typeof window !== 'undefined') {
       window.currentUser = null
     }

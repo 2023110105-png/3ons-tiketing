@@ -10,7 +10,6 @@ import {
   setCurrentDay,
   getParticipants
 } from '../../lib/tenantUtils';
-import { syncParticipantUpsert } from "../../lib/dataSync";
 import { generateQRData } from '../../utils/qrSecurity';
 import { addParticipantToDB, fetchParticipants } from '../../lib/participantService';
 
@@ -65,11 +64,6 @@ async function addParticipant(participantData) {
   const eventId = getActiveEventId();
   if (!eventId) return { success: false, error: 'Tidak ada event yang aktif. Silakan pilih event di header.' };
   
-  const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
-  if (!event) return { success: false, error: 'Event tidak ditemukan' };
-  
-  if (!event.participants) event.participants = [];
-  
   // Generate ticket_id first to ensure consistency
   const finalTicketId = participantData.ticket_id || 'T' + Date.now();
   const finalDay = participantData.day_number || 1;
@@ -82,31 +76,29 @@ async function addParticipant(participantData) {
     category: participantData.category
   }, tenantId, eventId);
   
-  const newParticipant = {
-    id: participantData.id || 'p_' + Date.now(),
-    ticket_id: finalTicketId,
-    name: participantData.name || '',
-    phone: participantData.phone || '',
-    email: participantData.email || '',
-    category: participantData.category || 'Regular',
-    day_number: finalDay,
-    qr_data: qrData,  // This will be permanent and never change
-    created_at: new Date().toISOString()
-  };
-  
-  // Add to local state
-  event.participants.push(newParticipant);
-  
-  // Sync to backend (use eventId from active event)
+  // Use addParticipantToDB for direct Supabase insertion with tenant isolation
   try {
-    await syncParticipantUpsert({ tenantId, eventId, participant: newParticipant });
-    console.log(`[addParticipant] Saved participant ${finalTicketId} with qr_data`);
+    const dbParticipant = await addParticipantToDB(tenantId, eventId, {
+      ...participantData,
+      ticket_id: finalTicketId,
+      day_number: finalDay,
+      qr_data: qrData
+    });
+    
+    console.log(`[addParticipant] Saved participant ${finalTicketId} to Supabase`);
+    
+    // Also add to local state for immediate UI update
+    const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
+    if (event) {
+      if (!event.participants) event.participants = [];
+      event.participants.push(dbParticipant);
+    }
+    
+    return { success: true, participant: dbParticipant };
   } catch (err) {
-    console.error('[addParticipant] Sync failed:', err);
-    // Continue even if sync fails - data is in local state
+    console.error('[addParticipant] Failed to save:', err);
+    return { success: false, error: err.message || 'Gagal menyimpan ke database' };
   }
-  
-  return { success: true, participant: newParticipant };
 }
 
 function deleteParticipant(participantId) { 
@@ -122,19 +114,55 @@ function deleteParticipant(participantId) {
   return { success: event.participants.length < initialLength };
 }
 
+// Map Excel row columns to participant format (supports both Indonesian and English column names)
+function mapRowToParticipant(row) {
+  if (!row || typeof row !== 'object') return null
+  
+  // Helper to read field with aliases
+  const getField = (aliases) => {
+    for (const key of Object.keys(row)) {
+      const normalizedKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '')
+      for (const alias of aliases) {
+        if (normalizedKey === alias.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+          return row[key]
+        }
+      }
+    }
+    return undefined
+  }
+  
+  const name = getField(['nama', 'name', 'namalengkap', 'namatamu', 'undangan'])
+  const phone = getField(['telepon', 'phone', 'hp', 'nohp', 'nomorhp', 'nomorwa', 'whatsapp', 'wa', 'mobile', 'telp'])
+  const category = getField(['kategori', 'category', 'kat', 'type', 'tipe', 'jenis'])
+  const day = getField(['hari', 'day', 'daynumber', 'day_number', 'nomorhari'])
+  
+  return {
+    name: name || '',
+    phone: phone || '',
+    category: category || '',  // Allow custom categories, empty string will fallback to 'Regular' in addParticipant
+    day_number: day ? parseInt(day, 10) || 1 : 1
+  }
+}
+
 async function bulkAddParticipants(participantsData) { 
   const results = { added: [], updated: [], skipped: [], errors: [] };
   
   for (const data of participantsData) {
     try {
-      const result = await addParticipant(data);
+      // Map row data to participant format if needed
+      const participantData = data.name !== undefined ? data : mapRowToParticipant(data)
+      if (!participantData || !participantData.name) {
+        results.errors.push({ data, error: 'Nama peserta tidak ditemukan' })
+        continue
+      }
+      const result = await addParticipant(participantData)
       if (result.success) {
-        results.added.push(result.participant);
+        results.added.push(result.participant)
       } else {
-        results.errors.push({ data, error: result.error });
+        results.errors.push({ data, error: result.error })
       }
     } catch (error) {
-      results.errors.push({ data, error: error.message });
+      results.errors.push({ data, error: error.message })
     }
   }
   
@@ -570,7 +598,7 @@ export default function Participants() {
       setAvailableDays(getAvailableDays());
     };
     load();
-  }, [dayFilter]);
+  }, [dayFilter, user]);
 
   useEffect(() => {
     const onWorkspaceSynced = () => {
@@ -1206,6 +1234,11 @@ Terima kasih!`;
     const updatedCount = result?.updated?.length ?? 0;
     const errCount = result?.errors?.length ?? 0;
     const touched = [...(result.added || []), ...(result.updated || [])];
+    
+    // DEBUG: Log import result
+    console.log('[IMPORT DEBUG] addedCount:', addedCount, 'updatedCount:', updatedCount, 'touched:', touched);
+    console.log('[IMPORT DEBUG] touched sample:', touched.slice(0, 3));
+    
     const dayNums = [
       ...new Set(
         touched
@@ -1217,11 +1250,40 @@ Terima kasih!`;
     if (dayNums.length) {
       listDay = Math.min(...dayNums);
     }
-    // Switch day filter to the imported day
-    handleDayFilterChange(listDay);
-    if (addedCount + updatedCount > 0) {
+    console.log('[IMPORT DEBUG] listDay:', listDay, 'dayNums:', dayNums);
+    
+    // Fast response: immediately show imported data in UI
+    if ((addedCount + updatedCount > 0) && touched.length > 0) {
+      console.log('[IMPORT DEBUG] Updating local state with', touched.length, 'participants');
+      
+      // Switch day filter FIRST to imported day (before updating participants)
+      setDayFilter(listDay);
+      
+      // Reset filters to show all imported data
       setCategoryFilter('all');
       setStatusFilter('all');
+      
+      // Add imported participants to local state immediately for instant UI update
+      setParticipants(prev => {
+        console.log('[IMPORT DEBUG] prev participants count:', prev.length);
+        const existingIds = new Set(prev.map(p => p.id));
+        const newParticipants = touched.filter(p => !existingIds.has(p.id));
+        const updatedParticipants = prev.map(p => {
+          const updated = touched.find(t => t.id === p.id);
+          return updated ? { ...p, ...updated } : p;
+        });
+        console.log('[IMPORT DEBUG] newParticipants:', newParticipants.length, 'updatedParticipants:', updatedParticipants.length);
+        // Prepend new participants so they appear at top (No. 1) in correct order
+        return [...newParticipants, ...updatedParticipants];
+      });
+      
+      // Delayed background refresh (5 seconds later) to ensure data consistency
+      setTimeout(() => {
+        console.log('[IMPORT DEBUG] Running delayed refreshData');
+        refreshData();
+      }, 5000);
+    } else {
+      setDayFilter(listDay);
     }
     if (addedCount + updatedCount === 0 && errCount > 0) {
       toast.error(
@@ -1243,7 +1305,8 @@ Terima kasih!`;
           : `${addedCount} peserta ditambahkan. Tampilan: Hari ${listDay} (filter kategori/status direset).`
       );
     }
-    updateLocalView(listDay)
+    // Jangan panggil updateLocalView karena sudah handle manually di atas
+    // updateLocalView akan filter participants dan hapus data baru
   }
 
   const confirmImport = () => {
@@ -1281,7 +1344,7 @@ Terima kasih!`;
       const guideData = [
         { kolom: 'nama', wajib: 'Ya', keterangan: 'Nama lengkap peserta (wajib)', contoh: 'Budi Santoso' },
         { kolom: 'telepon', wajib: 'Tidak', keterangan: 'Nomor WA peserta (format 08... atau 628...)', contoh: '081234567890' },
-        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta (bebas): VIP, Dealer, Regular, dll.', contoh: 'VIP' },
+        { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta (bebas/custom): VIP, Dealer, Member, Sponsor, Karyawan, dll. Bisa diisi sesuai kebutuhan event.', contoh: 'Member' },
         { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, akan dipakai hari filter aktif.', contoh: '2' }
       ]
       const wsGuide = XLSX.utils.json_to_sheet(guideData)

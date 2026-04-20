@@ -11,9 +11,19 @@ import {
   getAllEventData
 } from '../../lib/tenantUtils';
 import { syncResetCheckInLogs, syncEventSnapshot } from "../../lib/dataSync";
+import { deleteAllParticipantsFromDB, deleteAllCheckinLogsFromDB } from '../../lib/participantService';
+import { fetchEventsByTenant, deleteEventFromDB } from '../../lib/eventService';
 
 // Local workspace snapshot reference
 let _workspaceSnapshot = null;
+
+// Helper: Get active event ID from localStorage (same as Layout.jsx)
+function getActiveEventId() {
+  const tenantId = getActiveTenantId();
+  if (!tenantId) return null;
+  const key = `active_event_${tenantId}`;
+  return localStorage.getItem(key);
+}
 
 function getWaTemplate() { 
   const snapshot = _workspaceSnapshot;
@@ -102,39 +112,45 @@ async function resetCheckIns() {
   return { success: false, error: 'Event not found' };
 }
 
-async function deleteAllParticipants() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+// eslint-disable-next-line no-unused-vars
+async function deleteAllParticipants(_user, _reason) { 
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
-  if (event) {
-    // Clear local data
-    event.participants = [];
-    event.checkInLogs = []; // Also clear check-in logs since participants are gone
-    event.pendingCheckIns = [];
-    // Sync to server (Supabase)
-    try {
-      await syncEventSnapshot({
-        tenantId,
-        event: {
-          id: eventId,
-          name: event.name || 'Event Default',
-          currentDay: event.currentDay || 1,
-          isArchived: event.isArchived || false,
-          participants: [],
-          checkInLogs: [],
-          adminLogs: event.adminLogs || []
-        }
-      });
-      console.log('[deleteAllParticipants] Synced to server successfully');
-      return { success: true };
-    } catch (err) {
-      console.error('[deleteAllParticipants] Sync failed:', err);
-      return { success: false, error: 'Gagal sinkron ke server: ' + (err?.message || 'Unknown error') };
-    }
+  const eventId = getActiveEventId();
+  
+  if (!tenantId || !eventId) {
+    return { success: false, error: 'Tidak ada tenant atau event yang aktif' };
   }
-  return { success: false, error: 'Event not found' };
+  
+  // Delete directly from Supabase (tenant isolated)
+  try {
+    // Delete participants
+    const participantsSuccess = await deleteAllParticipantsFromDB(tenantId, eventId);
+    if (!participantsSuccess) {
+      return { success: false, error: 'Gagal menghapus peserta dari database' };
+    }
+    
+    // Also delete checkin logs (riwayat check-in)
+    const checkinsSuccess = await deleteAllCheckinLogsFromDB(tenantId, eventId);
+    if (!checkinsSuccess) {
+      console.warn('[deleteAllParticipants] Failed to delete checkin logs, but participants deleted');
+    }
+    
+    // Also clear local workspace data if available
+    if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+      const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
+      event.participants = [];
+      event.checkInLogs = [];
+      event.pendingCheckIns = [];
+    }
+    
+    console.log('[deleteAllParticipants] Deleted all participants and checkins from Supabase for tenant', tenantId, 'event', eventId);
+    return { success: true };
+  } catch (err) {
+    console.error('[deleteAllParticipants] Failed:', err);
+    return { success: false, error: 'Gagal menghapus: ' + (err?.message || 'Unknown error') };
+  }
 }
+
 // eslint-disable-next-line no-unused-vars
 async function setWaTemplate(template, _user) {
   const tenantId = getActiveTenantId();
@@ -193,7 +209,6 @@ async function setWaSendMode(mode, _user) {
 function setMaxPendingAttempts(val) { return val; }
 function renameEvent() { return { success: true }; }
 function archiveEvent() { return { success: true }; }
-function deleteEvent() { return { success: true }; }
 function restoreStoreBackup() { return { success: true }; }
 function exportStoreBackup() { return { success: true, content: '{}', fileName: 'backup.json' }; }
 function deleteStoreBackup() { return { success: true }; }
@@ -393,6 +408,13 @@ export default function Settings() {
   const [cleanupCount, setCleanupCount] = useState(0)
   const [cleanupResult, setCleanupResult] = useState('')
   
+  // State for Delete Event
+  const [showDeleteEventModal, setShowDeleteEventModal] = useState(false)
+  const [deleteEventInput, setDeleteEventInput] = useState('')
+  const [deleteEventSelected, setDeleteEventSelected] = useState('')
+  const [deleteEventLoading, setDeleteEventLoading] = useState(false)
+  const [dbEvents, setDbEvents] = useState([])
+  
   const clearResetModalState = () => {
     setShowResetModal(false)
     setResetInput('')
@@ -404,6 +426,67 @@ export default function Settings() {
     setDeleteInput('')
     setDeleteApprovalInput('')
     setDeleteReason('')
+  }
+  
+  const clearDeleteEventModalState = () => {
+    setShowDeleteEventModal(false)
+    setDeleteEventInput('')
+    setDeleteEventSelected('')
+    setDeleteEventLoading(false)
+  }
+  
+  // Load events from Supabase (realtime)
+  const loadEventsFromDB = async () => {
+    const tenantId = getActiveTenantId()
+    if (!tenantId) return
+    
+    try {
+      const eventsData = await fetchEventsByTenant(tenantId)
+      setDbEvents(eventsData || [])
+    } catch (err) {
+      console.error('Error loading events:', err)
+      toast.error('Gagal', 'Tidak bisa memuat daftar event dari database')
+    }
+  }
+  
+  // Handle delete event
+  const handleDeleteEvent = async (e) => {
+    e.preventDefault()
+    
+    if (deleteEventInput !== 'HAPUS') {
+      toast.error('Gagal', 'Kata konfirmasi harus HAPUS')
+      return
+    }
+    
+    if (!deleteEventSelected) {
+      toast.error('Gagal', 'Pilih event yang akan dihapus')
+      return
+    }
+    
+    const tenantId = getActiveTenantId()
+    if (!tenantId) {
+      toast.error('Gagal', 'Tidak ada tenant yang aktif')
+      return
+    }
+    
+    setDeleteEventLoading(true)
+    
+    try {
+      const success = await deleteEventFromDB(tenantId, deleteEventSelected)
+      if (success) {
+        toast.success('Berhasil', 'Event dan semua datanya telah dihapus dari database')
+        await loadEventsFromDB() // Refresh list
+        clearDeleteEventModalState()
+        refreshEvents() // Refresh local events
+      } else {
+        toast.error('Gagal', 'Tidak dapat menghapus event dari database')
+      }
+    } catch (err) {
+      console.error('Error deleting event:', err)
+      toast.error('Gagal', err.message || 'Terjadi kesalahan saat menghapus event')
+    } finally {
+      setDeleteEventLoading(false)
+    }
   }
 
   const formatBackupSize = (value) => {
@@ -697,16 +780,9 @@ export default function Settings() {
     toast.success('Sukses', 'Event berhasil diarsipkan')
   }
 
-  const handleDeleteEvent = (event) => {
-    const confirmWord = window.prompt(`Hapus event "${event.name}" permanen? Ketik HAPUS`, '')
-    if (confirmWord === null) return
-    if (normalizeConfirmWord(confirmWord) !== 'HAPUS') return toast.error('Gagal', 'Konfirmasi harus HAPUS')
-    const reason = window.prompt('Alasan hapus event (minimal 15 karakter):', '')
-    if (reason === null) return
-    const res = deleteEvent(event.id, user, reason)
-    if (!res.success) return toast.error('Gagal', humanizeUserMessage(res.error, { fallback: 'Gagal menghapus acara.' }))
-    refreshEvents()
-    toast.success('Sukses', 'Event berhasil dihapus')
+  const openDeleteEventModal = async () => {
+    await loadEventsFromDB()
+    setShowDeleteEventModal(true)
   }
 
   const handleRestoreBackup = (backup) => {
@@ -1192,6 +1268,17 @@ export default function Settings() {
                 <Trash2 size={14} className="mr-6" /> Hapus Semua
               </button>
             </div>
+            
+            {/* Delete Event Item */}
+            <div className="danger-item">
+              <div>
+                <div className="danger-item-title">Hapus Event</div>
+                <div className="danger-item-desc">Menghapus <strong>event beserta semua data peserta</strong>-nya secara permanen dari database. Event yang dihapus tidak bisa dikembalikan.</div>
+              </div>
+              <button className="btn btn-danger btn-shrink" onClick={openDeleteEventModal}>
+                <Trash2 size={14} className="mr-6" /> Hapus Event
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1305,6 +1392,60 @@ export default function Settings() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={clearDeleteModalState}>Batal</button>
                 <button type="submit" className="btn btn-danger">Hapus Semua Data</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Event Modal */}
+      {showDeleteEventModal && (
+        <div className="modal-overlay" onClick={clearDeleteEventModalState}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title card-title-inline modal-title-danger">
+                <AlertCircle size={18} /> Hapus Event Permanen
+              </h3>
+              <button className="modal-close" onClick={clearDeleteEventModalState}>✕</button>
+            </div>
+            <form onSubmit={handleDeleteEvent}>
+              <div className="modal-body">
+                <p className="modal-text">
+                  Pilih event yang akan dihapus. <strong>Semua data peserta dan riwayat check-in</strong> untuk event tersebut akan dihapus permanen dari database.
+                </p>
+                <div className="form-group">
+                  <label className="form-label">Pilih Event:</label>
+                  <select
+                    className="form-select"
+                    value={deleteEventSelected}
+                    onChange={(e) => setDeleteEventSelected(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Pilih Event --</option>
+                    {dbEvents.map(event => (
+                      <option key={event.id} value={event.id}>
+                        {event.name} {event.id === activeEventId ? '(Aktif)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Ketik <strong>HAPUS</strong> untuk konfirmasi:</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ketik HAPUS"
+                    value={deleteEventInput}
+                    onChange={(e) => setDeleteEventInput(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={clearDeleteEventModalState}>Batal</button>
+                <button type="submit" className="btn btn-danger" disabled={deleteEventLoading}>
+                  {deleteEventLoading ? 'Menghapus...' : 'Hapus Event'}
+                </button>
               </div>
             </form>
           </div>

@@ -1,6 +1,59 @@
 import * as XLSX from 'xlsx'
 
 /**
+ * Export participants to Excel template format (matching import template)
+ * This allows users to export, edit, and re-import data seamlessly
+ */
+export function exportParticipantsToTemplate(participants, dayNumber) {
+  try {
+    // Data utama dengan format yang sama seperti template import
+    // Kategori dipertahankan persis seperti yang diinput client (custom category support)
+    const templateData = participants.map((p) => ({
+      nama: p.name || '',
+      telepon: p.phone || '',
+      kategori: p.category || '',
+      hari: p.day_number || dayNumber || 1
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(templateData)
+
+    // Auto-size columns
+    const wscols = [
+      { wch: 25 }, // nama
+      { wch: 15 }, // telepon
+      { wch: 15 }, // kategori
+      { wch: 10 }  // hari
+    ]
+    ws['!cols'] = wscols
+
+    // Sheet panduan (sama seperti template import)
+    const guideData = [
+      { kolom: 'nama', wajib: 'Ya', keterangan: 'Nama lengkap peserta (wajib)', contoh: 'Budi Santoso' },
+      { kolom: 'telepon', wajib: 'Tidak', keterangan: 'Nomor WA peserta (format 08... atau 628...)', contoh: '081234567890' },
+      { kolom: 'kategori', wajib: 'Tidak', keterangan: 'Kategori peserta (bebas): VIP, Dealer, Regular, dll.', contoh: 'VIP' },
+      { kolom: 'hari', wajib: 'Tidak', keterangan: 'Hari tiket (angka, minimal 1). Jika kosong, akan dipakai hari filter aktif.', contoh: '2' }
+    ]
+    const wsGuide = XLSX.utils.json_to_sheet(guideData)
+    wsGuide['!cols'] = [
+      { wch: 16 }, // kolom
+      { wch: 8 },  // wajib
+      { wch: 64 }, // keterangan
+      { wch: 26 }  // contoh
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Template Peserta')
+    XLSX.utils.book_append_sheet(wb, wsGuide, 'Panduan')
+
+    XLSX.writeFile(wb, `Template_Peserta_Hari_${dayNumber}.xlsx`)
+    return true
+  } catch (error) {
+    console.error('Error exporting participants to template', error)
+    return false
+  }
+}
+
+/**
  * Export data to exact Excel file (.xlsx) format
  */
 export function exportToCSV(participants, dayNumber) {

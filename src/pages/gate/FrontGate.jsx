@@ -3,9 +3,11 @@
 import {
   bootstrapStoreFromServer as _bootstrapStoreFromServer,
   setWorkspaceSnapshot,
-  getActiveTenantId as _getActiveTenantId
+  getActiveTenantId as _getActiveTenantId,
+  getActiveEventId
 } from '../../lib/tenantUtils';
 import { syncCheckInLog, subscribeWorkspaceChanges } from '../../lib/dataSync';
+import { fetchParticipants } from '../../lib/participantService';
 
 let _workspaceSnapshot = null;
 let _unsubscribeRealtime = null;
@@ -27,8 +29,29 @@ function getActiveTenant() { return { id: getTenantId() }; }
 function generateOfflineId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 function savePendingCheckIns() { localStorage.setItem('pending_checkins', JSON.stringify(_pendingCheckIns)); }
 
-async function bootstrapStoreFromServer() {
+async function bootstrapStoreFromServer(force = false) {
   _workspaceSnapshot = await _bootstrapStoreFromServer();
+  
+  // Also fetch participants directly from Supabase for realtime data
+  const tenantId = getTenantId();
+  const eventId = getActiveEventId ? getActiveEventId() : (getEventId() === 'event-default' ? null : getEventId());
+  
+  if (tenantId && eventId) {
+    try {
+      const dbParticipants = await fetchParticipants(tenantId, eventId);
+      console.log(`[FrontGate] Fetched ${dbParticipants.length} participants directly from DB`);
+      
+      // Merge DB participants into workspace snapshot
+      if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+        const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
+        // Use DB participants as source of truth
+        event.participants = dbParticipants;
+      }
+    } catch (err) {
+      console.error('[FrontGate] Failed to fetch participants from DB:', err);
+    }
+  }
+  
   setWorkspaceSnapshot(_workspaceSnapshot);
   return _workspaceSnapshot;
 }

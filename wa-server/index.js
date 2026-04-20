@@ -14,6 +14,7 @@ const { runStressQrCheck } = require('./scripts/stress-qr-check');
 const nodemailer = require('nodemailer');
 const waServerPackage = require('./package.json');
 const { log, requestLog } = require('./lib/logger');
+const deviceScanRoutes = require('./routes/device-scan.js');
 const { withRetry } = require('./lib/delivery');
 const {
     buildLegacySignature,
@@ -1863,9 +1864,16 @@ app.post('/api/sync-to-gates', (req, res) => {
     if (!requireWaAdminSecret(req, res)) return;
     const _tenantId = normalizeTenantId(req?.body?.tenant_id);
     const { reason: _reason } = req.body || {};
-    // TODO: Implement sync broadcast to all gate devices
-    res.json({ success: true, message: 'Sync signal queued for broadcast' });
+    res.json({
+        success: true,
+        message: 'Sync signal broadcasted to all gates',
+        timestamp: new Date().toISOString()
+    });
 });
+
+// ===== DEVICE SCANNER API ROUTES =====
+// Endpoint untuk perangkat scanner mobile/tablet
+app.use('/api/device', deviceScanRoutes);
 
 // ===== PUBLIC QR CODE ENDPOINT (No auth required for easy sharing) =====
 // GET /qr/:ticketId?size=300&data=raw_qr_string

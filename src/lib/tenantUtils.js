@@ -45,6 +45,14 @@ export function getActiveTenant() {
   return _workspaceSnapshot.store.tenants?.[tenantId] || { id: tenantId };
 }
 
+// Get active event ID from localStorage (same as Layout.jsx)
+export function getActiveEventId() {
+  const tenantId = getActiveTenantId();
+  if (!tenantId) return null;
+  const key = `active_event_${tenantId}`;
+  return localStorage.getItem(key);
+}
+
 // Get participants for a specific day
 export function getParticipants(day) {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];

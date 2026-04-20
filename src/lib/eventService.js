@@ -150,10 +150,51 @@ export function subscribeToEvents(tenantId, callback) {
   }
 }
 
+/**
+ * Delete event dari database (beserta semua data terkait)
+ * @param {string} tenantId - ID tenant
+ * @param {string} eventId - ID event yang akan dihapus
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function deleteEventFromDB(tenantId, eventId) {
+  if (!tenantId || !eventId) {
+    console.error('Tenant ID and Event ID are required')
+    return false
+  }
+
+  try {
+    // Hapus event (cascade akan menghapus participants dan checkin_logs)
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', eventId)
+      .eq('tenant_id', tenantId) // Pastikan hanya hapus event milik tenant ini
+
+    if (error) {
+      console.error('Error deleting event:', error)
+      return false
+    }
+
+    // Hapus dari localStorage jika ini adalah active event
+    const activeKey = `active_event_${tenantId}`
+    const currentActive = localStorage.getItem(activeKey)
+    if (currentActive === eventId) {
+      localStorage.removeItem(activeKey)
+    }
+
+    console.log(`[deleteEventFromDB] Deleted event ${eventId} for tenant ${tenantId}`)
+    return true
+  } catch (err) {
+    console.error('Exception deleting event:', err)
+    return false
+  }
+}
+
 export default {
   fetchEventsByTenant,
   createEventInDB,
   setActiveEventInDB,
   getActiveEventIdFromDB,
+  deleteEventFromDB,
   subscribeToEvents
 }

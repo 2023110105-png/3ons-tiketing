@@ -7,8 +7,10 @@ import {
   getCurrentDay,
   getCheckInLogs,
   getStats,
-  getAdminLogs
+  getAdminLogs,
+  getActiveTenantId
 } from '../../lib/tenantUtils';
+import { fetchParticipants } from '../../lib/participantService';
 
 // Reports-specific function (not in tenantUtils)
 function getPeakHours(day) {
@@ -17,12 +19,20 @@ function getPeakHours(day) {
   return [];
 }
 
+// Helper: Get active event ID from localStorage (same as Layout.jsx)
+function getActiveEventId() {
+  const tenantId = getActiveTenantId();
+  if (!tenantId) return null;
+  const key = `active_event_${tenantId}`;
+  return localStorage.getItem(key);
+}
+
 import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 import { useToast } from '../../contexts/ToastContext'
-import { exportToCSV, exportLogsToCSV, exportAdminLogsToCSV } from '../../utils/csvExport'
+import { exportToCSV, exportLogsToCSV, exportAdminLogsToCSV, exportParticipantsToTemplate } from '../../utils/csvExport'
 import { reportsStyles, reportsAnimations } from './ReportsStyles'
 import { FileText, FileSpreadsheet, ClipboardList, Users, UserCheck, UserX, TrendingUp, CheckCircle, Activity, ShieldAlert, Search } from 'lucide-react'
 import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
@@ -220,6 +230,37 @@ export default function Reports() {
     toast.error('Terjadi Kendala', 'Gagal mengunduh file Excel peserta')
   }
 
+  const handleExcelTemplate = async () => {
+    // Fetch fresh data from Supabase with tenant isolation
+    const tenantId = getActiveTenantId()
+    const eventId = getActiveEventId()
+    
+    if (!tenantId || !eventId) {
+      toast.error('Gagal Export', 'Tidak ada tenant atau event yang aktif. Silakan pilih event di header.')
+      return
+    }
+    
+    try {
+      toast.info('Memuat Data...', 'Mengambil data peserta terbaru dari database')
+      const dbParticipants = await fetchParticipants(tenantId, eventId)
+      
+      // Filter by day if needed
+      const filteredParticipants = dbParticipants.filter(p => 
+        p.day_number === dayFilter || (!p.day_number && dayFilter === 1)
+      )
+      
+      const ok = exportParticipantsToTemplate(filteredParticipants, dayFilter)
+      if (ok) {
+        toast.success('Unduhan Berhasil', `Template peserta (${filteredParticipants.length} data) berhasil diunduh dari database tenant ${tenantId}`)
+        return
+      }
+      toast.error('Terjadi Kendala', 'Gagal mengunduh template peserta')
+    } catch (err) {
+      console.error('Error exporting template:', err)
+      toast.error('Gagal Export', err.message || 'Terjadi kesalahan saat mengambil data dari database')
+    }
+  }
+
   const handleExcelLogs = () => {
     const ok = exportLogsToCSV(logs, dayFilter)
     if (ok) {
@@ -411,6 +452,13 @@ export default function Reports() {
               <div className="m-report-desc">Data peserta format spreadsheet</div>
             </div>
           </button>
+          <button className="m-report-btn" onClick={handleExcelTemplate}>
+            <div className="m-report-icon green"><FileSpreadsheet size={22} /></div>
+            <div className="m-report-content">
+              <div className="m-report-title">Unduh Template</div>
+              <div className="m-report-desc">Format template untuk edit & import</div>
+            </div>
+          </button>
           <button className="m-report-btn" onClick={handleExcelLogs}>
             <div className="m-report-icon blue"><ClipboardList size={22} /></div>
             <div className="m-report-content">
@@ -534,6 +582,9 @@ export default function Reports() {
           </button>
           <button style={{...reportsStyles.actionBtn, ...reportsStyles.btnSecondary}} onClick={handleExcelParticipants}>
             <FileSpreadsheet size={16} /> Excel
+          </button>
+          <button style={{...reportsStyles.actionBtn, ...reportsStyles.btnSecondary}} onClick={handleExcelTemplate}>
+            <FileSpreadsheet size={16} /> Template
           </button>
         </div>
       </div>

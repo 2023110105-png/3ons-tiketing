@@ -57,6 +57,10 @@ window.addEventListener('unhandledrejection', (event) => {
 console.log('[Yamaha Scan v3.0] Starting with simplified roles...')
 console.log('[Yamaha Scan v3.0] Features: ADMIN (Pemilik Sistem) + USER TENANT (Jaga Gate)')
 
+// Debug: Check session before React loads
+const preSession = localStorage.getItem('user_session')
+console.log('[Main] Pre-load session check:', preSession ? 'found' : 'not found')
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
@@ -68,10 +72,21 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      updateSW(true)
-      window.setTimeout(() => {
-        window.location.reload()
-      }, 250)
+      // Check if user is logged in before reloading
+      const hasSession = localStorage.getItem('user_session')
+      if (hasSession) {
+        console.log('[PWA] Update available but session exists, delaying reload...')
+        // Give more time before reload to allow any pending operations
+        window.setTimeout(() => {
+          updateSW(true)
+          window.location.reload()
+        }, 2000)
+      } else {
+        updateSW(true)
+        window.setTimeout(() => {
+          window.location.reload()
+        }, 250)
+      }
     },
     onRegisterError(error) {
       console.error('[PWA v2.0] register failed:', error)
