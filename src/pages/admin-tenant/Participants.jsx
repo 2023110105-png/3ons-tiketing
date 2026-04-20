@@ -46,6 +46,8 @@ function getActiveEventId() {
 // Helper: Get or create default event for tenant (async)
 async function getOrCreateDefaultEvent() {
   const tenantId = getActiveTenantId();
+  console.log(`[getOrCreateDefaultEvent] START - tenantId: ${tenantId}`);
+  
   if (!tenantId) {
     console.log('[getOrCreateDefaultEvent] No tenant ID');
     return null;
@@ -53,6 +55,7 @@ async function getOrCreateDefaultEvent() {
   
   // Try localStorage first
   let eventId = getActiveEventId();
+  console.log(`[getOrCreateDefaultEvent] localStorage check: ${eventId}`);
   if (eventId) {
     console.log(`[getOrCreateDefaultEvent] Found in localStorage: ${eventId}`);
     return eventId;
@@ -60,29 +63,37 @@ async function getOrCreateDefaultEvent() {
   
   // Try fetch from database
   try {
+    console.log(`[getOrCreateDefaultEvent] Fetching events from DB for tenant: ${tenantId}`);
     const events = await fetchEventsByTenant(tenantId);
     console.log(`[getOrCreateDefaultEvent] Found ${events.length} events in DB`);
+    console.log(`[getOrCreateDefaultEvent] Events data:`, events);
     
-    if (events.length > 0) {
+    if (events.length > 0 && events[0]?.id) {
       eventId = events[0].id;
+      console.log(`[getOrCreateDefaultEvent] Using existing event ID: ${eventId} (type: ${typeof eventId})`);
       // Save to localStorage for future
       await setActiveEventInDB(tenantId, eventId);
-      console.log(`[getOrCreateDefaultEvent] Using event: ${eventId}`);
       return eventId;
     }
     
     // No events found, create default event
-    console.log('[getOrCreateDefaultEvent] Creating default event...');
+    console.log('[getOrCreateDefaultEvent] No events found, creating default event...');
     const newEvent = await createEventInDB(tenantId, 'Event Default', { currentDay: 1 });
+    console.log(`[getOrCreateDefaultEvent] Created event result:`, newEvent);
+    
     if (newEvent?.id) {
+      console.log(`[getOrCreateDefaultEvent] New event ID: ${newEvent.id} (type: ${typeof newEvent.id})`);
       await setActiveEventInDB(tenantId, newEvent.id);
-      console.log(`[getOrCreateDefaultEvent] Created: ${newEvent.id}`);
       return newEvent.id;
+    } else {
+      console.error('[getOrCreateDefaultEvent] Created event has no ID!');
     }
   } catch (err) {
     console.error('[getOrCreateDefaultEvent] Error:', err);
+    console.error('[getOrCreateDefaultEvent] Error details:', err?.message, err?.code);
   }
   
+  console.log('[getOrCreateDefaultEvent] RETURNING NULL');
   return null;
 }
 
