@@ -3,8 +3,8 @@
  * Panel untuk scan barcode peserta yang terhubung ke WA Server API
  */
 
-import { useState, useRef } from 'react'
-import { QrReader } from 'react-qr-reader'
+import { useState, useRef, useEffect } from 'react'
+import { Html5Qrcode } from 'html5-qrcode'
 import { 
   Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, 
   History 
@@ -20,6 +20,8 @@ export default function DeviceScannerPanel({ tenantId, userName, apiFetch }) {
   const [scanHistory, setScanHistory] = useState([])
   const [facingMode, setFacingMode] = useState('environment')
   const lastScanRef = useRef({ data: null, time: 0 })
+  const qrRef = useRef(null)
+  const scannerRef = useRef(null)
   
   const handleScan = async (qrData) => {
     if (!qrData || isProcessingScan) return
@@ -150,8 +152,80 @@ export default function DeviceScannerPanel({ tenantId, userName, apiFetch }) {
   }
   
   const toggleCamera = () => {
-    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')
+    const newMode = facingMode === 'environment' ? 'user' : 'environment'
+    setFacingMode(newMode)
+    // Restart scanner if active
+    if (scanning && scannerRef.current) {
+      stopScanner()
+      setTimeout(() => startScanner(newMode), 500)
+    }
   }
+  
+  const startScanner = async (mode = facingMode) => {
+    if (!qrRef.current) return
+    
+    try {
+      scannerRef.current = new Html5Qrcode('qr-reader-container')
+      
+      const cameras = await Html5Qrcode.getCameras()
+      let cameraId = null
+      
+      if (cameras && cameras.length > 0) {
+        // Try to find camera matching facing mode
+        const backCamera = cameras.find(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('environment') || c.label.toLowerCase().includes('rear'))
+        const frontCamera = cameras.find(c => c.label.toLowerCase().includes('front') || c.label.toLowerCase().includes('user') || c.label.toLowerCase().includes('selfie'))
+        
+        if (mode === 'environment' && backCamera) {
+          cameraId = backCamera.id
+        } else if (mode === 'user' && frontCamera) {
+          cameraId = frontCamera.id
+        } else {
+          cameraId = cameras[0].id
+        }
+      }
+      
+      await scannerRef.current.start(
+        cameraId || { facingMode: mode },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          handleScan(decodedText)
+        },
+        () => {
+          // Ignore scan errors (no QR found)
+        }
+      )
+    } catch (err) {
+      console.error('Scanner start error:', err)
+      toast.error('Gagal memulai kamera')
+    }
+  }
+  
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop()
+        await scannerRef.current.clear()
+      } catch (err) {
+        console.error('Scanner stop error:', err)
+      }
+      scannerRef.current = null
+    }
+  }
+  
+  useEffect(() => {
+    if (scanning) {
+      startScanner()
+    } else {
+      stopScanner()
+    }
+    return () => {
+      stopScanner()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanning])
 
   return (
     <div className="card" style={{ padding: '20px' }}>
@@ -174,15 +248,7 @@ export default function DeviceScannerPanel({ tenantId, userName, apiFetch }) {
           }}>
             {scanning ? (
               <>
-                <QrReader
-                  onResult={(result) => {
-                    if (result?.text) {
-                      handleScan(result.text)
-                    }
-                  }}
-                  constraints={{ facingMode }}
-                  style={{ width: '100%', height: '100%' }}
-                />
+                <div id="qr-reader-container" ref={qrRef} style={{ width: '100%', height: '100%' }} />
                 
                 <div style={{
                   position: 'absolute',
