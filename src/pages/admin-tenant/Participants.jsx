@@ -164,16 +164,24 @@ async function addParticipant(participantData, explicitEventId = null) {
     category: participantData.category
   }, tenantId, eventId);
   
+  console.log('[addParticipant] DEBUG - finalTicketId:', finalTicketId);
+  console.log('[addParticipant] DEBUG - qrData:', qrData);
+  console.log('[addParticipant] DEBUG - participantData:', participantData);
+  
   // Use addParticipantToDB for direct Supabase insertion with tenant isolation
   try {
-    const dbParticipant = await addParticipantToDB(tenantId, eventId, {
+    const payload = {
       ...participantData,
       ticket_id: finalTicketId,
       day_number: finalDay,
       qr_data: qrData
-    });
+    };
+    console.log('[addParticipant] DEBUG - Sending to DB:', payload);
+    
+    const dbParticipant = await addParticipantToDB(tenantId, eventId, payload);
     
     console.log(`[addParticipant] Saved participant ${finalTicketId} to Supabase`);
+    console.log('[addParticipant] DEBUG - dbParticipant:', dbParticipant);
     
     // Also add to local state for immediate UI update
     const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
