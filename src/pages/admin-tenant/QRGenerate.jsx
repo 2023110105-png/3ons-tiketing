@@ -3,11 +3,13 @@
 import {
   bootstrapStoreFromServer,
   getActiveTenantId,
+  getActiveEventId,
   getParticipants,
   getActiveTenant as _getActiveTenant,
   getAvailableDays as _getAvailableDays,
   getCurrentDay
 } from '../../lib/tenantUtils';
+import { fetchParticipants } from '../../lib/participantService';
 
 // Local workspace snapshot reference
 let _workspaceSnapshot = null;
@@ -39,7 +41,9 @@ function _generateQRDataForParticipant(participant) {
   }
   
   // Generate new QR data dengan format yang konsisten
-  return generateQRData(participant, getActiveTenantId(), 'event-default');
+  // Gunakan event_id dari participant jika ada, atau dari getActiveEventId()
+  const eventId = participant.event_id || getActiveEventId() || 'event-default';
+  return generateQRData(participant, getActiveTenantId(), eventId);
 }
 
 // Update participants dengan qr_data jika kosong
@@ -60,7 +64,7 @@ function getTenantBranding() {
 function getCurrentEventName() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'Event';
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId() || 'event-default';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.name || 'Event';
 }
 import { useState, useEffect } from 'react'
@@ -72,7 +76,6 @@ import { useIsMobileLayout } from '../../hooks/useIsMobileLayout'
 import { generateQRData, parseQRData } from '../../utils/qrSecurity'
 import BarcodeImport from './BarcodeImport'
 import ManualSendModal from '../../components/ManualSendModal'
-import { supabase } from '../../lib/supabase'
 import { qrStyles, qrAnimations } from './QRGenerateStyles'
 
 // VIBRANT Full Color Palette - Anti Monoton!
@@ -150,21 +153,19 @@ const RAINBOW = {
 }
 
 // ===== SUPABASE DATA FUNCTIONS =====
-// Load participants from Supabase workspace_state (primary source)
+// Load participants from Supabase participants table (primary source)
 async function loadParticipantsFromSupabase(day) {
   try {
-    // Get participants from workspace_state (where data is actually stored)
-    const { data, error } = await supabase
-      .from('workspace_state')
-      .select('store')
-      .eq('id', 'default')
-      .single();
+    const tenantId = getActiveTenantId();
+    const eventId = getActiveEventId();
     
-    if (error) throw error;
+    if (!tenantId || !eventId) {
+      console.error('Tenant ID or Event ID not found');
+      return getParticipants(day);
+    }
     
-    // Extract participants from workspace store structure
-    const store = data?.store;
-    const participants = store?.tenants?.[getActiveTenantId()]?.events?.['event-default']?.participants || [];
+    // Fetch participants from participants table with tenant and event isolation
+    const participants = await fetchParticipants(tenantId, eventId);
     
     // Filter by day if specified - cek multiple field names
     if (typeof day === 'number') {
@@ -207,7 +208,7 @@ async function saveQRDataToSupabase(participantId, qrData) {
     // Sync to Supabase
     await syncParticipantUpsert({
       tenantId: getActiveTenantId(),
-      eventId: 'event-default',
+      eventId: getActiveEventId() || 'event-default',
       participant: updatedParticipant
     });
     
@@ -235,7 +236,8 @@ async function ensureParticipantQRData(participant) {
   }
   
   // Generate new QR data
-  const qrData = generateQRData(participant, getActiveTenantId(), 'event-default');
+  const eventId = participant.event_id || getActiveEventId() || 'event-default';
+  const qrData = generateQRData(participant, getActiveTenantId(), eventId);
   
   // Save to Supabase
   if (participant.id) {
@@ -273,19 +275,18 @@ export default function QRGenerate() {
   const [ticketBranding, setTicketBranding] = useState(getTenantBranding())
   const [activeEventName, setActiveEventName] = useState(getCurrentEventName())
 
-  // Load day counts from Supabase
+  // Load day counts from Supabase participants table
   const loadDayCounts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('workspace_state')
-        .select('store')
-        .eq('id', 'default')
-        .single();
+      const tenantId = getActiveTenantId();
+      const eventId = getActiveEventId();
       
-      if (error) throw error;
+      if (!tenantId || !eventId) {
+        throw new Error('Tenant ID or Event ID not found');
+      }
       
-      const store = data?.store;
-      const allParticipants = store?.tenants?.[getActiveTenantId()]?.events?.['event-default']?.participants || [];
+      // Fetch all participants for this tenant and event
+      const allParticipants = await fetchParticipants(tenantId, eventId);
       
       const count1 = allParticipants.filter(p => Number(p.day_number || p.day || p.hari || 1) === 1).length;
       const count2 = allParticipants.filter(p => Number(p.day_number || p.day || p.hari || 1) === 2).length;
@@ -293,7 +294,7 @@ export default function QRGenerate() {
       setDayCounts({ 1: count1, 2: count2 });
     } catch (err) {
       console.error('Failed to load day counts:', err);
-      // Fallback to Firebase counts
+      // Fallback to local workspace counts
       setDayCounts({ 1: getParticipants(1).length, 2: getParticipants(2).length });
     }
   };
