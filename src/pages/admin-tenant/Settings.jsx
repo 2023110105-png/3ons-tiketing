@@ -3,6 +3,7 @@
 import {
   bootstrapStoreFromServer,
   getActiveTenantId,
+  getWorkspaceSnapshot,
   getParticipants as _getParticipants,
   getActiveTenant as _getActiveTenant,
   getAvailableDays as _getAvailableDays,
@@ -13,9 +14,6 @@ import {
 import { syncResetCheckInLogs, syncEventSnapshot } from "../../lib/dataSync";
 import { deleteAllParticipantsFromDB, deleteAllCheckinLogsFromDB } from '../../lib/participantService';
 import { fetchEventsByTenant, deleteEventFromDB } from '../../lib/eventService';
-
-// Local workspace snapshot reference
-let _workspaceSnapshot = null;
 
 // Helper: Check if string is valid UUID
 function isValidUUID(str) {
@@ -38,8 +36,9 @@ function getActiveEventId() {
   }
 
   // Fallback: try to get from available events in workspace
-  if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events) {
-    const events = Object.keys(_workspaceSnapshot.store.tenants[tenantId].events);
+  const snapshot = getWorkspaceSnapshot();
+  if (snapshot?.store?.tenants?.[tenantId]?.events) {
+    const events = Object.keys(snapshot.store.tenants[tenantId].events);
     const validEvent = events.find(e => isValidUUID(e));
     if (validEvent) return validEvent;
   }
@@ -47,8 +46,8 @@ function getActiveEventId() {
   return null;
 }
 
-function getWaTemplate() { 
-  const snapshot = _workspaceSnapshot;
+function getWaTemplate() {
+  const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return `📋 *E-ATTENDANCE*
 🏛️ PALEMBANG VIOLIN COMPETITION
 
@@ -73,29 +72,32 @@ Terima kasih & semoga sukses! 🎻🎶`;
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
   if (!eventId) return '';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
+  return snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
 }
 
 function getWaSendMode() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'message_only';
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return 'message_only';
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
   if (!eventId) return 'message_only';
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waSendMode || 'message_only';
+  return snapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waSendMode || 'message_only';
 }
 
 function getMaxPendingAttempts() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 3;
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return 3;
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
   if (!eventId) return 3;
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offlineConfig?.maxPendingAttempts || 3;
+  return snapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offlineConfig?.maxPendingAttempts || 3;
 }
 
 function getEventsWithOptions(options = {}) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return [];
   const tenantId = getActiveTenantId();
-  const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
+  const events = snapshot.store.tenants?.[tenantId]?.events || {};
   const eventList = Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
   if (!options.includeArchived) {
     return eventList.filter(e => !e.isArchived);
@@ -104,22 +106,25 @@ function getEventsWithOptions(options = {}) {
 }
 
 function getCurrentEventId() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return null;
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return null;
   return getActiveEventId();
 }
 
-function getStoreBackups() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
+function getStoreBackups() {
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return [];
   const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.backups || [];
+  return snapshot.store.tenants?.[tenantId]?.backups || [];
 }
 
 async function resetCheckIns() {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
+  const snapshot = getWorkspaceSnapshot();
+  if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
   if (!eventId) return { success: false, error: 'No active event found' };
-  const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
+  const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (event) {
     // Clear local data
     event.checkInLogs = [];
@@ -161,8 +166,9 @@ async function deleteAllParticipants(_user, _reason) {
     }
     
     // Also clear local workspace data if available
-    if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
-      const event = _workspaceSnapshot.store.tenants[tenantId].events[eventId];
+    const snapshot = getWorkspaceSnapshot();
+    if (snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
+      const event = snapshot.store.tenants[tenantId].events[eventId];
       event.participants = [];
       event.checkInLogs = [];
       event.pendingCheckIns = [];
@@ -181,7 +187,8 @@ async function setWaTemplate(template, _user) {
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
   if (!eventId) return false;
-  const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
+  const snapshot = getWorkspaceSnapshot();
+  const current = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
   
   await syncEventSnapshot({
@@ -199,9 +206,6 @@ async function setWaTemplate(template, _user) {
     }
   });
   
-  if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
-    _workspaceSnapshot.store.tenants[tenantId].events[eventId].waTemplate = template;
-  }
   return true;
 }
 
@@ -210,7 +214,8 @@ async function setWaSendMode(mode, _user) {
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
   if (!eventId) return false;
-  const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
+  const snapshot = getWorkspaceSnapshot();
+  const current = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
   
   await syncEventSnapshot({
@@ -228,9 +233,6 @@ async function setWaSendMode(mode, _user) {
     }
   });
   
-  if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId]) {
-    _workspaceSnapshot.store.tenants[tenantId].events[eventId].waSendMode = mode;
-  }
   return true;
 }
 function setMaxPendingAttempts(val) { return val; }
