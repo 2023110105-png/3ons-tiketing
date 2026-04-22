@@ -293,7 +293,7 @@ import { createPortal } from 'react-dom'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContextSaaS'
 import { UserPlus, Search, Trash2, Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Download, MessageCircle, Bot, Zap, Edit3, Plus, Copy, ExternalLink } from 'lucide-react'
-import { getWhatsAppShareLink } from '../../utils/whatsapp'
+import { getWhatsAppShareLink, generateWaMessage } from '../../utils/whatsapp'
 import { apiFetch } from '../../utils/api'
 import { humanizeUserMessage } from '../../utils/userFriendlyMessage'
 import { useNavigate, Link } from 'react-router-dom'
@@ -882,25 +882,6 @@ export default function Participants() {
       phone: participant.phone
     });
     setCopyPasteModalOpen(true);
-  };
-
-  const generateWaMessage = (p) => {
-    const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `Halo ${p.name},
-
-Ini tiket masuk Anda:
-
-Event: Yamaha Music School
-Tanggal: ${dateStr}
-Hari: ${p.day_number}
-Ticket ID: ${p.ticket_id}
-Kategori: ${p.category}
-
-*Petunjuk:*
-- Tunjukkan QR code ini ke petugas
-- Tidak boleh screenshot
-
-Terima kasih!`;
   };
 
   const handleCopyToClipboard = () => {
