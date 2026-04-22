@@ -472,10 +472,15 @@ export function syncCurrentDay(payload) {
 
 export function syncEventSnapshot(payload) {
   const scoped = scopeTenantPayload(payload)
-  if (!scoped?.tenantId || !scoped?.event?.id) return noopPromise()
+  console.log('[syncEventSnapshot] Received:', { tenantId: scoped?.tenantId, eventId: scoped?.event?.id, waTemplate: scoped?.event?.waTemplate?.substring(0, 50) });
+  if (!scoped?.tenantId || !scoped?.event?.id) {
+    console.error('[syncEventSnapshot] Missing tenantId or eventId');
+    return noopPromise()
+  }
   return mutateWorkspace((snapshot) => {
     const bucket = ensureTenantStoreBucket(snapshot, scoped.tenantId)
     const current = ensureEvent(snapshot, scoped.tenantId, scoped.event.id)
+    console.log('[syncEventSnapshot] Current event waTemplate:', current?.waTemplate?.substring(0, 50));
     const participantsNext = Array.isArray(scoped.event?.participants)
       ? (cloneJson(scoped.event.participants) ?? asArray(current.participants))
       : asArray(current.participants)
@@ -508,6 +513,7 @@ export function syncEventSnapshot(payload) {
       offlineQueueHistory: Array.isArray(scoped.event?.offlineQueueHistory) ? scoped.event.offlineQueueHistory : (current?.offlineQueueHistory || []),
       updated_at: new Date().toISOString()
     }
+    console.log('[syncEventSnapshot] Saved waTemplate:', bucket.events[scoped.event.id].waTemplate?.substring(0, 50));
     if (!bucket.activeEventId) bucket.activeEventId = scoped.event.id
   }).catch((err) => {
     console.error('[DataSync] event snapshot sync failed:', err?.message || err)
