@@ -48,6 +48,7 @@ function getActiveEventId() {
 
 function getWaTemplate() {
   const snapshot = getWorkspaceSnapshot();
+  console.log('[getWaTemplate] Snapshot exists:', !!snapshot, 'store exists:', !!snapshot?.store);
   if (!snapshot || !snapshot.store) return `📋 *E-ATTENDANCE*
 🏛️ PALEMBANG VIOLIN COMPETITION
 
@@ -71,8 +72,15 @@ Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
 Terima kasih & semoga sukses! 🎻🎶`;
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
-  if (!eventId) return '';
-  return snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
+  console.log('[getWaTemplate] tenantId:', tenantId, 'eventId:', eventId);
+  if (!eventId) {
+    console.log('[getWaTemplate] No eventId, returning empty');
+    return '';
+  }
+  const event = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
+  console.log('[getWaTemplate] Event found:', !!event, 'waTemplate exists:', !!event?.waTemplate);
+  console.log('[getWaTemplate] waTemplate:', event?.waTemplate?.substring(0, 100));
+  return event?.waTemplate || '';
 }
 
 function getWaSendMode() {
@@ -186,11 +194,21 @@ async function deleteAllParticipants(_user, _reason) {
 async function setWaTemplate(template, _user) {
   const tenantId = getActiveTenantId();
   const eventId = getActiveEventId();
-  if (!eventId) return false;
+  console.log('[setWaTemplate] Saving template for tenant:', tenantId, 'event:', eventId);
+  if (!eventId) {
+    console.error('[setWaTemplate] No eventId found');
+    return false;
+  }
   const snapshot = getWorkspaceSnapshot();
   const current = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
-  if (!current) return false;
-  
+  if (!current) {
+    console.error('[setWaTemplate] No current event found in snapshot');
+    return false;
+  }
+
+  console.log('[setWaTemplate] Current waTemplate:', current.waTemplate?.substring(0, 50));
+  console.log('[setWaTemplate] New template:', template?.substring(0, 50));
+
   await syncEventSnapshot({
     tenantId,
     event: {
@@ -205,7 +223,8 @@ async function setWaTemplate(template, _user) {
       adminLogs: current.adminLogs || []
     }
   });
-  
+
+  console.log('[setWaTemplate] Template saved successfully');
   return true;
 }
 
@@ -547,9 +566,11 @@ export default function Settings() {
   useEffect(() => {
     let mounted = true
     async function load() {
+      console.log('[Settings] Loading data...');
       await bootstrapStoreFromServer()
       if (mounted) {
         const template = getWaTemplate()
+        console.log('[Settings] Loaded waTemplate:', template?.substring(0, 100));
         setWaTemplateState(template)
         // Expose to window for whatsapp.js generateWaMessage
         if (typeof window !== 'undefined') {
