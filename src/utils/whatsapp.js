@@ -124,8 +124,7 @@ export function getWhatsAppShareLink(participant) {
     .replace(/\{\{hari\}\}/g, p.day_number || '')
     .replace(/\{\{kategori\}\}/g, p.category || '')
 
-  const text = message
-
-  const encodedText = encodeURIComponent(text)
+  // Encode untuk URL - encodeURIComponent sudah handle emoji dengan benar
+  const encodedText = encodeURIComponent(message)
   return `https://wa.me/${phone}?text=${encodedText}`
 }
