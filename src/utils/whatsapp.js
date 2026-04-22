@@ -112,17 +112,20 @@ export function formatPhoneDisplay(phone) {
 export function getWhatsAppShareLink(participant) {
   const phone = formatPhoneNumberRaw(participant.phone)
   const p = participant || {}
-  
-  // Use simple template for WA Web link (avoid emoji encoding issues)
-  const template = getWaTemplateSimple()
+
+  // Gunakan template dari Settings jika tersedia, fallback ke simple template
+  const template = (typeof window !== 'undefined' && typeof window.getWaTemplate === 'function')
+    ? window.getWaTemplate()
+    : getWaTemplateSimple()
+
   let message = template
     .replace(/\{\{nama\}\}/g, p.name || '')
     .replace(/\{\{tiket\}\}/g, p.ticket_id || '')
     .replace(/\{\{hari\}\}/g, p.day_number || '')
     .replace(/\{\{kategori\}\}/g, p.category || '')
-  
+
   const text = message
-  
+
   const encodedText = encodeURIComponent(text)
   return `https://wa.me/${phone}?text=${encodedText}`
 }
