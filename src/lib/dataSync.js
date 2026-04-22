@@ -121,6 +121,11 @@ function ensureEvent(snapshot, tenantId, eventId) {
       waTemplate: '',
       waSendMode: 'message_only'
     }
+  } else {
+    // Add missing fields to existing events (backward compatibility)
+    const event = bucket.events[eventId]
+    if (event.waTemplate === undefined) event.waTemplate = ''
+    if (event.waSendMode === undefined) event.waSendMode = 'message_only'
   }
   return bucket.events[eventId]
 }
