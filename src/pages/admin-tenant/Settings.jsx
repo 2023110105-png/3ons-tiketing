@@ -236,7 +236,7 @@ async function setWaSendMode(mode, _user) {
   const snapshot = getWorkspaceSnapshot();
   const current = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
-  
+
   await syncEventSnapshot({
     tenantId,
     event: {
@@ -244,14 +244,14 @@ async function setWaSendMode(mode, _user) {
       name: current.name || 'Event Default',
       currentDay: current.currentDay || 1,
       isArchived: current.isArchived || false,
-      waTemplate: current.waTemplate || '',
+      waTemplate: current.waTemplate || '', // Ambil dari current (server) bukan state lokal
       waSendMode: mode,
       participants: current.participants || [],
       checkInLogs: current.checkInLogs || [],
       adminLogs: current.adminLogs || []
     }
   });
-  
+
   return true;
 }
 function setMaxPendingAttempts(val) { return val; }
@@ -785,8 +785,32 @@ export default function Settings() {
   const handleSaveTemplate = async (e) => {
     e.preventDefault()
     try {
-      await setWaTemplate(waTemplate, user)
-      await setWaSendMode(waSendMode, user)
+      // Gabungkan penyimpanan template dan mode dalam satu sync untuk menghindari overwrite
+      const tenantId = getActiveTenantId();
+      const eventId = getActiveEventId();
+      const snapshot = getWorkspaceSnapshot();
+      const current = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
+
+      if (!eventId || !current) {
+        toast.error('Gagal', 'Tidak ada event yang aktif');
+        return;
+      }
+
+      await syncEventSnapshot({
+        tenantId,
+        event: {
+          id: eventId,
+          name: current.name || 'Event Default',
+          currentDay: current.currentDay || 1,
+          isArchived: current.isArchived || false,
+          waTemplate: waTemplate, // Template baru
+          waSendMode: waSendMode, // Mode saat ini
+          participants: current.participants || [],
+          checkInLogs: current.checkInLogs || [],
+          adminLogs: current.adminLogs || []
+        }
+      });
+
       // Update window.getWaTemplate so generateWaMessage uses latest template
       if (typeof window !== 'undefined') {
         window.getWaTemplate = () => waTemplate

@@ -117,7 +117,9 @@ function ensureEvent(snapshot, tenantId, eventId) {
       adminLogs: [],
       pendingCheckIns: [],
       offlineQueueHistory: [],
-      offlineConfig: { maxPendingAttempts: 5 }
+      offlineConfig: { maxPendingAttempts: 5 },
+      waTemplate: '',
+      waSendMode: 'message_only'
     }
   }
   return bucket.events[eventId]
@@ -502,7 +504,7 @@ export function syncEventSnapshot(payload) {
       deletedParticipantIds: (scoped.event?.deletedParticipantIds && typeof scoped.event.deletedParticipantIds === 'object')
         ? scoped.event.deletedParticipantIds
         : (current.deletedParticipantIds || {}),
-      waTemplate: String(scoped.event?.waTemplate || '').trim() || null,
+      waTemplate: typeof scoped.event?.waTemplate === 'string' ? scoped.event.waTemplate : (current?.waTemplate || ''),
       waSendMode: String(scoped.event?.waSendMode || '').trim() || 'message_with_barcode',
       offlineConfig: {
         maxPendingAttempts: Number.isInteger(scoped.event?.offlineConfig?.maxPendingAttempts) && scoped.event.offlineConfig.maxPendingAttempts >= 1
