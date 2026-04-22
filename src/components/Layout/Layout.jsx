@@ -2,7 +2,9 @@
 // Using tenantUtils.js to avoid function duplication across pages
 import {
   bootstrapStoreFromServer as _bootstrapStoreFromServer,
-  setWorkspaceSnapshot
+  setWorkspaceSnapshot,
+  getActiveTenantId,
+  getActiveEventId
 } from '../../lib/tenantUtils';
 
 // Layout-specific functions using hardcoded tenant (Primavera Production)
@@ -15,30 +17,33 @@ async function bootstrapStoreFromServer() {
   return _workspaceSnapshot;
 }
 
-function _getParticipants() { 
+function _getParticipants() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
-  const tenantId = 'Primavera Production';
-  const eventId = 'event-default';
+  const tenantId = getActiveTenantId();
+  const eventId = getActiveEventId();
+  if (!eventId) return [];
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
 }
 
-function _getActiveTenant() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: 'Primavera Production' };
-  return _workspaceSnapshot.store.tenants?.['Primavera Production'] || { id: 'Primavera Production' };
+function _getActiveTenant() {
+  const tenantId = getActiveTenantId();
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { id: tenantId };
+  return _workspaceSnapshot.store.tenants?.[tenantId] || { id: tenantId };
 }
 
-function _getAvailableDays() { 
+function _getAvailableDays() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [1];
-  const tenantId = 'Primavera Production';
-  const eventId = 'event-default';
+  const tenantId = getActiveTenantId();
+  const eventId = getActiveEventId();
+  if (!eventId) return [1];
   const participants = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
   return days.length > 0 ? days.sort((a, b) => a - b) : [1];
 }
 
-function getTenantBranding() { 
+function getTenantBranding() {
+  const tenantId = getActiveTenantId();
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
-  const tenantId = 'Primavera Production';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.branding || { primaryColor: '#0ea5e9', appName: 'Platform', brandName: '3ons' };
 }
 

@@ -4,6 +4,7 @@ import {
   getActiveTenantId,
   bootstrapStoreFromServer,
   getWorkspaceSnapshot,
+  getActiveEventId,
   getActiveTenant as _getActiveTenant,
   setCurrentDay as _setCurrentDay
 } from '../../lib/tenantUtils';
@@ -16,14 +17,24 @@ function getAllParticipants() {
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return [];
   const tenantId = getActiveTenantId();
-  return snapshot.store.tenants?.[tenantId]?.events?.['event-default']?.participants || [];
+  const eventId = getActiveEventId();
+  if (!eventId) {
+    console.error('[Dashboard] No active event ID found');
+    return [];
+  }
+  return snapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
 }
 
 function getAllCheckInLogs() {
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return [];
   const tenantId = getActiveTenantId();
-  const event = snapshot.store.tenants?.[tenantId]?.events?.['event-default'];
+  const eventId = getActiveEventId();
+  if (!eventId) {
+    console.error('[Dashboard] No active event ID found');
+    return [];
+  }
+  const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
   return event?.checkInLogs || event?.checkin_logs || [];
 }
 

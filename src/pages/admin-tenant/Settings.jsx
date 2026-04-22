@@ -17,12 +17,34 @@ import { fetchEventsByTenant, deleteEventFromDB } from '../../lib/eventService';
 // Local workspace snapshot reference
 let _workspaceSnapshot = null;
 
-// Helper: Get active event ID from localStorage (same as Layout.jsx)
+// Helper: Check if string is valid UUID
+function isValidUUID(str) {
+  if (!str || typeof str !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+// Helper: Get active event ID from localStorage with fallback
 function getActiveEventId() {
   const tenantId = getActiveTenantId();
   if (!tenantId) return null;
+
   const key = `active_event_${tenantId}`;
-  return localStorage.getItem(key);
+  const eventId = localStorage.getItem(key);
+
+  // Check if valid UUID
+  if (eventId && isValidUUID(eventId)) {
+    return eventId;
+  }
+
+  // Fallback: try to get from available events in workspace
+  if (_workspaceSnapshot?.store?.tenants?.[tenantId]?.events) {
+    const events = Object.keys(_workspaceSnapshot.store.tenants[tenantId].events);
+    const validEvent = events.find(e => isValidUUID(e));
+    if (validEvent) return validEvent;
+  }
+
+  return null;
 }
 
 function getWaTemplate() { 
@@ -49,26 +71,29 @@ Tunjukkan kode QR ini kepada petugas registrasi untuk melakukan absensi peserta.
 
 Terima kasih & semoga sukses! 🎻🎶`;
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return '';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waTemplate || '';
 }
 
-function getWaSendMode() { 
+function getWaSendMode() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'message_only';
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return 'message_only';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.waSendMode || 'message_only';
 }
 
-function getMaxPendingAttempts() { 
+function getMaxPendingAttempts() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 3;
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return 3;
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.offlineConfig?.maxPendingAttempts || 3;
 }
 
 function getEventsWithOptions(options = {}) {
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [{ id: 'event-default', name: 'Event Default', isArchived: false }];
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return [];
   const tenantId = getActiveTenantId();
   const events = _workspaceSnapshot.store.tenants?.[tenantId]?.events || {};
   const eventList = Object.values(events).map(e => ({ id: e.id, name: e.name, isArchived: e.isArchived || false }));
@@ -78,10 +103,9 @@ function getEventsWithOptions(options = {}) {
   return eventList;
 }
 
-function getCurrentEventId() { 
-  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'event-default';
-  const tenantId = getActiveTenantId();
-  return _workspaceSnapshot.store.tenants?.[tenantId]?.activeEventId || 'event-default';
+function getCurrentEventId() {
+  if (!_workspaceSnapshot || !_workspaceSnapshot.store) return null;
+  return getActiveEventId();
 }
 
 function getStoreBackups() { 
@@ -90,10 +114,11 @@ function getStoreBackups() {
   return _workspaceSnapshot.store.tenants?.[tenantId]?.backups || [];
 }
 
-async function resetCheckIns() { 
+async function resetCheckIns() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return { success: false, error: 'No active event found' };
   const event = _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (event) {
     // Clear local data
@@ -154,7 +179,8 @@ async function deleteAllParticipants(_user, _reason) {
 // eslint-disable-next-line no-unused-vars
 async function setWaTemplate(template, _user) {
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return false;
   const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
   
@@ -182,7 +208,8 @@ async function setWaTemplate(template, _user) {
 // eslint-disable-next-line no-unused-vars
 async function setWaSendMode(mode, _user) {
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return false;
   const current = _workspaceSnapshot?.store?.tenants?.[tenantId]?.events?.[eventId];
   if (!current) return false;
   

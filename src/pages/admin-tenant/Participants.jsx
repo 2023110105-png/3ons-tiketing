@@ -113,11 +113,16 @@ async function getOrCreateDefaultEvent() {
 }
 
 // CRUD Functions specific to Participants (not in tenantUtils)
-function createNewDay() { 
+function createNewDay() {
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return 2;
   const tenantId = getActiveTenantId();
-  const participants = snapshot.store.tenants?.[tenantId]?.events?.['event-default']?.participants || [];
+  const eventId = getActiveEventId();
+  if (!eventId) {
+    console.error('[createNewDay] No active event ID found');
+    return 2;
+  }
+  const participants = snapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   const days = [...new Set(participants.map(p => p.day_number || p.day || 1))];
   const maxDay = Math.max(...days, 1);
   return maxDay + 1;
@@ -129,11 +134,12 @@ function deleteCurrentDay() {
   return { success: true }; 
 }
 
-function updateParticipant(participantId, updates) { 
+function updateParticipant(participantId, updates) {
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return { success: false, error: 'No active event found' };
   const participants = snapshot.store.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
   const index = participants.findIndex(p => p.id === participantId || p.ticket_id === participantId);
   if (index >= 0) {
@@ -197,11 +203,12 @@ async function addParticipant(participantData, explicitEventId = null) {
   }
 }
 
-function deleteParticipant(participantId) { 
+function deleteParticipant(participantId) {
   const snapshot = getWorkspaceSnapshot();
   if (!snapshot || !snapshot.store) return { success: false, error: 'Data not loaded' };
   const tenantId = getActiveTenantId();
-  const eventId = 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return { success: false, error: 'No active event found' };
   const event = snapshot.store.tenants?.[tenantId]?.events?.[eventId];
   if (!event || !event.participants) return { success: false, error: 'Event not found' };
   

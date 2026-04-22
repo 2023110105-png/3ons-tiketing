@@ -3,6 +3,7 @@
 import {
   bootstrapStoreFromServer,
   getActiveTenantId,
+  getActiveEventId,
   getParticipants,
   getActiveTenant,
   getCurrentDay
@@ -726,7 +727,7 @@ export default function WaDelivery() {
       let updated = 0
       let failed = 0
       const TENANT_ID = getActiveTenantId()
-      const EVENT_ID = 'event-default'
+      const EVENT_ID = getActiveEventId() || 'default'
 
       for (let i = 0; i < needQR.length; i++) {
         const p = needQR[i]

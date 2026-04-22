@@ -42,7 +42,11 @@ function _generateQRDataForParticipant(participant) {
   
   // Generate new QR data dengan format yang konsisten
   // Gunakan event_id dari participant jika ada, atau dari getActiveEventId()
-  const eventId = participant.event_id || getActiveEventId() || 'event-default';
+  const eventId = participant.event_id || getActiveEventId();
+  if (!eventId) {
+    console.error('[_generateQRDataForParticipant] No event ID found');
+    return null;
+  }
   return generateQRData(participant, getActiveTenantId(), eventId);
 }
 
@@ -64,7 +68,8 @@ function getTenantBranding() {
 function getCurrentEventName() {
   if (!_workspaceSnapshot || !_workspaceSnapshot.store) return 'Event';
   const tenantId = getActiveTenantId();
-  const eventId = getActiveEventId() || 'event-default';
+  const eventId = getActiveEventId();
+  if (!eventId) return 'Event';
   return _workspaceSnapshot.store.tenants?.[tenantId]?.events?.[eventId]?.name || 'Event';
 }
 import { useState, useEffect } from 'react'
@@ -206,9 +211,14 @@ async function saveQRDataToSupabase(participantId, qrData) {
     };
     
     // Sync to Supabase
+    const eventId = getActiveEventId();
+    if (!eventId) {
+      console.error('[saveQRDataToSupabase] No event ID found');
+      return false;
+    }
     await syncParticipantUpsert({
       tenantId: getActiveTenantId(),
-      eventId: getActiveEventId() || 'event-default',
+      eventId,
       participant: updatedParticipant
     });
     
@@ -236,7 +246,11 @@ async function ensureParticipantQRData(participant) {
   }
   
   // Generate new QR data
-  const eventId = participant.event_id || getActiveEventId() || 'event-default';
+  const eventId = participant.event_id || getActiveEventId();
+  if (!eventId) {
+    console.error('[ensureParticipantQRData] No event ID found');
+    return participant;
+  }
   const qrData = generateQRData(participant, getActiveTenantId(), eventId);
   
   // Save to Supabase

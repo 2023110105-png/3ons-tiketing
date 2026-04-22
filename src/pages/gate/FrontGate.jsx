@@ -1523,12 +1523,18 @@ function QuickScanButtons({ currentDay, onScan }) {
   // Generate fresh QR data untuk konsistensi
   const getFreshQRData = (p) => {
     // Generate QR data baru berdasarkan ticket_id dan day yang ada di data
+    const tenantId = getTenantId();
+    const eventId = getActiveEventId();
+    if (!eventId) {
+      console.error('[getFreshQRData] No active event ID found');
+      return null;
+    }
     return generateQRData({
       ticket_id: p.ticket_id,
       day_number: p.day_number || p.day || currentDay,
       name: p.name,
       category: p.category
-    }, 'Primavera Production', 'event-default')
+    }, tenantId, eventId)
   }
 
   return (

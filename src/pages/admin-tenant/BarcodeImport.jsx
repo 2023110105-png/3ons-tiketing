@@ -1,5 +1,5 @@
-
 import { fetchWorkspaceSnapshot } from '../../lib/dataSync';
+import { getActiveEventId } from '../../lib/tenantUtils';
 import { useState, useEffect } from 'react';
 // import { apiFetch } from '../../utils/api';
 // import { useAuth } from '../../contexts/useAuth';
@@ -24,8 +24,8 @@ export default function BarcodeImport() {
         } catch { /* ignore */ }
         return 'default';
       })();
-      const eventId = 'event-default';
-      const data = snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.participants || [];
+      const eventId = getActiveEventId();
+      const data = eventId ? (snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.participants || []) : [];
       setParticipants(data);
     };
     load();
