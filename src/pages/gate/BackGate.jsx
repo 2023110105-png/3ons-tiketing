@@ -181,11 +181,20 @@ export default function BackGate() {
   // Realtime subscription to capture check-ins from FrontGate
   useEffect(() => {
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
-      console.log('[BackGate] Realtime update received:', payload?.eventType);
+      const eventType = payload?.eventType || payload?.type;
+      console.log('[BackGate] Realtime update received:', eventType);
+      
+      // Force immediate clear and refresh for critical operations
+      if (eventType === 'CHECKINS_RESET' || eventType === 'PARTICIPANTS_DELETED' || eventType === 'PARTICIPANTS_UPDATED') {
+        console.log('[BackGate] Critical data change detected, forcing full refresh...');
+        // Clear local cache first
+        _workspaceSnapshot = null;
+      }
+      
       // Refresh workspace snapshot when data changes
       void bootstrapStoreFromServer().then(() => {
         setRefreshKey(k => k + 1);
-        console.log('[BackGate] Data refreshed from realtime update');
+        console.log('[BackGate] Data refreshed from realtime update:', eventType);
       });
     });
 

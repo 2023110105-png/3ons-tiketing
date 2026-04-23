@@ -184,9 +184,11 @@ function setupBroadcastListener() {
     
     switch (type) {
       case 'PARTICIPANTS_UPDATED':
+      case 'PARTICIPANTS_DELETED':
+      case 'CHECKINS_RESET':
       case 'DATA_CHANGED':
         // Force immediate refresh
-        notifyAllCallbacks({ eventType: 'BROADCAST_UPDATE', type, data })
+        notifyAllCallbacks({ eventType: type, type, data })
         break
       default:
         break

@@ -807,16 +807,25 @@ export default function FrontGate() {
   // Realtime subscription to capture admin data changes
   // Only run once on mount to avoid subscribe/unsubscribe cycles
   useEffect(() => {
-    // Subscribe to realtime changes from Supabase
+    // Subscribe to realtime changes from Supabase and BroadcastChannel
     _unsubscribeRealtime = subscribeWorkspaceChanges((payload) => {
-      console.log('[FrontGate] Realtime update received:', payload?.eventType);
+      const eventType = payload?.eventType || payload?.type;
+      console.log('[FrontGate] Realtime update received:', eventType);
+      
+      // Force immediate clear and refresh for critical operations
+      if (eventType === 'CHECKINS_RESET' || eventType === 'PARTICIPANTS_DELETED' || eventType === 'PARTICIPANTS_UPDATED') {
+        console.log('[FrontGate] Critical data change detected, forcing full refresh...');
+        // Clear local cache first
+        _workspaceSnapshot = null;
+      }
+      
       // Refresh workspace snapshot when data changes
       void bootstrapStoreFromServer().then(() => {
         // Update stats and pending items directly using ref for current selectedDay
         setStats(getStats(selectedDayRef.current));
         setPendingCount(getPendingCheckIns().length);
         setPendingItems(getPendingCheckIns());
-        console.log('[FrontGate] Data refreshed from realtime update');
+        console.log('[FrontGate] Data refreshed from realtime update:', eventType);
       });
     });
 

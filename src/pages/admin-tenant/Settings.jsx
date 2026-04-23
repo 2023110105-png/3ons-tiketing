@@ -11,7 +11,7 @@ import {
   setCurrentDay as _setCurrentDay,
   getAllEventData
 } from '../../lib/tenantUtils';
-import { syncResetCheckInLogs, syncEventSnapshot } from "../../lib/dataSync";
+import { syncResetCheckInLogs, syncEventSnapshot, broadcastDataChanged } from "../../lib/dataSync";
 import { deleteAllParticipantsFromDB, deleteAllCheckinLogsFromDB } from '../../lib/participantService';
 import { fetchEventsByTenant, deleteEventFromDB } from '../../lib/eventService';
 
@@ -141,6 +141,8 @@ async function resetCheckIns() {
     try {
       await syncResetCheckInLogs({ tenantId, eventId });
       console.log('[resetCheckIns] Synced to server successfully');
+      // Broadcast to all tabs (gates) that check-ins have been reset
+      broadcastDataChanged('CHECKINS_RESET', { tenantId, eventId, timestamp: Date.now() });
       return { success: true };
     } catch (err) {
       console.error('[resetCheckIns] Sync failed:', err);
@@ -183,6 +185,8 @@ async function deleteAllParticipants(_user, _reason) {
     }
     
     console.log('[deleteAllParticipants] Deleted all participants and checkins from Supabase for tenant', tenantId, 'event', eventId);
+    // Broadcast to all tabs (gates) that participants have been deleted
+    broadcastDataChanged('PARTICIPANTS_DELETED', { tenantId, eventId, timestamp: Date.now() });
     return { success: true };
   } catch (err) {
     console.error('[deleteAllParticipants] Failed:', err);
