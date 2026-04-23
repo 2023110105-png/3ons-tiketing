@@ -84,7 +84,20 @@ function requestLog(req, message, meta = {}, level = 'info') {
   return log(level, message, payload);
 }
 
+function logInfo(source, message, meta = {}) {
+  return log('info', message, { source, ...meta });
+}
+
+function logError(source, message, errorOrMeta = {}) {
+  const meta = errorOrMeta instanceof Error 
+    ? { error: errorOrMeta.message, stack: errorOrMeta.stack }
+    : errorOrMeta;
+  return log('error', message, { source, ...meta });
+}
+
 module.exports = {
   log,
-  requestLog
+  requestLog,
+  logInfo,
+  logError
 };

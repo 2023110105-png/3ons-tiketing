@@ -16,6 +16,7 @@ const waServerPackage = require('./package.json');
 const { log, requestLog } = require('./lib/logger');
 const deviceScanRoutes = require('./routes/device-scan.js');
 const { withRetry } = require('./lib/delivery');
+const checkinNotifier = require('./checkin-notifier.js');
 const {
     buildLegacySignature,
     buildSecureSignatureLegacy,
@@ -1979,6 +1980,17 @@ const server = app.listen(PORT, () => {
     } catch {
         // ignore: directory creation can fail on read-only environments
     }
+    
+    // Initialize checkin-notifier dengan dependencies
+    checkinNotifier.initNotifier({
+        tenantSessions,
+        getOrCreateTenantSession,
+        formatPhoneWA,
+        withRetry,
+        isWaClientReady
+    });
+    log('info', 'checkin_notifier_initialized');
+    
     log('info', 'wa_server_started', {
         port: Number(PORT),
         node_env: String(process.env.NODE_ENV || 'development').toLowerCase(),

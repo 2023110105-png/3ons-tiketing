@@ -5,6 +5,17 @@ const WORKSPACE_TABLE = 'workspace_state'
 const WORKSPACE_ID = 'default'
 const WORKSPACE_SCHEMA = 'public'
 
+// Broadcast Channel for cross-tab communication (instant sync)
+const BROADCAST_CHANNEL_NAME = '3ons-workspace-sync'
+let broadcastChannel = null
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME)
+  } catch {
+    broadcastChannel = null
+  }
+}
+
 // Singleton state for shared subscription
 const globalSubState = {
   callbacks: new Set(),
@@ -151,6 +162,38 @@ function notifyAllCallbacks(payload) {
   })
 }
 
+// Broadcast message to all tabs
+function broadcastToAllTabs(type, data = {}) {
+  if (!broadcastChannel) return
+  try {
+    broadcastChannel.postMessage({ type, data, timestamp: Date.now() })
+  } catch {
+    // Ignore broadcast errors
+  }
+}
+
+// Handle broadcast messages from other tabs
+function setupBroadcastListener() {
+  if (!broadcastChannel) return
+  broadcastChannel.onmessage = (event) => {
+    const { type, data, timestamp } = event.data || {}
+    if (!type) return
+    
+    // Only process recent messages (within last 5 seconds)
+    if (timestamp && Date.now() - timestamp > 5000) return
+    
+    switch (type) {
+      case 'PARTICIPANTS_UPDATED':
+      case 'DATA_CHANGED':
+        // Force immediate refresh
+        notifyAllCallbacks({ eventType: 'BROADCAST_UPDATE', type, data })
+        break
+      default:
+        break
+    }
+  }
+}
+
 function stopGlobalPolling() {
   if (globalSubState.pollTimer) {
     clearInterval(globalSubState.pollTimer)
@@ -271,7 +314,10 @@ export function subscribeWorkspaceChanges(onChange, options = {}) {
     return () => {}
   }
 
-  const { pollInterval = 10000 } = options
+  const { pollInterval = 500 } = options
+
+  // Setup broadcast listener once
+  setupBroadcastListener()
 
   globalSubState.callbacks.add(onChange)
 
@@ -475,6 +521,11 @@ export function syncCurrentDay(payload) {
     console.error('[DataSync] current day sync failed:', err?.message || err)
     return false
   })
+}
+
+// Public: Broadcast to all tabs (use after data changes for instant sync)
+export function broadcastDataChanged(type = 'DATA_CHANGED', data = {}) {
+  broadcastToAllTabs(type, data)
 }
 
 export function syncEventSnapshot(payload) {

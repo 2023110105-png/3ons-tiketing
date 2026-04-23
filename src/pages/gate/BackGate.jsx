@@ -140,7 +140,7 @@ import { useRealtime, useSound } from '../../hooks/useRealtime'
 import { Radio, WifiOff, CircleHelp } from 'lucide-react'
 import { exportOfflineQueueReportToCSV } from '../../utils/csvExport'
 
-const REALTIME_REFRESH_MS = 2500
+const REALTIME_REFRESH_MS = 500
 
 export default function BackGate() {
   // Tenant ID otomatis dari getTenantId() yang membaca dari user context via tenantUtils
@@ -189,11 +189,18 @@ export default function BackGate() {
       });
     });
 
+    // Also listen for storage events (localStorage changes from other tabs)
+    const handleStorageChange = () => {
+      setRefreshKey(k => k + 1);
+    };
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
       if (_unsubscribeRealtime) {
         _unsubscribeRealtime();
         _unsubscribeRealtime = null;
       }
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [])
 

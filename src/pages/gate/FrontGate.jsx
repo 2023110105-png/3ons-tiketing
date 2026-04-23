@@ -429,7 +429,7 @@ import { parseQRData, verifyQRSignature, generateQRData } from '../../utils/qrSe
 
 const SAME_QR_DEBOUNCE_MS = 1200
 const VERIFY_TIMEOUT_MS = 2200
-const REALTIME_REFRESH_MS = 2500
+const REALTIME_REFRESH_MS = 500
 
 // Helper untuk ambil hari yang tersedia dari data
 function getAvailableDays() {
@@ -487,10 +487,11 @@ export default function FrontGate() {
 
   const refreshFromServerIfStale = useCallback(async () => {
     const now = Date.now()
-    if (now - lastServerSyncRef.current < 2000) return
+    if (now - lastServerSyncRef.current < 400) return  // 400ms debounce untuk 500ms interval
     lastServerSyncRef.current = now
-    void bootstrapStoreFromServer(true)
-  }, [])
+    await bootstrapStoreFromServer(true)
+    refreshStats()
+  }, [refreshStats])
 
   const getLimitBadgeClass = () => {
     const limit = getMaxPendingAttempts()
@@ -819,13 +820,23 @@ export default function FrontGate() {
       });
     });
 
+    // Also listen for storage events (localStorage changes from other tabs)
+    const handleStorageChange = (e) => {
+      if (e.key?.includes('pending_checkins') || e.key?.includes('workspace')) {
+        console.log('[FrontGate] Storage change detected:', e.key);
+        refreshPendingState();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
       if (_unsubscribeRealtime) {
         _unsubscribeRealtime();
         _unsubscribeRealtime = null;
       }
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, []) // Empty deps - only subscribe once
+  }, [refreshPendingState])
 
   useEffect(() => {
     return () => { 

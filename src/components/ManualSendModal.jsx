@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Send, Phone, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
 import { apiFetch } from '../utils/api'
-import { generateWaMessage } from '../utils/whatsapp'
+import { generateWaMessage, getWhatsAppShareLink } from '../utils/whatsapp'
 
 // Smart retry dengan exponential backoff
 const RETRY_DELAYS = [1000, 2000, 4000, 8000]
@@ -88,6 +88,21 @@ export default function ManualSendModal({
     setPhone(value)
     setPhoneError(null)
     setSendStatus(null)
+  }
+
+  const handleSendViaLink = () => {
+    // Validate phone first
+    const phoneValidation = validatePhone(phone)
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.error)
+      return
+    }
+
+    // Update participant phone with edited value
+    const participantWithPhone = { ...participant, phone: phoneValidation.normalized }
+    const waUrl = getWhatsAppShareLink(participantWithPhone)
+    window.open(waUrl, '_blank')
+    toast.success('WhatsApp dibuka', 'Mengarahkan ke WhatsApp Web/App')
   }
 
   const handleSend = async () => {
@@ -239,6 +254,15 @@ export default function ManualSendModal({
             Batal
           </button>
           <button 
+            className="btn btn-whatsapp" 
+            onClick={handleSendViaLink}
+            disabled={sending || !phone.trim()}
+            title="Kirim via WhatsApp Web (buka link wa.me)"
+          >
+            <Send size={16} style={{ marginRight: 6 }} />
+            Kirim via Link
+          </button>
+          <button 
             className="btn btn-primary" 
             onClick={handleSend}
             disabled={sending || !phone.trim()}
@@ -251,7 +275,7 @@ export default function ManualSendModal({
             ) : (
               <>
                 <Send size={16} style={{ marginRight: 6 }} />
-                Kirim Tiket
+                Kirim Otomatis
               </>
             )}
           </button>

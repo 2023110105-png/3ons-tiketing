@@ -13,6 +13,7 @@ import {
 import { generateQRData } from '../../utils/qrSecurity';
 import { addParticipantToDB, fetchParticipants } from '../../lib/participantService';
 import { fetchEventsByTenant, createEventInDB, setActiveEventInDB } from '../../lib/eventService';
+import { broadcastDataChanged } from '../../lib/dataSync';
 
 // Local workspace snapshot reference (synced with tenantUtils)
 let _workspaceSnapshot = null;
@@ -1416,6 +1417,16 @@ export default function Participants() {
     }
     // Jangan panggil updateLocalView karena sudah handle manually di atas
     // updateLocalView akan filter participants dan hapus data baru
+    
+    // Broadcast ke semua tab (gate) bahwa data telah berubah
+    if (addedCount + updatedCount > 0) {
+      broadcastDataChanged('PARTICIPANTS_UPDATED', { 
+        added: addedCount, 
+        updated: updatedCount, 
+        tenantId: resolveTenantId(user),
+        eventId: getActiveEventId()
+      });
+    }
   }
 
   const confirmImport = async () => {
