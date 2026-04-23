@@ -577,8 +577,17 @@ export default function Settings() {
         console.log('[Settings] Loaded waTemplate:', template?.substring(0, 100));
         setWaTemplateState(template)
         // Expose to window for whatsapp.js generateWaMessage
+        // Selalu ambil template fresh dari database untuk konsistensi
         if (typeof window !== 'undefined') {
-          window.getWaTemplate = getWaTemplate
+          window.getWaTemplate = () => {
+            const snapshot = getWorkspaceSnapshot();
+            const tenantId = getActiveTenantId();
+            const eventId = getActiveEventId();
+            if (snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.waTemplate) {
+              return snapshot.store.tenants[tenantId].events[eventId].waTemplate;
+            }
+            return template; // fallback ke template yang di-load
+          }
         }
       }
     }
@@ -816,8 +825,17 @@ export default function Settings() {
       });
 
       // Update window.getWaTemplate so generateWaMessage uses latest template
+      // Gunakan fungsi yang selalu ambil dari database (snapshot) untuk konsistensi antar tab
       if (typeof window !== 'undefined') {
-        window.getWaTemplate = () => waTemplate
+        window.getWaTemplate = () => {
+          const snapshot = getWorkspaceSnapshot();
+          const tenantId = getActiveTenantId();
+          const eventId = getActiveEventId();
+          if (snapshot?.store?.tenants?.[tenantId]?.events?.[eventId]?.waTemplate) {
+            return snapshot.store.tenants[tenantId].events[eventId].waTemplate;
+          }
+          return waTemplate; // fallback ke state jika tidak ada di snapshot
+        }
       }
       toast.success('Disimpan', 'Template pesan WhatsApp berhasil diperbarui.')
     } catch (err) {
