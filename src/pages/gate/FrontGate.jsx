@@ -815,6 +815,19 @@ export default function FrontGate() {
       // Force immediate clear and refresh for critical operations
       if (eventType === 'CHECKINS_RESET' || eventType === 'PARTICIPANTS_DELETED' || eventType === 'PARTICIPANTS_UPDATED') {
         console.log('[FrontGate] Critical data change detected, forcing full refresh...');
+        
+        // For CHECKINS_RESET, immediately clear local checkInLogs for instant UI update
+        if (eventType === 'CHECKINS_RESET' && _workspaceSnapshot) {
+          const tenantId = _getActiveTenantId();
+          const eventId = getActiveEventId();
+          const event = _workspaceSnapshot.store?.tenants?.[tenantId]?.events?.[eventId];
+          if (event) {
+            console.log('[FrontGate] Clearing local checkInLogs immediately');
+            event.checkInLogs = [];
+            event.pendingCheckIns = [];
+          }
+        }
+        
         // Clear local cache first
         _workspaceSnapshot = null;
       }
